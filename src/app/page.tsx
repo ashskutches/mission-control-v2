@@ -7,6 +7,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "https://gravity-claw-production.up.railway.app";
+
 type Activity = {
   id: number;
   action: string;
@@ -21,129 +23,152 @@ type CostLog = {
   output_tokens: number;
 };
 
+type ShopifyData = {
+  todayRevenue: string;
+  orderCount: number;
+  aov: string;
+  topProducts: string;
+  lowStock: string;
+};
+
 export default function CommandCenter() {
   const [activity, setActivity] = useState<Activity[]>([]);
   const [totalCost, setTotalCost] = useState(0);
   const [totalMessages, setTotalMessages] = useState(0);
-  const [totalTokens, setTotalTokens] = useState(0);
+  const [shopify, setShopify] = useState<ShopifyData | null>(null);
+  const [shopifyLoading, setShopifyLoading] = useState(true);
 
   useEffect(() => {
-    // Load initial data
-    loadActivity();
-    loadStats();
-
-    // Real-time subscription
+    fetchActivity();
+    fetchStats();
+    fetchShopify();
     const channel = supabase
-      .channel("activity_log")
+      .channel("activity-feed")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "activity_log" }, (payload) => {
-        setActivity(prev => [payload.new as Activity, ...prev].slice(0, 20));
-        setTotalMessages(prev => prev + 1);
+        setActivity((prev) => [payload.new as Activity, ...prev].slice(0, 50));
       })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  async function loadActivity() {
+  async function fetchActivity() {
     const { data } = await supabase
       .from("activity_log")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(50);
     if (data) setActivity(data);
   }
 
-  async function loadStats() {
-    const { data: messages } = await supabase
-      .from("activity_log")
-      .select("id", { count: "exact" });
-    if (messages) setTotalMessages(messages.length);
-
-    const { data: costs } = await supabase
-      .from("cost_log")
-      .select("cost_usd, input_tokens, output_tokens");
+  async function fetchStats() {
+    const { data: costs } = await supabase.from("cost_log").select("cost_usd, input_tokens, output_tokens");
     if (costs) {
-      const total = (costs as CostLog[]).reduce((sum, c) => sum + Number(c.cost_usd), 0);
-      const tokens = (costs as CostLog[]).reduce((sum, c) => sum + c.input_tokens + c.output_tokens, 0);
+      const total = costs.reduce((sum: number, c: CostLog) => sum + (c.cost_usd || 0), 0);
       setTotalCost(total);
-      setTotalTokens(tokens);
+    }
+    const { count } = await supabase.from("activity_log").select("*", { count: "exact", head: true }).eq("action", "message");
+    if (count !== null) setTotalMessages(count);
+  }
+
+  async function fetchShopify() {
+    try {
+      const res = await fetch(`${BOT_URL}/shopify`);
+      if (res.ok) {
+        const data = await res.json();
+        setShopify(data);
+      }
+    } catch (e) {
+      console.error("Shopify fetch failed", e);
+    } finally {
+      setShopifyLoading(false);
     }
   }
 
-  function timeAgo(date: string) {
-    const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-    if (seconds < 60) return `${seconds}s ago`;
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-    return `${Math.floor(seconds / 86400)}d ago`;
+  function timeAgo(dateStr: string) {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
   }
 
-  const stats = [
-    { label: "Messages Handled", value: totalMessages, badge: "all time", accent: "var(--brand-orange)" },
-    { label: "Total Tokens", value: totalTokens.toLocaleString(), badge: "all time", accent: "var(--brand-blue)" },
-    { label: "Total Cost", value: `$${totalCost.toFixed(4)}`, badge: "all time", accent: "var(--brand-green)" },
-    { label: "Agent Uptime", value: "99.9%", badge: "● online", accent: "var(--brand-green)" },
-  ];
-
   return (
-    <div>
-      <div className="page-header">
-        <div className="page-title">Command Center</div>
-        <div className="page-subtitle">Real-time overview of your Gravity Claw agent</div>
+    <div style={{ padding: "24px", maxWidth: 1400, margin: "0 auto" }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>Command Center</h1>
+        <p style={{ color: "var(--text-muted)", margin: "4px 0 0" }}>Real-time overview of your Gravity Claw agent</p>
       </div>
 
-      {/* Stat Cards */}
-      <div className="grid-4 fade-in" style={{ marginBottom: 24 }}>
-        {stats.map((s, i) => (
-          <div key={i} className={`stat-card fade-in-${i + 1}`} style={{ "--accent-color": s.accent } as React.CSSProperties}>
-            <div className="stat-label">{s.label}</div>
-            <div className="stat-value">{s.value}</div>
-            <div className="stat-badge">{s.badge}</div>
+      {/* Store Metrics */}
+      <div className="card fade-in" style={{ marginBottom: 24 }}>
+        <div className="section-title">🛍️ Leaps & Rebounds — Today</div>
+        {shopifyLoading ? (
+          <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading store data...</div>
+        ) : shopify ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginTop: 12 }}>
+            {[
+              { label: "Revenue", value: `$${shopify.todayRevenue}`, color: "var(--brand-green)" },
+              { label: "Orders", value: String(shopify.orderCount), color: "var(--text-primary)" },
+              { label: "Avg Order", value: `$${shopify.aov}`, color: "var(--text-primary)" },
+            ].map((m) => (
+              <div key={m.label} style={{ background: "var(--bg-secondary)", borderRadius: 8, padding: "14px 16px" }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1 }}>{m.label}</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: m.color, marginTop: 4 }}>{m.value}</div>
+              </div>
+            ))}
+            <div style={{ background: "var(--bg-secondary)", borderRadius: 8, padding: "14px 16px", gridColumn: "span 2" }}>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Top Products</div>
+              <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{shopify.topProducts}</div>
+            </div>
+            {shopify.lowStock !== "None" && (
+              <div style={{ background: "rgba(239,68,68,0.1)", borderRadius: 8, padding: "14px 16px", border: "1px solid rgba(239,68,68,0.3)", gridColumn: "span 2" }}>
+                <div style={{ fontSize: 11, color: "#ef4444", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>⚠️ Low Stock</div>
+                <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{shopify.lowStock}</div>
+              </div>
+            )}
           </div>
-        ))}
+        ) : (
+          <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Could not connect to bot — is it running?</div>
+        )}
       </div>
 
-      <div className="grid-2">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24 }}>
         {/* Live Activity Feed */}
         <div className="card fade-in fade-in-2">
-          <div className="section-title">⚡ Live Activity Feed</div>
-          {activity.length === 0 ? (
-            <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "20px 0", textAlign: "center" }}>
-              No activity yet — send your bot a message!
-            </div>
-          ) : (
-            activity.map((a) => (
-              <div key={a.id} className="activity-item">
-                <div className="activity-icon">
-                  {a.action === "message" ? "💬" : a.action === "heartbeat" ? "💓" : "⚡"}
-                </div>
-                <div>
-                  <div className="activity-text">{a.details || a.action}</div>
-                  <div className="activity-meta">{a.action} · {timeAgo(a.created_at)}</div>
-                </div>
+          <div className="section-title">⚡ LIVE ACTIVITY FEED</div>
+          {activity.map((item) => (
+            <div key={item.id} style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
+              <span style={{ fontSize: 18 }}>{item.action === "discord_message" ? "⚡" : "💬"}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.details}</div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{item.action} · {timeAgo(item.created_at)}</div>
               </div>
-            ))
-          )}
-        </div>
-
-        {/* Agent Config */}
-        <div className="card fade-in fade-in-3">
-          <div className="section-title">🤖 Agent Configuration</div>
-          {[
-            { label: "Model", value: "Claude Sonnet 4" },
-            { label: "Provider", value: "Anthropic" },
-            { label: "Memory", value: "SQLite + Pinecone" },
-            { label: "Channel", value: "Telegram" },
-            { label: "Tier 3 DB", value: "Supabase" },
-            { label: "Status", value: "● Online" },
-          ].map((r, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
-              <span style={{ color: "var(--text-muted)", fontSize: 13 }}>{r.label}</span>
-              <span style={{ color: r.label === "Status" ? "var(--brand-green)" : "var(--text-primary)", fontSize: 13, fontWeight: 600 }}>{r.value}</span>
             </div>
           ))}
+        </div>
+
+        {/* Sidebar */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* Agent Config */}
+          <div className="card fade-in fade-in-3">
+            <div className="section-title">🤖 Agent Configuration</div>
+            {[
+              { label: "Model", value: "Claude Sonnet 4" },
+              { label: "Provider", value: "Anthropic" },
+              { label: "Memory", value: "SQLite + Pinecone" },
+              { label: "Channel", value: "Telegram" },
+              { label: "Tier 3 DB", value: "Supabase" },
+              { label: "Status", value: "● Online" },
+            ].map((r, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
+                <span style={{ color: "var(--text-muted)", fontSize: 13 }}>{r.label}</span>
+                <span style={{ color: r.label === "Status" ? "var(--brand-green)" : "var(--text-primary)", fontSize: 13, fontWeight: 600 }}>{r.value}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
   );
-}
+            }
