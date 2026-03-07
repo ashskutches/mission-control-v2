@@ -10,14 +10,11 @@ const supabase = createClient(
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
 const NAV_ITEMS = [
-  { icon: "⊞", label: "Command Center", id: "command" },
-  { icon: "🛍️", label: "Leaps & Rebounds", id: "store" },
-  { icon: "🧠", label: "Second Brain", id: "brain" },
-  { icon: "⚡", label: "Productivity", id: "productivity" },
-  { icon: "✓", label: "Tasks", id: "tasks" },
-  { icon: "▶", label: "Content Intel", id: "content" },
-  { icon: "⋯", label: "Connections", id: "connections" },
-  { icon: "⚙", label: "Settings", id: "settings" },
+  { icon: "⊞", label: "Overview", id: "overview" },
+  { icon: "🛍️", label: "Commerce", id: "commerce" },
+  { icon: "🧠", label: "Intelligence", id: "intelligence" },
+  { icon: "⚡", label: "Activity", id: "activity" },
+  { icon: "⚙", label: "Engine", id: "engine" },
 ];
 
 function parseStock(raw: string) {
@@ -75,7 +72,7 @@ function CostChart({ costRows }: { costRows: any[] }) {
 }
 
 export default function App() {
-  const [tab, setTab] = useState("command");
+  const [tab, setTab] = useState("overview");
   const [activity, setActivity] = useState<any[]>([]);
   const [costRows, setCostRows] = useState<any[]>([]);
   const [cost, setCost] = useState(0);
@@ -186,305 +183,296 @@ export default function App() {
   const crit = stock.filter((s: any) => s.qty < 0).length;
   const out = stock.filter((s: any) => s.qty === 0).length;
 
-  // Recent messages = activity_log filtered to "message" actions
-  const messages = activity.filter((a) => a.action === "message").slice(0, 20);
   const toolEvents = activity.filter((a) => a.action === "tool_use").slice(0, 10);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
   return (
-    <div style={{
-      display: "flex",
-      minHeight: "100vh",
-      background: "radial-gradient(circle at top right, #1a1a1a, #050505)",
-      color: "#f5f5f5",
-      fontFamily: "'Inter', system-ui, sans-serif"
-    }}>
+    <div className="layout">
       {/* Sidebar */}
-      <div style={{
-        width: 280,
-        background: "rgba(10, 10, 10, 0.8)",
-        backdropFilter: "blur(20px)",
-        borderRight: "1px solid rgba(255, 255, 255, 0.05)",
-        display: "flex",
-        flexDirection: "column",
-        padding: "24px 0",
-        flexShrink: 0
-      }}>
-        <div style={{ padding: "0 16px 24px", display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 36, height: 36, background: "#f97316", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14 }}>GC</div>
+      <aside className="sidebar">
+        <div className="sidebar-header">
+          <div className="sidebar-logo">GC</div>
           <div>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>Mission Control</div>
-            <div style={{ fontSize: 11, color: "#555" }}>v1.1 · Gravity Claw</div>
+            <div className="sidebar-title">Mission Control</div>
+            <div className="sidebar-subtitle">v2.0 · Gravity Claw</div>
           </div>
         </div>
-        <nav style={{ flex: 1, padding: "0 8px" }}>
-          {NAV_ITEMS.map((item: any) => (
-            <div
+
+        <nav className="sidebar-nav">
+          {NAV_ITEMS.map((item) => (
+            <button
               key={item.id}
               onClick={() => setTab(item.id)}
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, marginBottom: 2, background: tab === item.id ? "#1e1e1e" : "transparent", color: tab === item.id ? "#fff" : "#666", cursor: "pointer", fontSize: 14 }}
+              className={`nav-item ${tab === item.id ? "active" : ""}`}
             >
-              <span>{item.icon}</span>
+              <span className="nav-icon">{item.icon}</span>
               <span>{item.label}</span>
-              {item.id === "store" && crit > 0 && (
-                <span style={{ marginLeft: "auto", background: "#ef4444", color: "#fff", borderRadius: 10, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>{crit}</span>
+              {item.id === "commerce" && crit > 0 && (
+                <span style={{ marginLeft: "auto", background: "var(--brand-red)", color: "#fff", borderRadius: 6, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>{crit}</span>
               )}
-            </div>
+            </button>
           ))}
         </nav>
-        <div style={{ padding: 16, borderTop: "1px solid #1e1e1e", display: "flex", alignItems: "center", gap: 12, backdropFilter: "blur(10px)" }}>
-          <div style={{ width: 10, height: 10, borderRadius: "50%", background: healthErr ? "#ef4444" : "#22c55e", boxShadow: healthErr ? "0 0 8px #ef4444" : "0 0 8px #22c55e" }} />
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>Agent {healthErr ? "Offline" : "Online"}</div>
-            {health && !healthErr && (
-              <div style={{ fontSize: 10, color: "#666" }}>
-                Up: {Math.floor(health.uptime / 3600)}h {Math.floor((health.uptime % 3600) / 60)}m · {Math.round(health.memory.rss / 1024 / 1024)}MB
-              </div>
-            )}
+
+        <div className="sidebar-footer">
+          <div className="agent-status">
+            <div className={`status-dot ${healthErr ? "offline" : ""}`} style={{ background: healthErr ? "var(--brand-red)" : "var(--brand-green)", boxShadow: healthErr ? "0 0 10px var(--brand-red)" : "0 0 10px var(--brand-green)" }} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>Agent {healthErr ? "Offline" : "Online"}</div>
+              {health && !healthErr && (
+                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                  {Math.floor(health.uptime / 3600)}h {Math.floor((health.uptime % 3600) / 60)}m · {Math.round(health.memory.rss / 1024 / 1024)}MB
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* Main */}
-      <div style={{ flex: 1, overflowY: "auto", padding: 32 }}>
+      {/* Main Content Area */}
+      <main className="main-content">
 
-        {/* ── Command Center ── */}
-        {tab === "command" && (
-          <div>
-            <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Command Center</h1>
-            <p style={{ color: "#555", marginBottom: 24, fontSize: 14 }}>Real-time overview of your Gravity Claw agent</p>
+        {/* ── Overview ── */}
+        {tab === "overview" && (
+          <div className="fade-in">
+            <header className="page-header">
+              <h1 className="page-title">Command Overview</h1>
+              <p className="page-subtitle">Real-time status of your Gravity Claw ecosystem</p>
+            </header>
 
-            {/* KPI row */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
+            <div className="grid-4 fade-in-1">
               {[
-                { label: "Revenue Today", value: shopify ? `$${Number(shopify.todayRevenue).toLocaleString()}` : "—", grad: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)" },
-                { label: "Orders", value: shopify ? String(shopify.orderCount) : "—", grad: "rgba(255,255,255,0.03)" },
-                { label: "Avg Order", value: shopify ? `$${shopify.aov}` : "—", grad: "rgba(255,255,255,0.03)" },
-                { label: "API Cost (Total)", value: `$${cost.toFixed(4)}`, grad: "rgba(255,255,255,0.03)" },
+                { label: "Revenue Today", value: shopify ? `$${Number(shopify.todayRevenue).toLocaleString()}` : "—", color: "#22c55e" },
+                { label: "API Cost (Total)", value: `$${cost.toFixed(4)}`, color: "#f97316" },
+                { label: "Memory Nodes", value: facts.length, color: "#3b82f6" },
+                { label: "Status", value: healthErr ? "OFFLINE" : "ONLINE", color: healthErr ? "#ef4444" : "#10b981" },
               ].map((s: any) => (
-                <div key={s.label} style={{
-                  background: s.grad.startsWith("linear") ? s.grad : "rgba(17, 17, 17, 0.6)",
-                  border: "1px solid rgba(255, 255, 255, 0.05)",
-                  borderRadius: 16,
-                  padding: 20,
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
-                  backdropFilter: "blur(10px)"
-                }}>
-                  <div style={{ fontSize: 11, color: s.grad.startsWith("linear") ? "rgba(255,255,255,0.8)" : "#666", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700 }}>{s.label}</div>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: "#fff" }}>{s.value}</div>
+                <div key={s.label} className="stat-card" style={{ "--accent-color": s.color } as any}>
+                  <div className="stat-label">{s.label}</div>
+                  <div className="stat-value" style={{ color: s.color }}>{s.value}</div>
                 </div>
               ))}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 24, marginBottom: 24 }}>
-              {/* Activity Feed */}
-              <div style={{ background: "rgba(17, 17, 17, 0.8)", backdropFilter: "blur(12px)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: 16, padding: 24, boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#f97316", marginBottom: 20, textTransform: "uppercase" }}>⚡ Live Activity Feed</div>
-                <div style={{ maxHeight: 500, overflowY: "auto", paddingRight: 8 }}>
-                  {activity.length === 0 ? (
-                    <div style={{ color: "#444", fontSize: 14, textAlign: "center", padding: 40 }}>No activity yet...</div>
-                  ) : activity.map((item: any) => (
-                    <div key={item.id} style={{
-                      display: "flex",
-                      gap: 14,
-                      padding: "16px",
-                      borderRadius: 12,
-                      background: item.action === "proactive_briefing" ? "rgba(249, 115, 22, 0.1)" : "rgba(255,255,255,0.02)",
-                      border: "1px solid rgba(255,255,255,0.05)",
-                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                      marginBottom: 12,
-                      cursor: "default"
-                    }}>
-                      <span style={{ fontSize: 20, marginTop: 2, flexShrink: 0, filter: "drop-shadow(0 0 8px rgba(249, 115, 22, 0.3))" }}>{ico(item.action)}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, color: "#fff", fontWeight: item.action === "proactive_briefing" ? 600 : 500, lineHeight: 1.4 }}>{item.details}</div>
-
-                        {item.metadata?.publicUrl && (
-                          <div style={{ marginTop: 12, background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: 8 }}>
-                            <audio controls src={item.metadata.publicUrl} style={{ height: 32, width: "100%", maxWidth: 300 }} />
-                          </div>
-                        )}
-
-                        {item.metadata?.content && (
-                          <div style={{
-                            fontSize: 13,
-                            color: "#aaa",
-                            marginTop: 10,
-                            padding: 14,
-                            background: "rgba(0,0,0,0.3)",
-                            borderRadius: 10,
-                            border: "1px solid rgba(255,255,255,0.05)",
-                            whiteSpace: "pre-wrap",
-                            lineHeight: 1.5
-                          }}>
-                            {item.metadata.content}
-                          </div>
-                        )}
-
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
-                          <div style={{ fontSize: 11, color: "#555", fontWeight: 600, textTransform: "uppercase" }}>{item.action}</div>
-                          <div style={{ fontSize: 11, color: "#444" }}>{fmt(item.created_at)}</div>
-                        </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, marginTop: 32 }}>
+              {/* Mini Feed */}
+              <div className="card fade-in-2">
+                <div className="section-title">⚡ Live Briefing</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {activity.slice(0, 5).map((item: any) => (
+                    <div key={item.id} className="activity-item" style={{ background: item.action === "proactive_briefing" ? "rgba(249, 115, 22, 0.05)" : "transparent" }}>
+                      <div className="activity-icon">{ico(item.action)}</div>
+                      <div className="activity-text">
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{item.details}</div>
+                        <div className="activity-meta">{fmt(item.created_at)} · {item.action}</div>
                       </div>
                     </div>
                   ))}
+                  <button onClick={() => setTab("activity")} style={{ marginTop: 8, background: "transparent", border: "1px solid var(--border)", color: "var(--text-secondary)", padding: "10px", borderRadius: 12, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>View Full Log</button>
                 </div>
               </div>
 
-              {/* Agent Config */}
-              <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: 24 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", color: "#555", marginBottom: 16, textTransform: "uppercase" }}>🤖 Agent Config</div>
-                {[
-                  { label: "Model", value: "Claude Sonnet" },
-                  { label: "Tool Loop", value: "✅ Active" },
-                  { label: "Memory", value: "SQLite + Pinecone" },
-                  { label: "Channels", value: "Discord + Telegram" },
-                  { label: "Supabase", value: "Connected" },
-                  { label: "API Cost", value: `$${cost.toFixed(4)}` },
-                  { label: "Status", value: shopifyErr ? "🔴 Offline" : "🟢 Online" },
-                ].map((r: any) => (
-                  <div key={r.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, borderBottom: "1px solid #1a1a1a", padding: "9px 0" }}>
-                    <span style={{ color: "#555" }}>{r.label}</span>
-                    <span style={{ color: "#ccc", fontWeight: 500 }}>{r.value}</span>
+              {/* Agent Quick Actions / Stats */}
+              <div className="card fade-in-3">
+                <div className="section-title">🤖 System Health</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                  <div style={{ padding: 16, background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid var(--border)" }}>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>UPTIME</div>
+                    <div style={{ fontSize: 18, fontWeight: 700 }}>{health ? `${Math.floor(health.uptime / 3600)}h ${Math.floor((health.uptime % 3600) / 60)}m` : "—"}</div>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Cost Chart + Recent Tool Calls */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-              <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: 24 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", color: "#555", marginBottom: 16, textTransform: "uppercase" }}>💰 API Cost — Last 14 Days</div>
-                <CostChart costRows={costRows} />
-                <div style={{ fontSize: 11, color: "#444", marginTop: 8 }}>Hover bars for daily breakdown · Total: ${cost.toFixed(4)}</div>
-              </div>
-              <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: 24 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", color: "#555", marginBottom: 16, textTransform: "uppercase" }}>🔧 Recent Tool Calls</div>
-                {toolEvents.length === 0
-                  ? <div style={{ color: "#444", fontSize: 13 }}>No tool calls yet — send a message to get started</div>
-                  : toolEvents.map((item: any, i: number) => (
-                    <div key={i} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid #1a1a1a" }}>
-                      <span style={{ fontSize: 14, flexShrink: 0, color: "#f97316" }}>🔧</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, color: "#ccc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.details}</div>
-                        <div style={{ fontSize: 10, color: "#444", marginTop: 2 }}>{fmt(item.created_at)}</div>
-                      </div>
-                    </div>
-                  ))}
+                  <div style={{ padding: 16, background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid var(--border)" }}>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>MEMORY UTILIZATION</div>
+                    <div style={{ fontSize: 18, fontWeight: 700 }}>{health ? `${Math.round(health.memory.rss / 1024 / 1024)} MB` : "—"}</div>
+                  </div>
+                  <div style={{ padding: 16, background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid var(--border)" }}>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>CURRENT MODEL</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: "var(--brand-orange)" }}>Claude 3.5 Sonnet</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* ── Leaps & Rebounds ── */}
-        {tab === "store" && (
-          <div>
-            <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Leaps &amp; Rebounds</h1>
-            <p style={{ color: "#555", marginBottom: 24, fontSize: 14 }}>Live Shopify store data · refreshes every 60s</p>
-            {shopifyLoading && <div style={{ color: "#555" }}>Loading...</div>}
-            {shopifyErr && !shopifyLoading && (
-              <div style={{ background: "#1a0000", border: "1px solid #ef444433", borderRadius: 10, padding: 20, color: "#ef4444" }}>
-                ⚠️ Could not connect to bot — is Gravity Claw running locally?
+        {/* ── Commerce ── */}
+        {tab === "commerce" && (
+          <div className="fade-in">
+            <header className="page-header">
+              <h1 className="page-title">Commerce Intelligence</h1>
+              <p className="page-subtitle">Shopify sales performance and inventory tracking</p>
+            </header>
+
+            {shopifyErr && (
+              <div className="card" style={{ background: "rgba(239, 68, 68, 0.1)", borderColor: "var(--brand-red)" }}>
+                <p style={{ color: "var(--brand-red)", fontWeight: 600 }}>⚠️ Connection lost — Ensure Gravity Claw agent is running.</p>
               </div>
             )}
-            {shopify && !shopifyErr && (
-              <div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 24 }}>
+
+            {shopify && (
+              <>
+                <div className="grid-3 fade-in-1">
                   {[
-                    { label: "Revenue Today", value: `$${Number(shopify.todayRevenue).toLocaleString()}`, color: "#22c55e" },
-                    { label: "Orders Today", value: String(shopify.orderCount), color: "#e5e5e5" },
-                    { label: "Avg Order Value", value: `$${shopify.aov}`, color: "#e5e5e5" },
+                    { label: "Gross Revenue", value: `$${Number(shopify.todayRevenue).toLocaleString()}`, color: "var(--brand-green)" },
+                    { label: "Orders Today", value: String(shopify.orderCount), color: "var(--text-primary)" },
+                    { label: "Order Avg", value: `$${shopify.aov}`, color: "var(--text-primary)" },
                   ].map((s: any) => (
-                    <div key={s.label} style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: 20 }}>
-                      <div style={{ fontSize: 11, color: "#555", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.07em" }}>{s.label}</div>
-                      <div style={{ fontSize: 32, fontWeight: 800, color: s.color }}>{s.value}</div>
+                    <div key={s.label} className="stat-card" style={{ "--accent-color": s.color } as any}>
+                      <div className="stat-label">{s.label}</div>
+                      <div className="stat-value">{s.value}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-                  <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: 24 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", color: "#555", marginBottom: 16, textTransform: "uppercase" }}>🏆 Top Products Today</div>
-                    {shopify.topProducts.split(", ").map((p: string, i: number) => {
-                      const ci = p.lastIndexOf(": ");
-                      const name = ci > -1 ? p.slice(0, ci) : p;
-                      const units = ci > -1 ? p.slice(ci + 2) : "";
-                      return (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "#0d0d0d", borderRadius: 8, border: "1px solid #1a1a1a", marginBottom: 8 }}>
-                          <span style={{ fontSize: 18 }}>{["🥇", "🥈", "🥉"][i] || "▪"}</span>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, color: "#ddd", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+
+                <div className="grid-2 fade-in-2" style={{ marginTop: 24 }}>
+                  <div className="card">
+                    <div className="section-title">🏆 Top Selling Products</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {shopify.topProducts.split(", ").map((p: string, i: number) => {
+                        const ci = p.lastIndexOf(": ");
+                        const name = ci > -1 ? p.slice(0, ci) : p;
+                        const units = ci > -1 ? p.slice(ci + 2) : "";
+                        return (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "rgba(255,255,255,0.02)", borderRadius: 12, border: "1px solid var(--border)" }}>
+                            <span style={{ fontSize: 18, width: 24 }}>{["🥇", "🥈", "🥉"][i] || "•"}</span>
+                            <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500 }}>{name}</div>
+                            <div style={{ color: "var(--brand-orange)", fontWeight: 700 }}>{units}</div>
                           </div>
-                          <span style={{ color: "#f97316", fontWeight: 700, fontSize: 14, flexShrink: 0 }}>{units}</span>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: 24 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", color: "#555", textTransform: "uppercase" }}>⚠️ Inventory Alerts</div>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        {["critical", "out", "all"].map((f: string) => (
-                          <button key={f} onClick={() => setFilter(f)} style={{ background: filter === f ? "#1e1e1e" : "transparent", border: `1px solid ${filter === f ? "#333" : "#1e1e1e"}`, color: filter === f ? "#fff" : "#555", borderRadius: 6, padding: "3px 10px", fontSize: 11, cursor: "pointer" }}>
-                            {f === "critical" ? `Oversold (${crit})` : f === "out" ? `Out (${out})` : "All"}
+
+                  <div className="card">
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+                      <div className="section-title" style={{ marginBottom: 0 }}>⚠️ Inventory Alerts</div>
+                      <div style={{ display: "flex", background: "var(--bg-elevated)", padding: 4, borderRadius: 10 }}>
+                        {["critical", "out", "all"].map((f) => (
+                          <button key={f} onClick={() => setFilter(f)} style={{ background: filter === f ? "var(--bg-card)" : "transparent", border: "none", color: filter === f ? "#fff" : "var(--text-muted)", borderRadius: 8, padding: "4px 12px", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>
+                            {f.toUpperCase()}
                           </button>
                         ))}
                       </div>
                     </div>
-                    <div style={{ maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
-                      {filtered.length === 0
-                        ? <div style={{ color: "#444", fontSize: 13 }}>No items ✓</div>
-                        : filtered.map((item: any, i: number) => (
-                          <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", background: "#0d0d0d", borderRadius: 6, gap: 10 }}>
-                            <span style={{ fontSize: 12, color: "#999", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
-                            <Badge qty={item.qty} />
-                          </div>
-                        ))}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto", paddingRight: 4 }}>
+                      {filtered.length === 0 ? <p style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: 20 }}>All levels stable ✓</p> : filtered.map((item: any, i: number) => (
+                        <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "rgba(0,0,0,0.2)", borderRadius: 10 }}>
+                          <span style={{ fontSize: 13, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
+                          <Badge qty={item.qty} />
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
         )}
 
-        {/* ── Second Brain ── */}
-        {tab === "brain" && (
-          <div>
-            <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Second Brain</h1>
-            <p style={{ color: "#555", marginBottom: 24, fontSize: 14 }}>Core facts Gravity Claw has learned about you · updates as you chat</p>
-            <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: 24 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", color: "#555", marginBottom: 16, textTransform: "uppercase" }}>🧠 Known Facts</div>
-              {facts.length === 0 ? (
-                <div style={{ color: "#444", fontSize: 14 }}>
-                  No facts stored yet — tell Gravity Claw something about yourself and it will remember it here.
-                  <br /><br />
-                  <span style={{ color: "#333", fontFamily: "monospace", fontSize: 12 }}>Try: "My favorite trampoline park is Sky Zone" or "My goal this month is to hit $10K revenue"</span>
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {facts.map((f, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px", background: "#0d0d0d", borderRadius: 8, border: "1px solid #1a1a1a" }}>
-                      <div style={{ fontSize: 11, color: "#f97316", fontWeight: 700, minWidth: 140, marginTop: 1, textTransform: "uppercase", letterSpacing: "0.05em" }}>{f.key}</div>
-                      <div style={{ fontSize: 13, color: "#ccc", flex: 1 }}>{f.value}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+        {/* ── Intelligence ── */}
+        {tab === "intelligence" && (
+          <div className="fade-in">
+            <header className="page-header">
+              <h1 className="page-title">Neural Intelligence</h1>
+              <p className="page-subtitle">Long-term semantic memory and personalized learning</p>
+            </header>
+
+            <div className="card fade-in-1">
+              <div className="section-title">🧠 Known Facts & Learnings</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))", gap: 16 }}>
+                {facts.length === 0 ? (
+                  <p style={{ color: "var(--text-muted)", fontSize: 14 }}>Bot has not committed anything to memory yet.</p>
+                ) : facts.map((f, i) => (
+                  <div key={i} style={{ padding: 20, background: "rgba(255,255,255,0.02)", borderRadius: 16, border: "1px solid var(--border)", transition: "all 0.2s" }}>
+                    <div style={{ fontSize: 11, color: "var(--brand-orange)", fontWeight: 700, marginBottom: 8, letterSpacing: "1px" }}>{f.key.toUpperCase()}</div>
+                    <div style={{ fontSize: 14, color: "var(--text-primary)", lineHeight: 1.5 }}>{f.value}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
 
-        {/* ── Coming Soon tabs ── */}
-        {!["command", "store", "brain"].includes(tab) && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", flexDirection: "column", gap: 12 }}>
-            <div style={{ fontSize: 40 }}>{NAV_ITEMS.find((n: any) => n.id === tab)?.icon}</div>
-            <div style={{ fontSize: 20, fontWeight: 600, color: "#333" }}>{NAV_ITEMS.find((n: any) => n.id === tab)?.label}</div>
-            <div style={{ fontSize: 14, color: "#444" }}>Coming soon</div>
+        {/* ── Activity (Logs) ── */}
+        {tab === "activity" && (
+          <div className="fade-in">
+            <header className="page-header">
+              <h1 className="page-title">Activity Logs</h1>
+              <p className="page-subtitle">Granular event timeline across all channels</p>
+            </header>
+
+            <div className="card fade-in-1">
+              <div className="section-title">🕒 Real-time Timeline</div>
+              <div style={{ display: "grid", gap: 4 }}>
+                {activity.map((item: any) => (
+                  <div key={item.id} className="activity-item" style={{ borderBottom: "1px solid var(--border)", borderRadius: 0 }}>
+                    <div className="activity-icon" style={{ background: item.action === "tool_use" ? "rgba(59, 130, 246, 0.1)" : "var(--bg-elevated)" }}>{ico(item.action)}</div>
+                    <div style={{ flex: 1 }}>
+                      <div className="activity-text" style={{ fontWeight: 500 }}>{item.details}</div>
+                      {item.metadata?.content && (
+                        <div style={{ fontSize: 12, color: "var(--text-muted)", background: "rgba(0,0,0,0.2)", padding: 12, borderRadius: 8, marginTop: 8, whiteSpace: "pre-wrap" }}>
+                          {item.metadata.content}
+                        </div>
+                      )}
+                      <div className="activity-meta" style={{ marginTop: 8 }}>{fmt(item.created_at)} · ACTION: {item.action.toUpperCase()}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
-      </div>
+        {/* ── Engine (Settings) ── */}
+        {tab === "engine" && (
+          <div className="fade-in">
+            <header className="page-header">
+              <h1 className="page-title">System Engine</h1>
+              <p className="page-subtitle">Core configuration and infrastructure health</p>
+            </header>
+
+            <div className="grid-2 fade-in-1">
+              <div className="card">
+                <div className="section-title">💰 API Utilization Cost</div>
+                <CostChart costRows={costRows} />
+                <div style={{ marginTop: 16, fontSize: 13, color: "var(--text-muted)" }}>Total spend to date: <span style={{ color: "#fff", fontWeight: 700 }}>${cost.toFixed(4)}</span></div>
+              </div>
+
+              <div className="card">
+                <div className="section-title">🔧 Recent Tool Orchestration</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {toolEvents.map((item, i) => (
+                    <div key={i} style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+                      <span style={{ fontSize: 16, color: "var(--brand-orange)" }}>🔧</span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.details}</div>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{fmt(item.created_at)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="card fade-in-2" style={{ marginTop: 24 }}>
+              <div className="section-title">⚙ Global Configuration</div>
+              <div className="grid-3">
+                {[
+                  { label: "AI Model", value: "Claude 3.5 Sonnet" },
+                  { label: "Memory Type", value: "Hybrid (SQLite + Pinecone)" },
+                  { label: "Channel Access", value: "Discord, Telegram, Alexa" },
+                  { label: "Persistence", value: "Supabase PG" },
+                  { label: "Infrastructure", value: "Docker (Cloud Arc)" },
+                  { label: "Security", value: "Layer B (No-Shell Voice)" },
+                ].map((item) => (
+                  <div key={item.label} style={{ padding: 16, background: "rgba(255,255,255,0.02)", borderRadius: 12, border: "1px solid var(--border)" }}>
+                    <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "1px" }}>{item.label}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{item.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
