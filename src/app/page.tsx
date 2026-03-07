@@ -462,6 +462,14 @@ export default function App() {
                   { label: "Persistence", value: "Supabase PG" },
                   { label: "Infrastructure", value: "Docker (Cloud Arc)" },
                   { label: "Security", value: "Layer B (No-Shell Voice)" },
+                  {
+                    label: "Heartbeat Status",
+                    value: (() => {
+                      const lastHeartbeat = activity.find(a => a.action === "heartbeat");
+                      if (!lastHeartbeat) return "Determining...";
+                      return `${fmt(lastHeartbeat.created_at)} (Memory: ${Math.round(lastHeartbeat.metadata?.memory || 0)}MB)`;
+                    })()
+                  },
                 ].map((item) => (
                   <div key={item.label} style={{ padding: 16, background: "rgba(255,255,255,0.02)", borderRadius: 12, border: "1px solid var(--border)" }}>
                     <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "1px" }}>{item.label}</div>
