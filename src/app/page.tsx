@@ -239,12 +239,11 @@ export default function App() {
               <p className="page-subtitle">Real-time ecosystem intelligence</p>
             </header>
 
-            <div className="grid-4 fade-in-1">
+            <div className="grid-3 fade-in-1">
               {[
-                { label: "Revenue Today", value: shopify ? `$${Number(shopify.todayRevenue).toLocaleString()}` : "—", color: "#22c55e", sub: `${shopify?.orderCount} orders` },
-                { label: "API Cost", value: `$${cost.toFixed(4)}`, color: "#f97316", sub: "Month to date" },
-                { label: "Memory Nodes", value: facts.length, color: "#3b82f6", sub: "Semantic entities" },
-                { label: "Activity", value: activity.length, color: "#a855f7", sub: "Events logged" },
+                { label: "Gross Revenue", value: shopify ? `$${Number(shopify.todayRevenue).toLocaleString()}` : "—", color: "#22c55e", sub: "Daily performance" },
+                { label: "Intelligence", value: facts.length, color: "#3b82f6", sub: "Core memory nodes" },
+                { label: "Cost (MTD)", value: `$${cost.toFixed(4)}`, color: "#f97316", sub: "API utilization" },
               ].map((s: any) => (
                 <div key={s.label} className="stat-card" style={{ "--accent-color": s.color } as any}>
                   <div className="stat-label">{s.label}</div>
@@ -305,40 +304,40 @@ export default function App() {
                   ))}
                 </div>
 
-                <div className="grid-2 fade-in-2" style={{ marginTop: 24 }}>
+                <div className="vertical-stack fade-in-2" style={{ marginTop: 40 }}>
                   <div className="card">
                     <div className="section-title">🏆 Top Selling Products</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div className="product-list">
                       {shopify.topProducts.split(", ").map((p: string, i: number) => {
                         const ci = p.lastIndexOf(": ");
                         const name = ci > -1 ? p.slice(0, ci) : p;
                         const units = ci > -1 ? p.slice(ci + 2) : "";
                         return (
-                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "rgba(255,255,255,0.02)", borderRadius: 12, border: "1px solid var(--border)" }}>
-                            <span style={{ fontSize: 18, width: 24 }}>{["🥇", "🥈", "🥉"][i] || "•"}</span>
-                            <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500 }}>{name}</div>
-                            <div style={{ color: "var(--brand-orange)", fontWeight: 700 }}>{units}</div>
+                          <div key={i} className="list-item">
+                            <span className="rank-emoji">{["🥇", "🥈", "🥉"][i] || "•"}</span>
+                            <div className="item-name">{name}</div>
+                            <div className="item-value">{units}</div>
                           </div>
                         );
                       })}
                     </div>
                   </div>
 
-                  <div className="card">
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-                      <div className="section-title" style={{ marginBottom: 0 }}>⚠️ Inventory Alerts</div>
-                      <div style={{ display: "flex", background: "var(--bg-elevated)", padding: 4, borderRadius: 10 }}>
+                  <div className="card" style={{ marginTop: 24 }}>
+                    <div className="section-header">
+                      <div className="section-title">⚠️ Inventory Alerts</div>
+                      <div className="filter-group">
                         {["critical", "out", "all"].map((f) => (
-                          <button key={f} onClick={() => setFilter(f)} style={{ background: filter === f ? "var(--bg-card)" : "transparent", border: "none", color: filter === f ? "#fff" : "var(--text-muted)", borderRadius: 8, padding: "4px 12px", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>
+                          <button key={f} onClick={() => setFilter(f)} className={`filter-btn ${filter === f ? "active" : ""}`}>
                             {f.toUpperCase()}
                           </button>
                         ))}
                       </div>
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto", paddingRight: 4 }}>
-                      {filtered.length === 0 ? <p style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: 20 }}>All levels stable ✓</p> : filtered.map((item: any, i: number) => (
-                        <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "rgba(0,0,0,0.2)", borderRadius: 10 }}>
-                          <span style={{ fontSize: 13, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
+                    <div className="inventory-list">
+                      {filtered.length === 0 ? <p className="empty-state">All levels stable ✓</p> : filtered.map((item: any, i: number) => (
+                        <div key={i} className="list-item">
+                          <span className="item-name">{item.name}</span>
                           <Badge qty={item.qty} />
                         </div>
                       ))}
