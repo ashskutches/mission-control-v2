@@ -214,16 +214,16 @@ export default function App() {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="agent-status">
-            <div className={`status-dot ${healthErr ? "offline" : ""}`} style={{ background: healthErr ? "var(--brand-red)" : "var(--brand-green)", boxShadow: healthErr ? "0 0 10px var(--brand-red)" : "0 0 10px var(--brand-green)" }} />
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>Agent {healthErr ? "Offline" : "Online"}</div>
-              {health && !healthErr && (
-                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
-                  {Math.floor(health.uptime / 3600)}h {Math.floor((health.uptime % 3600) / 60)}m · {Math.round(health.memory.rss / 1024 / 1024)}MB
-                </div>
-              )}
-            </div>
+          <div className="agent-status-v3">
+            <div className={`status-dot ${healthErr ? "offline" : ""}`} />
+            <div className="status-label">Agent {healthErr ? "Offline" : "Online"}</div>
+            {health && !healthErr && (
+              <div className="status-metrics">
+                <span>{Math.floor(health.uptime / 3600)}h {Math.floor((health.uptime % 3600) / 60)}m</span>
+                <span className="separator">·</span>
+                <span>{Math.round(health.memory.rss / 1024 / 1024)}MB</span>
+              </div>
+            )}
           </div>
         </div>
       </aside>
@@ -231,62 +231,45 @@ export default function App() {
       {/* Main Content Area */}
       <main className="main-content">
 
-        {/* ── Overview ── */}
+        {/* ── Overview : The Situation Room ── */}
         {tab === "overview" && (
           <div className="fade-in">
             <header className="page-header">
-              <h1 className="page-title">Command Overview</h1>
-              <p className="page-subtitle">Real-time status of your Gravity Claw ecosystem</p>
+              <h1 className="page-title">Situation Room</h1>
+              <p className="page-subtitle">Real-time ecosystem intelligence</p>
             </header>
 
             <div className="grid-4 fade-in-1">
               {[
-                { label: "Revenue Today", value: shopify ? `$${Number(shopify.todayRevenue).toLocaleString()}` : "—", color: "#22c55e" },
-                { label: "API Cost (Total)", value: `$${cost.toFixed(4)}`, color: "#f97316" },
-                { label: "Memory Nodes", value: facts.length, color: "#3b82f6" },
-                { label: "Status", value: healthErr ? "OFFLINE" : "ONLINE", color: healthErr ? "#ef4444" : "#10b981" },
+                { label: "Revenue Today", value: shopify ? `$${Number(shopify.todayRevenue).toLocaleString()}` : "—", color: "#22c55e", sub: `${shopify?.orderCount} orders` },
+                { label: "API Cost", value: `$${cost.toFixed(4)}`, color: "#f97316", sub: "Month to date" },
+                { label: "Memory Nodes", value: facts.length, color: "#3b82f6", sub: "Semantic entities" },
+                { label: "Activity", value: activity.length, color: "#a855f7", sub: "Events logged" },
               ].map((s: any) => (
                 <div key={s.label} className="stat-card" style={{ "--accent-color": s.color } as any}>
                   <div className="stat-label">{s.label}</div>
                   <div className="stat-value" style={{ color: s.color }}>{s.value}</div>
+                  <div className="stat-sub">{s.sub}</div>
                 </div>
               ))}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, marginTop: 32 }}>
-              {/* Mini Feed */}
-              <div className="card fade-in-2">
-                <div className="section-title">⚡ Live Briefing</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {activity.slice(0, 5).map((item: any) => (
-                    <div key={item.id} className="activity-item" style={{ background: item.action === "proactive_briefing" ? "rgba(249, 115, 22, 0.05)" : "transparent" }}>
-                      <div className="activity-icon">{ico(item.action)}</div>
-                      <div className="activity-text">
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{item.details}</div>
-                        <div className="activity-meta">{fmt(item.created_at)} · {item.action}</div>
+            <div className="dashboard-row fade-in-2" style={{ marginTop: 24 }}>
+              <div className="card full-width">
+                <div className="section-header">
+                  <div className="section-title">⚡ Live Briefing</div>
+                  <button onClick={() => setTab("activity")} className="text-button">Full History →</button>
+                </div>
+                <div className="briefing-list">
+                  {activity.slice(0, 8).map((item: any) => (
+                    <div key={item.id} className="briefing-row">
+                      <div className="briefing-icon">{ico(item.action)}</div>
+                      <div className="briefing-content">
+                        <div className="briefing-text">{item.details}</div>
+                        <div className="briefing-meta">{fmt(item.created_at)} · {item.action}</div>
                       </div>
                     </div>
                   ))}
-                  <button onClick={() => setTab("activity")} style={{ marginTop: 8, background: "transparent", border: "1px solid var(--border)", color: "var(--text-secondary)", padding: "10px", borderRadius: 12, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>View Full Log</button>
-                </div>
-              </div>
-
-              {/* Agent Quick Actions / Stats */}
-              <div className="card fade-in-3">
-                <div className="section-title">🤖 System Health</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                  <div style={{ padding: 16, background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid var(--border)" }}>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>UPTIME</div>
-                    <div style={{ fontSize: 18, fontWeight: 700 }}>{health ? `${Math.floor(health.uptime / 3600)}h ${Math.floor((health.uptime % 3600) / 60)}m` : "—"}</div>
-                  </div>
-                  <div style={{ padding: 16, background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid var(--border)" }}>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>MEMORY UTILIZATION</div>
-                    <div style={{ fontSize: 18, fontWeight: 700 }}>{health ? `${Math.round(health.memory.rss / 1024 / 1024)} MB` : "—"}</div>
-                  </div>
-                  <div style={{ padding: 16, background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid var(--border)" }}>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>CURRENT MODEL</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: "var(--brand-orange)" }}>Claude 3.5 Sonnet</div>
-                  </div>
                 </div>
               </div>
             </div>
