@@ -84,6 +84,8 @@ export default function App() {
   const [shopifyLoading, setShopifyLoading] = useState(true);
   const [filter, setFilter] = useState("critical");
   const [facts, setFacts] = useState<{ key: string; value: string }[]>([]);
+  const [health, setHealth] = useState<any>(null);
+  const [healthErr, setHealthErr] = useState(false);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
@@ -102,6 +104,24 @@ export default function App() {
     };
     go();
     const iv = setInterval(go, 60000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // Poll Bot Health
+  useEffect(() => {
+    const go = async () => {
+      try {
+        const r = await fetch(`${BOT_URL}/health`, { cache: "no-store" });
+        if (!r.ok) throw new Error();
+        const d = await r.json();
+        setHealth(d);
+        setHealthErr(false);
+      } catch {
+        setHealthErr(true);
+      }
+    };
+    go();
+    const iv = setInterval(go, 10000);
     return () => clearInterval(iv);
   }, []);
 
@@ -157,7 +177,7 @@ export default function App() {
   };
 
   const ico = (a: string): string =>
-    ({ discord_message: "💬", message: "✈️", memory_save: "🧠", tool_use: "🔧" } as any)[a] || "⚡";
+    ({ discord_message: "💬", message: "✈️", memory_save: "🧠", tool_use: "🔧", voice_response: "🔊", proactive_briefing: "📩" } as any)[a] || "⚡";
 
   const stock = shopify?.lowStock ? parseStock(shopify.lowStock) : [];
   const filtered = stock.filter((s: any) =>
@@ -173,9 +193,24 @@ export default function App() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#0a0a0a", color: "#e5e5e5", fontFamily: "system-ui,sans-serif" }}>
+    <div style={{
+      display: "flex",
+      minHeight: "100vh",
+      background: "radial-gradient(circle at top right, #1a1a1a, #050505)",
+      color: "#f5f5f5",
+      fontFamily: "'Inter', system-ui, sans-serif"
+    }}>
       {/* Sidebar */}
-      <div style={{ width: 260, background: "#111", borderRight: "1px solid #1e1e1e", display: "flex", flexDirection: "column", padding: "16px 0", flexShrink: 0 }}>
+      <div style={{
+        width: 280,
+        background: "rgba(10, 10, 10, 0.8)",
+        backdropFilter: "blur(20px)",
+        borderRight: "1px solid rgba(255, 255, 255, 0.05)",
+        display: "flex",
+        flexDirection: "column",
+        padding: "24px 0",
+        flexShrink: 0
+      }}>
         <div style={{ padding: "0 16px 24px", display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 36, height: 36, background: "#f97316", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14 }}>GC</div>
           <div>
@@ -198,11 +233,15 @@ export default function App() {
             </div>
           ))}
         </nav>
-        <div style={{ padding: 16, borderTop: "1px solid #1e1e1e", display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 8, height: 8, borderRadius: "50%", background: shopifyErr ? "#ef4444" : "#22c55e" }} />
+        <div style={{ padding: 16, borderTop: "1px solid #1e1e1e", display: "flex", alignItems: "center", gap: 12, backdropFilter: "blur(10px)" }}>
+          <div style={{ width: 10, height: 10, borderRadius: "50%", background: healthErr ? "#ef4444" : "#22c55e", boxShadow: healthErr ? "0 0 8px #ef4444" : "0 0 8px #22c55e" }} />
           <div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>Agent {shopifyErr ? "Offline" : "Online"}</div>
-            <div style={{ fontSize: 11, color: "#555" }}>Claude Sonnet · Local</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>Agent {healthErr ? "Offline" : "Online"}</div>
+            {health && !healthErr && (
+              <div style={{ fontSize: 10, color: "#666" }}>
+                Up: {Math.floor(health.uptime / 3600)}h {Math.floor((health.uptime % 3600) / 60)}m · {Math.round(health.memory.rss / 1024 / 1024)}MB
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -219,33 +258,78 @@ export default function App() {
             {/* KPI row */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
               {[
-                { label: "Revenue Today", value: shopify ? `$${Number(shopify.todayRevenue).toLocaleString()}` : "—", color: "#22c55e" },
-                { label: "Orders", value: shopify ? String(shopify.orderCount) : "—", color: "#e5e5e5" },
-                { label: "Avg Order", value: shopify ? `$${shopify.aov}` : "—", color: "#e5e5e5" },
-                { label: "API Cost (Total)", value: `$${cost.toFixed(4)}`, color: "#888" },
+                { label: "Revenue Today", value: shopify ? `$${Number(shopify.todayRevenue).toLocaleString()}` : "—", grad: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)" },
+                { label: "Orders", value: shopify ? String(shopify.orderCount) : "—", grad: "rgba(255,255,255,0.03)" },
+                { label: "Avg Order", value: shopify ? `$${shopify.aov}` : "—", grad: "rgba(255,255,255,0.03)" },
+                { label: "API Cost (Total)", value: `$${cost.toFixed(4)}`, grad: "rgba(255,255,255,0.03)" },
               ].map((s: any) => (
-                <div key={s.label} style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 10, padding: 16 }}>
-                  <div style={{ fontSize: 11, color: "#555", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>{s.label}</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.value}</div>
+                <div key={s.label} style={{
+                  background: s.grad.startsWith("linear") ? s.grad : "rgba(17, 17, 17, 0.6)",
+                  border: "1px solid rgba(255, 255, 255, 0.05)",
+                  borderRadius: 16,
+                  padding: 20,
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+                  backdropFilter: "blur(10px)"
+                }}>
+                  <div style={{ fontSize: 11, color: s.grad.startsWith("linear") ? "rgba(255,255,255,0.8)" : "#666", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700 }}>{s.label}</div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: "#fff" }}>{s.value}</div>
                 </div>
               ))}
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 24, marginBottom: 24 }}>
               {/* Activity Feed */}
-              <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: 24 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", color: "#555", marginBottom: 16, textTransform: "uppercase" }}>⚡ Live Activity Feed</div>
-                {activity.length === 0
-                  ? <div style={{ color: "#444", fontSize: 14 }}>No activity yet...</div>
-                  : activity.map((item: any) => (
-                    <div key={item.id} style={{ display: "flex", gap: 10, padding: "10px 0", borderBottom: "1px solid #1a1a1a" }}>
-                      <span style={{ fontSize: 16, marginTop: 1, flexShrink: 0 }}>{ico(item.action)}</span>
+              <div style={{ background: "rgba(17, 17, 17, 0.8)", backdropFilter: "blur(12px)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: 16, padding: 24, boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#f97316", marginBottom: 20, textTransform: "uppercase" }}>⚡ Live Activity Feed</div>
+                <div style={{ maxHeight: 500, overflowY: "auto", paddingRight: 8 }}>
+                  {activity.length === 0 ? (
+                    <div style={{ color: "#444", fontSize: 14, textAlign: "center", padding: 40 }}>No activity yet...</div>
+                  ) : activity.map((item: any) => (
+                    <div key={item.id} style={{
+                      display: "flex",
+                      gap: 14,
+                      padding: "16px",
+                      borderRadius: 12,
+                      background: item.action === "proactive_briefing" ? "rgba(249, 115, 22, 0.1)" : "rgba(255,255,255,0.02)",
+                      border: "1px solid rgba(255,255,255,0.05)",
+                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                      marginBottom: 12,
+                      cursor: "default"
+                    }}>
+                      <span style={{ fontSize: 20, marginTop: 2, flexShrink: 0, filter: "drop-shadow(0 0 8px rgba(249, 115, 22, 0.3))" }}>{ico(item.action)}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, color: "#ccc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.details}</div>
-                        <div style={{ fontSize: 11, color: "#444", marginTop: 2 }}>{item.action} · {fmt(item.created_at)}</div>
+                        <div style={{ fontSize: 14, color: "#fff", fontWeight: item.action === "proactive_briefing" ? 600 : 500, lineHeight: 1.4 }}>{item.details}</div>
+
+                        {item.metadata?.publicUrl && (
+                          <div style={{ marginTop: 12, background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: 8 }}>
+                            <audio controls src={item.metadata.publicUrl} style={{ height: 32, width: "100%", maxWidth: 300 }} />
+                          </div>
+                        )}
+
+                        {item.metadata?.content && (
+                          <div style={{
+                            fontSize: 13,
+                            color: "#aaa",
+                            marginTop: 10,
+                            padding: 14,
+                            background: "rgba(0,0,0,0.3)",
+                            borderRadius: 10,
+                            border: "1px solid rgba(255,255,255,0.05)",
+                            whiteSpace: "pre-wrap",
+                            lineHeight: 1.5
+                          }}>
+                            {item.metadata.content}
+                          </div>
+                        )}
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+                          <div style={{ fontSize: 11, color: "#555", fontWeight: 600, textTransform: "uppercase" }}>{item.action}</div>
+                          <div style={{ fontSize: 11, color: "#444" }}>{fmt(item.created_at)}</div>
+                        </div>
                       </div>
                     </div>
                   ))}
+                </div>
               </div>
 
               {/* Agent Config */}
