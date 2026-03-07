@@ -7,15 +7,15 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "https://gravity-claw-production-fb9e.up.railway.app";
+const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
 const NAV_ITEMS = [
   { icon: "⊞", label: "Command Center", id: "command" },
   { icon: "🛍️", label: "Leaps & Rebounds", id: "store" },
+  { icon: "🧠", label: "Second Brain", id: "brain" },
   { icon: "⚡", label: "Productivity", id: "productivity" },
   { icon: "✓", label: "Tasks", id: "tasks" },
   { icon: "▶", label: "Content Intel", id: "content" },
-  { icon: "🧠", label: "Second Brain", id: "brain" },
   { icon: "⋯", label: "Connections", id: "connections" },
   { icon: "⚙", label: "Settings", id: "settings" },
 ];
@@ -37,14 +37,55 @@ function Badge({ qty }: { qty: number }) {
   );
 }
 
+// Mini bar chart for cost over time
+function CostChart({ costRows }: { costRows: any[] }) {
+  if (!costRows.length) return <div style={{ color: "#444", fontSize: 13 }}>No cost data yet</div>;
+
+  // Group by day
+  const byDay: Record<string, number> = {};
+  for (const row of costRows) {
+    const day = row.created_at?.slice(0, 10) ?? "unknown";
+    byDay[day] = (byDay[day] ?? 0) + (row.cost_usd ?? 0);
+  }
+  const days = Object.entries(byDay).sort(([a], [b]) => a.localeCompare(b)).slice(-14);
+  const max = Math.max(...days.map(([, v]) => v), 0.0001);
+
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 60 }}>
+      {days.map(([day, val]) => (
+        <div key={day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+          <div
+            title={`${day}: $${val.toFixed(4)}`}
+            style={{
+              width: "100%",
+              height: Math.max(4, (val / max) * 52),
+              background: "#f97316",
+              borderRadius: 3,
+              opacity: 0.8,
+              cursor: "default",
+            }}
+          />
+          <div style={{ fontSize: 8, color: "#444", whiteSpace: "nowrap" }}>
+            {day.slice(5)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   const [tab, setTab] = useState("command");
   const [activity, setActivity] = useState<any[]>([]);
+  const [costRows, setCostRows] = useState<any[]>([]);
   const [cost, setCost] = useState(0);
   const [shopify, setShopify] = useState<any>(null);
   const [shopifyErr, setShopifyErr] = useState(false);
   const [shopifyLoading, setShopifyLoading] = useState(true);
   const [filter, setFilter] = useState("critical");
+  const [facts, setFacts] = useState<{ key: string; value: string }[]>([]);
+
+  // ── Data fetching ──────────────────────────────────────────────────────────
 
   useEffect(() => {
     const go = async () => {
@@ -66,7 +107,11 @@ export default function App() {
 
   useEffect(() => {
     const go = async () => {
-      const { data } = await supabase.from("activity_log").select("*").order("created_at", { ascending: false }).limit(50);
+      const { data } = await supabase
+        .from("activity_log")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
       if (data) setActivity(data);
     };
     go();
@@ -75,20 +120,44 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    supabase.from("cost_log").select("cost_usd").then(({ data }: { data: any }) => {
-      if (data) setCost(data.reduce((s: number, r: any) => s + (r.cost_usd || 0), 0));
-    });
+    supabase
+      .from("cost_log")
+      .select("cost_usd, created_at")
+      .order("created_at", { ascending: true })
+      .then(({ data }: { data: any }) => {
+        if (data) {
+          setCostRows(data);
+          setCost(data.reduce((s: number, r: any) => s + (r.cost_usd || 0), 0));
+        }
+      });
   }, []);
+
+  // Poll bot_facts table for Second Brain
+  useEffect(() => {
+    const go = async () => {
+      const { data } = await supabase
+        .from("bot_facts")
+        .select("key, value, updated_at")
+        .order("updated_at", { ascending: false });
+      if (data) setFacts(data as { key: string; value: string }[]);
+    };
+    go();
+    const iv = setInterval(go, 30000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
   const fmt = (iso: string) => {
     const d = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
     if (d < 60) return `${d}s ago`;
     if (d < 3600) return `${Math.floor(d / 60)}m ago`;
-    return `${Math.floor(d / 3600)}h ago`;
+    if (d < 86400) return `${Math.floor(d / 3600)}h ago`;
+    return `${Math.floor(d / 86400)}d ago`;
   };
 
   const ico = (a: string): string =>
-    ({ discord_message: "⚡", telegram_message: "✈️", memory_save: "🧠", tool_use: "🔧" } as any)[a] || "💬";
+    ({ discord_message: "💬", message: "✈️", memory_save: "🧠", tool_use: "🔧" } as any)[a] || "⚡";
 
   const stock = shopify?.lowStock ? parseStock(shopify.lowStock) : [];
   const filtered = stock.filter((s: any) =>
@@ -96,6 +165,12 @@ export default function App() {
   );
   const crit = stock.filter((s: any) => s.qty < 0).length;
   const out = stock.filter((s: any) => s.qty === 0).length;
+
+  // Recent messages = activity_log filtered to "message" actions
+  const messages = activity.filter((a) => a.action === "message").slice(0, 20);
+  const toolEvents = activity.filter((a) => a.action === "tool_use").slice(0, 10);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#0a0a0a", color: "#e5e5e5", fontFamily: "system-ui,sans-serif" }}>
@@ -105,12 +180,16 @@ export default function App() {
           <div style={{ width: 36, height: 36, background: "#f97316", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14 }}>GC</div>
           <div>
             <div style={{ fontWeight: 600, fontSize: 14 }}>Mission Control</div>
-            <div style={{ fontSize: 11, color: "#555" }}>v1.0 · Gravity Claw</div>
+            <div style={{ fontSize: 11, color: "#555" }}>v1.1 · Gravity Claw</div>
           </div>
         </div>
         <nav style={{ flex: 1, padding: "0 8px" }}>
           {NAV_ITEMS.map((item: any) => (
-            <div key={item.id} onClick={() => setTab(item.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, marginBottom: 2, background: tab === item.id ? "#1e1e1e" : "transparent", color: tab === item.id ? "#fff" : "#666", cursor: "pointer", fontSize: 14 }}>
+            <div
+              key={item.id}
+              onClick={() => setTab(item.id)}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, marginBottom: 2, background: tab === item.id ? "#1e1e1e" : "transparent", color: tab === item.id ? "#fff" : "#666", cursor: "pointer", fontSize: 14 }}
+            >
               <span>{item.icon}</span>
               <span>{item.label}</span>
               {item.id === "store" && crit > 0 && (
@@ -123,7 +202,7 @@ export default function App() {
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: shopifyErr ? "#ef4444" : "#22c55e" }} />
           <div>
             <div style={{ fontSize: 13, fontWeight: 500 }}>Agent {shopifyErr ? "Offline" : "Online"}</div>
-            <div style={{ fontSize: 11, color: "#555" }}>Claude Sonnet · Railway</div>
+            <div style={{ fontSize: 11, color: "#555" }}>Claude Sonnet · Local</div>
           </div>
         </div>
       </div>
@@ -131,16 +210,19 @@ export default function App() {
       {/* Main */}
       <div style={{ flex: 1, overflowY: "auto", padding: 32 }}>
 
+        {/* ── Command Center ── */}
         {tab === "command" && (
           <div>
             <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Command Center</h1>
             <p style={{ color: "#555", marginBottom: 24, fontSize: 14 }}>Real-time overview of your Gravity Claw agent</p>
+
+            {/* KPI row */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
               {[
                 { label: "Revenue Today", value: shopify ? `$${Number(shopify.todayRevenue).toLocaleString()}` : "—", color: "#22c55e" },
                 { label: "Orders", value: shopify ? String(shopify.orderCount) : "—", color: "#e5e5e5" },
                 { label: "Avg Order", value: shopify ? `$${shopify.aov}` : "—", color: "#e5e5e5" },
-                { label: "API Cost", value: `$${cost.toFixed(4)}`, color: "#888" },
+                { label: "API Cost (Total)", value: `$${cost.toFixed(4)}`, color: "#888" },
               ].map((s: any) => (
                 <div key={s.label} style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 10, padding: 16 }}>
                   <div style={{ fontSize: 11, color: "#555", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>{s.label}</div>
@@ -148,27 +230,33 @@ export default function App() {
                 </div>
               ))}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 24 }}>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 24, marginBottom: 24 }}>
+              {/* Activity Feed */}
               <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: 24 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", color: "#555", marginBottom: 16, textTransform: "uppercase" }}>⚡ Live Activity Feed</div>
-                {activity.length === 0 ? <div style={{ color: "#444", fontSize: 14 }}>No activity yet...</div> : activity.map((item: any) => (
-                  <div key={item.id} style={{ display: "flex", gap: 10, padding: "10px 0", borderBottom: "1px solid #1a1a1a" }}>
-                    <span style={{ fontSize: 16, marginTop: 1, flexShrink: 0 }}>{ico(item.action)}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, color: "#ccc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.details}</div>
-                      <div style={{ fontSize: 11, color: "#444", marginTop: 2 }}>{item.action} · {fmt(item.created_at)}</div>
+                {activity.length === 0
+                  ? <div style={{ color: "#444", fontSize: 14 }}>No activity yet...</div>
+                  : activity.map((item: any) => (
+                    <div key={item.id} style={{ display: "flex", gap: 10, padding: "10px 0", borderBottom: "1px solid #1a1a1a" }}>
+                      <span style={{ fontSize: 16, marginTop: 1, flexShrink: 0 }}>{ico(item.action)}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: "#ccc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.details}</div>
+                        <div style={{ fontSize: 11, color: "#444", marginTop: 2 }}>{item.action} · {fmt(item.created_at)}</div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
+
+              {/* Agent Config */}
               <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: 24 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", color: "#555", marginBottom: 16, textTransform: "uppercase" }}>🤖 Agent Config</div>
                 {[
                   { label: "Model", value: "Claude Sonnet" },
-                  { label: "Provider", value: "Anthropic" },
-                  { label: "Memory", value: "SQLite" },
+                  { label: "Tool Loop", value: "✅ Active" },
+                  { label: "Memory", value: "SQLite + Pinecone" },
                   { label: "Channels", value: "Discord + Telegram" },
-                  { label: "Tier 3 DB", value: "Supabase" },
+                  { label: "Supabase", value: "Connected" },
                   { label: "API Cost", value: `$${cost.toFixed(4)}` },
                   { label: "Status", value: shopifyErr ? "🔴 Offline" : "🟢 Online" },
                 ].map((r: any) => (
@@ -179,9 +267,33 @@ export default function App() {
                 ))}
               </div>
             </div>
+
+            {/* Cost Chart + Recent Tool Calls */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+              <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: 24 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", color: "#555", marginBottom: 16, textTransform: "uppercase" }}>💰 API Cost — Last 14 Days</div>
+                <CostChart costRows={costRows} />
+                <div style={{ fontSize: 11, color: "#444", marginTop: 8 }}>Hover bars for daily breakdown · Total: ${cost.toFixed(4)}</div>
+              </div>
+              <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: 24 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", color: "#555", marginBottom: 16, textTransform: "uppercase" }}>🔧 Recent Tool Calls</div>
+                {toolEvents.length === 0
+                  ? <div style={{ color: "#444", fontSize: 13 }}>No tool calls yet — send a message to get started</div>
+                  : toolEvents.map((item: any, i: number) => (
+                    <div key={i} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid #1a1a1a" }}>
+                      <span style={{ fontSize: 14, flexShrink: 0, color: "#f97316" }}>🔧</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, color: "#ccc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.details}</div>
+                        <div style={{ fontSize: 10, color: "#444", marginTop: 2 }}>{fmt(item.created_at)}</div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
           </div>
         )}
 
+        {/* ── Leaps & Rebounds ── */}
         {tab === "store" && (
           <div>
             <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Leaps &amp; Rebounds</h1>
@@ -189,7 +301,7 @@ export default function App() {
             {shopifyLoading && <div style={{ color: "#555" }}>Loading...</div>}
             {shopifyErr && !shopifyLoading && (
               <div style={{ background: "#1a0000", border: "1px solid #ef444433", borderRadius: 10, padding: 20, color: "#ef4444" }}>
-                ⚠️ Could not connect to bot — is it running on Railway?
+                ⚠️ Could not connect to bot — is Gravity Claw running locally?
               </div>
             )}
             {shopify && !shopifyErr && (
@@ -252,7 +364,35 @@ export default function App() {
           </div>
         )}
 
-        {!["command", "store"].includes(tab) && (
+        {/* ── Second Brain ── */}
+        {tab === "brain" && (
+          <div>
+            <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Second Brain</h1>
+            <p style={{ color: "#555", marginBottom: 24, fontSize: 14 }}>Core facts Gravity Claw has learned about you · updates as you chat</p>
+            <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: 24 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", color: "#555", marginBottom: 16, textTransform: "uppercase" }}>🧠 Known Facts</div>
+              {facts.length === 0 ? (
+                <div style={{ color: "#444", fontSize: 14 }}>
+                  No facts stored yet — tell Gravity Claw something about yourself and it will remember it here.
+                  <br /><br />
+                  <span style={{ color: "#333", fontFamily: "monospace", fontSize: 12 }}>Try: "My favorite trampoline park is Sky Zone" or "My goal this month is to hit $10K revenue"</span>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {facts.map((f, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px", background: "#0d0d0d", borderRadius: 8, border: "1px solid #1a1a1a" }}>
+                      <div style={{ fontSize: 11, color: "#f97316", fontWeight: 700, minWidth: 140, marginTop: 1, textTransform: "uppercase", letterSpacing: "0.05em" }}>{f.key}</div>
+                      <div style={{ fontSize: 13, color: "#ccc", flex: 1 }}>{f.value}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Coming Soon tabs ── */}
+        {!["command", "store", "brain"].includes(tab) && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", flexDirection: "column", gap: 12 }}>
             <div style={{ fontSize: 40 }}>{NAV_ITEMS.find((n: any) => n.id === tab)?.icon}</div>
             <div style={{ fontSize: 20, fontWeight: 600, color: "#333" }}>{NAV_ITEMS.find((n: any) => n.id === tab)?.label}</div>

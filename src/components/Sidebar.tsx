@@ -3,13 +3,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV = [
-  { href: "/",             icon: "⊞", label: "Command Center" },
-  { href: "/productivity", icon: "⚡", label: "Productivity"   },
-  { href: "/tasks",        icon: "✅", label: "Tasks"          },
-  { href: "/content",      icon: "▶️", label: "Content Intel"  },
-  { href: "/brain",        icon: "🧠", label: "Second Brain"   },
-  { href: "/connections",  icon: "🔌", label: "Connections"    },
-  { href: "/settings",     icon: "⚙️", label: "Settings"       },
+  { href: "/", icon: "⊞", label: "Command Center" },
+  { href: "/productivity", icon: "⚡", label: "Productivity" },
+  { href: "/tasks", icon: "✅", label: "Tasks" },
+  { href: "/content", icon: "▶️", label: "Content Intel" },
+  { href: "/brain", icon: "🧠", label: "Second Brain" },
+  { href: "/connections", icon: "🔌", label: "Connections" },
+  { href: "/settings", icon: "⚙️", label: "Settings" },
 ];
 
 export default function Sidebar() {
@@ -39,7 +39,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="sidebar-footer">
-        <div className="agent-status">
+        <div className="agent-status" style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--brand-green)" }}>
             <span className="status-dot" />
             Agent Online
@@ -48,6 +48,18 @@ export default function Sidebar() {
             Claude Sonnet · Local
           </div>
         </div>
+
+        <button
+          onClick={async () => {
+            await fetch("/api/auth/logout", { method: "POST" });
+            window.location.href = "/login";
+          }}
+          className="nav-item"
+          style={{ borderLeft: 'none', color: 'var(--brand-red)', opacity: 0.7 }}
+        >
+          <span className="nav-icon">⏻</span>
+          Logout
+        </button>
       </div>
     </aside>
   );

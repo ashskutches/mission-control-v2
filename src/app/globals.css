@@ -55,6 +55,12 @@ html, body {
   background: var(--bg-base);
 }
 
+.main-content-full {
+  flex: 1;
+  height: 100vh;
+  overflow: hidden;
+}
+
 /* ── Sidebar ───────────────────────────────────────────── */
 .sidebar {
   width: var(--sidebar-width);
