@@ -257,19 +257,20 @@ export default function MissionControl() {
               <>
                 <div style={{ gridColumn: "1 / -1", marginBottom: "12px" }}>
                   <h1 className="page-title">Commerce Intelligence</h1>
-                  <p style={{ color: "var(--text-secondary)", marginTop: "8px", fontSize: "15px" }}>Real-time shopify synchronization</p>
+                  <p style={{ color: "var(--text-secondary)", marginTop: "8px", fontSize: "15px" }}>Real-time Shopify synchronization</p>
                 </div>
 
-                {shopify ? (
+                {shopify && !shopify.error ? (
                   <>
-                    <StatCard label="Orders Today" value={shopify.orderCount} subValue="Processing queue" />
-                    <StatCard label="AOV" value={`$${shopify.aov}`} subValue="Customer quality" color="var(--accent-purple)" />
-                    <StatCard label="Conversion" value="3.2%" subValue="Funnel health" color="var(--accent-orange)" />
+                    <StatCard label="Revenue Today" value={`$${Number(shopify.todayRevenue || 0).toLocaleString()}`} subValue="Commerce throughput" color="var(--accent-emerald)" />
+                    <StatCard label="Orders Today" value={shopify.todayOrders || "0"} subValue="Processing queue" />
+                    <StatCard label="AOV" value={`$${shopify.aov || "0.00"}`} subValue="Customer quality" color="var(--accent-purple)" />
+                    <StatCard label="Total Products" value={shopify.totalProducts || "0"} subValue="Catalog size" color="var(--accent-cyan)" />
 
                     <div className="glass-card" style={{ gridColumn: "1 / -1" }}>
-                      <h3>Top Performing Assets</h3>
+                      <h3>Product Catalog</h3>
                       <div style={{ marginTop: "20px" }}>
-                        {shopify.topProducts.split(", ").map((p: string, i: number) => (
+                        {(shopify.topProducts || "").split(", ").filter(Boolean).map((p: string, i: number) => (
                           <div key={i} style={{ display: "flex", alignItems: "center", gap: "16px", padding: "16px 0", borderBottom: "1px solid var(--glass-border)" }}>
                             <div className="mono" style={{ color: "var(--accent-emerald)" }}>0{i + 1}</div>
                             <div style={{ fontWeight: 600 }}>{p}</div>
@@ -277,6 +278,11 @@ export default function MissionControl() {
                           </div>
                         ))}
                       </div>
+                      {shopify.lastSync && (
+                        <p style={{ marginTop: "16px", fontSize: "12px", color: "var(--text-muted)" }}>
+                          Last sync: {new Date(shopify.lastSync).toLocaleTimeString()}
+                        </p>
+                      )}
                     </div>
                   </>
                 ) : (
@@ -291,6 +297,7 @@ export default function MissionControl() {
                 )}
               </>
             )}
+
 
             {/* ── Tab: Engine ── */}
             {activeTab === "engine" && (
