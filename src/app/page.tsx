@@ -176,6 +176,22 @@ export default function MissionControl() {
                   color="var(--accent-blue)"
                 />
 
+                {/* AI Insights Card */}
+                <div className="glass-card" style={{ gridColumn: "1 / -1", background: "linear-gradient(135deg, rgba(255,154,68,0.05) 0%, rgba(255,255,255,0.02) 100%)", border: "1px solid rgba(255,154,68,0.2)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+                    <div style={{ padding: "8px", borderRadius: "8px", background: "rgba(255,154,68,0.1)" }}>
+                      <BrainCircuit size={20} color="var(--accent-orange)" />
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: "16px", fontWeight: 700 }}>AI Strategic Insight</h3>
+                      <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>Proactive business intelligence</p>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: "15px", lineHeight: "1.6", color: "rgba(255,255,255,0.9)", fontStyle: "italic" }}>
+                    "{facts.find(f => f.key === "smart_recommendation")?.value || "Analyzing store trends... check back soon for your next strategic move."}"
+                  </p>
+                </div>
+
                 <div className="glass-card" style={{ gridColumn: "1 / -1" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
                     <h3 style={{ display: "flex", alignItems: "center", gap: "10px" }}><Activity size={18} color="var(--accent-cyan)" /> Live Pulse</h3>
