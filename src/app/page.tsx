@@ -96,7 +96,7 @@ export default function MissionControl() {
           <div style={{
             width: "32px",
             height: "32px",
-            background: "linear-gradient(135deg, var(--accent-orange), #ff9a44)",
+            background: "linear-gradient(135deg, var(--accent-orange), var(--accent-amber))",
             borderRadius: "8px",
             display: "flex",
             alignItems: "center",

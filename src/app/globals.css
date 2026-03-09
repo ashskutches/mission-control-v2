@@ -1,28 +1,29 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  /* Core Palette - Deep Midnight */
-  --bg-deep: #020202;
-  --bg-darker: #060606;
-  --bg-card: rgba(18, 18, 18, 0.4);
-  --bg-elevated: rgba(255, 255, 255, 0.03);
+  /* Core Palette - Brand Identity */
+  --bg-deep: #1a1a1c;
+  --bg-darker: #2e2e30;
+  --bg-card: rgba(46, 46, 48, 0.5);
+  --bg-elevated: rgba(255, 255, 255, 0.04);
 
-  /* Brand Accents - Vibrant Silicon */
-  --accent-orange: #FF6B00;
-  --accent-blue: #007AFF;
-  --accent-cyan: #00D1FF;
-  --accent-purple: #9D00FF;
-  --accent-emerald: #00FF94;
-  --accent-rose: #FF005C;
+  /* Brand Accents */
+  --accent-orange: #e98d20;
+  --accent-amber: #f5a623;
+  --accent-blue: #5a9fd4;
+  --accent-cyan: #7ec8d9;
+  --accent-purple: #a87fd4;
+  --accent-emerald: #6bbd7b;
+  --accent-rose: #d96b6b;
 
-  /* Text - High Legibility */
+  /* Text - Brand Legibility */
   --text-primary: #FFFFFF;
-  --text-secondary: rgba(255, 255, 255, 0.75);
-  --text-muted: rgba(255, 255, 255, 0.45);
-  --text-dim: rgba(255, 255, 255, 0.2);
+  --text-secondary: #D1D1D1;
+  --text-muted: rgba(209, 209, 209, 0.6);
+  --text-dim: rgba(209, 209, 209, 0.3);
 
   /* Glass & Borders */
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(209, 209, 209, 0.1);
   --glass-blur: blur(24px);
   --border-radius: 16px;
 
@@ -60,7 +61,7 @@ body {
   position: absolute;
   width: 50vw;
   height: 50vh;
-  background: radial-gradient(circle at center, rgba(0, 122, 255, 0.05) 0%, transparent 70%);
+  background: radial-gradient(circle at center, rgba(233, 141, 32, 0.06) 0%, transparent 70%);
   top: -10%;
   right: -10%;
   z-index: -1;
@@ -71,7 +72,7 @@ body {
   position: absolute;
   width: 40vw;
   height: 40vh;
-  background: radial-gradient(circle at center, rgba(255, 107, 0, 0.03) 0%, transparent 70%);
+  background: radial-gradient(circle at center, rgba(233, 141, 32, 0.03) 0%, transparent 70%);
   bottom: -10%;
   left: 20%;
   z-index: -1;
@@ -93,7 +94,7 @@ body {
 
 .glass-card:hover {
   border-color: rgba(255, 255, 255, 0.15);
-  background: rgba(40, 40, 40, 0.4);
+  background: rgba(58, 58, 60, 0.5);
 }
 
 /* Typography */
@@ -106,7 +107,7 @@ h3 {
 
 .page-title {
   font-size: 32px;
-  background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.6) 100%);
+  background: linear-gradient(135deg, #fff 0%, #D1D1D1 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -152,9 +153,9 @@ h3 {
 }
 
 .nav-link.active {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(233, 141, 32, 0.1);
   color: var(--text-primary);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(233, 141, 32, 0.2);
 }
 
 /* Status Indicators */
@@ -163,8 +164,8 @@ h3 {
   align-items: center;
   gap: 8px;
   padding: 4px 12px;
-  background: rgba(0, 255, 148, 0.05);
-  border: 1px solid rgba(0, 255, 148, 0.1);
+  background: rgba(107, 189, 123, 0.08);
+  border: 1px solid rgba(107, 189, 123, 0.15);
   border-radius: 99px;
   color: var(--accent-emerald);
   font-size: 12px;

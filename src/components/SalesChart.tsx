@@ -73,11 +73,11 @@ export const SalesChart = ({ data, total30d }: SalesChartProps) => {
                     gap: "8px",
                     padding: "8px 16px",
                     borderRadius: "12px",
-                    background: "rgba(0, 255, 148, 0.08)",
-                    border: "1px solid rgba(0, 255, 148, 0.15)",
+                    background: "rgba(233, 141, 32, 0.1)",
+                    border: "1px solid rgba(233, 141, 32, 0.2)",
                 }}>
-                    <DollarSign size={16} color="var(--accent-emerald)" />
-                    <span style={{ fontSize: "20px", fontWeight: 700, color: "var(--accent-emerald)" }}>
+                    <DollarSign size={16} color="var(--accent-orange)" />
+                    <span style={{ fontSize: "20px", fontWeight: 700, color: "var(--accent-orange)" }}>
                         {total30d.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                     <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase" }}>30d total</span>
@@ -93,12 +93,12 @@ export const SalesChart = ({ data, total30d }: SalesChartProps) => {
                 {/* Gradient */}
                 <defs>
                     <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--accent-emerald)" stopOpacity="0.3" />
-                        <stop offset="100%" stopColor="var(--accent-emerald)" stopOpacity="0.02" />
+                        <stop offset="0%" stopColor="var(--accent-orange)" stopOpacity="0.3" />
+                        <stop offset="100%" stopColor="var(--accent-orange)" stopOpacity="0.02" />
                     </linearGradient>
                     <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="var(--accent-cyan)" />
-                        <stop offset="100%" stopColor="var(--accent-emerald)" />
+                        <stop offset="0%" stopColor="var(--accent-amber)" />
+                        <stop offset="100%" stopColor="var(--accent-orange)" />
                     </linearGradient>
                 </defs>
 
@@ -155,7 +155,7 @@ export const SalesChart = ({ data, total30d }: SalesChartProps) => {
                         cy={p.y}
                         r="3"
                         fill="var(--bg-deep)"
-                        stroke="var(--accent-emerald)"
+                        stroke="var(--accent-orange)"
                         strokeWidth="1.5"
                         initial={{ opacity: 0, scale: 0 }}
                         animate={{ opacity: 1, scale: 1 }}
