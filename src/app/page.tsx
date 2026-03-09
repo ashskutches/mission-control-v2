@@ -20,6 +20,7 @@ import { StatCard } from "@/components/StatCard";
 import { SynergyFeed } from "@/components/SynergyFeed";
 import { NeuralExplorer } from "@/components/NeuralExplorer";
 import { ProviderMatrix } from "@/components/ProviderMatrix";
+import { SalesChart } from "@/components/SalesChart";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -264,6 +265,11 @@ export default function MissionControl() {
                   <>
                     <StatCard label="Revenue Today" value={`$${Number(shopify.todayRevenue || 0).toLocaleString()}`} subValue="Commerce throughput" color="var(--accent-emerald)" />
                     <StatCard label="Orders Today" value={shopify.todayOrders || "0"} subValue="Processing queue" />
+                    <StatCard label="30-Day Revenue" value={`$${Number(shopify.total30d || 0).toLocaleString()}`} subValue="Monthly performance" color="var(--accent-orange)" />
+
+                    {/* 30-Day Sales Chart */}
+                    <SalesChart data={shopify.dailySales || []} total30d={shopify.total30d || 0} />
+
                     <StatCard label="AOV" value={`$${shopify.aov || "0.00"}`} subValue="Customer quality" color="var(--accent-purple)" />
                     <StatCard label="Total Products" value={shopify.totalProducts || "0"} subValue="Catalog size" color="var(--accent-cyan)" />
 
@@ -297,6 +303,7 @@ export default function MissionControl() {
                 )}
               </>
             )}
+
 
 
             {/* ── Tab: Engine ── */}
