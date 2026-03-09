@@ -395,6 +395,33 @@ export default function MissionControl() {
                     {/* 30-Day Sales Chart */}
                     <SalesChart data={shopify.dailySales || []} total30d={shopify.total30d || 0} />
 
+                    {/* Financial Breakdown Section */}
+                    <div className="glass-card" style={{ gridColumn: "1 / -1" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
+                        <div style={{ padding: "8px", borderRadius: "8px", background: "rgba(16, 185, 129, 0.1)" }}>
+                          <TrendingUp size={20} color="var(--accent-emerald)" />
+                        </div>
+                        <h3 style={{ fontSize: "16px", fontWeight: 700 }}>Financial Breakdown (Today)</h3>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px" }}>
+                        {[
+                          { label: "Gross Sales", value: shopify.breakdown?.grossSales, color: "var(--text-primary)" },
+                          { label: "Discounts", value: `-${shopify.breakdown?.discounts}`, color: "var(--accent-orange)" },
+                          { label: "Returns", value: `-${shopify.breakdown?.refunds}`, color: "var(--accent-rose)" },
+                          { label: "Shipping", value: `+${shopify.breakdown?.shipping}`, color: "var(--accent-blue)" },
+                          { label: "Taxes", value: `+${shopify.breakdown?.taxes}`, color: "var(--accent-cyan)" },
+                          { label: "Total Sales", value: shopify.breakdown?.totalSales, color: "var(--accent-emerald)", bold: true }
+                        ].map((item, idx) => (
+                          <div key={idx} style={{ padding: "16px", background: "rgba(255,255,255,0.02)", borderRadius: "12px", border: "1px solid var(--glass-border)" }}>
+                            <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "4px" }}>{item.label}</div>
+                            <div style={{ fontSize: "18px", fontWeight: item.bold ? 800 : 600, color: item.color }}>
+                              {typeof item.value === "number" ? `$${item.value.toLocaleString()}` : item.value || "$0.00"}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                     <StatCard label="AOV" value={`$${shopify.aov || "0.00"}`} subValue="Customer quality" color="var(--accent-purple)" />
                     <StatCard label="Total Products" value={shopify.totalProducts || "0"} subValue="Catalog size" color="var(--accent-cyan)" />
 
