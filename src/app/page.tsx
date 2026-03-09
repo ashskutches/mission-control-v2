@@ -54,6 +54,9 @@ export default function MissionControl() {
   // 1. Unified Data Orchestration
   useEffect(() => {
     const fetchData = async () => {
+      console.log("🔍 [MissionControl] Fetching data... Bot URL:", BOT_URL);
+      console.log("🔍 [MissionControl] Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL ? "SET" : "MISSING");
+
       // Supabase Calls
       const [actResp, factResp, costResp] = await Promise.all([
         supabase.from("activity_log").select("*").order("created_at", { ascending: false }).limit(40),
