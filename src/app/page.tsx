@@ -408,17 +408,17 @@ export default function MissionControl() {
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px" }}>
                         {[
-                          { label: "Gross Sales", value: shopify.breakdown?.grossSales, color: "var(--text-primary)" },
-                          { label: "Discounts", value: `-${shopify.breakdown?.discounts}`, color: "var(--accent-orange)" },
-                          { label: "Returns", value: `-${shopify.breakdown?.refunds}`, color: "var(--accent-rose)" },
-                          { label: "Shipping", value: `+${shopify.breakdown?.shipping}`, color: "var(--accent-blue)" },
-                          { label: "Taxes", value: `+${shopify.breakdown?.taxes}`, color: "var(--accent-cyan)" },
-                          { label: "Total Sales", value: shopify.breakdown?.totalSales, color: "var(--accent-emerald)", bold: true }
+                          { label: "Gross Sales", value: shopify.breakdown?.grossSales || 0, color: "var(--text-primary)" },
+                          { label: "Discounts", value: -(shopify.breakdown?.discounts || 0), color: "var(--accent-orange)" },
+                          { label: "Returns", value: -(shopify.breakdown?.refunds || 0), color: "var(--accent-rose)" },
+                          { label: "Shipping", value: +(shopify.breakdown?.shipping || 0), color: "var(--accent-blue)" },
+                          { label: "Taxes", value: +(shopify.breakdown?.taxes || 0), color: "var(--accent-cyan)" },
+                          { label: "Total Sales", value: shopify.breakdown?.totalSales || 0, color: "var(--accent-emerald)", bold: true }
                         ].map((item, idx) => (
                           <div key={idx} style={{ padding: "16px", background: "rgba(255,255,255,0.02)", borderRadius: "12px", border: "1px solid var(--glass-border)" }}>
                             <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "4px" }}>{item.label}</div>
                             <div style={{ fontSize: "18px", fontWeight: item.bold ? 800 : 600, color: item.color }}>
-                              {typeof item.value === "number" ? `$${item.value.toLocaleString()}` : item.value || "$0.00"}
+                              {`$${(Number(item.value) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                             </div>
                           </div>
                         ))}
