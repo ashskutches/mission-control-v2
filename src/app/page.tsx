@@ -12,7 +12,10 @@ import {
   ShoppingCart,
   Activity,
   Maximize2,
-  Github
+  Github,
+  Users,
+  Menu,
+  X
 } from "lucide-react";
 
 // Components
@@ -31,6 +34,7 @@ const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
 const NAVIGATION = [
   { id: "overview", label: "Overview", icon: <LayoutDashboard size={18} /> },
+  { id: "roster", label: "Roster", icon: <Users size={18} /> },
   { id: "war-room", label: "War Room", icon: <ShieldAlert size={18} /> },
   { id: "neural", label: "Neural Graph", icon: <BrainCircuit size={18} /> },
   { id: "commerce", label: "Commerce", icon: <ShoppingCart size={18} /> },
@@ -45,6 +49,7 @@ export default function MissionControl() {
   const [health, setHealth] = useState<any>(null);
   const [shopify, setShopify] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // 1. Unified Data Orchestration
   useEffect(() => {
@@ -90,8 +95,46 @@ export default function MissionControl() {
       <div className="bg-glow" />
       <div className="bg-glow-2" />
 
+      {/* Mobile Header */}
+      <header style={{
+        display: "none",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "16px",
+        background: "var(--bg-darker)",
+        borderBottom: "1px solid var(--glass-border)",
+        position: "sticky",
+        top: 0,
+        zIndex: 1100
+      }} className="mobile-header">
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ width: "24px", height: "24px", background: "var(--accent-orange)", borderRadius: "6px" }} />
+          <h2 style={{ fontSize: "14px", fontWeight: 800 }}>MISSION CONTROL</h2>
+        </div>
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          style={{ background: "none", border: "none", color: "#fff", cursor: "pointer" }}
+        >
+          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </header>
+
+      {/* Sidebar Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          onClick={() => setIsMobileMenuOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 900
+          }}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${isMobileMenuOpen ? "mobile-open" : ""}`}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "0 8px" }}>
           <div style={{
             width: "32px",
@@ -112,7 +155,10 @@ export default function MissionControl() {
           {NAVIGATION.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                setActiveTab(item.id);
+                setIsMobileMenuOpen(false);
+              }}
               className={`nav-link ${activeTab === item.id ? "active" : ""}`}
             >
               {item.icon}
@@ -199,6 +245,85 @@ export default function MissionControl() {
                     <button style={{ color: "var(--accent-blue)", fontSize: "12px", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>TIMELINE →</button>
                   </div>
                   <SynergyFeed items={activity.slice(0, 5)} />
+                </div>
+              </>
+            )}
+
+            {/* ── Tab: Roster ── */}
+            {activeTab === "roster" && (
+              <>
+                <div style={{ gridColumn: "1 / -1", marginBottom: "12px" }}>
+                  <h1 className="page-title">Agent Roster</h1>
+                  <p style={{ color: "var(--text-secondary)", marginTop: "8px", fontSize: "15px" }}>Active intelligence units and unit distribution</p>
+                </div>
+
+                <div className="glass-card" style={{ gridColumn: "1 / -1" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px" }}>
+                    {[
+                      {
+                        name: "Antigravity",
+                        role: "Master Architect / Builder",
+                        status: "active",
+                        tools: ["filesystem", "browser", "terminal"],
+                        id: "AG-001"
+                      },
+                      {
+                        name: "Gravity Claw",
+                        role: "Executive Manager / Bridge",
+                        status: health?.status === "ok" ? "active" : "standby",
+                        tools: ["shopify", "telegram", "alexa", "backups"],
+                        id: "GC-002"
+                      },
+                      {
+                        name: "Developer Sub-agent",
+                        role: "Autonomous Audit / Proposals",
+                        status: activity.some(a => a.action === "dev_proposal") ? "active" : "idle",
+                        tools: ["code_audit", "shopify_diag"],
+                        id: "DS-003"
+                      },
+                      {
+                        name: "Monitor Sub-agent",
+                        role: "Memory Guard / Health Watch",
+                        status: "active",
+                        tools: ["process_monitor", "health_check"],
+                        id: "MS-004"
+                      }
+                    ].map(agent => (
+                      <div key={agent.id} className="glass-card" style={{ background: "rgba(255,255,255,0.01)", padding: "20px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+                          <div>
+                            <h4 style={{ fontSize: "18px", fontWeight: 700, color: "var(--accent-orange)" }}>{agent.name}</h4>
+                            <p style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>{agent.role}</p>
+                          </div>
+                          <div className={`status-pill ${agent.status}`} style={{
+                            background: agent.status === "active" ? "rgba(107, 189, 123, 0.1)" : "rgba(209, 209, 209, 0.05)",
+                            color: agent.status === "active" ? "var(--accent-emerald)" : "var(--text-muted)",
+                            borderColor: agent.status === "active" ? "var(--accent-emerald)" : "var(--glass-border)",
+                            padding: "4px 10px",
+                            borderRadius: "12px",
+                            fontSize: "10px",
+                            fontWeight: 800
+                          }}>
+                            {agent.status.toUpperCase()}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                          {agent.tools.map(tool => (
+                            <span key={tool} style={{
+                              fontSize: "10px",
+                              padding: "2px 8px",
+                              background: "rgba(255,255,255,0.05)",
+                              borderRadius: "4px",
+                              color: "var(--text-secondary)"
+                            }}>{tool}</span>
+                          ))}
+                        </div>
+                        <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px solid var(--glass-border)", fontSize: "11px", color: "var(--text-dim)" }}>
+                          UNIT ID: {agent.id}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </>
             )}
@@ -303,8 +428,6 @@ export default function MissionControl() {
                 )}
               </>
             )}
-
-
 
             {/* ── Tab: Engine ── */}
             {activeTab === "engine" && (
