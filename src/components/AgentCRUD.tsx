@@ -40,7 +40,6 @@ const AVAILABLE_FEATURES = [
     { id: "shopify", label: "Shopify Access", icon: Cpu },
     { id: "search", label: "Web Search", icon: Globe },
     { id: "memory", label: "Long-term Memory", icon: ShieldCheck },
-    { id: "broadcast", label: "Slack Broadcast", icon: RefreshCcw }
 ];
 
 const PRIMING_FIELDS = [
