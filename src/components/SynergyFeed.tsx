@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { motion } from "framer-motion";
-import { Github, Zap, Shield, MessageSquare, Database, Activity } from "lucide-react";
+import { Github, Zap, Shield, MessageSquare, Database, Activity, Code2, Sparkles } from "lucide-react";
 
 interface SynergyItem {
     id: string;
@@ -13,20 +13,21 @@ interface SynergyItem {
 
 const getIcon = (action: string) => {
     switch (action) {
-        case "tool_use": return <Database size={16} />;
-        case "dev_proposal": return <Github size={16} />;
-        case "message": return <MessageSquare size={16} />;
-        case "synergy_handshake": return <Zap size={16} />;
-        case "health_check": return <Shield size={16} />;
-        default: return <Activity size={16} />;
+        case "tool_use": return <Database size={14} />;
+        case "dev_proposal": return <Code2 size={14} />;
+        case "message": return <MessageSquare size={14} />;
+        case "synergy_handshake": return <Sparkles size={14} />;
+        case "health_check": return <Shield size={14} />;
+        default: return <Activity size={14} />;
     }
 };
 
 const getActionColor = (action: string) => {
     switch (action) {
         case "dev_proposal": return "var(--accent-orange)";
-        case "synergy_handshake": return "var(--accent-blue)";
-        case "tool_use": return "var(--accent-emerald)";
+        case "synergy_handshake": return "var(--accent-purple)";
+        case "tool_use": return "var(--accent-blue)";
+        case "health_check": return "var(--accent-emerald)";
         case "error": return "var(--accent-rose)";
         default: return "var(--text-muted)";
     }
@@ -34,39 +35,46 @@ const getActionColor = (action: string) => {
 
 export const SynergyFeed = ({ items }: { items: SynergyItem[] }) => {
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {items.map((item, i) => (
-                <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="glass-card"
-                    style={{ padding: "16px", display: "flex", alignItems: "flex-start", gap: "16px" }}
-                >
-                    <div style={{
-                        width: "36px",
-                        height: "36px",
-                        borderRadius: "10px",
-                        background: "var(--bg-elevated)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: getActionColor(item.action),
-                        border: `1px solid ${getActionColor(item.action)}22`
-                    }}>
-                        {getIcon(item.action)}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)" }}>{item.details}</div>
-                        <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px", display: "flex", gap: "8px", textTransform: "uppercase" }}>
-                            <span className="mono" style={{ color: getActionColor(item.action) }}>{item.action}</span>
-                            <span>•</span>
-                            <span>{new Date(item.created_at).toLocaleTimeString()}</span>
+        <div className="flex flex-col gap-3">
+            {items.map((item, i) => {
+                const color = getActionColor(item.action);
+
+                return (
+                    <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.04, ease: "easeOut" }}
+                        className="flex items-center gap-4 px-4 py-3 rounded-xl bg-[var(--bg-elevated)] border border-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.06)] transition-all group"
+                    >
+                        <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-lg"
+                            style={{ background: `${color}15`, color: color, border: `1px solid ${color}30` }}
+                        >
+                            {getIcon(item.action)}
                         </div>
-                    </div>
-                </motion.div>
-            ))}
+
+                        <div className="flex-1 min-w-0">
+                            <div className="text-sm font-bold text-[var(--text-primary)] truncate group-hover:text-[var(--accent-cyan)] transition-colors">
+                                {item.details}
+                            </div>
+                            <div className="flex items-center gap-3 mt-1">
+                                <span
+                                    className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-black/20"
+                                    style={{ color: color }}
+                                >
+                                    {item.action}
+                                </span>
+                                <span className="text-[10px] font-medium text-[var(--text-dim)]">
+                                    {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="w-1.5 h-1.5 rounded-full bg-[var(--text-dim)] opacity-20 group-hover:bg-[var(--accent-emerald)] group-hover:opacity-100 transition-all shadow-[0_0_8px_var(--accent-emerald)]" />
+                    </motion.div>
+                );
+            })}
         </div>
     );
 };

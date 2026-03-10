@@ -1,34 +1,39 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  /* Core Palette - Brand Identity */
-  --bg-deep: #1a1a1c;
-  --bg-darker: #2e2e30;
-  --bg-card: rgba(46, 46, 48, 0.5);
-  --bg-elevated: rgba(255, 255, 255, 0.04);
+  /* Core Palette - Midnight Foundation */
+  --bg-deep: #0a0a0c;
+  --bg-darker: #121214;
+  --bg-card: rgba(18, 18, 20, 0.7);
+  --bg-elevated: rgba(255, 255, 255, 0.03);
 
-  /* Brand Accents */
-  --accent-orange: #e98d20;
-  --accent-amber: #f5a623;
-  --accent-blue: #5a9fd4;
-  --accent-cyan: #7ec8d9;
-  --accent-purple: #a87fd4;
-  --accent-emerald: #6bbd7b;
-  --accent-rose: #d96b6b;
+  /* Brand Accents - Vibrant & Premium */
+  --accent-orange: #ff8c00;
+  --accent-amber: #ffb700;
+  --accent-blue: #00aaff;
+  --accent-cyan: #00e5ff;
+  --accent-purple: #bf00ff;
+  --accent-emerald: #00ff88;
+  --accent-rose: #ff3c5c;
+  --accent-gold: #ffd700;
 
-  /* Text - Brand Legibility */
-  --text-primary: #FFFFFF;
-  --text-secondary: #D1D1D1;
-  --text-muted: rgba(209, 209, 209, 0.6);
-  --text-dim: rgba(209, 209, 209, 0.3);
+  /* Text - High Contrast Legibility */
+  --text-primary: #f8f9fa;
+  --text-secondary: #adb5bd;
+  --text-muted: rgba(173, 181, 189, 0.6);
+  --text-dim: rgba(173, 181, 189, 0.3);
 
-  /* Glass & Borders */
-  --glass-border: rgba(209, 209, 209, 0.1);
-  --glass-blur: blur(24px);
-  --border-radius: 16px;
+  /* Glass & Borders - Translucent Precision */
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: blur(20px);
+  --border-radius-sm: 8px;
+  --border-radius-md: 16px;
+  --border-radius-lg: 24px;
 
-  /* Animation */
-  --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Animation - High Motion Curve */
+  --transition-fast: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-slow: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 /* ── Reset ── */
