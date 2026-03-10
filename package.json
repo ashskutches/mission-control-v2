@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",
+    "bulma": "^1.0.4",
     "clsx": "^2.1.1",
     "framer-motion": "^12.35.1",
     "lucide-react": "^0.577.0",

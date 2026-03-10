@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "bulma/css/bulma.css";
 
 :root {
   /* Core Palette - Midnight Foundation */
@@ -36,107 +37,72 @@
   --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* ── Reset ── */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
+/* ── Bulma Overrides ── */
 body {
   background: var(--bg-deep);
   color: var(--text-primary);
-  font-family: 'Outfit', -apple-system, sans-serif;
-  letter-spacing: -0.01em;
-  -webkit-font-smoothing: antialiased;
-  overflow: hidden;
-  height: 100vh;
+  font-family: 'Outfit', -apple-system, blinkmacsystemfont, "Segoe UI", roboto, oxygen, ubuntu, cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  min-height: 100vh;
 }
 
-/* ── Layout ── */
-.app-container {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  height: 100vh;
-  position: relative;
+.title,
+.subtitle {
+  color: var(--text-primary) !important;
 }
 
-@media (max-width: 1024px) {
-  .app-container {
-    grid-template-columns: 80px 1fr;
-  }
-}
-
-@media (max-width: 768px) {
-  .app-container {
-    display: block;
-    grid-template-columns: 1fr;
-  }
-
-  section.ml-\[280px\] {
-    margin-left: 0 !important;
-    padding: 20px !important;
-  }
-}
-
-/* ── Components ── */
-
-/* Glass Cards */
-.glass-card {
-  background: var(--bg-card);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+.box {
+  background-color: var(--bg-darker) !important;
+  color: var(--text-primary) !important;
   border: 1px solid var(--glass-border);
-  border-radius: var(--border-radius-md);
-  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.button.is-primary {
+  background-color: var(--accent-orange) !important;
+  border-color: transparent !important;
   transition: var(--transition-fast);
 }
 
-.glass-card:hover {
-  border-color: rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.04);
+.button.is-primary:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 20px rgba(255, 140, 0, 0.3);
 }
 
-@media (max-width: 640px) {
-  .glass-card {
-    padding: 16px;
+.navbar,
+.hero.is-primary {
+  background-color: #000 !important;
+}
+
+/* ── Layout Fixes ── */
+.app-wrapper {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar-bulma {
+  width: 280px;
+  background: #000;
+  border-right: 1px solid var(--glass-border);
+  padding: 30px 20px;
+  flex-shrink: 0;
+}
+
+.main-content {
+  flex-grow: 1;
+  padding: 40px;
+}
+
+@media screen and (max-width: 1023px) {
+  .sidebar-bulma {
+    display: none;
   }
 }
 
-/* Typography */
-h1,
-h2,
-h3 {
-  font-weight: 800;
-  letter-spacing: -0.03em;
-}
-
-.page-title {
-  font-size: 3rem;
-  font-weight: 900;
-  background: linear-gradient(135deg, #fff 0%, var(--text-muted) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-@media (max-width: 768px) {
-  .page-title {
-    font-size: 2.5rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .page-title {
-    font-size: 2rem;
-  }
-}
-
+/* ── Custom Utilities ── */
 .mono {
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* ── Custom Scrollbar ── */
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
 }
@@ -152,61 +118,4 @@ h3 {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--text-dim);
-}
-
-/* ── Utilities ── */
-.hide-mobile {
-  @media (max-width: 768px) {
-    display: none !important;
-  }
-}
-
-.show-mobile {
-  display: none;
-
-  @media (max-width: 768px) {
-    display: block;
-  }
-}
-
-/* ── Mobile UI Additions ── */
-.mobile-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-  z-index: 45;
-}
-
-@media (max-width: 768px) {
-  .sidebar-container {
-    transform: translateX(-100%);
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .sidebar-container.mobile-open {
-    transform: translateX(0);
-  }
-}
-
-/* Animations */
-@keyframes pulseGlow {
-  0% {
-    opacity: 0.5;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 0.8;
-    transform: scale(1.05);
-  }
-
-  100% {
-    opacity: 0.5;
-    transform: scale(1);
-  }
-}
-
-.pulse-glow {
-  animation: pulseGlow 4s infinite ease-in-out;
 }

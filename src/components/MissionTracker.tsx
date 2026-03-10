@@ -12,6 +12,8 @@ import {
     ArrowUpRight
 } from "lucide-react";
 
+import { cn } from "@/app/lib/utils";
+
 interface Mission {
     id: string;
     title: string;
@@ -36,92 +38,94 @@ export const MissionTracker = () => {
     const calculateProgress = (m: Mission) => Math.min(100, (m.current / m.target) * 100);
 
     return (
-        <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[rgba(0,170,255,0.1)] flex items-center justify-center text-[var(--accent-blue)] border border-[rgba(0,170,255,0.1)]">
-                        <Target size={20} />
-                    </div>
-                    <div>
-                        <h3 className="text-xl font-black text-[var(--text-primary)] uppercase tracking-tighter">Strategic Missions</h3>
-                        <p className="text-[10px] font-bold text-[var(--text-dim)] uppercase tracking-widest">Autonomous Goal Alignment</p>
+        <div className="is-flex is-flex-direction-column" style={{ gap: '1.5rem' }}>
+            <div className="level is-mobile mb-2 pr-2">
+                <div className="level-left">
+                    <div className="is-flex is-align-items-center" style={{ gap: '1rem' }}>
+                        <div className="is-flex is-justify-content-center is-align-items-center" style={{ width: '40px', height: '40px', background: 'rgba(0,170,255,0.1)', borderRadius: '10px', color: 'var(--accent-blue)', border: '1px solid rgba(0,170,255,0.1)' }}>
+                            <Target size={20} />
+                        </div>
+                        <div>
+                            <h3 className="title is-size-5 has-text-white mb-0 uppercase tracking-tight">Strategic Missions</h3>
+                            <p className="is-size-7 has-text-grey is-uppercase has-text-weight-bold tracking-widest" style={{ fontSize: '9px' }}>Objective Alignment Log</p>
+                        </div>
                     </div>
                 </div>
-                <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/5 text-[11px] font-black text-[var(--text-muted)] uppercase tracking-widest hover:bg-white/[0.08] transition-all">
-                    <Plus size={14} />
-                    New Deploy
-                </button>
+                <div className="level-right">
+                    <button className="button is-dark is-small is-uppercase has-text-weight-black">
+                        <Plus size={14} className="mr-2" />
+                        Deploy Node
+                    </button>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
+            <div className="columns is-multiline">
                 {missions.map((mission) => (
-                    <motion.div
-                        key={mission.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="glass-card p-6 flex flex-col gap-6 border-[rgba(255,255,255,0.03)] group hover:border-[rgba(0,170,255,0.3)] transition-all overflow-hidden relative"
-                    >
-                        {/* Background Pulse */}
-                        <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                            <Flag size={80} />
-                        </div>
-
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-                            <div className="flex flex-col gap-1">
-                                <div className="flex items-center gap-2">
-                                    <span className={`w-1.5 h-1.5 rounded-full ${mission.status === 'active' ? 'bg-[var(--accent-cyan)] shadow-[0_0_8px_var(--accent-cyan)] animate-pulse' : 'bg-emerald-500'}`} />
-                                    <h4 className="text-lg font-black text-[var(--text-primary)] uppercase tracking-tight">{mission.title}</h4>
+                    <div key={mission.id} className="column is-12">
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="box p-6 is-relative overflow-hidden group mb-0"
+                            style={{ background: 'rgba(255,255,255,0.02) !important', border: '1px solid var(--glass-border)' }}
+                        >
+                            <div className="columns is-vcentered">
+                                <div className="column">
+                                    <div className="is-flex is-align-items-center mb-2" style={{ gap: '0.75rem' }}>
+                                        <div className={cn("w-2 h-2 rounded-full", mission.status === 'active' ? "bg-info animate-pulse shadow-sm" : "bg-success")} style={{ width: '8px', height: '8px' }} />
+                                        <h4 className="title is-size-5 has-text-white mb-0 uppercase tracking-tight">{mission.title}</h4>
+                                    </div>
+                                    <div className="is-flex is-align-items-center" style={{ gap: '1rem' }}>
+                                        <div className="is-flex is-align-items-center" style={{ gap: '0.4rem' }}>
+                                            <Clock size={12} className="has-text-grey" />
+                                            <span className="is-size-7 has-text-grey is-uppercase has-text-weight-bold" style={{ fontSize: '10px' }}>EOY 2026 Target</span>
+                                        </div>
+                                        <span className="tag is-black is-size-7 has-text-weight-black has-text-info">ACTIVE PROTOCOL</span>
+                                    </div>
                                 </div>
-                                <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-[0.2em] flex items-center gap-2">
-                                    <Clock size={10} />
-                                    Deadline: {new Date(mission.deadline).toLocaleDateString()}
-                                </p>
-                            </div>
-
-                            <div className="flex items-center gap-8">
-                                <div className="flex flex-col items-end">
-                                    <span className="text-[9px] font-black text-[var(--text-dim)] uppercase tracking-widest">Current Run Rate</span>
-                                    <span className="text-xl font-black text-[var(--text-primary)]">${(mission.current / 1000).toFixed(1)}K</span>
-                                </div>
-                                <div className="flex flex-col items-end">
-                                    <span className="text-[9px] font-black text-[var(--text-dim)] uppercase tracking-widest">Objective</span>
-                                    <span className="text-xl font-black text-[var(--accent-blue)]">${(mission.target / 1000000).toFixed(1)}M</span>
+                                <div className="column is-narrow has-text-right">
+                                    <div className="columns is-mobile is-gapless">
+                                        <div className="column is-narrow px-4" style={{ borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <p className="is-size-7 has-text-grey is-uppercase has-text-weight-black" style={{ fontSize: '8px' }}>Current Pace</p>
+                                            <p className="subtitle is-size-4 has-text-white has-text-weight-black mb-0">${(mission.current / 1000).toFixed(1)}K</p>
+                                        </div>
+                                        <div className="column is-narrow px-4">
+                                            <p className="is-size-7 has-text-grey is-uppercase has-text-weight-black" style={{ fontSize: '8px' }}>Objective</p>
+                                            <p className="subtitle is-size-4 has-text-info has-text-weight-black mb-0">${(mission.target / 1000000).toFixed(1)}M</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="flex flex-col gap-3 relative z-10">
-                            <div className="flex justify-between items-end">
-                                <span className="text-[11px] font-black text-[var(--text-primary)] uppercase tracking-wider">
-                                    Mission Completion: <span className="text-[var(--accent-blue)]">{calculateProgress(mission).toFixed(1)}%</span>
-                                </span>
-                                <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase italic">Autonomous Tracking Active</span>
+                            <div className="mt-5 mb-5">
+                                <div className="is-flex is-justify-content-between mb-2">
+                                    <span className="is-size-7 has-text-grey-light is-uppercase has-text-weight-black">Completion Density: {calculateProgress(mission).toFixed(1)}%</span>
+                                    <span className="is-size-7 has-text-grey italic" style={{ fontSize: '9px' }}>Real-time Trajectory Integration</span>
+                                </div>
+                                <progress className="progress is-info is-small" value={calculateProgress(mission)} max="100">{calculateProgress(mission)}%</progress>
                             </div>
-                            <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-px">
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${calculateProgress(mission)}%` }}
-                                    transition={{ duration: 1.5, ease: "easeOut" }}
-                                    className="h-full bg-gradient-to-r from-[var(--accent-blue)] via-[var(--accent-cyan)] to-[var(--accent-blue)] rounded-full shadow-[0_0_15px_rgba(0,170,255,0.4)]"
-                                />
-                            </div>
-                        </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 relative z-10">
-                            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex items-center gap-3">
-                                <TrendingUp size={14} className="text-[var(--accent-cyan)]" />
-                                <div className="text-[10px] font-black text-[var(--text-primary)] uppercase tracking-tight">MTD Momentum: +24%</div>
+                            <div className="columns is-mobile is-multiline mt-2">
+                                <div className="column is-4">
+                                    <div className="is-flex is-align-items-center" style={{ gap: '0.5rem' }}>
+                                        <TrendingUp size={14} className="has-text-info" />
+                                        <span className="is-size-7 has-text-grey-light has-text-weight-bold uppercase" style={{ fontSize: '10px' }}>MTD Delta: +24%</span>
+                                    </div>
+                                </div>
+                                <div className="column is-4">
+                                    <div className="is-flex is-align-items-center" style={{ gap: '0.5rem' }}>
+                                        <ArrowUpRight size={14} className="has-text-success" />
+                                        <span className="is-size-7 has-text-grey-light has-text-weight-bold uppercase" style={{ fontSize: '10px' }}>ROC Efficiency: 48.2x</span>
+                                    </div>
+                                </div>
+                                <div className="column is-4">
+                                    <div className="is-flex is-align-items-center" style={{ gap: '0.5rem' }}>
+                                        <CheckCircle2 size={14} className="has-text-grey" />
+                                        <span className="is-size-7 has-text-grey-light has-text-weight-bold uppercase" style={{ fontSize: '10px' }}>Nodes: 14/14</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex items-center gap-3">
-                                <ArrowUpRight size={14} className="text-[var(--accent-emerald)]" />
-                                <div className="text-[10px] font-black text-[var(--text-primary)] uppercase tracking-tight">Rev Over Cost: 48.2x</div>
-                            </div>
-                            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex items-center gap-3">
-                                <CheckCircle2 size={14} className="text-[var(--text-dim)]" />
-                                <div className="text-[10px] font-black text-[var(--text-primary)] uppercase tracking-tight">Nodes Active: 14/14</div>
-                            </div>
-                        </div>
-                    </motion.div>
+                        </motion.div>
+                    </div>
                 ))}
             </div>
         </div>

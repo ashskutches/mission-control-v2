@@ -18,76 +18,78 @@ export const GrowthTracker = ({ facts = [] }: GrowthTrackerProps) => {
     const progress = (current / target) * 100;
 
     return (
-        <div className="flex flex-col gap-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="glass-card p-6 flex flex-col gap-2 relative overflow-hidden group">
-                    <div className="flex items-center gap-2 text-[10px] font-black text-[var(--accent-orange)] uppercase tracking-widest bg-orange-500/10 w-fit px-2 py-1 rounded">
-                        <Target size={12} />
-                        Objective: 5X Growth
+        <div className="is-flex is-flex-direction-column" style={{ gap: '1.5rem' }}>
+            <div className="columns is-multiline">
+                <div className="column is-6">
+                    <div className="box p-5 is-relative overflow-hidden group" style={{ background: 'rgba(255,255,255,0.02) !important', border: '1px solid var(--glass-border)' }}>
+                        <div className="level is-mobile mb-4">
+                            <div className="level-left">
+                                <div className="is-flex is-align-items-center bg-warning-light p-2 rounded" style={{ gap: '0.5rem', background: 'rgba(255,140,0,0.1)' }}>
+                                    <Target size={12} className="has-text-warning" />
+                                    <span className="is-size-7 has-text-warning has-text-weight-black is-uppercase tracking-widest" style={{ fontSize: '9px' }}>Objective: 5X Growth</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p className="title is-size-3 has-text-white mb-1">${(target / 1000).toLocaleString()}K <span className="is-size-7 has-text-grey">/yr ARR</span></p>
+                        <p className="is-size-7 has-text-grey-light italic mb-0">Trajection required for strategic milestones.</p>
+                        <TrendingUp className="is-absolute" style={{ bottom: '-10px', right: '-10px', opacity: 0.03, pointerEvents: 'none' }} size={80} />
                     </div>
-                    <div className="text-3xl font-black text-[var(--text-primary)] mt-2">${(target / 1000).toLocaleString()}K <span className="text-sm font-bold text-[var(--text-dim)]">/yr ARR</span></div>
-                    <p className="text-xs font-medium text-[var(--text-secondary)] mt-1 leading-relaxed">
-                        Trajectory required for next 12 months to hit strategic milestones.
-                    </p>
-                    <TrendingUp className="absolute bottom-[-10px] right-[-10px] opacity-[0.03] group-hover:opacity-[0.1] transition-opacity" size={100} />
                 </div>
 
-                <div className="glass-card p-6 flex flex-col gap-2 relative overflow-hidden group">
-                    <div className="flex items-center gap-2 text-[10px] font-black text-[var(--accent-emerald)] uppercase tracking-widest bg-emerald-500/10 w-fit px-2 py-1 rounded">
-                        <Rocket size={12} />
-                        Current Momentum
-                    </div>
-                    <div className="text-3xl font-black text-[var(--text-primary)] mt-2">${(current / 1000).toLocaleString()}K <span className="text-sm font-bold text-[var(--text-dim)]">Trajectory</span></div>
-                    <div className="flex items-center gap-2 text-xs font-bold text-[var(--accent-emerald)] mt-1">
-                        <span>↑ {momentum} from last month</span>
+                <div className="column is-6">
+                    <div className="box p-5 is-relative overflow-hidden group" style={{ background: 'rgba(255,255,255,0.02) !important', border: '1px solid var(--glass-border)' }}>
+                        <div className="level is-mobile mb-4">
+                            <div className="level-left">
+                                <div className="is-flex is-align-items-center bg-success-light p-2 rounded" style={{ gap: '0.5rem', background: 'rgba(0,255,136,0.1)' }}>
+                                    <Rocket size={12} className="has-text-success" />
+                                    <span className="is-size-7 has-text-success has-text-weight-black is-uppercase tracking-widest" style={{ fontSize: '9px' }}>Momentum</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p className="title is-size-3 has-text-white mb-1">${(current / 1000).toLocaleString()}K <span className="is-size-7 has-text-grey">Trajectory</span></p>
+                        <p className="is-size-7 has-text-success has-text-weight-bold uppercase tracking-widest" style={{ fontSize: '10px' }}>↑ {momentum} FROM PREV PERIOD</p>
                     </div>
                 </div>
             </div>
 
-            <div className="glass-card p-6">
-                <div className="flex justify-between items-end mb-4">
-                    <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-black text-[var(--text-dim)] uppercase tracking-widest">Growth Progress</span>
-                        <span className="text-lg font-black text-[var(--text-primary)] uppercase tracking-tight">Mission Completion: {progress.toFixed(1)}%</span>
+            <div className="box p-6" style={{ background: 'rgba(255,255,255,0.02) !important', border: '1px solid var(--glass-border)' }}>
+                <div className="level is-mobile mb-5">
+                    <div className="level-left">
+                        <div>
+                            <p className="is-size-7 has-text-grey-light is-uppercase has-text-weight-black mb-1">Mission Progress</p>
+                            <h4 className="title is-size-5 has-text-white mb-0">Phase Alpha Completion: {progress.toFixed(1)}%</h4>
+                        </div>
                     </div>
-                    <span className="text-[10px] font-black text-[var(--text-muted)] uppercase">Economic Phase Alpha</span>
+                    <div className="level-right">
+                        <span className="tag is-black has-text-weight-black has-text-info">STRATEGIC NODE</span>
+                    </div>
                 </div>
 
-                <div className="h-4 w-full bg-[var(--bg-elevated)] rounded-full border border-white/5 overflow-hidden relative shadow-inner">
-                    <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progress}%` }}
-                        transition={{ duration: 1.5, ease: "circOut" }}
-                        className="h-full bg-gradient-to-r from-[var(--accent-blue)] via-[var(--accent-purple)] to-[var(--accent-cyan)] rounded-full relative"
-                    >
-                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20" />
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: [0.2, 0.5, 0.2] }}
-                            transition={{ duration: 2, repeat: Infinity }}
-                            className="absolute inset-y-0 right-0 w-8 bg-white/20 blur-md"
-                        />
-                    </motion.div>
+                <div className="is-relative mb-4">
+                    <progress className="progress is-info is-small" value={progress} max="100">{progress}%</progress>
                 </div>
 
-                <div className="grid grid-cols-4 gap-2 mt-4">
+                <div className="columns is-mobile is-gapless mb-0">
                     {[25, 50, 75, 100].map((mark) => (
-                        <div key={mark} className="flex flex-col gap-1">
-                            <div className={cn(
-                                "h-1 w-full rounded-full transition-colors",
-                                progress >= mark ? "bg-[var(--accent-cyan)]" : "bg-white/5"
-                            )} />
-                            <span className="text-[8px] font-bold text-[var(--text-dim)] text-center uppercase">{mark}%</span>
+                        <div key={mark} className="column has-text-centered">
+                            <div style={{ height: '4px', background: progress >= mark ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.05)', borderRadius: '2px', marginBottom: '8px' }} />
+                            <span className="is-size-7 has-text-grey has-text-weight-black" style={{ fontSize: '8px' }}>{mark}%</span>
                         </div>
                     ))}
                 </div>
             </div>
 
-            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--accent-orange)]/5 border border-[var(--accent-orange)]/20 animate-pulse">
-                <AlertTriangle size={14} className="text-[var(--accent-orange)]" />
-                <span className="text-[10px] font-black text-[var(--accent-orange)] uppercase tracking-widest">
-                    Critical Gap Detected: 35.8% increase in automated lead conversion required to hit $1M.
-                </span>
+            <div className="notification is-warning is-light p-4" style={{ background: 'rgba(255,140,0,0.05)', border: '1px solid rgba(255,140,0,0.2)' }}>
+                <div className="media is-align-items-center">
+                    <div className="media-left">
+                        <AlertTriangle size={16} className="has-text-warning" />
+                    </div>
+                    <div className="media-content">
+                        <p className="is-size-7 has-text-warning has-text-weight-black is-uppercase tracking-widest">
+                            Critical Gap Detected: 35.8% increase in conversion required for $1M target.
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
     );
