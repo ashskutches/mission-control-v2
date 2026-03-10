@@ -129,8 +129,9 @@ export const AgentCRUD = () => {
                 const body = await res.json().catch(() => ({}));
                 setError(body.error || `Server error ${res.status}`);
             }
-        } catch (e) {
-            setError("Network error — is Gravity Claw running?");
+        } catch (e: any) {
+            const msg = e?.message || String(e);
+            setError(`Network error — is Gravity Claw running? (${msg})`);
             console.error("Failed to create agent", e);
         } finally {
             setIsSubmitting(false);
