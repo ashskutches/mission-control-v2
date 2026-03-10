@@ -29,6 +29,7 @@ import { AgentRoster } from "@/components/AgentRoster";
 import { GrowthTracker } from "@/components/GrowthTracker";
 import { RosterManager } from "@/components/RosterManager";
 import { MissionTracker } from "@/components/MissionTracker";
+import { AgentCRUD } from "@/components/AgentCRUD";
 import { cn } from "@/app/lib/utils";
 import { APP_CONFIG } from "@/app/lib/AppConfig";
 
@@ -343,6 +344,13 @@ export default function MissionControl() {
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* ── Tab: Agents ── */}
+              {activeTab === "agents" && (
+                <div className="is-flex is-flex-direction-column" style={{ gap: '2rem' }}>
+                  <AgentCRUD />
                 </div>
               )}
 

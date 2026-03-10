@@ -1,5 +1,6 @@
 import {
     BarChart3,
+    Brain,
     BrainCircuit,
     LayoutDashboard,
     Network,
@@ -17,6 +18,7 @@ export const APP_CONFIG = {
         { id: 'war-room', href: '/war-room', icon: ShieldAlert, label: 'War Room' },
         { id: 'neural-graph', href: '/neural-graph', icon: BrainCircuit, label: 'Neural Graph' },
         { id: 'commerce', href: '/commerce', icon: BarChart3, label: 'Commerce' },
+        { id: 'agents', href: '/agents', icon: Brain, label: 'Agents' },
         { id: 'engine', href: '/engine', icon: Zap, label: 'Engine' },
         { id: 'network', href: '/network', icon: Network, label: 'Network' },
         { id: 'settings', href: '/settings', icon: Settings, label: 'Settings' },
