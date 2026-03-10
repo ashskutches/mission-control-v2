@@ -89,6 +89,8 @@ export const AgentCRUD = () => {
     const [agents, setAgents] = useState<AgentDef[]>([]);
     const [loading, setLoading] = useState(true);
     const [isCreating, setIsCreating] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
     const [newAgent, setNewAgent] = useState<Partial<AgentDef>>(defaultAgent);
 
@@ -110,33 +112,35 @@ export const AgentCRUD = () => {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsSubmitting(true);
+        setError(null);
         const id = `agent-${Date.now()}`;
         try {
             const res = await fetch(`${BOT_URL}/admin/agents`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    id,
-                    ...newAgent,
-                    api_key: process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN
-                })
+                body: JSON.stringify({ id, ...newAgent })
             });
             if (res.ok) {
                 await fetchAgents();
                 setIsCreating(false);
                 setNewAgent(defaultAgent);
+            } else {
+                const body = await res.json().catch(() => ({}));
+                setError(body.error || `Server error ${res.status}`);
             }
         } catch (e) {
-            console.error("Failed to create agent");
+            setError("Network error — is Gravity Claw running?");
+            console.error("Failed to create agent", e);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleDelete = async (id: string) => {
         if (!confirm("Are you sure you want to decommission this unit?")) return;
         try {
-            const res = await fetch(`${BOT_URL}/admin/agents/${id}?api_key=${process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN}`, {
-                method: "DELETE"
-            });
+            const res = await fetch(`${BOT_URL}/admin/agents/${id}`, { method: "DELETE" });
             if (res.ok) await fetchAgents();
         } catch (e) {
             console.error("Failed to delete agent");
@@ -290,9 +294,18 @@ export const AgentCRUD = () => {
                                 ))}
                             </div>
 
+                            {/* Error message */}
+                            {error && (
+                                <div className="notification is-danger is-light py-2 px-3 mt-4" style={{ fontSize: '13px' }}>
+                                    ⚠️ {error}
+                                </div>
+                            )}
+
                             <div className="is-flex is-justify-content-flex-end mt-4" style={{ gap: '1rem' }}>
-                                <button type="button" onClick={() => { setIsCreating(false); setNewAgent(defaultAgent); }} className="button is-dark is-small is-uppercase has-text-weight-black">Cancel</button>
-                                <button type="submit" className="button is-link is-small is-uppercase has-text-weight-black px-5">Deploy Unit</button>
+                                <button type="button" onClick={() => { setIsCreating(false); setNewAgent(defaultAgent); setError(null); }} className="button is-dark is-small is-uppercase has-text-weight-black">Cancel</button>
+                                <button type="submit" disabled={isSubmitting} className="button is-link is-small is-uppercase has-text-weight-black px-5">
+                                    {isSubmitting ? "Deploying..." : "Deploy Unit"}
+                                </button>
                             </div>
                         </form>
                     </motion.div>
