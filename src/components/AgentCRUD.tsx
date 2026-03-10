@@ -34,6 +34,7 @@ interface AgentDef {
     mission?: string;
     context?: string;
     constraints?: string;
+    emoji?: string;
 }
 
 const AVAILABLE_FEATURES = [
@@ -83,7 +84,10 @@ const defaultAgent: Partial<AgentDef> = {
     mission: "",
     context: "",
     constraints: "",
+    emoji: "🤖",
 };
+
+const EMOJI_PRESETS = ["🤖", "🛡️", "🎯", "🔍", "📊", "🚨", "⚙️", "📦", "💬", "🔔", "🗺️", "🧠"];
 
 export const AgentCRUD = () => {
     const [agents, setAgents] = useState<AgentDef[]>([]);
@@ -209,7 +213,32 @@ export const AgentCRUD = () => {
                                                 onChange={e => updateField("name", e.target.value)}
                                                 required
                                             />
-                                            <span className="icon is-small is-left"><Brain size={14} /></span>
+                                            <span className="icon is-small is-left">{newAgent.emoji || "🤖"}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="column is-6">
+                                    <div className="field">
+                                        <label className="label is-size-7 has-text-grey-light mb-2">Discord Icon (Emoji)</label>
+                                        <div className="control">
+                                            <input
+                                                className="input is-small"
+                                                type="text"
+                                                placeholder="e.g. 🛡️"
+                                                value={newAgent.emoji}
+                                                onChange={e => updateField("emoji", e.target.value)}
+                                                style={{ fontSize: '18px', width: '80px', display: 'inline-block' }}
+                                            />
+                                            <div className="is-flex mt-2" style={{ gap: '6px', flexWrap: 'wrap' }}>
+                                                {EMOJI_PRESETS.map(e => (
+                                                    <span
+                                                        key={e}
+                                                        onClick={() => updateField("emoji", e)}
+                                                        style={{ cursor: 'pointer', fontSize: '20px', opacity: newAgent.emoji === e ? 1 : 0.45, transition: 'opacity 0.15s' }}
+                                                        title={e}
+                                                    >{e}</span>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -322,8 +351,8 @@ export const AgentCRUD = () => {
                             <div className="level is-mobile mb-4">
                                 <div className="level-left">
                                     <div className="is-flex is-align-items-center" style={{ gap: '1rem' }}>
-                                        <div className="is-flex is-justify-content-center is-align-items-center" style={{ width: '40px', height: '40px', background: 'rgba(255,140,0,0.1)', borderRadius: '10px', color: 'var(--accent-orange)' }}>
-                                            <Brain size={20} />
+                                        <div className="is-flex is-justify-content-center is-align-items-center" style={{ width: '44px', height: '44px', background: 'rgba(255,140,0,0.1)', borderRadius: '10px', fontSize: '22px' }}>
+                                            {agent.emoji || "🤖"}
                                         </div>
                                         <div>
                                             <h4 className="title is-size-5 has-text-white mb-0">{agent.name}</h4>
