@@ -1,88 +1,105 @@
 "use client";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Activity, Users } from "lucide-react";
+import { LogOut, Activity, Users, ShieldCheck } from "lucide-react";
 import { APP_CONFIG } from "@/app/lib/AppConfig";
 import { cn } from "@/app/lib/utils";
 
-export default function Sidebar() {
-  const pathname = usePathname();
+interface SidebarProps {
+  activeTab: string;
+  onTabChange: (id: string) => void;
+  isOpen?: boolean;
+}
 
+export default function Sidebar({ activeTab, onTabChange, isOpen }: SidebarProps) {
   return (
-    <aside className="fixed left-0 top-0 h-screen w-[280px] bg-[var(--bg-darker)] border-r border-[var(--glass-border)] p-6 flex flex-col gap-10 z-50">
+    <aside className={cn(
+      "sidebar-container fixed left-0 top-0 h-screen w-[280px] bg-[var(--bg-darker)] border-r border-[var(--glass-border)] p-6 flex flex-col gap-10 z-[100]",
+      isOpen && "mobile-open"
+    )}>
       {/* Brand Header */}
-      <div className="flex items-center gap-4 group cursor-pointer">
+      <div
+        className="flex items-center gap-4 group cursor-pointer"
+        onClick={() => onTabChange("overview")}
+      >
         <div className="w-12 h-12 rounded-xl bg-[var(--accent-orange)] flex items-center justify-center font-black text-2xl shadow-[0_0_20px_rgba(255,140,0,0.3)] group-hover:shadow-[0_0_30px_rgba(255,140,0,0.5)] transition-all">
           GC
         </div>
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)]">
+          <h2 className="text-xl font-bold tracking-tight text-[var(--text-primary)] leading-tight">
             {APP_CONFIG.name}
-          </h1>
-          <p className="text-[10px] uppercase tracking-widest font-semibold text-[var(--text-muted)]">
-            v{APP_CONFIG.version} · {APP_CONFIG.author}
-          </p>
+          </h2>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-[9px] uppercase tracking-widest font-black text-[var(--text-muted)]">
+              V{APP_CONFIG.version}
+            </span>
+            <span className="w-1 h-1 rounded-full bg-[var(--text-muted)]/30" />
+            <span className="text-[9px] uppercase tracking-widest font-black text-[var(--accent-orange)]">
+              STABLE
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 flex flex-col gap-2">
+      <nav className="flex-1 flex flex-col gap-1.5">
         {APP_CONFIG.navigation.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = activeTab === item.id;
           const Icon = item.icon;
 
           return (
-            <Link
+            <button
               key={item.id}
-              href={item.href}
+              onClick={() => onTabChange(item.id)}
               className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all relative group",
+                "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all relative group overflow-hidden",
                 isActive
-                  ? "bg-[rgba(255,140,0,0.1)] text-[var(--accent-orange)]"
-                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]"
+                  ? "text-[var(--accent-orange)] font-bold bg-[rgba(255,140,0,0.05)] shadow-[inset_0_0_20px_rgba(255,140,0,0.02)]"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.02)]"
               )}
             >
-              {isActive && (
-                <motion.div
-                  layoutId="nav-glow"
-                  className="absolute inset-0 bg-gradient-to-r from-[rgba(255,140,0,0.05)] to-transparent rounded-xl pointer-events-none"
-                />
-              )}
-              <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
-              <span className="font-semibold text-sm tracking-wide">{item.label}</span>
+              <div className={cn(
+                "relative z-10 transition-transform duration-300",
+                isActive ? "scale-110" : "group-hover:scale-105"
+              )}>
+                <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+              </div>
+
+              <span className="relative z-10 text-[13px] tracking-wide uppercase font-black">
+                {item.label}
+              </span>
 
               {isActive && (
                 <motion.div
-                  layoutId="nav-indicator"
-                  className="absolute left-0 w-1 h-6 bg-[var(--accent-orange)] rounded-full"
+                  layoutId="active-pill"
+                  className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-[var(--accent-orange)] rounded-r-full shadow-[0_0_15px_var(--accent-orange)]"
+                  initial={false}
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 />
               )}
-            </Link>
+            </button>
           );
         })}
       </nav>
 
-      {/* Footer / Status */}
+      {/* Status Card */}
       <div className="flex flex-col gap-6">
-        <div className="glass-card p-4 flex flex-col gap-3 relative overflow-hidden group">
+        <div className="glass-card p-4 flex flex-col gap-3 border-[rgba(255,255,255,0.02)] relative group overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] group-hover:text-[var(--accent-emerald)] transition-colors">
-              Growth Mission
-            </span>
-            <div className="flex items-center gap-1.5">
+            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--text-dim)]">Status Monitor</span>
+            <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 bg-[var(--accent-emerald)] rounded-full animate-pulse shadow-[0_0_8px_var(--accent-emerald)]" />
-              <span className="text-[10px] font-bold text-[var(--accent-emerald)]">LIVE</span>
+              <span className="text-[9px] font-black text-[var(--accent-emerald)] uppercase">Active</span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[rgba(0,255,136,0.1)] flex items-center justify-center text-[var(--accent-emerald)]">
-              <Users size={16} />
+            <div className="w-8 h-8 rounded-lg bg-[rgba(0,255,136,0.05)] border border-[rgba(0,255,136,0.1)] flex items-center justify-center text-[var(--accent-emerald)]">
+              <ShieldCheck size={16} />
             </div>
             <div>
-              <div className="text-sm font-bold text-[var(--text-primary)]">Agents: 1 Active</div>
-              <div className="text-[10px] font-medium text-[var(--text-muted)]">Gravity Claw · Online</div>
+              <div className="text-[11px] font-black text-[var(--text-primary)] uppercase tracking-tight">Units: 2 Deploy</div>
+              <div className="text-[9px] font-bold text-[var(--text-muted)]">Gravity Claw · Antigravity</div>
             </div>
           </div>
         </div>
@@ -92,10 +109,10 @@ export default function Sidebar() {
             await fetch("/api/auth/logout", { method: "POST" });
             window.location.href = "/login";
           }}
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-[var(--accent-rose)] hover:bg-[rgba(255,60,92,0.05)] transition-all group font-semibold text-sm tracking-wide"
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-[var(--accent-rose)] hover:bg-[rgba(255,60,92,0.05)] transition-all group font-black text-[11px] uppercase tracking-widest"
         >
-          <LogOut size={20} className="group-hover:rotate-12 transition-transform" />
-          Logout
+          <LogOut size={16} className="group-hover:rotate-12 transition-transform" />
+          Terminate Session
         </button>
       </div>
     </aside>
