@@ -62,16 +62,21 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 const ALL_FEATURES = [
-    { id: "image_generation", label: "Image Generation", icon: ImageIcon, description: "DALL-E 3 image creation" },
-    { id: "design_intelligence", label: "Design Intelligence", icon: Palette, description: "AI-enhanced DALL-E prompts (HD)" },
-    { id: "brand_enforcement", label: "Brand Enforcement", icon: Layers, description: "Inject brand colors into images" },
-    { id: "content_intelligence", label: "Content Intelligence", icon: Sparkles, description: "Expert copywriting mode" },
-    { id: "shopify", label: "Shopify", icon: Cpu, description: "Live store data access" },
-    { id: "search", label: "Web Search", icon: Globe, description: "Real-time web research" },
-    { id: "memory", label: "Long-term Memory", icon: ShieldCheck, description: "Remembers across sessions" },
-    { id: "business_context", label: "Brand Guide", icon: FileText, description: "Business context layer" },
-    { id: "moderation", label: "AI Moderation", icon: ShieldAlert, description: "Auto-delete harmful messages" },
+    // ── Images ───────────────────────────────────────────────────────────────
+    { id: "image_generation",   label: "Image Generation",      icon: ImageIcon,  description: "Multi-model image creation (DALL-E 3, Nano Banana 2, Ideogram)" },
+    { id: "design_intelligence",label: "Design Intelligence",   icon: Palette,    description: "Auto-enhances image prompts for HD quality. Requires Image Generation." },
+    { id: "brand_enforcement",  label: "Brand-Aware Images",    icon: Layers,     description: "Uses your brand style guide when generating images. Requires Image Generation." },
+    // ── Brand & Content ──────────────────────────────────────────────────────
+    { id: "business_context",   label: "Brand Guide",           icon: FileText,   description: "Injects your brand context (mission, voice, products) into every conversation" },
+    { id: "content_creation",   label: "Content Studio (OCA)",  icon: Sparkles,   description: "Full content pipeline: competitor research → brief → image generation" },
+    // ── Data & Research ──────────────────────────────────────────────────────
+    { id: "shopify",            label: "Shopify",               icon: Cpu,        description: "Live store data: orders, products, inventory, customers" },
+    { id: "search",             label: "Web Search",            icon: Globe,      description: "Real-time web research via Tavily" },
+    { id: "memory",             label: "Long-term Memory",      icon: ShieldCheck,description: "Remembers past conversations across sessions" },
+    // ── Safety ───────────────────────────────────────────────────────────────
+    { id: "moderation",         label: "AI Moderation",         icon: ShieldAlert,description: "Auto-deletes harmful or policy-violating messages" },
 ];
+
 
 const PRIMING_FIELDS = [
     { id: "personality", label: "Personality & Tone", icon: Sparkles, placeholder: "e.g. Direct, no-nonsense, uses dry humour." },
