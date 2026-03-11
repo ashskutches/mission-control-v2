@@ -8,6 +8,7 @@ import {
     Palette, FileText, BarChart2, Search, Layers, Pencil,
 } from "lucide-react";
 import { cn } from "@/app/lib/utils";
+import { AgentRoutines } from "@/components/AgentRoutines";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
@@ -537,6 +538,10 @@ export const AgentCRUD = () => {
                                                             {f.label}
                                                         </span>
                                                     ))}
+                                                </div>
+                                                {/* Agent Routines */}
+                                                <div className="mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
+                                                    <AgentRoutines agentId={agent.id} agentName={agent.name} />
                                                 </div>
                                             </div>
                                         )}
