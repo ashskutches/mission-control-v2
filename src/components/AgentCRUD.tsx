@@ -355,7 +355,8 @@ export const AgentCRUD = () => {
         try {
             const res = await fetch(`${BOT_URL}/admin/agents`);
             const data = await res.json();
-            setAgents(data.agents ?? []);
+            // API returns the array directly, not wrapped in { agents: [] }
+            setAgents(Array.isArray(data) ? data : (data.agents ?? []));
         } catch { setError("Could not connect to bot API."); }
     }, []);
 
