@@ -78,6 +78,8 @@ const ALL_FEATURES = [
     { id: "moderation",         label: "AI Moderation",         icon: ShieldAlert,description: "Auto-deletes harmful or policy-violating messages" },
     // ── Multi-Agent
     { id: "task_queue",         label: "Task Queue",            icon: Zap,        description: "Claim, complete, and create tasks in shared projects. Required for multi-agent collaboration." },
+    // ── Research
+    { id: "web_intelligence",   label: "Web Intelligence",      icon: Globe,      description: "Audit competitor websites for traffic data, Core Web Vitals, tech stack, domain age, and competitive signals." },
 ];
 
 
