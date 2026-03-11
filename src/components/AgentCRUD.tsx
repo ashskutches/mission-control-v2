@@ -62,13 +62,15 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 const ALL_FEATURES = [
+    { id: "image_generation", label: "Image Generation", icon: ImageIcon, description: "DALL-E 3 image creation" },
+    { id: "design_intelligence", label: "Design Intelligence", icon: Palette, description: "AI-enhanced DALL-E prompts (HD)" },
+    { id: "brand_enforcement", label: "Brand Enforcement", icon: Layers, description: "Inject brand colors into images" },
+    { id: "content_intelligence", label: "Content Intelligence", icon: Sparkles, description: "Expert copywriting mode" },
     { id: "shopify", label: "Shopify", icon: Cpu, description: "Live store data access" },
     { id: "search", label: "Web Search", icon: Globe, description: "Real-time web research" },
     { id: "memory", label: "Long-term Memory", icon: ShieldCheck, description: "Remembers across sessions" },
-    { id: "business_context", label: "Brand Guide", icon: FileText, description: "Access to brand context" },
-    { id: "design_intelligence", label: "Design Intelligence", icon: ImageIcon, description: "AI-enhanced DALL-E prompts" },
-    { id: "content_intelligence", label: "Content Intelligence", icon: Sparkles, description: "Expert copywriting mode" },
-    { id: "brand_enforcement", label: "Brand Enforcement", icon: Palette, description: "Inject brand colors/voice to images" },
+    { id: "business_context", label: "Brand Guide", icon: FileText, description: "Business context layer" },
+    { id: "moderation", label: "AI Moderation", icon: ShieldAlert, description: "Auto-delete harmful messages" },
 ];
 
 const PRIMING_FIELDS = [
