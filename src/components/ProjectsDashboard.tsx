@@ -227,14 +227,24 @@ function TaskBoard({ project, onRefresh }: { project: Project; onRefresh: () => 
 function ProjectModal({ initial, onClose, onSaved }: { initial?: Partial<Project>; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState<Partial<Project>>(initial ?? { status: "active" });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError(null);
     try {
-      await fetch(`${BOT_URL}/admin/projects`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const res = await fetch(`${BOT_URL}/admin/projects`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Server error ${res.status}`);
+      }
       onSaved();
-    } finally { setSaving(false); }
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -270,6 +280,7 @@ function ProjectModal({ initial, onClose, onSaved }: { initial?: Partial<Project
               ))}
             </div>
           </div>
+          {error && <p className="help is-danger mb-3" style={{ background: "rgba(239,68,68,0.1)", padding: "0.5rem 0.75rem", borderRadius: 6, border: "1px solid rgba(239,68,68,0.3)" }}>⚠️ {error}</p>}
           <div className="is-flex" style={{ gap: "0.75rem" }}>
             <button type="button" className="button is-dark is-fullwidth" onClick={onClose}>Cancel</button>
             <button type="submit" className={`button is-warning is-fullwidth ${saving ? "is-loading" : ""}`}>
