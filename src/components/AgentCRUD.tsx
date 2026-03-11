@@ -5,7 +5,7 @@ import {
     Brain, Plus, Trash2, Hash, ShieldCheck, Cpu, RefreshCcw,
     CheckCircle2, XCircle, Target, Sparkles, Globe, ShieldAlert,
     ChevronDown, ChevronUp, Library, X, Zap, Image as ImageIcon,
-    Palette, FileText, BarChart2, Search, Layers,
+    Palette, FileText, BarChart2, Search, Layers, Pencil,
 } from "lucide-react";
 import { cn } from "@/app/lib/utils";
 
@@ -98,11 +98,13 @@ function AgentSetupModal({
     templateInfo,
     onClose,
     onSaved,
+    isEditing,
 }: {
     initial: Partial<AgentDef>;
     templateInfo?: { name: string; description: string; category: string; system_prompt: string; emoji: string };
     onClose: () => void;
     onSaved: () => void;
+    isEditing?: boolean;
 }) {
     const [form, setForm] = useState<Partial<AgentDef>>(initial);
     const [saving, setSaving] = useState(false);
@@ -119,7 +121,8 @@ function AgentSetupModal({
         e.preventDefault();
         setSaving(true);
         setError(null);
-        const id = `agent-${Date.now()}`;
+        // Reuse existing ID when editing; generate new one for creates
+        const id = isEditing && initial.id ? initial.id : `agent-${Date.now()}`;
         const payload = {
             id,
             ...form,
@@ -349,6 +352,7 @@ export const AgentCRUD = () => {
         open: boolean;
         initial: Partial<AgentDef>;
         templateInfo?: { name: string; description: string; category: string; system_prompt: string; emoji: string };
+        isEditing?: boolean;
     }>({ open: false, initial: blank });
 
     const fetchAgents = useCallback(async () => {
@@ -380,6 +384,12 @@ export const AgentCRUD = () => {
     };
 
     const openScratch = () => setModal({ open: true, initial: { ...blank } });
+
+    const openEdit = (agent: AgentDef) => setModal({
+        open: true,
+        initial: { ...agent },
+        isEditing: true,
+    });
 
     const openFromTemplate = async (t: AgentTemplate) => {
         try {
@@ -487,6 +497,9 @@ export const AgentCRUD = () => {
                                                 {activeFeatures.length > 0 && (
                                                     <span className="tag is-dark is-small" style={{ fontSize: 10 }}>{activeFeatures.length} features</span>
                                                 )}
+                                                <button className="button is-small is-dark" title="Edit agent" onClick={() => openEdit(agent)}>
+                                                    <Pencil size={12} />
+                                                </button>
                                                 <button className="button is-small is-dark" onClick={() => setExpandedAgents(p => ({ ...p, [agent.id]: !isOpen }))}>
                                                     {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                                                 </button>
@@ -609,6 +622,7 @@ export const AgentCRUD = () => {
                     <AgentSetupModal
                         initial={modal.initial}
                         templateInfo={modal.templateInfo}
+                        isEditing={modal.isEditing}
                         onClose={() => setModal(p => ({ ...p, open: false }))}
                         onSaved={onSaved}
                     />
