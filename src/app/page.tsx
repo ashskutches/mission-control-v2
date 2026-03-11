@@ -31,6 +31,7 @@ import { RosterManager } from "@/components/RosterManager";
 import { MissionTracker } from "@/components/MissionTracker";
 import { AgentCRUD } from "@/components/AgentCRUD";
 import { BusinessContextEditor } from "@/components/BusinessContextEditor";
+import { TemplateLibrary } from "@/components/TemplateLibrary";
 import { cn } from "@/app/lib/utils";
 import { APP_CONFIG } from "@/app/lib/AppConfig";
 
@@ -416,6 +417,11 @@ export default function MissionControl() {
               {/* ── Tab: Brand Guide (Business Context) ── */}
               {activeTab === "business-context" && (
                 <BusinessContextEditor />
+              )}
+
+              {/* ── Tab: Template Library ── */}
+              {activeTab === "template-library" && (
+                <TemplateLibrary />
               )}
 
             </motion.div>
