@@ -35,6 +35,7 @@ import { MissionTracker } from "@/components/MissionTracker";
 import { AgentCRUD } from "@/components/AgentCRUD";
 import { BusinessContextEditor } from "@/components/BusinessContextEditor";
 import { TemplateLibrary } from "@/components/TemplateLibrary";
+import { ProjectsDashboard } from "@/components/ProjectsDashboard";
 import { cn } from "@/app/lib/utils";
 import { APP_CONFIG } from "@/app/lib/AppConfig";
 
@@ -556,7 +557,12 @@ export default function MissionControl() {
               })()}
 
 
-              {/* ── Tab: Agents ── */}
+              {/* ── Tab: Projects ── */}
+              {activeTab === "projects" && (
+                <ProjectsDashboard />
+              )}
+
+                            {/* ── Tab: Agents ── */}
               {activeTab === "agents" && (
                 <div className="is-flex is-flex-direction-column" style={{ gap: '2rem' }}>
                   <AgentCRUD />

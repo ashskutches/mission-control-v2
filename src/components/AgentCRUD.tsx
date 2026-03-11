@@ -76,6 +76,8 @@ const ALL_FEATURES = [
     { id: "memory",             label: "Long-term Memory",      icon: ShieldCheck,description: "Remembers past conversations across sessions" },
     // ── Safety ───────────────────────────────────────────────────────────────
     { id: "moderation",         label: "AI Moderation",         icon: ShieldAlert,description: "Auto-deletes harmful or policy-violating messages" },
+    // ── Multi-Agent
+    { id: "task_queue",         label: "Task Queue",            icon: Zap,        description: "Claim, complete, and create tasks in shared projects. Required for multi-agent collaboration." },
 ];
 
 
