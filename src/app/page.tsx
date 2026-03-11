@@ -332,13 +332,13 @@ export default function MissionControl() {
                       <p className="is-size-7 is-uppercase has-text-weight-black has-text-grey mb-4" style={{ letterSpacing: "0.12em" }}>Revenue Intelligence</p>
                       <div className="columns is-multiline">
                         <div className="column is-3">
-                          <StatCard label="Today's Revenue" value={shopify ? `$${Number(shopify.todayRevenue).toLocaleString()}` : "—"} subValue="Direct store throughput" color="var(--accent-emerald)" trend="up" icon={ShoppingBag} />
+                          <StatCard label="Today's Revenue" value={shopify ? `$${Number(shopify.todayRevenue).toLocaleString()}` : "—"} subValue={shopify ? `${shopify.todayOrders} orders · $${shopify.aov} AOV` : "Loading..."} color="var(--accent-emerald)" trend="up" icon={ShoppingBag} />
                         </div>
                         <div className="column is-3">
-                          <StatCard label="Gross Sales" value={shopify ? `$${Number(shopify.financials?.gross_sales || 0).toLocaleString()}` : "—"} subValue="Returns deducted separately" color="var(--accent-blue)" icon={TrendingUp} />
+                          <StatCard label="30-Day Sales" value={shopify ? `$${Number(shopify.total30d || 0).toLocaleString()}` : "—"} subValue="Rolling 30-day gross" color="var(--accent-blue)" icon={TrendingUp} />
                         </div>
                         <div className="column is-3">
-                          <StatCard label="Month-End Forecast" value={forecast ? `$${Number(forecast.estimatedMonthEnd || 0).toLocaleString()}` : "—"} subValue="Linear run-rate model" color="var(--accent-cyan)" icon={BarChart3} />
+                          <StatCard label="Month-End Forecast" value={(() => { const v = forecast?.estimatedMonthEnd || (shopify?.total30d ? Math.round(Number(shopify.total30d) * (new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).getDate() / new Date().getDate())) : 0); return `$${Number(v).toLocaleString()}`; })()} subValue={forecast?.estimatedMonthEnd ? "From revenue data" : "Estimated from 30d run-rate"} color="var(--accent-cyan)" icon={BarChart3} />
                         </div>
                         <div className="column is-3">
                           <StatCard label="AI Compute (7d)" value={`$${recentCost.toFixed(4)}`} subValue="Total agent spend" color="var(--accent-orange)" icon={Cpu} />
@@ -490,19 +490,19 @@ export default function MissionControl() {
                             <h4 className="title is-size-5 is-uppercase mb-5 has-text-weight-black">Revenue Vitality</h4>
                             <div className="is-flex is-flex-direction-column" style={{ gap: "1.25rem" }}>
                               <div className="is-flex is-justify-content-between is-align-items-center pb-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                                <span className="is-size-7 is-uppercase has-text-grey-light has-text-weight-bold">Gross Sales</span>
-                                <span className="has-text-weight-black has-text-success">${Number(shopify?.financials?.gross_sales || 0).toLocaleString()}</span>
+                                <span className="is-size-7 is-uppercase has-text-grey-light has-text-weight-bold">30-Day Sales</span>
+                                <span className="has-text-weight-black has-text-success">${Number(shopify?.total30d || 0).toLocaleString()}</span>
                               </div>
                               <div className="is-flex is-justify-content-between is-align-items-center pb-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                                <span className="is-size-7 is-uppercase has-text-grey-light has-text-weight-bold">Returns</span>
-                                <span className="has-text-weight-black has-text-danger">-${Number(shopify?.financials?.refunds || 0).toLocaleString()}</span>
+                                <span className="is-size-7 is-uppercase has-text-grey-light has-text-weight-bold">Today's Orders</span>
+                                <span className="has-text-weight-black has-text-info">{shopify?.todayOrders || 0} @ ${shopify?.aov || "0.00"} AOV</span>
                               </div>
                               <div className="is-flex is-justify-content-between is-align-items-center pb-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                                 <span className="is-size-7 is-uppercase has-text-grey-light has-text-weight-bold">AI Compute Cost</span>
                                 <span className="has-text-weight-black has-text-warning">-${costData.total.toFixed(4)}</span>
                               </div>
                               <div className="is-flex is-justify-content-between is-align-items-center p-4" style={{ backgroundColor: "rgba(255,255,255,0.03)", borderRadius: "12px" }}>
-                                <span className="is-size-6 is-uppercase has-text-white has-text-weight-black">Net (Est.)</span>
+                                <span className="is-size-6 is-uppercase has-text-white has-text-weight-black">Today Net</span>
                                 <span className="is-size-4 has-text-weight-black has-text-info">${Number(shopify?.todayRevenue || 0).toLocaleString()}</span>
                               </div>
                             </div>
