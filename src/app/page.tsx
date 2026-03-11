@@ -30,6 +30,7 @@ import { GrowthTracker } from "@/components/GrowthTracker";
 import { RosterManager } from "@/components/RosterManager";
 import { MissionTracker } from "@/components/MissionTracker";
 import { AgentCRUD } from "@/components/AgentCRUD";
+import { BusinessContextEditor } from "@/components/BusinessContextEditor";
 import { cn } from "@/app/lib/utils";
 import { APP_CONFIG } from "@/app/lib/AppConfig";
 
@@ -412,6 +413,11 @@ export default function MissionControl() {
                   </div>
                 </div>
               )}
+              {/* ── Tab: Brand Guide (Business Context) ── */}
+              {activeTab === "business-context" && (
+                <BusinessContextEditor />
+              )}
+
             </motion.div>
           </AnimatePresence>
         </div>
