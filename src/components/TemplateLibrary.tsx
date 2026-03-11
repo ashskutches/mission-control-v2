@@ -71,22 +71,34 @@ export function TemplateLibrary() {
     const handleSpawn = async (template: AgentTemplate) => {
         setSpawning(template.slug);
         try {
-            // Fetch the full template with system prompt
+            // Fetch full template with system_prompt
             const res = await fetch(`${BOT_URL}/admin/agent-templates/${template.slug}`);
+            if (!res.ok) throw new Error(`Could not load template (${res.status})`);
             const { template: full } = await res.json();
-            // Create a new agent from the template using existing agent CRUD endpoint
+
+            // Build payload matching AgentDef shape expected by POST /admin/agents
+            const id = `agent-${Date.now()}`;
             const createRes = await fetch(`${BOT_URL}/admin/agents`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
+                    id,
                     name: full.name,
-                    mission: full.system_prompt.slice(0, 3000),
+                    type: "worker",
                     specialization: full.category,
-                    discordChannelId: null,
+                    discordChannelId: "",
                     features: {},
+                    emoji: full.emoji ?? "🤖",
+                    mission: full.system_prompt.slice(0, 3000),
+                    personality: "",
+                    context: "",
+                    constraints: "",
                 }),
             });
-            if (!createRes.ok) throw new Error(`Create failed: ${createRes.status}`);
+            if (!createRes.ok) {
+                const body = await createRes.json().catch(() => ({}));
+                throw new Error(body.error || `Server error ${createRes.status}`);
+            }
             setSpawned(template.slug);
             setTimeout(() => setSpawned(null), 3000);
         } catch (e: any) {
