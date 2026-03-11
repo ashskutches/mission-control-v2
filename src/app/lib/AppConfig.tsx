@@ -4,7 +4,6 @@ import {
     Brain,
     BrainCircuit,
     LayoutDashboard,
-    Network,
     Settings,
     ShieldAlert,
     Zap
@@ -22,7 +21,6 @@ export const APP_CONFIG = {
         { id: 'agents', href: '/agents', icon: Brain, label: 'Agents' },
         { id: 'business-context', href: '/business-context', icon: BookOpen, label: 'Brand Guide' },
         { id: 'engine', href: '/engine', icon: Zap, label: 'Engine' },
-        { id: 'network', href: '/network', icon: Network, label: 'Network' },
         { id: 'settings', href: '/settings', icon: Settings, label: 'Settings' },
     ],
     theme: {
