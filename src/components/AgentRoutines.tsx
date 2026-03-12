@@ -26,7 +26,8 @@ interface RoutineRun {
     completed_at: string | null;
     duration_ms: number | null;
     agent_output: string | null;
-    tool_calls_used: string[] | null;
+    tools_used: string[] | null;     // renamed from tool_calls_used → tasks table
+    provider: string | null;
     error: string | null;
 }
 
@@ -77,6 +78,7 @@ function DebugPanel({ routineId, liveRun }: { routineId: string; liveRun: Routin
     const [run, setRun] = useState<RoutineRun | null>(liveRun);
     const [history, setHistory] = useState<RoutineRun[]>([]);
     const [tab, setTab] = useState<"current" | "history">("current");
+    const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
     const pollRef = useRef<NodeJS.Timeout | null>(null);
 
     // Poll for updates every 2s while running
@@ -163,10 +165,10 @@ function DebugPanel({ routineId, liveRun }: { routineId: string; liveRun: Routin
                             </div>
 
                             {/* Tool chips */}
-                            {displayRun.tool_calls_used && displayRun.tool_calls_used.length > 0 && (
+                            {displayRun.tools_used && displayRun.tools_used.length > 0 && (
                                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
                                     <span style={{ fontSize: 10, color: "#666", marginRight: 2 }}>Tools:</span>
-                                    {displayRun.tool_calls_used.map(t => (
+                                    {displayRun.tools_used.map(t => (
                                         <span key={t} style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.2)", color: "#a78bfa" }}>{t}</span>
                                     ))}
                                 </div>
@@ -204,19 +206,58 @@ function DebugPanel({ routineId, liveRun }: { routineId: string; liveRun: Routin
             {tab === "history" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     {history.length === 0 && <p style={{ fontSize: 11, color: "#555", fontStyle: "italic" }}>No run history yet.</p>}
-                    {history.map(h => (
-                        <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 8px", borderRadius: 6, background: "rgba(255,255,255,0.02)", flexWrap: "wrap" }}>
-                            <StatusBadge status={h.status} small />
-                            <span style={{ fontSize: 10, color: "#777" }}>{new Date(h.started_at).toLocaleString()}</span>
-                            {h.duration_ms != null && <span style={{ fontSize: 10, color: "#555" }}>{(h.duration_ms / 1000).toFixed(1)}s</span>}
-                            <span style={{ fontSize: 10, color: h.triggered_by === "manual" ? "var(--accent-cyan)" : "#555" }}>
-                                {h.triggered_by === "manual" ? "⚡ manual" : "⏰ cron"}
-                            </span>
-                            {h.error && <span style={{ fontSize: 10, color: "#ef4444" }} title={h.error}>⚠ {h.error.slice(0, 40)}…</span>}
-                        </div>
-                    ))}
+                    {history.map(h => {
+                        const isOpen = expandedHistoryId === h.id;
+                        return (
+                            <div key={h.id} style={{ borderRadius: 6, overflow: "hidden", border: isOpen ? "1px solid rgba(255,255,255,0.08)" : "1px solid transparent" }}>
+                                {/* Row header — click to expand */}
+                                <div
+                                    onClick={() => setExpandedHistoryId(isOpen ? null : h.id)}
+                                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", background: isOpen ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.02)", cursor: "pointer", flexWrap: "wrap", userSelect: "none" }}>
+                                    <StatusBadge status={h.status} small />
+                                    <span style={{ fontSize: 10, color: "#777" }}>{new Date(h.started_at).toLocaleString()}</span>
+                                    {h.duration_ms != null && <span style={{ fontSize: 10, color: "#555" }}>{(h.duration_ms / 1000).toFixed(1)}s</span>}
+                                    <span style={{ fontSize: 10, color: h.triggered_by === "manual" ? "var(--accent-cyan)" : "#555" }}>
+                                        {h.triggered_by === "manual" ? "⚡ manual" : "⏰ cron"}
+                                    </span>
+                                    {h.provider && h.provider !== "error" && <span style={{ fontSize: 10, color: "#555" }}>{h.provider}</span>}
+                                    {h.error && !isOpen && <span style={{ fontSize: 10, color: "#ef4444" }} title={h.error}>⚠ {h.error.slice(0, 40)}…</span>}
+                                    <span style={{ marginLeft: "auto", fontSize: 10, color: "#444" }}>{isOpen ? "▲" : "▼"}</span>
+                                </div>
+
+                                {/* Expanded detail */}
+                                {isOpen && (
+                                    <div style={{ padding: "8px 10px", background: "rgba(0,0,0,0.2)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                                        {/* Tools used */}
+                                        {Array.isArray(h.tools_used) && h.tools_used.length > 0 && (
+                                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
+                                                {(h.tools_used as string[]).map((t, i) => (
+                                                    <span key={i} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.2)" }}>{t.replace("shopify__", "")}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {/* Agent output */}
+                                        {h.agent_output ? (
+                                            <pre style={{ fontSize: 10, color: "#ccc", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 200, overflowY: "auto", margin: 0 }}>
+                                                {h.agent_output}
+                                            </pre>
+                                        ) : (
+                                            <p style={{ fontSize: 10, color: "#555", fontStyle: "italic", margin: 0 }}>No output recorded.</p>
+                                        )}
+                                        {/* Error */}
+                                        {h.error && (
+                                            <div style={{ marginTop: 8, padding: "6px 8px", borderRadius: 4, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                                                <p style={{ fontSize: 10, color: "#ef4444", margin: 0 }}>{h.error}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             )}
+
         </motion.div>
     );
 }
@@ -415,7 +456,7 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
         // Open debug panel immediately
         setDebugOpen(p => ({ ...p, [r.id]: true }));
         // Set a local "running" state so debug panel shows spinner right away
-        setLiveRuns(p => ({ ...p, [r.id]: { id: "pending", status: "running", triggered_by: "manual", started_at: new Date().toISOString(), completed_at: null, duration_ms: null, agent_output: null, tool_calls_used: null, error: null } }));
+        setLiveRuns(p => ({ ...p, [r.id]: { id: "pending", status: "running", triggered_by: "manual", started_at: new Date().toISOString(), completed_at: null, duration_ms: null, agent_output: null, tools_used: null, provider: null, error: null } }));
 
         try {
             await fetch(`${BOT_URL}/admin/routines/${r.id}/run`, { method: "POST" });
