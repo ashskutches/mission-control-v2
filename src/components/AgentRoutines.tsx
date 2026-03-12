@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Plus, Trash2, Play, Pause, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp, Terminal } from "lucide-react";
+import { Clock, Plus, Trash2, Play, Pause, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp, Terminal, Sparkles } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
@@ -223,11 +223,39 @@ function DebugPanel({ routineId, liveRun }: { routineId: string; liveRun: Routin
 
 // ── Create / Edit Modal ────────────────────────────────────────────────────────
 
-function RoutineModal({ agentId, initial, onClose, onSaved }: { agentId: string; initial?: Partial<Routine>; onClose: () => void; onSaved: () => void; }) {
+function RoutineModal({ agentId, agentName, initial, onClose, onSaved }: { agentId: string; agentName: string; initial?: Partial<Routine>; onClose: () => void; onSaved: () => void; }) {
     const [form, setForm] = useState<Partial<Routine>>(initial ?? { agent_id: agentId, enabled: true, cron: "0 9 * * *" });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // AI prompt builder state
+    const [description, setDescription] = useState("");
+    const [building, setBuilding] = useState(false);
+    const [buildError, setBuildError] = useState<string | null>(null);
+    const [promptGenerated, setPromptGenerated] = useState(false);
+
     const set = (k: keyof Routine, v: any) => setForm(p => ({ ...p, [k]: v }));
+
+    const handleBuildPrompt = async () => {
+        if (!description.trim()) return;
+        setBuilding(true);
+        setBuildError(null);
+        try {
+            const res = await fetch(`${BOT_URL}/admin/ai/build-routine-prompt`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ description: description.trim(), agentName }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+            set("prompt", data.prompt);
+            setPromptGenerated(true);
+        } catch (e: any) {
+            setBuildError(e.message);
+        } finally {
+            setBuilding(false);
+        }
+    };
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault(); setSaving(true); setError(null);
@@ -241,7 +269,7 @@ function RoutineModal({ agentId, initial, onClose, onSaved }: { agentId: string;
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }} onClick={onClose}>
             <motion.div initial={{ opacity: 0, scale: 0.97, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }}
-                style={{ background: "#12121a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, width: "100%", maxWidth: 520, padding: "1.5rem" }} onClick={e => e.stopPropagation()}>
+                style={{ background: "#12121a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, width: "100%", maxWidth: 560, padding: "1.5rem", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
                 <div className="is-flex is-align-items-center is-justify-content-space-between mb-4">
                     <div className="is-flex is-align-items-center" style={{ gap: "0.5rem" }}>
                         <Clock size={16} style={{ color: "var(--accent-orange)" }} />
@@ -251,12 +279,14 @@ function RoutineModal({ agentId, initial, onClose, onSaved }: { agentId: string;
                 </div>
 
                 <form onSubmit={handleSave}>
+                    {/* Name */}
                     <div className="field mb-3">
                         <label className="is-size-7 has-text-grey-light has-text-weight-bold mb-1" style={{ display: "block", letterSpacing: "0.06em", textTransform: "uppercase" }}>Routine Name</label>
                         <input required className="input" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff" }} placeholder="e.g. Weekly Sales Report" value={form.name ?? ""} onChange={e => set("name", e.target.value)} />
                     </div>
 
-                    <div className="field mb-3">
+                    {/* Schedule */}
+                    <div className="field mb-4">
                         <label className="is-size-7 has-text-grey-light has-text-weight-bold mb-1" style={{ display: "block", letterSpacing: "0.06em", textTransform: "uppercase" }}>Schedule</label>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
                             {CRON_PRESETS.map(p => (
@@ -270,9 +300,65 @@ function RoutineModal({ agentId, initial, onClose, onSaved }: { agentId: string;
                         <p className="is-size-7 has-text-grey mt-1">All times Eastern. <a href="https://crontab.guru" target="_blank" rel="noreferrer" style={{ color: "var(--accent-cyan)" }}>crontab.guru ↗</a></p>
                     </div>
 
+                    {/* ── AI Prompt Builder ───────────────────────────────── */}
+                    <div className="field mb-3">
+                        <label className="is-size-7 has-text-grey-light has-text-weight-bold mb-1" style={{ display: "block", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                            Describe the Task Workflow
+                        </label>
+                        <p className="is-size-7 has-text-grey mb-2" style={{ lineHeight: 1.5 }}>
+                            Describe what you want in plain language — AI will convert it into an optimized agent prompt.
+                        </p>
+                        <div style={{ position: "relative" }}>
+                            <textarea
+                                className="textarea"
+                                rows={3}
+                                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", resize: "vertical", paddingRight: "110px" }}
+                                placeholder={`e.g. "Every morning check our Shopify sales from yesterday and post a brief summary with revenue, orders, and the top product."`}
+                                value={description}
+                                onChange={e => setDescription(e.target.value)}
+                                onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); handleBuildPrompt(); } }}
+                            />
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                            <button
+                                type="button"
+                                disabled={building || !description.trim()}
+                                onClick={handleBuildPrompt}
+                                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "6px 14px", borderRadius: 8, cursor: building || !description.trim() ? "not-allowed" : "pointer", border: "1px solid rgba(139,92,246,0.4)", background: "rgba(139,92,246,0.12)", color: building || !description.trim() ? "#555" : "#a78bfa", fontWeight: 700, transition: "all 0.15s" }}>
+                                {building
+                                    ? <><Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Building…</>
+                                    : <><Sparkles size={12} /> {promptGenerated ? "Regenerate" : "✨ Build Prompt"}</>}
+                            </button>
+                            {promptGenerated && !building && (
+                                <span style={{ fontSize: 11, color: "var(--accent-emerald)" }}>✓ Generated — review and edit below</span>
+                            )}
+                            {buildError && <span style={{ fontSize: 11, color: "#ef4444" }}>{buildError}</span>}
+                        </div>
+                    </div>
+
+                    {/* Generated / editable prompt */}
                     <div className="field mb-4">
-                        <label className="is-size-7 has-text-grey-light has-text-weight-bold mb-1" style={{ display: "block", letterSpacing: "0.06em", textTransform: "uppercase" }}>Task Prompt</label>
-                        <textarea required className="textarea" rows={4} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", resize: "vertical" }} placeholder="What should the agent do?" value={form.prompt ?? ""} onChange={e => set("prompt", e.target.value)} />
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                            <label className="is-size-7 has-text-grey-light has-text-weight-bold" style={{ letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                                Agent Prompt
+                                {promptGenerated && <span style={{ marginLeft: 8, fontSize: 10, color: "#a78bfa", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>AI-generated — edit freely</span>}
+                            </label>
+                        </div>
+                        <textarea
+                            required
+                            className="textarea"
+                            rows={5}
+                            style={{
+                                background: promptGenerated ? "rgba(139,92,246,0.06)" : "rgba(255,255,255,0.04)",
+                                border: promptGenerated ? "1px solid rgba(139,92,246,0.25)" : "1px solid rgba(255,255,255,0.08)",
+                                color: "#fff",
+                                resize: "vertical",
+                                transition: "all 0.3s",
+                            }}
+                            placeholder="The exact prompt sent to the agent. Use ✨ Build Prompt above or write your own."
+                            value={form.prompt ?? ""}
+                            onChange={e => { set("prompt", e.target.value); if (promptGenerated) setPromptGenerated(false); }}
+                        />
                     </div>
 
                     <div className="field mb-4 is-flex is-align-items-center" style={{ gap: 10 }}>
@@ -436,7 +522,7 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
 
             <AnimatePresence>
                 {modal.open && (
-                    <RoutineModal agentId={agentId} initial={modal.initial} onClose={() => setModal({ open: false })} onSaved={() => { setModal({ open: false }); fetch_(); }} />
+                    <RoutineModal agentId={agentId} agentName={agentName} initial={modal.initial} onClose={() => setModal({ open: false })} onSaved={() => { setModal({ open: false }); fetch_(); }} />
                 )}
             </AnimatePresence>
         </div>
