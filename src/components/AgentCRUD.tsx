@@ -80,6 +80,8 @@ const ALL_FEATURES = [
     { id: "task_queue",         label: "Task Queue",            icon: Zap,        description: "Claim, complete, and create tasks in shared projects. Required for multi-agent collaboration." },
     // ── Research
     { id: "web_intelligence",   label: "Web Intelligence",      icon: Globe,      description: "Audit competitor websites for traffic data, Core Web Vitals, tech stack, domain age, and competitive signals." },
+    // ── Developer Tools ──────────────────────────────────────────────────────
+    { id: "codebase_awareness", label: "Codebase Awareness",    icon: Brain,      description: "Gives the agent access to read internal documentation, architecture files, and skill guides (gravity-claw + mission-control)." },
 ];
 
 
