@@ -347,7 +347,30 @@ export default function MissionControl() {
                           <StatCard label="30-Day Sales" value={shopify ? `$${Number(shopify.total30d || 0).toLocaleString()}` : "—"} subValue="Rolling 30-day gross" color="var(--accent-blue)" icon={TrendingUp} />
                         </div>
                         <div className="column is-3">
-                          <StatCard label="Month-End Forecast" value={(() => { const v = forecast?.estimatedMonthEnd || (shopify?.total30d ? Math.round(Number(shopify.total30d) * (new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).getDate() / new Date().getDate())) : 0); return `$${Number(v).toLocaleString()}`; })()} subValue={forecast?.estimatedMonthEnd ? "From revenue data" : "Estimated from 30d run-rate"} color="var(--accent-cyan)" icon={BarChart3} />
+                          <StatCard
+                            label="Month-End Forecast"
+                            value={(() => {
+                              // If the /forecasting endpoint has a value, prefer it
+                              if (forecast?.estimatedMonthEnd) {
+                                return `$${Number(forecast.estimatedMonthEnd).toLocaleString()}`;
+                              }
+                              // Use current-month-to-date revenue (not rolling 30-day)
+                              // Forecast = MTD revenue / days elapsed * days in month
+                              const mtd = Number(shopify?.currentMonthRevenue || 0);
+                              const today = new Date();
+                              const dayOfMonth = today.getDate();           // days elapsed (1-based)
+                              const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+                              if (mtd > 0 && dayOfMonth > 0) {
+                                const projected = Math.round(mtd / dayOfMonth * daysInMonth);
+                                return `$${projected.toLocaleString()}`;
+                              }
+                              return "—";
+                            })()}
+                            subValue={forecast?.estimatedMonthEnd ? "From revenue data" : "Projected from MTD pace"}
+                            color="var(--accent-cyan)"
+                            icon={BarChart3}
+                          />
+
                         </div>
                         <div className="column is-3">
                           <StatCard label="AI Compute (7d)" value={`$${recentCost.toFixed(4)}`} subValue="Total agent spend" color="var(--accent-orange)" icon={Cpu} />
