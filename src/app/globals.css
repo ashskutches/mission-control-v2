@@ -94,7 +94,44 @@ body {
 
 @media screen and (max-width: 1023px) {
   .sidebar-bulma {
+    /* Hidden off-screen to the left by default */
+    display: flex !important;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 280px;
+    z-index: 9999;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: none;
+    overflow-y: auto;
+  }
+
+  /* Slide in when active */
+  .sidebar-bulma.is-active {
+    transform: translateX(0);
+    box-shadow: 4px 0 40px rgba(0, 0, 0, 0.8);
+  }
+
+  /* Backdrop overlay — sits behind the sidebar */
+  .sidebar-backdrop {
     display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+
+  .sidebar-backdrop.is-active {
+    display: block;
+  }
+
+  .main-content {
+    padding: 20px 16px;
   }
 }
 

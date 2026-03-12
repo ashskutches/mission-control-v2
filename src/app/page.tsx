@@ -103,6 +103,13 @@ export default function MissionControl() {
 
   return (
     <main className="app-wrapper">
+      {/* Mobile backdrop — tap to close sidebar */}
+      <div
+        className={cn("sidebar-backdrop", isMobileMenuOpen && "is-active")}
+        onClick={() => setIsMobileMenuOpen(false)}
+        aria-hidden="true"
+      />
+
       <Sidebar
         activeTab={activeTab}
         onTabChange={(id) => {
@@ -111,6 +118,7 @@ export default function MissionControl() {
         }}
         isOpen={isMobileMenuOpen}
       />
+
 
       <section className="main-content custom-scrollbar" style={{ overflowY: 'auto', height: '100vh', position: 'relative' }}>
 
