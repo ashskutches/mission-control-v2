@@ -63,29 +63,30 @@ const CATEGORY_COLORS: Record<string, string> = {
     "Specialized": "#e879f9",
 };
 
-const ALL_FEATURES = [
-    // ── Images ───────────────────────────────────────────────────────────────
-    { id: "image_generation",   label: "Image Generation",      icon: ImageIcon,  description: "Multi-model image creation (DALL-E 3, Nano Banana 2, Ideogram)" },
-    { id: "design_intelligence",label: "Design Intelligence",   icon: Palette,    description: "Auto-enhances image prompts for HD quality. Requires Image Generation." },
-    { id: "brand_enforcement",  label: "Brand-Aware Images",    icon: Layers,     description: "Uses your brand style guide when generating images. Requires Image Generation." },
-    // ── Brand & Content ──────────────────────────────────────────────────────
-    { id: "business_context",   label: "Brand Guide",           icon: FileText,   description: "Injects your brand context (mission, voice, products) into every conversation" },
-    { id: "content_creation",   label: "Content Studio (OCA)",  icon: Sparkles,   description: "Full content pipeline: competitor research → brief → image generation" },
-    // ── Data & Research ──────────────────────────────────────────────────────
-    { id: "shopify",            label: "Shopify",               icon: Cpu,        description: "Live store data: orders, products, inventory, customers" },
-    { id: "search",             label: "Web Search",            icon: Globe,      description: "Real-time web research via Tavily" },
-    { id: "memory",             label: "Long-term Memory",      icon: ShieldCheck,description: "Remembers past conversations across sessions" },
-    // ── Safety ───────────────────────────────────────────────────────────────
-    { id: "moderation",         label: "AI Moderation",         icon: ShieldAlert,description: "Auto-deletes harmful or policy-violating messages" },
-    // ── Multi-Agent
-    { id: "task_queue",         label: "Task Queue",            icon: Zap,        description: "Claim, complete, and create tasks in shared projects. Required for multi-agent collaboration." },
-    // ── Research
-    { id: "web_intelligence",   label: "Web Intelligence",      icon: Globe,      description: "Audit competitor websites for traffic data, Core Web Vitals, tech stack, domain age, and competitive signals." },
-    // ── Developer Tools ──────────────────────────────────────────────────────
-    { id: "codebase_awareness", label: "Codebase Awareness",    icon: Brain,      description: "Gives the agent access to read internal documentation, architecture files, and skill guides (gravity-claw + mission-control)." },
-    // ── Communication ────────────────────────────────────────────────────────
-    { id: "email",              label: "Gmail / Email",          icon: Mail,       description: "Connect a Gmail account to this agent so it can read, search, and send emails. Configure the account in the Email tab after enabling." },
+const ALL_FEATURES: { id: string; label: string; icon: any; description: string; category: string }[] = [
+    // ── 🧠 Intelligence ───────────────────────────────────────────────────────
+    { id: "search",             label: "Web Search",           icon: Globe,      description: "Real-time web research via Tavily.", category: "Intelligence" },
+    { id: "web_intelligence",   label: "Web Intelligence",     icon: BarChart2,  description: "Audit competitor websites for traffic data, Core Web Vitals, tech stack, and competitive signals.", category: "Intelligence" },
+    { id: "memory",             label: "Long-term Memory",     icon: ShieldCheck,description: "Remembers past conversations across sessions.", category: "Intelligence" },
+    { id: "codebase_awareness", label: "Codebase Awareness",   icon: Brain,      description: "Read internal documentation, architecture files, and skill guides.", category: "Intelligence" },
+    // ── 🛒 Commerce ───────────────────────────────────────────────────────────
+    { id: "shopify",            label: "Shopify",              icon: Cpu,        description: "Live store data: orders, products, inventory, customers.", category: "Commerce" },
+    { id: "content_creation",   label: "Content Studio (OCA)", icon: Sparkles,   description: "Full content pipeline: competitor research → brief → image generation.", category: "Commerce" },
+    { id: "image_generation",   label: "Image Generation",     icon: ImageIcon,  description: "Multi-model image creation (DALL-E 3, Nano Banana 2, Ideogram).", category: "Commerce" },
+    { id: "design_intelligence",label: "Design Intelligence",  icon: Palette,    description: "Auto-enhances image prompts for HD quality. Requires Image Generation.", category: "Commerce" },
+    { id: "brand_enforcement",  label: "Brand-Aware Images",   icon: Layers,     description: "Uses your brand style guide when generating images.", category: "Commerce" },
+    { id: "business_context",   label: "Brand Guide",          icon: FileText,   description: "Injects your brand context (mission, voice, products) into every conversation.", category: "Commerce" },
+    // ── ✉️ Communication ──────────────────────────────────────────────────────
+    { id: "gmail_read",         label: "Gmail Read",           icon: Mail,       description: "Read, search, and fetch full email content from the agent's connected Gmail inbox.", category: "Communication" },
+    { id: "gmail_write",        label: "Gmail Write",          icon: Mail,       description: "Compose and send emails (including replies) from the agent's connected Gmail account.", category: "Communication" },
+    { id: "google_workspace",   label: "Google Workspace",     icon: FileText,   description: "Create and share Google Sheets and Docs from the agent's connected Google account.", category: "Communication" },
+    // ── ⚡ Automation ─────────────────────────────────────────────────────────
+    { id: "task_queue",         label: "Task Queue",           icon: Zap,        description: "Claim, complete, and create tasks in shared projects. Required for multi-agent collaboration.", category: "Automation" },
+    { id: "moderation",         label: "AI Moderation",        icon: ShieldAlert,description: "Auto-deletes harmful or policy-violating messages.", category: "Automation" },
 ];
+
+const FEATURE_CATEGORIES = ["Intelligence", "Commerce", "Communication", "Automation"];
+
 
 
 const PRIMING_FIELDS = [
@@ -272,31 +273,47 @@ function AgentSetupModal({
                         <label className="is-size-7 has-text-grey-light has-text-weight-bold mb-2" style={{ display: "block", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                             Feature Allocation
                         </label>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                            {ALL_FEATURES.map(feat => {
-                                const Icon = feat.icon;
-                                const active = !!form.features?.[feat.id];
-                                return (
-                                    <button
-                                        key={feat.id}
-                                        type="button"
-                                        onClick={() => toggleFeature(feat.id)}
-                                        style={{
-                                            textAlign: "left", padding: "8px 10px", borderRadius: 8,
-                                            background: active ? "rgba(255,140,0,0.1)" : "rgba(255,255,255,0.03)",
-                                            border: active ? "1px solid rgba(255,140,0,0.4)" : "1px solid rgba(255,255,255,0.07)",
-                                            cursor: "pointer", transition: "all 0.15s",
-                                        }}
-                                    >
-                                        <div className="is-flex is-align-items-center" style={{ gap: 6 }}>
-                                            <Icon size={12} style={{ color: active ? "var(--accent-orange, #ff8c00)" : "#666", flexShrink: 0 }} />
-                                            <span className="is-size-7 has-text-weight-bold" style={{ color: active ? "#fff" : "#888" }}>{feat.label}</span>
-                                        </div>
-                                        <p className="is-size-7" style={{ color: "#555", marginTop: 2, paddingLeft: 18 }}>{feat.description}</p>
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        {FEATURE_CATEGORIES.map(cat => {
+                            const catFeatures = ALL_FEATURES.filter(f => f.category === cat);
+                            const catColors: Record<string, string> = {
+                                Intelligence: "#38bdf8",
+                                Commerce:     "#f59e0b",
+                                Communication:"#7289da",
+                                Automation:   "#a78bfa",
+                            };
+                            return (
+                                <div key={cat} className="mb-3">
+                                    <p className="is-size-7 has-text-weight-bold mb-1" style={{ color: catColors[cat] ?? "#888", letterSpacing: "0.05em", textTransform: "uppercase", fontSize: 9 }}>
+                                        {cat}
+                                    </p>
+                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                                        {catFeatures.map(feat => {
+                                            const Icon = feat.icon;
+                                            const active = !!form.features?.[feat.id];
+                                            return (
+                                                <button
+                                                    key={feat.id}
+                                                    type="button"
+                                                    onClick={() => toggleFeature(feat.id)}
+                                                    style={{
+                                                        textAlign: "left", padding: "8px 10px", borderRadius: 8,
+                                                        background: active ? `${catColors[cat]}18` : "rgba(255,255,255,0.03)",
+                                                        border: active ? `1px solid ${catColors[cat]}55` : "1px solid rgba(255,255,255,0.07)",
+                                                        cursor: "pointer", transition: "all 0.15s",
+                                                    }}
+                                                >
+                                                    <div className="is-flex is-align-items-center" style={{ gap: 6 }}>
+                                                        <Icon size={12} style={{ color: active ? catColors[cat] : "#666", flexShrink: 0 }} />
+                                                        <span className="is-size-7 has-text-weight-bold" style={{ color: active ? "#fff" : "#888" }}>{feat.label}</span>
+                                                    </div>
+                                                    <p className="is-size-7" style={{ color: "#555", marginTop: 2, paddingLeft: 18 }}>{feat.description}</p>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {/* Advanced (mission, personality, etc.) — collapsed by default for template spawn */}
