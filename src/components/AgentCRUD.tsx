@@ -5,10 +5,11 @@ import {
     Brain, Plus, Trash2, Hash, ShieldCheck, Cpu, RefreshCcw,
     CheckCircle2, XCircle, Target, Sparkles, Globe, ShieldAlert,
     ChevronDown, ChevronUp, Library, X, Zap, Image as ImageIcon,
-    Palette, FileText, BarChart2, Search, Layers, Pencil,
+    Palette, FileText, BarChart2, Search, Layers, Pencil, Mail,
 } from "lucide-react";
 import { cn } from "@/app/lib/utils";
 import { AgentRoutines } from "@/components/AgentRoutines";
+import { AgentEmail } from "@/components/AgentEmail";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
@@ -82,6 +83,8 @@ const ALL_FEATURES = [
     { id: "web_intelligence",   label: "Web Intelligence",      icon: Globe,      description: "Audit competitor websites for traffic data, Core Web Vitals, tech stack, domain age, and competitive signals." },
     // ── Developer Tools ──────────────────────────────────────────────────────
     { id: "codebase_awareness", label: "Codebase Awareness",    icon: Brain,      description: "Gives the agent access to read internal documentation, architecture files, and skill guides (gravity-claw + mission-control)." },
+    // ── Communication ────────────────────────────────────────────────────────
+    { id: "email",              label: "Gmail / Email",          icon: Mail,       description: "Connect a Gmail account to this agent so it can read, search, and send emails. Configure the account in the Email tab after enabling." },
 ];
 
 
@@ -549,6 +552,12 @@ export const AgentCRUD = () => {
                                                 <div className="mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
                                                     <AgentRoutines agentId={agent.id} agentName={agent.name} />
                                                 </div>
+                                                {/* Gmail / Email — only shown when email feature is on */}
+                                                {agent.features?.email && (
+                                                    <div className="mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
+                                                        <AgentEmail agentId={agent.id} agentName={agent.name} />
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
