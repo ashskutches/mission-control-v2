@@ -434,7 +434,14 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
         try {
             const res = await fetch(`${BOT_URL}/admin/routines?agent_id=${agentId}`);
             const data = await res.json();
-            setRoutines(Array.isArray(data) ? data : []);
+            const routineList = Array.isArray(data) ? data : [];
+            setRoutines(routineList);
+            // Open debug panel for all routines by default (users can collapse individually)
+            setDebugOpen(prev => {
+                const next: Record<string, boolean> = { ...prev };
+                routineList.forEach((r: Routine) => { if (next[r.id] === undefined) next[r.id] = true; });
+                return next;
+            });
         } catch { /* silent */ } finally { setLoading(false); }
     }, [agentId]);
 
