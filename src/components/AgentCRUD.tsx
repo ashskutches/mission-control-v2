@@ -569,8 +569,8 @@ export const AgentCRUD = () => {
                                                 <div className="mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
                                                     <AgentRoutines agentId={agent.id} agentName={agent.name} />
                                                 </div>
-                                                {/* Gmail / Email — only shown when email feature is on */}
-                                                {agent.features?.email && (
+                                                {/* Google account connection — shown when any Google-related feature is on */}
+                                                {(agent.features?.gmail_read || agent.features?.gmail_write || agent.features?.google_workspace || agent.features?.email) && (
                                                     <div className="mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
                                                         <AgentEmail agentId={agent.id} agentName={agent.name} />
                                                     </div>
