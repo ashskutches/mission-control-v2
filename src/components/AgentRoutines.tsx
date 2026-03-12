@@ -13,6 +13,7 @@ interface Routine {
     cron: string;
     prompt: string;
     enabled: boolean;
+    report_to_discord: boolean;
     last_run_at: string | null;
     last_status: "success" | "error" | "running" | null;
     created_at: string;
@@ -402,9 +403,21 @@ function RoutineModal({ agentId, agentName, initial, onClose, onSaved }: { agent
                         />
                     </div>
 
-                    <div className="field mb-4 is-flex is-align-items-center" style={{ gap: 10 }}>
+                    <div className="field mb-3 is-flex is-align-items-center" style={{ gap: 10 }}>
                         <input type="checkbox" id="routine-enabled" checked={!!form.enabled} onChange={e => set("enabled", e.target.checked)} />
                         <label htmlFor="routine-enabled" className="is-size-7 has-text-grey-light has-text-weight-bold" style={{ letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>Active</label>
+                    </div>
+
+                    <div className="field mb-4" style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(88,101,242,0.06)", border: "1px solid rgba(88,101,242,0.2)" }}>
+                        <div className="is-flex is-align-items-center" style={{ gap: 10 }}>
+                            <input type="checkbox" id="routine-discord" checked={!!form.report_to_discord} onChange={e => set("report_to_discord", e.target.checked)} />
+                            <label htmlFor="routine-discord" style={{ cursor: "pointer", userSelect: "none" }}>
+                                <span className="is-size-7 has-text-weight-bold" style={{ color: "#7289da" }}>📢 Report in Discord</span>
+                            </label>
+                        </div>
+                        <p className="is-size-7 has-text-grey mt-1" style={{ paddingLeft: 22, lineHeight: 1.4 }}>
+                            After each run, the agent posts its output to its Discord channel as an embed.
+                        </p>
                     </div>
 
                     {error && <p className="help is-danger mb-3">{error}</p>}
@@ -505,6 +518,7 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
                                         <span className="is-size-7 has-text-weight-black has-text-white" style={{ lineHeight: 1 }}>{r.name}</span>
                                         <StatusBadge status={r.last_status} small />
                                         {!r.enabled && <span className="tag is-small is-dark" style={{ fontSize: 9 }}>Paused</span>}
+                                        {r.report_to_discord && <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(88,101,242,0.15)", color: "#7289da", border: "1px solid rgba(88,101,242,0.25)", fontWeight: 700 }}>📢 Discord</span>}
                                     </div>
                                     <div className="is-flex is-align-items-center" style={{ gap: 8 }}>
                                         <code style={{ fontSize: 10, color: "#888", background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{r.cron}</code>
