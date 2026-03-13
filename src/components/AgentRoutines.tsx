@@ -16,6 +16,7 @@ interface Routine {
     report_to_discord: boolean;
     last_run_at: string | null;
     last_status: "success" | "error" | "running" | null;
+    resource_level: "LOW" | "MEDIUM" | "HIGH" | null;
     created_at: string;
 }
 
@@ -71,6 +72,26 @@ function StatusBadge({ status, small }: { status: RoutineRun["status"] | Routine
         </span>
     );
     return <span style={{ fontSize: 11, color: "#555" }}>—</span>;
+}
+
+function ResourceBadge({ level }: { level: Routine["resource_level"] }) {
+    if (!level) return null;
+    const cfg = {
+        LOW:    { color: "#22c55e", bg: "rgba(34,197,94,0.1)",  border: "rgba(34,197,94,0.25)"  },
+        MEDIUM: { color: "#f59e0b", bg: "rgba(245,158,11,0.1)", border: "rgba(245,158,11,0.25)" },
+        HIGH:   { color: "#ef4444", bg: "rgba(239,68,68,0.1)",  border: "rgba(239,68,68,0.25)"  },
+    }[level];
+    return (
+        <span title={`Resource usage: ${level}`} style={{
+            display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9,
+            fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
+            color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}`,
+            borderRadius: 5, padding: "2px 6px",
+        }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: cfg.color, flexShrink: 0 }} />
+            {level}
+        </span>
+    );
 }
 
 // ── Debug Panel ────────────────────────────────────────────────────────────────
@@ -517,6 +538,7 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
                                     <div className="is-flex is-align-items-center" style={{ gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                                         <span className="is-size-7 has-text-weight-black has-text-white" style={{ lineHeight: 1 }}>{r.name}</span>
                                         <StatusBadge status={r.last_status} small />
+                                        <ResourceBadge level={r.resource_level} />
                                         {!r.enabled && <span className="tag is-small is-dark" style={{ fontSize: 9 }}>Paused</span>}
                                         {r.report_to_discord && <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(88,101,242,0.15)", color: "#7289da", border: "1px solid rgba(88,101,242,0.25)", fontWeight: 700 }}>📢 Discord</span>}
                                     </div>
