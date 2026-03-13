@@ -10,6 +10,7 @@ import {
 import { cn } from "@/app/lib/utils";
 import { AgentRoutines } from "@/components/AgentRoutines";
 import { AgentEmail } from "@/components/AgentEmail";
+import { AgentDocuments } from "@/components/AgentDocuments";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
@@ -573,6 +574,12 @@ export const AgentCRUD = () => {
                                                 {(agent.features?.gmail_read || agent.features?.gmail_write || agent.features?.google_workspace || agent.features?.email) && (
                                                     <div className="mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
                                                         <AgentEmail agentId={agent.id} agentName={agent.name} />
+                                                    </div>
+                                                )}
+                                                {/* Documents panel — shown for agents with Google Workspace */}
+                                                {(agent.features?.google_workspace || agent.features?.email || agent.features?.gmail_read || agent.features?.gmail_write) && (
+                                                    <div className="mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
+                                                        <AgentDocuments agentId={agent.id} />
                                                     </div>
                                                 )}
                                             </div>
