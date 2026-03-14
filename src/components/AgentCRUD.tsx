@@ -271,9 +271,25 @@ function AgentSetupModal({
 
                     {/* Feature Allocation */}
                     <div className="mb-4">
-                        <label className="is-size-7 has-text-grey-light has-text-weight-bold mb-2" style={{ display: "block", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                            Feature Allocation
-                        </label>
+                        <div className="is-flex is-align-items-center is-justify-content-space-between mb-2">
+                            <label className="is-size-7 has-text-grey-light has-text-weight-bold" style={{ letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                                Feature Allocation
+                            </label>
+                            {(() => {
+                                const count = Object.values(form.features ?? {}).filter(Boolean).length;
+                                if (count >= 8) return (
+                                    <span style={{ fontSize: 10, fontWeight: 800, color: "#ef4444", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6, padding: "2px 7px" }}>
+                                        ⚠️ {count} tools — too many, reduces performance
+                                    </span>
+                                );
+                                if (count >= 5) return (
+                                    <span style={{ fontSize: 10, fontWeight: 800, color: "#ff8c00", background: "rgba(255,140,0,0.1)", border: "1px solid rgba(255,140,0,0.3)", borderRadius: 6, padding: "2px 7px" }}>
+                                        ⚡ {count} tools — best to keep at 3–5
+                                    </span>
+                                );
+                                return <span style={{ fontSize: 10, color: "#555" }}>{count} enabled</span>;
+                            })()}
+                        </div>
                         {FEATURE_CATEGORIES.map(cat => {
                             const catFeatures = ALL_FEATURES.filter(f => f.category === cat);
                             const catColors: Record<string, string> = {
