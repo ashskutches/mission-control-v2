@@ -58,6 +58,22 @@ const FEATURE_LABELS: Record<string, string> = {
     design_intelligence: "Design Intelligence",
 };
 
+const CATEGORY_COLORS: Record<string, string> = {
+    "Design":              "#ff6b9d",
+    "Engineering":         "#4da6ff",
+    "Marketing":           "#ff8c00",
+    "Paid Media":          "#a855f7",
+    "Product":             "#22c55e",
+    "Project Management":  "#06b6d4",
+    "Testing":             "#f59e0b",
+    "Support":             "#10b981",
+    "Specialized":         "#e879f9",
+};
+
+function getCategoryColor(category?: string): string {
+    return CATEGORY_COLORS[category ?? ""] || "#6366f1";
+}
+
 function FeaturePill({ label, active }: { label: string; active: boolean }) {
     return (
         <span style={{
@@ -370,6 +386,7 @@ function TemplatesTab({ onCreated }: { onCreated: () => void }) {
         setSaving(true); setError(null);
         try {
             const id = agentName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now().toString(36);
+            const catColor = getCategoryColor(selected?.category);
             const res = await fetch(`${BOT_URL}/admin/agents`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -384,6 +401,8 @@ function TemplatesTab({ onCreated }: { onCreated: () => void }) {
                     constraints: fullTemplate.constraints || "",
                     features: fullTemplate.features || {},
                     type: "specialized",
+                    category: selected?.category,
+                    color: catColor,
                 }),
             });
             if (!res.ok) { const b = await res.json(); throw new Error(b.error || "Failed to create agent"); }
@@ -417,22 +436,28 @@ function TemplatesTab({ onCreated }: { onCreated: () => void }) {
         </div>
     );
 
-    if (selected && fullTemplate) return (
+    if (selected && fullTemplate) {
+        const catColor = getCategoryColor(selected.category);
+        return (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
             <button onClick={() => { setSelected(null); setFullTemplate(null); }} style={{ all: "unset", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, color: "#555" }}>
                 <ChevronLeft size={13} /> Back to templates
             </button>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ fontSize: 40 }}>{selected.emoji}</span>
-                <div>
-                    <input
-                        value={agentName}
-                        onChange={e => setAgentName(e.target.value)}
-                        placeholder="Agent name"
-                        className="input"
-                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", fontWeight: 800, fontSize: 16 }}
-                    />
-                    <p className="has-text-grey" style={{ fontSize: 11, marginTop: 3 }}>{selected.description}</p>
+            {/* Category color header strip */}
+            <div style={{ borderRadius: 10, border: `1px solid ${catColor}40`, background: `${catColor}10`, padding: "0.875rem 1rem", display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 36 }}>{selected.emoji}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                        <input
+                            value={agentName}
+                            onChange={e => setAgentName(e.target.value)}
+                            placeholder="Agent name"
+                            className="input is-small"
+                            style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", fontWeight: 800, fontSize: 14 }}
+                        />
+                        <span style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.07em", color: catColor, background: `${catColor}18`, border: `1px solid ${catColor}35`, borderRadius: 5, padding: "2px 7px", flexShrink: 0 }}>{selected.category}</span>
+                    </div>
+                    <p style={{ fontSize: 11, color: "#999" }}>{selected.description}</p>
                 </div>
             </div>
             {fullTemplate.mission && (
@@ -452,11 +477,11 @@ function TemplatesTab({ onCreated }: { onCreated: () => void }) {
                 </div>
             )}
             {error && <p style={{ color: "#ef4444", fontSize: 12 }}>⚠️ {error}</p>}
-            <button onClick={handleDeploy} disabled={saving || !agentName.trim()} className="button" style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", color: "var(--accent-emerald)", fontWeight: 800, alignSelf: "flex-start" }}>
+            <button onClick={handleDeploy} disabled={saving || !agentName.trim()} className="button" style={{ background: `${catColor}18`, border: `1px solid ${catColor}40`, color: catColor, fontWeight: 800, alignSelf: "flex-start" }}>
                 {saving ? <><Loader2 size={13} style={{ animation: "spin 1s linear infinite", marginRight: 6 }} />Deploying…</> : <><Zap size={13} style={{ marginRight: 6 }} />Deploy {agentName || "Agent"}</>}
             </button>
         </div>
-    );
+    );}
 
     if (selected && loadingFull) return (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "3rem", gap: 8, color: "#555" }}>
@@ -475,32 +500,40 @@ function TemplatesTab({ onCreated }: { onCreated: () => void }) {
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-            {Object.entries(grouped).map(([cat, items]) => (
+            {Object.entries(grouped).map(([cat, items]) => {
+                const catColor = getCategoryColor(cat);
+                return (
                 <div key={cat}>
-                    <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#555", marginBottom: 8 }}>{cat}</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <div style={{ width: 3, height: 14, borderRadius: 2, background: catColor, flexShrink: 0 }} />
+                        <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: catColor }}>{cat}</p>
+                    </div>
                     <div className="columns is-multiline" style={{ rowGap: "0.5rem" }}>
                         {items.map(t => (
                             <div key={t.slug} className="column is-6">
                                 <button onClick={() => handleSelect(t)} style={{
                                     all: "unset", cursor: "pointer", display: "block", width: "100%",
-                                    background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)",
-                                    borderRadius: 10, padding: "0.875rem", transition: "all 0.15s", boxSizing: "border-box",
+                                    background: `${catColor}08`,
+                                    border: `1px solid ${catColor}30`,
+                                    borderTop: `3px solid ${catColor}`,
+                                    borderRadius: 10, padding: "0.875rem",
+                                    transition: "all 0.15s", boxSizing: "border-box",
                                 }}
-                                    onMouseEnter={e => (e.currentTarget.style.border = "1px solid rgba(255,140,0,0.3)")}
-                                    onMouseLeave={e => (e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)")}
+                                    onMouseEnter={e => { e.currentTarget.style.background = `${catColor}14`; e.currentTarget.style.borderColor = `${catColor}60`; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = `${catColor}08`; e.currentTarget.style.borderColor = `${catColor}30`; }}
                                 >
-                                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                                        <span style={{ fontSize: 24 }}>{t.emoji}</span>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                        <span style={{ fontSize: 22 }}>{t.emoji}</span>
                                         <p style={{ fontWeight: 800, fontSize: 13, color: "#fff" }}>{t.name}</p>
                                     </div>
-                                    <p style={{ fontSize: 11, color: "#666", lineHeight: 1.5 }}>{t.description}</p>
-                                    <p style={{ fontSize: 10, color: "#ff8c00", marginTop: 6, fontWeight: 700 }}>Use template →</p>
+                                    <p style={{ fontSize: 11, color: "#777", lineHeight: 1.5 }}>{t.description}</p>
+                                    <p style={{ fontSize: 10, color: catColor, marginTop: 6, fontWeight: 700 }}>Use template →</p>
                                 </button>
                             </div>
                         ))}
                     </div>
                 </div>
-            ))}
+            );})}
         </div>
     );
 }

@@ -28,6 +28,8 @@ interface AgentDef {
     context?: string;
     constraints?: string;
     emoji?: string;
+    color?: string;
+    category?: string;
 }
 
 interface AgentTemplate {
@@ -554,9 +556,15 @@ export const AgentCRUD = () => {
                             const heatColor = ratio > 0.6 ? "#34d399" : ratio > 0.25 ? "#ff8c00" : "#555";
                             const heatLabel = ratio > 0.6 ? "ACTIVE" : ratio > 0.25 ? "MODERATE" : score > 0 ? "QUIET" : "IDLE";
                             const cardBg = ratio > 0.6 ? "rgba(52,211,153,0.04)" : ratio > 0.25 ? "rgba(255,140,0,0.04)" : "rgba(255,255,255,0.02)";
+                            const categoryColor = agent.color || CATEGORY_COLORS[agent.category as string] || null;
                             return (
                                 <div key={agent.id} className="column is-12 is-6-desktop">
-                                    <div className="box" style={{ background: cardBg, border: `1px solid ${score > 0 ? heatColor + "55" : "rgba(255,255,255,0.07)"}`, padding: "1rem", transition: "border-color 0.3s" }}>
+                                    <div className="box" style={{ position: "relative", overflow: "hidden", background: cardBg, border: `1px solid ${score > 0 ? heatColor + "55" : categoryColor ? categoryColor + "30" : "rgba(255,255,255,0.07)"}`, padding: "1rem", transition: "border-color 0.3s" }}>
+                                        {/* Category color left-bar */}
+                                        {categoryColor && (
+                                            <div style={{ position: "absolute", top: 0, left: 0, width: 3, height: "100%", background: categoryColor, opacity: 0.7 }} />
+                                        )}
+                                        <div style={{ paddingLeft: categoryColor ? 6 : 0 }}>
                                         <div className="is-flex is-align-items-center is-justify-content-space-between">
                                             <div className="is-flex is-align-items-center" style={{ gap: "0.6rem", flex: 1, minWidth: 0 }}>
                                                 <span style={{ fontSize: 22, flexShrink: 0 }}>{agent.emoji ?? "🤖"}</span>
@@ -565,6 +573,9 @@ export const AgentCRUD = () => {
                                                         <p className="has-text-weight-black is-size-7 text-truncate">{agent.name}</p>
                                                         {score > 0 && (
                                                             <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.07em", textTransform: "uppercase", color: heatColor, background: `${heatColor}18`, border: `1px solid ${heatColor}40`, borderRadius: 4, padding: "1px 5px", flexShrink: 0 }}>{heatLabel}</span>
+                                                        )}
+                                                        {agent.category && categoryColor && (
+                                                            <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.06em", textTransform: "uppercase", color: categoryColor, background: `${categoryColor}15`, border: `1px solid ${categoryColor}35`, borderRadius: 4, padding: "1px 5px", flexShrink: 0 }}>{agent.category}</span>
                                                         )}
                                                     </div>
                                                     <p className="has-text-grey" style={{ fontSize: 11 }}>{agent.specialization}</p>
@@ -585,6 +596,7 @@ export const AgentCRUD = () => {
                                                 </button>
                                             </div>
                                         </div>
+                                        </div>{/* /paddingLeft wrapper */}
                                         {isOpen && (
                                             <div className="mt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "0.75rem" }}>
                                                 {agent.discordChannelId && (
