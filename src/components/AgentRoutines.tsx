@@ -115,8 +115,10 @@ function DebugPanel({ routineId, liveRun }: { routineId: string; liveRun: Routin
                 if (res.ok) {
                     const data = await res.json();
                     if (data) setRun(data);
+                    return data;
                 }
             } catch { /* silent */ }
+            return null;
         };
 
         const fetchHistory = async () => {
@@ -129,15 +131,20 @@ function DebugPanel({ routineId, liveRun }: { routineId: string; liveRun: Routin
         fetchLatest();
         fetchHistory();
 
-        // Start polling if running
+        // Always poll when we have a running state — use interval ref to avoid stale closure
         if (run?.status === "running") {
             pollRef.current = setInterval(async () => {
-                await fetchLatest();
-                if (run?.status !== "running") clearInterval(pollRef.current!);
+                const latest = await fetchLatest();
+                // Stop polling and refresh history once the task finishes
+                if (latest && latest.status !== "running") {
+                    clearInterval(pollRef.current!);
+                    pollRef.current = null;
+                    await fetchHistory();
+                }
             }, 2000);
         }
 
-        return () => { if (pollRef.current) clearInterval(pollRef.current); };
+        return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
     }, [routineId, run?.status]);
 
     const displayRun = run;
@@ -505,7 +512,11 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
             await fetch_();
         } catch (e) {
             console.error("Failed to trigger routine", e);
+            // Clear running state on error so button re-enables
+            setLiveRuns(p => ({ ...p, [r.id]: { ...p[r.id], status: "error", error: "Failed to trigger" } }));
         } finally {
+            // Only clear the button spinner — the task may still be executing.
+            // Run Now stays disabled via liveRuns[r.id].status === "running" until DebugPanel polling updates it.
             setRunning(p => ({ ...p, [r.id]: false }));
         }
     };
@@ -550,16 +561,16 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
 
                                 {/* ── Action Buttons ──────────────────────── */}
                                 <div className="is-flex is-align-items-center" style={{ gap: 5, flexShrink: 0 }}>
-                                    {/* ▶ Run Now */}
+                                    {/* ▶ Run Now — disabled while running OR while liveRun is active */}
                                     <button
                                         title="Run now"
-                                        disabled={running[r.id]}
+                                        disabled={running[r.id] || liveRuns[r.id]?.status === "running"}
                                         onClick={() => handleRunNow(r)}
-                                        style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, padding: "4px 10px", borderRadius: 7, cursor: running[r.id] ? "not-allowed" : "pointer", border: "1px solid rgba(52,211,153,0.3)", background: "rgba(52,211,153,0.08)", color: running[r.id] ? "#555" : "var(--accent-emerald)", fontWeight: 700, transition: "all 0.15s" }}>
-                                        {running[r.id]
+                                        style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, padding: "4px 10px", borderRadius: 7, cursor: (running[r.id] || liveRuns[r.id]?.status === "running") ? "not-allowed" : "pointer", border: "1px solid rgba(52,211,153,0.3)", background: "rgba(52,211,153,0.08)", color: (running[r.id] || liveRuns[r.id]?.status === "running") ? "#555" : "var(--accent-emerald)", fontWeight: 700, transition: "all 0.15s" }}>
+                                        {(running[r.id] || liveRuns[r.id]?.status === "running")
                                             ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
                                             : <Play size={11} />}
-                                        {running[r.id] ? "Running…" : "Run Now"}
+                                        {(running[r.id] || liveRuns[r.id]?.status === "running") ? "Running…" : "Run Now"}
                                     </button>
 
                                     {/* Debug toggle */}

@@ -37,6 +37,7 @@ import { BusinessContextEditor } from "@/components/BusinessContextEditor";
 import { TemplateLibrary } from "@/components/TemplateLibrary";
 import { ProjectsDashboard } from "@/components/ProjectsDashboard";
 import CostAlerts from "@/components/CostAlerts";
+import AgentMetrics from "@/components/AgentMetrics";
 import { cn } from "@/app/lib/utils";
 import { APP_CONFIG } from "@/app/lib/AppConfig";
 
@@ -53,6 +54,7 @@ export default function MissionControl() {
   const [activity, setActivity] = useState<any[]>([]);
   const [facts, setFacts] = useState<any[]>([]);
   const [costData, setCostData] = useState({ total: 0, rows: [] as any[] });
+  const [costStats, setCostStats] = useState<{ totalCostUsd: number; totalAlerts: number; periodDays: number } | null>(null);
   const [health, setHealth] = useState<any>(null);
   const [shopify, setShopify] = useState<any>(null);
   const [forecast, setForecast] = useState<any>(null);
@@ -76,16 +78,18 @@ export default function MissionControl() {
       }
 
       try {
-        const [healthR, shopifyR, forecastR, agentsR] = await Promise.all([
+        const [healthR, shopifyR, forecastR, agentsR, costStatsR] = await Promise.all([
           fetch(`${BOT_URL}/health`).then(r => r.json()),
           fetch(`${BOT_URL}/shopify`).then(r => r.json()),
           fetch(`${BOT_URL}/forecasting`).then(r => r.json()),
           fetch(`${BOT_URL}/admin/agents`).then(r => r.json()),
+          fetch(`${BOT_URL}/admin/cost-stats`).then(r => r.json()).catch(() => null),
         ]);
         setHealth(healthR);
         setShopify(shopifyR);
         setForecast(forecastR);
         setAgents(Array.isArray(agentsR) ? agentsR : []);
+        if (costStatsR?.totalCostUsd !== undefined) setCostStats(costStatsR);
       } catch (e) {
         console.warn("⚠️ Bot API connection failed");
       }
@@ -219,9 +223,9 @@ export default function MissionControl() {
                   </div>
                   <div className="column is-4">
                     <StatCard
-                      label="Compute (Cost)"
-                      value={`$${costData.total.toFixed(4)}`}
-                      subValue="Total Unit Utilization"
+                      label="LLM Spend (30d)"
+                      value={costStats ? `$${costStats.totalCostUsd.toFixed(2)}` : `$${costData.total.toFixed(2)}`}
+                      subValue={costStats && costStats.totalAlerts > 0 ? `${costStats.totalAlerts} high-cost alerts` : "AI compute cost"}
                       color="var(--accent-blue)"
                       icon={Cpu}
                     />
@@ -587,6 +591,11 @@ export default function MissionControl() {
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    {/* ── Row 5: Agent Metrics & ROI ── */}
+                    <div>
+                      <AgentMetrics />
                     </div>
 
                   </div>
