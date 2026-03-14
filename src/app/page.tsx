@@ -560,22 +560,12 @@ export default function MissionControl() {
                   BRAND
               ═══════════════════════════════════════════════════════════════ */}
               {activeTab === "brand" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
-                  <div>
-                    <h3 className="title is-size-4 has-text-weight-black is-uppercase mb-1">Brand Guide</h3>
-                    <p className="subtitle is-size-7 has-text-grey-light is-uppercase has-text-weight-bold mb-5" style={{ letterSpacing: "0.08em" }}>
-                      Business context, voice, and brand identity
-                    </p>
-                    <BusinessContextEditor />
-                  </div>
-                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
-                  <div>
-                    <h3 className="title is-size-4 has-text-weight-black is-uppercase mb-1">Template Library</h3>
-                    <p className="subtitle is-size-7 has-text-grey-light is-uppercase has-text-weight-bold mb-5" style={{ letterSpacing: "0.08em" }}>
-                      Agent prompt templates and playbooks
-                    </p>
-                    <TemplateLibrary />
-                  </div>
+                <div>
+                  <h3 className="title is-size-4 has-text-weight-black is-uppercase mb-1">Brand Guide</h3>
+                  <p className="subtitle is-size-7 has-text-grey-light is-uppercase has-text-weight-bold mb-5" style={{ letterSpacing: "0.08em" }}>
+                    Business context, voice, and brand identity
+                  </p>
+                  <BusinessContextEditor />
                 </div>
               )}
 
