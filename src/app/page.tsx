@@ -36,6 +36,7 @@ import { AgentCRUD } from "@/components/AgentCRUD";
 import { BusinessContextEditor } from "@/components/BusinessContextEditor";
 import { TemplateLibrary } from "@/components/TemplateLibrary";
 import { ProjectsDashboard } from "@/components/ProjectsDashboard";
+import CostAlerts from "@/components/CostAlerts";
 import { cn } from "@/app/lib/utils";
 import { APP_CONFIG } from "@/app/lib/AppConfig";
 
@@ -178,6 +179,11 @@ export default function MissionControl() {
             </div>
           </div>
         </section>
+
+        {/* Cost Alerts — always visible above main content */}
+        <div className="px-4 pt-4">
+          <CostAlerts />
+        </div>
 
         {/* Tab Content */}
         <div className="px-4">
