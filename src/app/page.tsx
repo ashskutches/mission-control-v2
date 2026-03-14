@@ -236,10 +236,7 @@ export default function MissionControl() {
           </div>
         </section>
 
-        {/* ── Cost Alerts — global, always visible ── */}
-        <div className="px-4 pb-2">
-          <CostAlerts />
-        </div>
+
 
         {/* ── Tab Content ── */}
         <div className="px-4 pb-6">
@@ -291,6 +288,9 @@ export default function MissionControl() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Cost Alerts — Overview only */}
+                  <CostAlerts />
 
                   {/* Row 2 — Live feed */}
                   <div className="box p-6">
@@ -385,16 +385,16 @@ export default function MissionControl() {
                     <div>
                       <p className="is-size-7 is-uppercase has-text-weight-black has-text-grey mb-4" style={{ letterSpacing: "0.12em" }}>Revenue Intelligence</p>
                       <div className="columns is-multiline">
-                        <div className="column is-3">
+                        <div className="column is-4">
                           <StatCard label="Today's Revenue" value={shopify ? `$${Number(shopify.todayRevenue).toLocaleString()}` : "—"}
                             subValue={shopify ? `${shopify.todayOrders} orders · $${shopify.aov} AOV` : "Loading..."}
                             color="var(--accent-emerald)" trend="up" icon={ShoppingBag} />
                         </div>
-                        <div className="column is-3">
+                        <div className="column is-4">
                           <StatCard label="30-Day Sales" value={shopify ? `$${Number(shopify.total30d || 0).toLocaleString()}` : "—"}
                             subValue="Rolling 30-day gross" color="var(--accent-blue)" icon={TrendingUp} />
                         </div>
-                        <div className="column is-3">
+                        <div className="column is-4">
                           <StatCard label="Month-End Forecast"
                             value={(() => {
                               if (forecast?.estimatedMonthEnd) return `$${Number(forecast.estimatedMonthEnd).toLocaleString()}`;
@@ -404,10 +404,6 @@ export default function MissionControl() {
                               return mtd > 0 ? `$${Math.round(mtd / dom * dim).toLocaleString()}` : "—";
                             })()}
                             subValue="Projected from MTD pace" color="var(--accent-cyan)" icon={BarChart3} />
-                        </div>
-                        <div className="column is-3">
-                          <StatCard label="AI Compute (7d)" value={`$${recentCost.toFixed(2)}`}
-                            subValue="Total agent spend" color="var(--accent-orange)" icon={Cpu} />
                         </div>
                       </div>
                     </div>
