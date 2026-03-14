@@ -126,13 +126,16 @@ export default function MissionControl() {
       // Supabase fetches
       const today = new Date().toISOString().split("T")[0];
       const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
       const [actResp, factResp, costResp, todayTasksResp, monthProjectsResp] = await Promise.all([
         supabase.from("activity_log").select("*").order("created_at", { ascending: false }).limit(100),
         supabase.from("bot_facts").select("*").order("updated_at", { ascending: false }),
-        supabase.from("cost_log").select("*").order("created_at", { ascending: false }),
+        // 30d filter keeps payload small and matches the label shown in Revenue Vitality
+        supabase.from("cost_log").select("cost_usd, created_at").gte("created_at", thirtyDaysAgo).order("created_at", { ascending: false }),
         supabase.from("tasks").select("id", { count: "exact" }).gte("created_at", `${today}T00:00:00`).eq("status", "success"),
-        supabase.from("tasks").select("id", { count: "exact" }).gte("created_at", monthStart).eq("status", "success"),
+        // Count projects (not task runs) completed this month
+        supabase.from("projects").select("id", { count: "exact" }).gte("created_at", monthStart),
       ]);
 
       if (actResp.data)  setActivity(actResp.data);
@@ -174,10 +177,8 @@ export default function MissionControl() {
     APP_CONFIG.navigation.find(n => n.id === activeTab) || APP_CONFIG.navigation[0],
     [activeTab]);
 
-  // Derived commerce metrics
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const recentCost = (costData.rows as any[]).filter(r => new Date(r.created_at).getTime() > sevenDaysAgo)
-    .reduce((s: number, r: any) => s + (r.cost_usd || 0), 0);
+  // Derived 30d cost (already filtered on fetch)
+  const recentCost = costData.total;
 
   return (
     <main className="app-wrapper">
@@ -284,7 +285,7 @@ export default function MissionControl() {
                       <div className="column is-4">
                         <KpiCard label="Projects This Month" icon={Target} color="var(--accent-purple, #a855f7)"
                           value={monthProjects}
-                          sub="Successful completions" />
+                          sub="Active projects" />
                       </div>
                     </div>
                   </div>
@@ -494,7 +495,7 @@ export default function MissionControl() {
                               {[
                                 { label: "30-Day Sales", val: `$${Number(shopify?.total30d || 0).toLocaleString()}`, color: "has-text-success" },
                                 { label: "Today's Orders", val: `${shopify?.todayOrders || 0} @ $${shopify?.aov || "0.00"} AOV`, color: "has-text-info" },
-                                { label: "AI Compute Cost", val: `-$${costData.total.toFixed(2)}`, color: "has-text-warning" },
+                                { label: "AI Cost (30d)", val: `-$${costData.total.toFixed(2)}`, color: "has-text-warning" },
                               ].map(({ label, val, color }) => (
                                 <div key={label} className="is-flex is-justify-content-between is-align-items-center pb-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                                   <span className="is-size-7 is-uppercase has-text-grey-light has-text-weight-bold">{label}</span>

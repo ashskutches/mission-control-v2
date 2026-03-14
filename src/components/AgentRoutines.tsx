@@ -507,9 +507,15 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
         setLiveRuns(p => ({ ...p, [r.id]: { id: "pending", status: "running", triggered_by: "manual", started_at: new Date().toISOString(), completed_at: null, duration_ms: null, agent_output: null, tools_used: null, provider: null, error: null } }));
 
         try {
-            await fetch(`${BOT_URL}/admin/routines/${r.id}/run`, { method: "POST" });
-            // Refresh routine list to show updated last_status
-            await fetch_();
+            const res = await fetch(`${BOT_URL}/admin/routines/${r.id}/run`, { method: "POST" });
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                // 409 = already running — pull back the optimistic state
+                setLiveRuns(p => ({ ...p, [r.id]: { ...p[r.id], status: "error", error: body.error ?? `Server error ${res.status}` } }));
+            } else {
+                // Refresh routine list to show updated last_status
+                await fetch_();
+            }
         } catch (e) {
             console.error("Failed to trigger routine", e);
             // Clear running state on error so button re-enables
