@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { FileText, Sheet, ExternalLink, Trash2, Loader2, FolderOpen } from "lucide-react";
+import { FileText, Sheet, Trash2, Loader2, FolderOpen } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "";
 
@@ -14,8 +14,8 @@ interface AgentDocument {
 }
 
 export function AgentDocuments({ agentId }: { agentId: string }) {
-    const [docs, setDocs]       = useState<AgentDocument[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [docs, setDocs]         = useState<AgentDocument[]>([]);
+    const [loading, setLoading]   = useState(true);
     const [deleting, setDeleting] = useState<string | null>(null);
 
     const fetchDocs = useCallback(async () => {
@@ -30,7 +30,10 @@ export function AgentDocuments({ agentId }: { agentId: string }) {
 
     useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
-    const handleDelete = async (docId: string) => {
+    const handleDelete = async (docId: string, title: string) => {
+        if (!window.confirm(
+            `Remove "${title}" from this agent's document list?\n\nThis only removes the link — the Google Doc/Sheet itself will not be deleted.`
+        )) return;
         setDeleting(docId);
         try {
             await fetch(`${BOT_URL}/admin/agents/${agentId}/documents/${docId}`, { method: "DELETE" });
@@ -38,7 +41,8 @@ export function AgentDocuments({ agentId }: { agentId: string }) {
         } finally { setDeleting(null); }
     };
 
-    const fmt = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const fmt = (iso: string) =>
+        new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
     if (loading) return (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", color: "#555" }}>
@@ -67,7 +71,7 @@ export function AgentDocuments({ agentId }: { agentId: string }) {
             ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                     {docs.map(doc => {
-                        const Icon = doc.doc_type === "sheet" ? Sheet : FileText;
+                        const Icon  = doc.doc_type === "sheet" ? Sheet : FileText;
                         const color = doc.doc_type === "sheet" ? "#22c55e" : "#38bdf8";
                         return (
                             <div
@@ -80,26 +84,32 @@ export function AgentDocuments({ agentId }: { agentId: string }) {
                                 }}
                             >
                                 <Icon size={13} color={color} style={{ flexShrink: 0 }} />
-                                <span className="is-size-7 has-text-white" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    {doc.title}
-                                </span>
-                                <span className="is-size-7 has-text-grey" style={{ flexShrink: 0, fontSize: 10 }}>
-                                    {fmt(doc.created_at)}
-                                </span>
+
+                                {/* Title — clickable, opens doc in new tab */}
                                 <a
                                     href={doc.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    style={{ color, flexShrink: 0, display: "flex", alignItems: "center" }}
-                                    title="Open"
+                                    className="is-size-7 has-text-white"
+                                    style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: "none" }}
+                                    onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+                                    onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
                                 >
-                                    <ExternalLink size={12} />
+                                    {doc.title}
                                 </a>
+
+                                <span className="is-size-7 has-text-grey" style={{ flexShrink: 0, fontSize: 10 }}>
+                                    {fmt(doc.created_at)}
+                                </span>
+
+                                {/* Delete — confirms before acting, turns red on hover */}
                                 <button
-                                    onClick={() => handleDelete(doc.id)}
+                                    onClick={() => handleDelete(doc.id, doc.title)}
                                     disabled={deleting === doc.id}
-                                    style={{ background: "none", border: "none", cursor: "pointer", color: "#444", padding: 0, flexShrink: 0, display: "flex", alignItems: "center" }}
+                                    style={{ background: "none", border: "none", cursor: "pointer", color: "#555", padding: "2px 4px", flexShrink: 0, display: "flex", alignItems: "center", borderRadius: 4 }}
                                     title="Remove from list"
+                                    onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
+                                    onMouseLeave={e => (e.currentTarget.style.color = "#555")}
                                 >
                                     {deleting === doc.id
                                         ? <Loader2 size={11} className="animate-spin" />
