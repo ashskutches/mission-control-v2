@@ -21,6 +21,8 @@ import {
   CheckSquare,
   Clock,
   DollarSign,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 // Components
@@ -66,7 +68,41 @@ function KpiCard({
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── CollapsibleSection ───────────────────────────────────────────────────────
+function CollapsibleSection({
+  title, subtitle, defaultOpen = false, children,
+}: {
+  title: string; subtitle?: string; defaultOpen?: boolean; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ borderRadius: 12, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "1rem 1.25rem", background: open ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.015)",
+          border: "none", cursor: "pointer", borderBottom: open ? "1px solid rgba(255,255,255,0.07)" : "none",
+          transition: "background 0.2s",
+        }}
+        onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+        onMouseLeave={e => (e.currentTarget.style.background = open ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.015)")}
+      >
+        <div style={{ textAlign: "left" }}>
+          <p className="has-text-weight-black has-text-white" style={{ fontSize: 15, letterSpacing: "-0.01em" }}>{title}</p>
+          {subtitle && <p className="has-text-grey" style={{ fontSize: 11, marginTop: 2 }}>{subtitle}</p>}
+        </div>
+        {open ? <ChevronUp size={16} color="#666" /> : <ChevronDown size={16} color="#666" />}
+      </button>
+      {open && (
+        <div style={{ padding: "1.25rem" }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MissionControl() {
   const [activeTab, setActiveTab] = useState("overview");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -297,46 +333,30 @@ export default function MissionControl() {
                   AGENTS
               ═══════════════════════════════════════════════════════════════ */}
               {activeTab === "agents" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
-
-                  {/* Section 1 — Agent performance metrics */}
-                  <div>
-                    <div className="mb-5">
-                      <h3 className="title is-size-4 has-text-weight-black is-uppercase mb-1">Agent Intelligence</h3>
-                      <p className="subtitle is-size-7 has-text-grey-light is-uppercase has-text-weight-bold" style={{ letterSpacing: "0.08em" }}>
-                        Performance · Cost · ROI — 30 Day Window
-                      </p>
-                    </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  <CollapsibleSection
+                    title="Agent Intelligence"
+                    subtitle="Performance · Cost · ROI — 30 Day Window"
+                    defaultOpen={false}
+                  >
                     <AgentMetrics />
-                  </div>
+                  </CollapsibleSection>
 
-                  {/* Divider */}
-                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
-
-                  {/* Section 2 — Projects */}
-                  <div>
-                    <div className="mb-5">
-                      <h3 className="title is-size-4 has-text-weight-black is-uppercase mb-1">Projects</h3>
-                      <p className="subtitle is-size-7 has-text-grey-light is-uppercase has-text-weight-bold" style={{ letterSpacing: "0.08em" }}>
-                        Agent-driven objectives and deliverables
-                      </p>
-                    </div>
+                  <CollapsibleSection
+                    title="Projects"
+                    subtitle="Agent-driven objectives and deliverables"
+                    defaultOpen={false}
+                  >
                     <ProjectsDashboard />
-                  </div>
+                  </CollapsibleSection>
 
-                  {/* Divider */}
-                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
-
-                  {/* Section 3 — Agent CRUD (manage) */}
-                  <div>
-                    <div className="mb-5">
-                      <h3 className="title is-size-4 has-text-weight-black is-uppercase mb-1">Manage Agents</h3>
-                      <p className="subtitle is-size-7 has-text-grey-light is-uppercase has-text-weight-bold" style={{ letterSpacing: "0.08em" }}>
-                        Create, configure, and deploy AI agents
-                      </p>
-                    </div>
+                  <CollapsibleSection
+                    title="Manage Agents"
+                    subtitle="Create, configure, and deploy AI agents"
+                    defaultOpen={true}
+                  >
                     <AgentCRUD />
-                  </div>
+                  </CollapsibleSection>
                 </div>
               )}
 
