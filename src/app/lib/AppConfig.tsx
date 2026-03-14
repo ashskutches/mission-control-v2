@@ -1,13 +1,11 @@
 import {
     BarChart3,
-    BookOpen,
-    Brain,
-    BrainCircuit,
+    Bot,
     LayoutDashboard,
+    Palette,
     Settings,
-    ShieldAlert,
+    ShoppingBag,
     Zap,
-    Layers
 } from 'lucide-react';
 
 export const APP_CONFIG = {
@@ -15,15 +13,12 @@ export const APP_CONFIG = {
     version: '3.0.0',
     author: 'Gravity Claw',
     navigation: [
-        { id: 'overview', href: '/', icon: LayoutDashboard, label: 'Overview' },
-        { id: 'war-room', href: '/war-room', icon: ShieldAlert, label: 'War Room' },
-        { id: 'neural-graph', href: '/neural-graph', icon: BrainCircuit, label: 'Neural Graph' },
-        { id: 'commerce', href: '/commerce', icon: BarChart3, label: 'Commerce' },
-        { id: 'projects', href: '/projects', icon: Layers, label: 'Projects' },
-        { id: 'agents', href: '/agents', icon: Brain, label: 'Agents' },
-        { id: 'business-context', href: '/business-context', icon: BookOpen, label: 'Brand Guide' },
-        { id: 'engine', href: '/engine', icon: Zap, label: 'Engine' },
-        { id: 'settings', href: '/settings', icon: Settings, label: 'Settings' },
+        { id: 'overview',  href: '/',         icon: LayoutDashboard, label: 'Overview'  },
+        { id: 'agents',    href: '/agents',    icon: Bot,             label: 'Agents'    },
+        { id: 'commerce',  href: '/commerce',  icon: ShoppingBag,     label: 'Commerce'  },
+        { id: 'brand',     href: '/brand',     icon: Palette,         label: 'Brand'     },
+        { id: 'engine',    href: '/engine',    icon: Zap,             label: 'Engine'    },
+        { id: 'settings',  href: '/settings',  icon: Settings,        label: 'Settings'  },
     ],
     theme: {
         accent: 'var(--accent-orange)',
