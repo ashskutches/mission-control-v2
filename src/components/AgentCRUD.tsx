@@ -379,6 +379,7 @@ export const AgentCRUD = () => {
     const [templateSearch, setTemplateSearch] = useState("");
     const [templateCategory, setTemplateCategory] = useState<string | null>(null);
     const [expandedAgents, setExpandedAgents] = useState<Record<string, boolean>>({});
+    const [activityScores, setActivityScores] = useState<Record<string, number>>({});
 
     // Modal state
     const [modal, setModal] = useState<{
@@ -408,6 +409,18 @@ export const AgentCRUD = () => {
 
     useEffect(() => {
         Promise.all([fetchAgents(), fetchTemplates()]).finally(() => setLoading(false));
+        // Fetch activity scores independently (non-blocking)
+        fetch(`${BOT_URL}/admin/agent-metrics`)
+            .then(r => r.json())
+            .then(data => {
+                if (!Array.isArray(data?.agents)) return;
+                const scores: Record<string, number> = {};
+                for (const a of data.agents) {
+                    scores[a.agentId] = (a.runs30d ?? 0) * 10 + (a.costUsd ?? 0) * 20;
+                }
+                setActivityScores(scores);
+            })
+            .catch(() => {});
     }, [fetchAgents, fetchTemplates]);
 
     const handleDelete = async (id: string) => {
@@ -512,17 +525,30 @@ export const AgentCRUD = () => {
                         </div>
                     )}
                     <div className="columns is-multiline">
-                        {agents.map(agent => {
+                        {[...agents]
+                          .sort((a, b) => (activityScores[b.id] ?? 0) - (activityScores[a.id] ?? 0))
+                          .map(agent => {
                             const isOpen = !!expandedAgents[agent.id];
                             const activeFeatures = Object.entries(agent.features ?? {}).filter(([, v]) => v);
+                            const score = activityScores[agent.id] ?? 0;
+                            const maxScore = Math.max(...Object.values(activityScores), 1);
+                            const ratio = Math.min(score / maxScore, 1);
+                            const heatColor = ratio > 0.6 ? "#34d399" : ratio > 0.25 ? "#ff8c00" : "#555";
+                            const heatLabel = ratio > 0.6 ? "ACTIVE" : ratio > 0.25 ? "MODERATE" : score > 0 ? "QUIET" : "IDLE";
+                            const cardBg = ratio > 0.6 ? "rgba(52,211,153,0.04)" : ratio > 0.25 ? "rgba(255,140,0,0.04)" : "rgba(255,255,255,0.02)";
                             return (
                                 <div key={agent.id} className="column is-12 is-6-desktop">
-                                    <div className="box" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", padding: "1rem" }}>
+                                    <div className="box" style={{ background: cardBg, border: `1px solid ${score > 0 ? heatColor + "55" : "rgba(255,255,255,0.07)"}`, padding: "1rem", transition: "border-color 0.3s" }}>
                                         <div className="is-flex is-align-items-center is-justify-content-space-between">
                                             <div className="is-flex is-align-items-center" style={{ gap: "0.6rem", flex: 1, minWidth: 0 }}>
                                                 <span style={{ fontSize: 22, flexShrink: 0 }}>{agent.emoji ?? "🤖"}</span>
                                                 <div style={{ minWidth: 0 }}>
-                                                    <p className="has-text-weight-black is-size-7 text-truncate">{agent.name}</p>
+                                                    <div className="is-flex is-align-items-center" style={{ gap: 6 }}>
+                                                        <p className="has-text-weight-black is-size-7 text-truncate">{agent.name}</p>
+                                                        {score > 0 && (
+                                                            <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.07em", textTransform: "uppercase", color: heatColor, background: `${heatColor}18`, border: `1px solid ${heatColor}40`, borderRadius: 4, padding: "1px 5px", flexShrink: 0 }}>{heatLabel}</span>
+                                                        )}
+                                                    </div>
                                                     <p className="has-text-grey" style={{ fontSize: 11 }}>{agent.specialization}</p>
                                                 </div>
                                             </div>
