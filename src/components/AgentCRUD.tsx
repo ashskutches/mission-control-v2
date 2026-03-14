@@ -11,6 +11,7 @@ import { cn } from "@/app/lib/utils";
 import { AgentRoutines } from "@/components/AgentRoutines";
 import { AgentEmail } from "@/components/AgentEmail";
 import { AgentDocuments } from "@/components/AgentDocuments";
+import { AgentWizard } from "@/components/AgentWizard";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
@@ -396,6 +397,7 @@ export const AgentCRUD = () => {
     const [templateCategory, setTemplateCategory] = useState<string | null>(null);
     const [expandedAgents, setExpandedAgents] = useState<Record<string, boolean>>({});
     const [activityScores, setActivityScores] = useState<Record<string, number>>({});
+    const [wizardOpen, setWizardOpen] = useState(false);
 
     // Modal state
     const [modal, setModal] = useState<{
@@ -445,7 +447,7 @@ export const AgentCRUD = () => {
         fetchAgents();
     };
 
-    const openScratch = () => setModal({ open: true, initial: { ...blank } });
+    const openScratch = () => setWizardOpen(true);
 
     const openEdit = (agent: AgentDef) => setModal({
         open: true,
@@ -707,7 +709,7 @@ export const AgentCRUD = () => {
                 </div>
             )}
 
-            {/* ── Setup Modal ── */}
+            {/* ── Setup Modal (for editing existing agents) ── */}
             <AnimatePresence>
                 {modal.open && (
                     <AgentSetupModal
@@ -716,6 +718,32 @@ export const AgentCRUD = () => {
                         isEditing={modal.isEditing}
                         onClose={() => setModal(p => ({ ...p, open: false }))}
                         onSaved={onSaved}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* ── Agent Creation Wizard (for new agents) ── */}
+            <AnimatePresence>
+                {wizardOpen && (
+                    <AgentWizard
+                        onClose={() => setWizardOpen(false)}
+                        onCreated={() => { setWizardOpen(false); fetchAgents(); }}
+                        AdvancedForm={({ onSaved: advSaved }) => (
+                            <div style={{ padding: "1rem 0", textAlign: "center" }}>
+                                <p className="has-text-grey" style={{ fontSize: 12, marginBottom: "1rem" }}>
+                                    Advanced mode opens the full configuration form with all fields.
+                                </p>
+                                <button
+                                    className="button is-dark"
+                                    onClick={() => {
+                                        setWizardOpen(false);
+                                        setModal({ open: true, initial: { ...blank } });
+                                    }}
+                                >
+                                    Open Advanced Form
+                                </button>
+                            </div>
+                        )}
                     />
                 )}
             </AnimatePresence>
