@@ -632,12 +632,11 @@ export const AgentCRUD = () => {
                                                         <AgentEmail agentId={agent.id} agentName={agent.name} />
                                                     </div>
                                                 )}
-                                                {/* Documents panel — shown for agents with Google Workspace */}
-                                                {(agent.features?.google_workspace || agent.features?.email || agent.features?.gmail_read || agent.features?.gmail_write) && (
-                                                    <div className="mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
-                                                        <AgentDocuments agentId={agent.id} />
-                                                    </div>
-                                                )}
+                                                {/* Living Documents — shown for ALL agents */}
+                                                <div className="mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
+                                                    <AgentDocuments agentId={agent.id} />
+                                                </div>
+
                                             </div>
                                         )}
                                     </div>
