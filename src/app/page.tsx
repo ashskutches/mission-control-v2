@@ -242,13 +242,18 @@ export default function MissionControl() {
 
       // Bot API fetches
       try {
+      const fetchT = (url: string, ms = 5000) => {
+          const ac = new AbortController();
+          const t = setTimeout(() => ac.abort(), ms);
+          return fetch(url, { signal: ac.signal }).finally(() => clearTimeout(t));
+        };
         const [healthR, shopifyR, forecastR, agentsR, costStatsR, metricsR] = await Promise.all([
-          fetch(`${BOT_URL}/health`).then(r => r.json()).catch(() => null),
-          fetch(`${BOT_URL}/shopify`).then(r => r.json()).catch(() => null),
-          fetch(`${BOT_URL}/forecasting`).then(r => r.json()).catch(() => null),
-          fetch(`${BOT_URL}/admin/agents`).then(r => r.json()).catch(() => []),
-          fetch(`${BOT_URL}/admin/cost-stats`).then(r => r.json()).catch(() => null),
-          fetch(`${BOT_URL}/admin/agent-metrics`).then(r => r.json()).catch(() => null),
+          fetchT(`${BOT_URL}/health`).then(r => r.json()).catch(() => null),
+          fetchT(`${BOT_URL}/shopify`).then(r => r.json()).catch(() => null),
+          fetchT(`${BOT_URL}/forecasting`).then(r => r.json()).catch(() => null),
+          fetchT(`${BOT_URL}/admin/agents`).then(r => r.json()).catch(() => []),
+          fetchT(`${BOT_URL}/admin/cost-stats`).then(r => r.json()).catch(() => null),
+          fetchT(`${BOT_URL}/admin/agent-metrics`).then(r => r.json()).catch(() => null),
         ]);
         if (healthR)    setHealth(healthR);
         if (shopifyR)   setShopify(shopifyR);
