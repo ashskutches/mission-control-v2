@@ -67,6 +67,33 @@ const CATEGORY_COLORS: Record<string, string> = {
     "Specialized": "#e879f9",
 };
 
+// Keywords → department mapping for agents that lack a category field
+const SPECIALIZATION_TO_CATEGORY: [RegExp, string][] = [
+    [/seo|search engine|content market|blog|keyword|organic/i, "Marketing"],
+    [/email|campaign|social|brand|advertis|copywr|influencer|outreach|growth/i, "Marketing"],
+    [/paid|ppc|ads|google ads|meta ads|facebook ads|tiktok ads/i, "Paid Media"],
+    [/design|ui|ux|figma|creative|graphic|photo|visual|illustrat/i, "Design"],
+    [/engineer|dev|code|software|frontend|backend|fullstack|api|database|devops/i, "Engineering"],
+    [/product|roadmap|feature|backlog|sprint|agile|scrum/i, "Product"],
+    [/project|pm|planning|milestone|timeline|coordinat/i, "Project Management"],
+    [/test|qa|quality|bug|automat|spec|coverage/i, "Testing"],
+    [/support|customer|helpdesk|ticket|service|care/i, "Support"],
+];
+
+/**
+ * Derives a display category for an agent.
+ * Uses agent.category if set, otherwise sniffs specialization keywords.
+ */
+function deriveCategory(agent: AgentDef): string {
+    if (agent.category && CATEGORY_COLORS[agent.category]) return agent.category;
+    const haystack = `${agent.specialization ?? ""} ${agent.mission ?? ""}`.toLowerCase();
+    for (const [re, cat] of SPECIALIZATION_TO_CATEGORY) {
+        if (re.test(haystack)) return cat;
+    }
+    return "General";
+}
+
+
 const ALL_FEATURES: { id: string; label: string; icon: any; description: string; category: string }[] = [
     // ── 🧠 Intelligence ───────────────────────────────────────────────────────
     { id: "search",             label: "Web Search",           icon: Globe,      description: "Real-time web research via Tavily.", category: "Intelligence" },
@@ -544,21 +571,72 @@ export const AgentCRUD = () => {
                             </div>
                         </div>
                     )}
-                    <div className="columns is-multiline">
-                        {[...agents]
-                          .sort((a, b) => (activityScores[b.id] ?? 0) - (activityScores[a.id] ?? 0))
-                          .map(agent => {
-                            const isOpen = !!expandedAgents[agent.id];
-                            const activeFeatures = Object.entries(agent.features ?? {}).filter(([, v]) => v);
-                            const score = activityScores[agent.id] ?? 0;
-                            const maxScore = Math.max(...Object.values(activityScores), 1);
-                            const ratio = Math.min(score / maxScore, 1);
-                            const heatColor = ratio > 0.6 ? "#34d399" : ratio > 0.25 ? "#ff8c00" : "#555";
-                            const heatLabel = ratio > 0.6 ? "ACTIVE" : ratio > 0.25 ? "MODERATE" : score > 0 ? "QUIET" : "IDLE";
-                            const cardBg = ratio > 0.6 ? "rgba(52,211,153,0.04)" : ratio > 0.25 ? "rgba(255,140,0,0.04)" : "rgba(255,255,255,0.02)";
-                            const categoryColor = agent.color || CATEGORY_COLORS[agent.category as string] || null;
-                            return (
-                                <div key={agent.id} className="column is-12 is-6-desktop">
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+                        {(() => {
+                            // Group agents by derived department
+                            const grouped: Record<string, typeof agents> = {};
+                            for (const agent of agents) {
+                                const dept = deriveCategory(agent);
+                                if (!grouped[dept]) grouped[dept] = [];
+                                grouped[dept]!.push(agent);
+                            }
+
+                            // Sort departments: known categories first (in defined order), then General
+                            const knownOrder = Object.keys(CATEGORY_COLORS);
+                            const depts = Object.keys(grouped).sort((a, b) => {
+                                const ai = knownOrder.indexOf(a);
+                                const bi = knownOrder.indexOf(b);
+                                if (ai === -1 && bi === -1) return a.localeCompare(b);
+                                if (ai === -1) return 1;
+                                if (bi === -1) return -1;
+                                return ai - bi;
+                            });
+
+                            return depts.map(dept => {
+                                const deptAgents = (grouped[dept] ?? []).sort(
+                                    (a, b) => (activityScores[b.id] ?? 0) - (activityScores[a.id] ?? 0)
+                                );
+                                const deptColor = CATEGORY_COLORS[dept] ?? "#6366f1";
+                                const deptEmoji = CATEGORY_EMOJI[dept] ?? "🤖";
+                                return (
+                                    <div key={dept}>
+                                        {/* Department header — only shown when multiple depts exist */}
+                                        {depts.length > 1 && (
+                                            <div style={{
+                                                display: "flex", alignItems: "center", gap: 8,
+                                                marginBottom: "0.75rem",
+                                                paddingBottom: 6,
+                                                borderBottom: `2px solid ${deptColor}44`,
+                                            }}>
+                                                <span style={{ fontSize: 16 }}>{deptEmoji}</span>
+                                                <span style={{
+                                                    fontSize: 11, fontWeight: 900,
+                                                    textTransform: "uppercase", letterSpacing: "0.1em",
+                                                    color: deptColor,
+                                                }}>{dept}</span>
+                                                <span style={{
+                                                    fontSize: 9, fontWeight: 700,
+                                                    background: `${deptColor}18`,
+                                                    border: `1px solid ${deptColor}35`,
+                                                    borderRadius: 10, padding: "1px 7px",
+                                                    color: deptColor,
+                                                }}>{deptAgents.length} agent{deptAgents.length !== 1 ? "s" : ""}</span>
+                                            </div>
+                                        )}
+                                        <div className="columns is-multiline">
+                                        {deptAgents.map(agent => {
+                                            const isOpen = !!expandedAgents[agent.id];
+                                            const activeFeatures = Object.entries(agent.features ?? {}).filter(([, v]) => v);
+                                            const score = activityScores[agent.id] ?? 0;
+                                            const maxScore = Math.max(...Object.values(activityScores), 1);
+                                            const ratio = Math.min(score / maxScore, 1);
+                                            const heatColor = ratio > 0.6 ? "#34d399" : ratio > 0.25 ? "#ff8c00" : "#555";
+                                            const heatLabel = ratio > 0.6 ? "ACTIVE" : ratio > 0.25 ? "MODERATE" : score > 0 ? "QUIET" : "IDLE";
+                                            const cardBg = ratio > 0.6 ? "rgba(52,211,153,0.04)" : ratio > 0.25 ? "rgba(255,140,0,0.04)" : "rgba(255,255,255,0.02)";
+                                            const categoryColor = agent.color || CATEGORY_COLORS[deriveCategory(agent)] || deptColor;
+                                            return (
+                                                <div key={agent.id} className="column is-12 is-6-desktop">
+
                                     <div className="box" style={{ position: "relative", overflow: "hidden", background: cardBg, border: `1px solid ${score > 0 ? heatColor + "55" : categoryColor ? categoryColor + "30" : "rgba(255,255,255,0.07)"}`, padding: "1rem", transition: "border-color 0.3s" }}>
                                         {/* Category color left-bar */}
                                         {categoryColor && (
@@ -574,8 +652,8 @@ export const AgentCRUD = () => {
                                                         {score > 0 && (
                                                             <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.07em", textTransform: "uppercase", color: heatColor, background: `${heatColor}18`, border: `1px solid ${heatColor}40`, borderRadius: 4, padding: "1px 5px", flexShrink: 0 }}>{heatLabel}</span>
                                                         )}
-                                                        {agent.category && categoryColor && (
-                                                            <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.06em", textTransform: "uppercase", color: categoryColor, background: `${categoryColor}15`, border: `1px solid ${categoryColor}35`, borderRadius: 4, padding: "1px 5px", flexShrink: 0 }}>{agent.category}</span>
+                                                        {categoryColor && (
+                                                            <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.06em", textTransform: "uppercase", color: categoryColor, background: `${categoryColor}15`, border: `1px solid ${categoryColor}35`, borderRadius: 4, padding: "1px 5px", flexShrink: 0 }}>{deriveCategory(agent)}</span>
                                                         )}
                                                     </div>
                                                     <p className="has-text-grey" style={{ fontSize: 11 }}>{agent.specialization}</p>
@@ -643,6 +721,10 @@ export const AgentCRUD = () => {
                                 </div>
                             );
                         })}
+                        </div>
+                    </div>
+                );
+            })}
                     </div>
                 </div>
             )}
