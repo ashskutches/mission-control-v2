@@ -267,14 +267,8 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
             {/* Step 2: Review Agent */}
             {step === "review-agent" && agent && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
-                    {/* Template match banner */}
-                    {loadingTemplate && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0.6rem 0.875rem", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                            <Loader2 size={13} style={{ animation: "spin 1s linear infinite", color: "#555" }} />
-                            <span style={{ fontSize: 12, color: "#555" }}>Checking for matching templates…</span>
-                        </div>
-                    )}
-                    {matchedTemplate && !loadingTemplate && (
+                    {/* Template match banner (shown when not from_template, but AI pre-filled from template) */}
+                    {matchedTemplate && (
                         <div style={{ padding: "0.75rem 1rem", borderRadius: 10, background: `${catColor}10`, border: `1px solid ${catColor}35`, display: "flex", alignItems: "center", gap: 10 }}>
                             <span style={{ fontSize: 22, flexShrink: 0 }}>{matchedTemplate.emoji}</span>
                             <div style={{ flex: 1, minWidth: 0 }}>
