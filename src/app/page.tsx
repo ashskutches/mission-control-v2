@@ -463,6 +463,13 @@ export default function MissionControl() {
                 </div>
               )}
 
+              {activeTab === "ideas" && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 12, opacity: 0.5 }}>
+                  <span style={{ fontSize: 48 }}>💡</span>
+                  <p className="has-text-grey has-text-weight-bold is-uppercase" style={{ fontSize: 12, letterSpacing: "0.1em" }}>Ideas — Coming Soon</p>
+                </div>
+              )}
+
               {/* ═══════════════════════════════════════════════════════════════
                   COMMERCE
               ═══════════════════════════════════════════════════════════════ */}
