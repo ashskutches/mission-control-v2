@@ -191,7 +191,13 @@ function GlobalDriveSettings() {
 }
 
 export default function MissionControl() {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search).get("tab");
+      if (p) return p;
+    }
+    return "overview";
+  });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Data
