@@ -5,7 +5,7 @@ import {
     Brain, Plus, Trash2, Hash, ShieldCheck, Cpu, RefreshCcw,
     CheckCircle2, XCircle, Target, Sparkles, Globe, ShieldAlert,
     ChevronDown, ChevronUp, Library, X, Zap, Image as ImageIcon,
-    Palette, FileText, BarChart2, Search, Layers, Pencil, Mail,
+    Palette, FileText, BarChart2, Search, Layers, Pencil, Mail, AlignJustify,
 } from "lucide-react";
 import { cn } from "@/app/lib/utils";
 import { AgentRoutines } from "@/components/AgentRoutines";
@@ -425,6 +425,13 @@ export const AgentCRUD = () => {
     const [templateSearch, setTemplateSearch] = useState("");
     const [templateCategory, setTemplateCategory] = useState<string | null>(null);
     const [expandedAgents, setExpandedAgents] = useState<Record<string, boolean>>({});
+    const [sectionOpen, setSectionOpen] = useState<Record<string, Record<string, boolean>>>({});
+    const toggleSection = (agentId: string, section: string) =>
+        setSectionOpen(p => ({
+            ...p,
+            [agentId]: { ...(p[agentId] ?? { skills: true, routines: true, documents: true }), [section]: !(p[agentId]?.[section] ?? true) },
+        }));
+    const isSectionOpen = (agentId: string, section: string) => p => (p[agentId]?.[section] ?? true);
     const [activityScores, setActivityScores] = useState<Record<string, number>>({});
     const [wizardOpen, setWizardOpen] = useState(false);
 
@@ -689,30 +696,63 @@ export const AgentCRUD = () => {
                                                         {agent.mission.slice(0, 150)}{agent.mission.length > 150 ? "..." : ""}
                                                     </p>
                                                 )}
-                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
-                                                    {ALL_FEATURES.map(f => (
-                                                        <span key={f.id} className="tag is-small" style={{
-                                                            background: agent.features?.[f.id] ? "rgba(255,140,0,0.15)" : "rgba(255,255,255,0.04)",
-                                                            color: agent.features?.[f.id] ? "#ff8c00" : "#555",
-                                                            border: `1px solid ${agent.features?.[f.id] ? "rgba(255,140,0,0.3)" : "rgba(255,255,255,0.06)"}`,
-                                                        }}>
-                                                            {f.label}
-                                                        </span>
-                                                    ))}
+                                                {/* ── Skills ── */}
+                                                <div className="mt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
+                                                    <button
+                                                        onClick={() => toggleSection(agent.id, "skills")}
+                                                        style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, marginBottom: 8, width: "100%" }}
+                                                    >
+                                                        <AlignJustify size={11} color="#555" />
+                                                        <span className="is-size-7 has-text-grey-light has-text-weight-black is-uppercase" style={{ fontSize: 10, letterSpacing: "0.08em", flex: 1 }}>Skills</span>
+                                                        {(sectionOpen[agent.id]?.skills ?? true) ? <ChevronUp size={10} color="#444" /> : <ChevronDown size={10} color="#444" />}
+                                                    </button>
+                                                    {(sectionOpen[agent.id]?.skills ?? true) && (
+                                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                                            {ALL_FEATURES.map(f => (
+                                                                <span key={f.id} className="tag is-small" style={{
+                                                                    background: agent.features?.[f.id] ? "rgba(255,140,0,0.15)" : "rgba(255,255,255,0.04)",
+                                                                    color: agent.features?.[f.id] ? "#ff8c00" : "#555",
+                                                                    border: `1px solid ${agent.features?.[f.id] ? "rgba(255,140,0,0.3)" : "rgba(255,255,255,0.06)"}`,
+                                                                }}>
+                                                                    {f.label}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                {/* Agent Routines */}
-                                                <div className="mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
-                                                    <AgentRoutines agentId={agent.id} agentName={agent.name} />
+                                                {/* ── Routines ── */}
+                                                <div className="mt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
+                                                    <button
+                                                        onClick={() => toggleSection(agent.id, "routines")}
+                                                        style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, marginBottom: 8, width: "100%" }}
+                                                    >
+                                                        <AlignJustify size={11} color="#555" />
+                                                        <span className="is-size-7 has-text-grey-light has-text-weight-black is-uppercase" style={{ fontSize: 10, letterSpacing: "0.08em", flex: 1 }}>Routines</span>
+                                                        {(sectionOpen[agent.id]?.routines ?? true) ? <ChevronUp size={10} color="#444" /> : <ChevronDown size={10} color="#444" />}
+                                                    </button>
+                                                    {(sectionOpen[agent.id]?.routines ?? true) && (
+                                                        <AgentRoutines agentId={agent.id} agentName={agent.name} />
+                                                    )}
                                                 </div>
-                                                {/* Google account connection — shown when any Google-related feature is on */}
+                                                {/* ── Email ── */}
                                                 {(agent.features?.gmail_read || agent.features?.gmail_write || agent.features?.google_workspace || agent.features?.email) && (
-                                                    <div className="mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
+                                                    <div className="mt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
                                                         <AgentEmail agentId={agent.id} agentName={agent.name} />
                                                     </div>
                                                 )}
-                                                {/* Living Documents — shown for ALL agents */}
-                                                <div className="mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
-                                                    <AgentDocuments agentId={agent.id} />
+                                                {/* ── Documents ── */}
+                                                <div className="mt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
+                                                    <button
+                                                        onClick={() => toggleSection(agent.id, "documents")}
+                                                        style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, marginBottom: 8, width: "100%" }}
+                                                    >
+                                                        <AlignJustify size={11} color="#555" />
+                                                        <span className="is-size-7 has-text-grey-light has-text-weight-black is-uppercase" style={{ fontSize: 10, letterSpacing: "0.08em", flex: 1 }}>Documents</span>
+                                                        {(sectionOpen[agent.id]?.documents ?? true) ? <ChevronUp size={10} color="#444" /> : <ChevronDown size={10} color="#444" />}
+                                                    </button>
+                                                    {(sectionOpen[agent.id]?.documents ?? true) && (
+                                                        <AgentDocuments agentId={agent.id} />
+                                                    )}
                                                 </div>
 
                                             </div>

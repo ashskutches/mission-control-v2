@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { FileText, Trash2, Loader2, Plus, ExternalLink, Clock, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
+import { FileText, Trash2, Loader2, Plus, ExternalLink, Clock, RefreshCw } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "";
 
@@ -114,13 +114,12 @@ function CreateDocModal({ agentId, onCreated, onClose }: { agentId: string; onCr
 // ── Document Card ─────────────────────────────────────────────────────────────
 
 function DocCard({ doc, agentId, onDeleted }: { doc: AgentDoc; agentId: string; onDeleted: () => void }) {
-    const [expanded, setExpanded] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
     const isLiving = !!doc.last_updated_at;
-    const preview = doc.content?.trim().slice(0, 280) ?? null;
 
-    const handleDelete = async () => {
+    const handleDelete = async (e: React.MouseEvent) => {
+        e.preventDefault(); e.stopPropagation();
         if (!window.confirm(`Remove "${doc.title}"? The Google Doc will not be deleted.`)) return;
         setDeleting(true);
         try {
@@ -129,72 +128,55 @@ function DocCard({ doc, agentId, onDeleted }: { doc: AgentDoc; agentId: string; 
         } finally { setDeleting(false); }
     };
 
-    return (
-        <div style={{
-            background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
-            borderRadius: 10, overflow: "hidden",
-            borderLeft: isLiving ? "3px solid #f59e0b" : "3px solid rgba(255,255,255,0.08)",
-        }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px" }}>
-                <FileText size={13} color={isLiving ? "#f59e0b" : "#555"} style={{ flexShrink: 0 }} />
+    const cardContent = (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px" }}>
+            <FileText size={13} color={isLiving ? "#f59e0b" : "#555"} style={{ flexShrink: 0 }} />
 
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <p className="has-text-white" style={{ fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {doc.title}
-                    </p>
-                    {doc.description && (
-                        <p className="has-text-grey" style={{ fontSize: 10, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.description}</p>
-                    )}
-                </div>
-
-                {/* Last updated */}
-                <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: isLiving ? "#f59e0b" : "#444", flexShrink: 0 }}>
-                    {isLiving && <Clock size={9} />}
-                    {fmtDate(doc.last_updated_at ?? doc.created_at)}
-                </span>
-
-                {/* Actions */}
-                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                    {doc.url && (
-                        <a href={doc.url} target="_blank" rel="noopener noreferrer"
-                            style={{ display: "flex", alignItems: "center", color: "#555", padding: "2px 4px" }}
-                            title="Open in Google Docs"
-                            onMouseEnter={e => (e.currentTarget.style.color = "#38bdf8")}
-                            onMouseLeave={e => (e.currentTarget.style.color = "#555")}>
-                            <ExternalLink size={11} />
-                        </a>
-                    )}
-                    {preview && (
-                        <button onClick={() => setExpanded(x => !x)}
-                            style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", color: "#555", padding: "2px 4px" }}
-                            title={expanded ? "Collapse" : "Preview content"}>
-                            {expanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-                        </button>
-                    )}
-                    <button onClick={handleDelete} disabled={deleting}
-                        style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", color: "#555", padding: "2px 4px" }}
-                        title="Remove document"
-                        onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = "#ef4444")}
-                        onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "#555")}>
-                        {deleting ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={11} />}
-                    </button>
-                </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <p className="has-text-white" style={{ fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {doc.title}
+                </p>
+                {doc.description && (
+                    <p className="has-text-grey" style={{ fontSize: 10, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.description}</p>
+                )}
             </div>
 
-            {/* Content preview */}
-            {expanded && preview && (
-                <div style={{
-                    padding: "8px 12px 10px",
-                    borderTop: "1px solid rgba(255,255,255,0.06)",
-                    background: "rgba(0,0,0,0.2)",
-                }}>
-                    <p style={{ fontSize: 11, color: "#888", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                        {preview}{doc.content!.length > 280 ? "…" : ""}
-                    </p>
-                </div>
-            )}
+            <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: isLiving ? "#f59e0b" : "#444", flexShrink: 0 }}>
+                {isLiving && <Clock size={9} />}
+                {fmtDate(doc.last_updated_at ?? doc.created_at)}
+            </span>
+
+            {doc.url && <ExternalLink size={10} color="#444" style={{ flexShrink: 0 }} />}
+
+            <button onClick={handleDelete} disabled={deleting}
+                style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", color: "#555", padding: "2px 4px", flexShrink: 0 }}
+                title="Remove document"
+                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = "#ef4444")}
+                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "#555")}>
+                {deleting ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={11} />}
+            </button>
         </div>
     );
+
+    const cardStyle: React.CSSProperties = {
+        background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
+        borderRadius: 10, overflow: "hidden",
+        borderLeft: isLiving ? "3px solid #f59e0b" : "3px solid rgba(255,255,255,0.08)",
+        display: "block", textDecoration: "none",
+        transition: "border-color 0.15s, background 0.15s",
+        cursor: doc.url ? "pointer" : "default",
+    };
+
+    if (doc.url) {
+        return (
+            <a href={doc.url} target="_blank" rel="noopener noreferrer" style={cardStyle}
+                onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = isLiving ? "#f59e0b" : "rgba(255,255,255,0.18)"; (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.05)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = ""; (e.currentTarget as HTMLAnchorElement).style.background = ""; }}>
+                {cardContent}
+            </a>
+        );
+    }
+    return <div style={cardStyle}>{cardContent}</div>;
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────
