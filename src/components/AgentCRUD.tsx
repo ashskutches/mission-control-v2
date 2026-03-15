@@ -734,12 +734,20 @@ export const AgentCRUD = () => {
                                                         <AgentRoutines agentId={agent.id} agentName={agent.name} />
                                                     )}
                                                 </div>
-                                                {/* ── Email ── */}
-                                                {(agent.features?.gmail_read || agent.features?.gmail_write || agent.features?.google_workspace || agent.features?.email) && (
-                                                    <div className="mt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
+                                                {/* ── Integrations ── */}
+                                                <div className="mt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
+                                                    <button
+                                                        onClick={() => toggleSection(agent.id, "integrations")}
+                                                        style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, marginBottom: 8, width: "100%" }}
+                                                    >
+                                                        <AlignJustify size={11} color="#555" />
+                                                        <span className="is-size-7 has-text-grey-light has-text-weight-black is-uppercase" style={{ fontSize: 10, letterSpacing: "0.08em", flex: 1 }}>Integrations</span>
+                                                        {(sectionOpen[agent.id]?.integrations ?? true) ? <ChevronUp size={10} color="#444" /> : <ChevronDown size={10} color="#444" />}
+                                                    </button>
+                                                    {(sectionOpen[agent.id]?.integrations ?? true) && (
                                                         <AgentEmail agentId={agent.id} agentName={agent.name} />
-                                                    </div>
-                                                )}
+                                                    )}
+                                                </div>
                                                 {/* ── Documents ── */}
                                                 <div className="mt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
                                                     <button
