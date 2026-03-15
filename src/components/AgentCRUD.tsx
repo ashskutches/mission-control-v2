@@ -725,8 +725,8 @@ export const AgentCRUD = () => {
                     </div>
                 );
             })}
-                    </div>
-                </div>
+                    </div>{/* end outer flex */}
+                </div>{/* end roster tab div */}
             )}
 
             {/* ── Templates Tab ── */}
