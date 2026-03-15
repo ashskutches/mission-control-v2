@@ -117,17 +117,62 @@ function GoogleAccountCard({
     );
 }
 
+// ── Read-only Drive status badge ──────────────────────────────────────────────
+
+function GlobalDriveStatus() {
+    const [email, setEmail]     = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetch(`${BOT_URL}/admin/settings/drive`)
+            .then(r => r.json())
+            .then(d => setEmail(d?.email ?? null))
+            .catch(() => setEmail(null))
+            .finally(() => setLoading(false));
+    }, []);
+
+    return (
+        <div style={{ padding: "1rem 0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <HardDrive size={16} color="#4285f4" />
+                <span className="is-size-6 has-text-weight-bold has-text-white">Google Drive</span>
+            </div>
+
+            {loading ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#555" }}>
+                    <Loader2 size={13} className="animate-spin" /><span className="is-size-7">Checking…</span>
+                </div>
+            ) : email ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.18)" }}>
+                    <CheckCircle2 size={13} color="#22c55e" style={{ flexShrink: 0 }} />
+                    <span className="is-size-7 has-text-grey-light" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email}</span>
+                    <span className="is-size-7 has-text-grey" style={{ flexShrink: 0, opacity: 0.5, fontSize: 10 }}>global</span>
+                </div>
+            ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 12px", borderRadius: 8, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                    <span style={{ fontSize: 11, color: "#555" }}>○</span>
+                    <span className="is-size-7 has-text-grey">Not configured — </span>
+                    <span className="is-size-7" style={{ color: "#ff8c00" }}>Settings → Integrations</span>
+                </div>
+            )}
+
+            <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <p className="is-size-7 has-text-grey" style={{ lineHeight: 1.6 }}>
+                    <strong className="has-text-grey-light">Available tools:</strong><br />
+                    <code style={{ fontSize: 10 }}>gdrive_create_sheet</code> · <code style={{ fontSize: 10 }}>gdrive_create_doc</code> · <code style={{ fontSize: 10 }}>gdrive_append_sheet</code> · <code style={{ fontSize: 10 }}>gdrive_update_doc</code>
+                </p>
+            </div>
+        </div>
+    );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function AgentEmail({ agentId, agentName }: { agentId: string; agentName: string }) {
     const [gmailStatus, setGmailStatus]   = useState<AccountStatus | null>(null);
-    const [driveStatus, setDriveStatus]   = useState<AccountStatus | null>(null);
     const [gmailLoading, setGmailLoading] = useState(true);
-    const [driveLoading, setDriveLoading] = useState(true);
     const [gmailRemoving, setGmailRemoving] = useState(false);
-    const [driveRemoving, setDriveRemoving] = useState(false);
     const [gmailError, setGmailError]     = useState<string | null>(null);
-    const [driveError, setDriveError]     = useState<string | null>(null);
 
     const fetchGmail = useCallback(async () => {
         try {
@@ -138,28 +183,15 @@ export function AgentEmail({ agentId, agentName }: { agentId: string; agentName:
         finally { setGmailLoading(false); }
     }, [agentId]);
 
-    const fetchDrive = useCallback(async () => {
-        try {
-            setDriveLoading(true);
-            const res = await fetch(`${BOT_URL}/admin/agents/${agentId}/drive`);
-            setDriveStatus(await res.json());
-        } catch { setDriveStatus(null); }
-        finally { setDriveLoading(false); }
-    }, [agentId]);
-
     useEffect(() => {
         fetchGmail();
-        fetchDrive();
 
         const params = new URLSearchParams(window.location.search);
         if (params.get("gmail_connected") === agentId) { fetchGmail(); window.history.replaceState({}, "", window.location.pathname); }
         if (params.get("gmail_error"))  { setGmailError(decodeURIComponent(params.get("gmail_error") ?? "")); window.history.replaceState({}, "", window.location.pathname); }
-        if (params.get("drive_connected") === agentId) { fetchDrive(); window.history.replaceState({}, "", window.location.pathname); }
-        if (params.get("drive_error"))  { setDriveError(decodeURIComponent(params.get("drive_error") ?? "")); window.history.replaceState({}, "", window.location.pathname); }
-    }, [agentId, fetchGmail, fetchDrive]);
+    }, [agentId, fetchGmail]);
 
     const handleGmailConnect    = () => { window.location.href = `${BOT_URL}/auth/gmail?agent_id=${encodeURIComponent(agentId)}`; };
-    const handleDriveConnect    = () => { window.location.href = `${BOT_URL}/auth/drive?agent_id=${encodeURIComponent(agentId)}`; };
 
     const handleGmailDisconnect = async () => {
         if (!confirm(`Disconnect Gmail from ${agentName}? The agent will lose email access.`)) return;
@@ -167,14 +199,6 @@ export function AgentEmail({ agentId, agentName }: { agentId: string; agentName:
         try { await fetch(`${BOT_URL}/admin/agents/${agentId}/email`, { method: "DELETE" }); setGmailStatus(null); }
         catch (e: any) { setGmailError(e?.message ?? "Failed to disconnect"); }
         finally { setGmailRemoving(false); }
-    };
-
-    const handleDriveDisconnect = async () => {
-        if (!confirm(`Disconnect Google Drive from ${agentName}? Drive tools will fall back to the Gmail account if one is connected.`)) return;
-        setDriveRemoving(true);
-        try { await fetch(`${BOT_URL}/admin/agents/${agentId}/drive`, { method: "DELETE" }); setDriveStatus(null); }
-        catch (e: any) { setDriveError(e?.message ?? "Failed to disconnect"); }
-        finally { setDriveRemoving(false); }
     };
 
     return (
@@ -203,35 +227,7 @@ export function AgentEmail({ agentId, agentName }: { agentId: string; agentName:
 
             <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", margin: "4px 0" }} />
 
-            <GoogleAccountCard
-                label="Google Drive"
-                icon={<HardDrive size={16} color="#4285f4" />}
-                accentColor="#4285f4"
-                status={driveStatus}
-                loading={driveLoading}
-                removing={driveRemoving}
-                error={driveError}
-                onConnect={handleDriveConnect}
-                onDisconnect={handleDriveDisconnect}
-                connectLabel="Connect Drive"
-                connectedNote={
-                    driveStatus ? undefined : undefined
-                }
-                toolsNote={
-                    <>
-                        <code style={{ fontSize: 10 }}>gdrive_create_sheet</code> ·{" "}
-                        <code style={{ fontSize: 10 }}>gdrive_create_doc</code> ·{" "}
-                        <code style={{ fontSize: 10 }}>gdrive_append_sheet</code> ·{" "}
-                        <code style={{ fontSize: 10 }}>gdrive_update_doc</code>
-                        {!driveStatus && gmailStatus && (
-                            <><br /><span style={{ opacity: 0.6 }}>⚠️ Not connected — Drive tools will use the Gmail account ({gmailStatus.email}) as fallback.</span></>
-                        )}
-                        {!driveStatus && !gmailStatus && (
-                            <><br /><span style={{ opacity: 0.6 }}>Connect Gmail or Drive to enable these tools.</span></>
-                        )}
-                    </>
-                }
-            />
+            <GlobalDriveStatus />
         </div>
     );
 }
