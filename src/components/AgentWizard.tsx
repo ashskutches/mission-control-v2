@@ -393,11 +393,13 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
             )}
         </div>
     );
+}
 
 // ── Templates Tab ─────────────────────────────────────────────────────────────
 
 
 function TemplatesTab({ onCreated }: { onCreated: () => void }) {
+
     const [templates, setTemplates] = useState<Template[]>([]);
     const [grouped, setGrouped] = useState<Record<string, Template[]>>({});
     const [loading, setLoading] = useState(true);
