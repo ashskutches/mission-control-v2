@@ -554,7 +554,6 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div className="is-flex is-align-items-center" style={{ gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                                         <span className="is-size-7 has-text-weight-black has-text-white" style={{ lineHeight: 1 }}>{r.name}</span>
-                                        <StatusBadge status={r.last_status} small />
                                         <ResourceBadge level={r.resource_level} />
                                         {!r.enabled && <span className="tag is-small is-dark" style={{ fontSize: 9 }}>Paused</span>}
                                         {r.report_to_discord && <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(88,101,242,0.15)", color: "#7289da", border: "1px solid rgba(88,101,242,0.25)", fontWeight: 700 }}>📢 Discord</span>}
