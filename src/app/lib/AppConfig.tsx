@@ -3,6 +3,7 @@ import {
     Bot,
     FolderKanban,
     LayoutDashboard,
+    Lightbulb,
     Palette,
     Settings,
     ShoppingBag,
@@ -15,8 +16,9 @@ export const APP_CONFIG = {
     author: 'Gravity Claw',
     navigation: [
         { id: 'overview',  href: '/',          icon: LayoutDashboard, label: 'Overview'  },
-        { id: 'agents',    href: '/agents',     icon: Bot,             label: 'Agents'    },
+        { id: 'agents',    href: '/agents',     icon: Bot,             label: 'Agents',    color: '#38bdf8' },
         { id: 'projects',  href: '/projects',   icon: FolderKanban,    label: 'Projects'  },
+        { id: 'ideas',     href: '/ideas',      icon: Lightbulb,       label: 'Ideas',     color: '#a78bfa' },
         { id: 'commerce',  href: '/commerce',   icon: ShoppingBag,     label: 'Commerce'  },
         { id: 'brand',     href: '/brand',      icon: Palette,         label: 'Brand'     },
         { id: 'engine',    href: '/engine',     icon: Zap,             label: 'Engine'    },

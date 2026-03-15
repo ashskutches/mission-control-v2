@@ -57,6 +57,7 @@ export default function Sidebar({ activeTab, onTabChange, isOpen }: SidebarProps
         {APP_CONFIG.navigation.map((item) => {
           const isActive = activeTab === item.id;
           const Icon = item.icon;
+          const accent = (item as any).color ?? 'var(--accent-orange)';
 
           return (
             <li key={item.id}>
@@ -68,12 +69,15 @@ export default function Sidebar({ activeTab, onTabChange, isOpen }: SidebarProps
                 )}
                 style={{
                   gap: '0.75rem',
-                  backgroundColor: isActive ? 'rgba(255,140,0,0.1)' : 'transparent',
-                  color: isActive ? 'var(--accent-orange) !important' : ''
+                  backgroundColor: isActive ? `${accent}18` : 'transparent',
+                  color: isActive ? `${accent} !important` : '',
+                  borderLeft: isActive ? `2px solid ${accent}` : '2px solid transparent',
+                  paddingLeft: '0.6rem',
+                  transition: 'all 0.15s',
                 }}
               >
-                <Icon size={18} />
-                <span className="is-uppercase has-text-weight-bold" style={{ fontSize: '12px' }}>
+                <Icon size={18} color={isActive ? accent : undefined} />
+                <span className="is-uppercase has-text-weight-bold" style={{ fontSize: '12px', color: isActive ? accent : undefined }}>
                   {item.label}
                 </span>
               </a>
