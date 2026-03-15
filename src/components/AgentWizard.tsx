@@ -56,6 +56,7 @@ const FEATURE_LABELS: Record<string, string> = {
     google_workspace: "Google Workspace",
     moderation: "Moderation",
     design_intelligence: "Design Intelligence",
+    discord_notify: "Discord DMs",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -97,13 +98,12 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
     const [agent, setAgent] = useState<AgentDef | null>(null);
     const [routines, setRoutines] = useState<RoutineDef[]>([]);
     const [saving, setSaving] = useState(false);
-    // Template match state
     const [matchedTemplate, setMatchedTemplate] = useState<{ slug: string; name: string; category: string; emoji: string } | null>(null);
-    const [loadingTemplate, setLoadingTemplate] = useState(false);
+    const [isResearchAgent, setIsResearchAgent] = useState(false);
 
     const handleGenerate = async () => {
         if (!description.trim()) return;
-        setLoading(true); setError(null); setMatchedTemplate(null);
+        setLoading(true); setError(null); setMatchedTemplate(null); setIsResearchAgent(false);
         try {
             const res = await fetch(`${BOT_URL}/admin/ai/build-agent`, {
                 method: "POST",
@@ -112,35 +112,23 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+
             setAgent(data.agent);
             setRoutines(data.routines.map((r: any) => ({ ...r, enabled: true })));
+            if (data.is_research_agent) setIsResearchAgent(true);
 
-            // If AI found a strong template match, load it and offer to swap
-            if (data.template_slug) {
-                setLoadingTemplate(true);
-                try {
-                    const tRes = await fetch(`${BOT_URL}/admin/agent-templates/${data.template_slug}`);
-                    const tData = await tRes.json();
-                    if (tRes.ok && tData.template) {
-                        const t = tData.template;
-                        setMatchedTemplate({ slug: t.slug, name: t.name, category: t.category, emoji: t.emoji ?? "🤖" });
-                        // Pre-fill agent fields from the template (user can still edit)
-                        setAgent(prev => prev ? {
-                            ...prev,
-                            emoji: t.emoji ?? prev.emoji,
-                            specialization: t.description ?? prev.specialization,
-                            mission: t.mission || prev.mission,
-                            personality: t.personality || prev.personality,
-                            context: t.context || prev.context,
-                            constraints: t.constraints || prev.constraints,
-                            features: t.features && Object.keys(t.features).length ? t.features : prev.features,
-                        } : prev);
-                    }
-                } catch { /* template load failed silently — AI draft still valid */ } finally {
-                    setLoadingTemplate(false);
-                }
+            if (data.from_template) {
+                // Template matched — use data directly, skip review-agent
+                setMatchedTemplate({
+                    slug: data.template_slug,
+                    name: data.template_name,
+                    category: data.template_category,
+                    emoji: data.agent.emoji ?? "🤖",
+                });
+                setStep("review-routines");  // ← skip straight to routines
+            } else {
+                setStep("review-agent");
             }
-            setStep("review-agent");
         } catch (e: any) {
             setError(e.message);
         } finally {
@@ -164,11 +152,26 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
             });
             if (!agentRes.ok) { const b = await agentRes.json(); throw new Error(b.error || "Failed to create agent"); }
 
+            // Auto-create living document for research agents
+            if (isResearchAgent) {
+                const docTitle = `${agent.name} — Research Intelligence`;
+                await fetch(`${BOT_URL}/admin/agents/${agent.id}/documents`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        title: docTitle,
+                        description: `Living document maintained by ${agent.name}. Updated after every research routine.`,
+                        doc_type: "doc",
+                        create_google_doc: !!(agent.features?.google_workspace),
+                    }),
+                }).catch(() => { /* non-fatal */ });
+            }
+
             for (const r of routines.filter(r => r.enabled)) {
                 await fetch(`${BOT_URL}/admin/routines`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ ...r, agent_id: agent.id, enabled: true, report_to_discord: false }),
+                    body: JSON.stringify({ ...r, agent_id: agent.id, enabled: true, report_to_discord: true }),
                 });
             }
             setStep("done");
@@ -181,7 +184,7 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
 
     const handleReset = () => {
         setStep("describe"); setDescription(""); setAgent(null);
-        setRoutines([]); setError(null); setMatchedTemplate(null);
+        setRoutines([]); setError(null); setMatchedTemplate(null); setIsResearchAgent(false);
     };
 
     const catColor = matchedTemplate ? getCategoryColor(matchedTemplate.category) : "#ff8c00";
@@ -339,6 +342,30 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
             {/* Step 3: Review Routines */}
             {step === "review-routines" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
+
+                    {/* Template applied banner */}
+                    {matchedTemplate && (
+                        <div style={{ padding: "0.65rem 0.875rem", borderRadius: 9, background: `${catColor}10`, border: `1px solid ${catColor}35`, display: "flex", alignItems: "center", gap: 9 }}>
+                            <span style={{ fontSize: 18, flexShrink: 0 }}>{matchedTemplate.emoji}</span>
+                            <div>
+                                <span style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.07em", color: catColor, background: `${catColor}18`, border: `1px solid ${catColor}35`, borderRadius: 4, padding: "1px 6px", marginRight: 6 }}>Template Applied</span>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: "#ddd" }}>{matchedTemplate.name}</span>
+                                <p style={{ fontSize: 11, color: "#666", marginTop: 2 }}>Agent fields pre-filled — review routines below.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Research agent living doc notice */}
+                    {isResearchAgent && (
+                        <div style={{ padding: "0.65rem 0.875rem", borderRadius: 9, background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", alignItems: "flex-start", gap: 9 }}>
+                            <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>📄</span>
+                            <div>
+                                <p style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b", marginBottom: 2 }}>Living Document</p>
+                                <p style={{ fontSize: 11, color: "#888" }}>A research document will be auto-created and pinned in Discord. Research routines write to it; task routines read from it.</p>
+                            </div>
+                        </div>
+                    )}
+
                     <div>
                         <p className="has-text-white has-text-weight-bold" style={{ fontSize: 14, marginBottom: 3 }}>Suggested Routines</p>
                         <p className="has-text-grey" style={{ fontSize: 12 }}>Toggle off routines you don't want. You can always add more later.</p>
