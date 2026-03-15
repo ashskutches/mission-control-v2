@@ -47,13 +47,43 @@ function formatTokens(n: number): string {
   return String(n);
 }
 
+const DISMISSED_KEY = "gc_dismissed_alerts";
+
+function loadDismissed(): Set<number> {
+  try {
+    const raw = localStorage.getItem(DISMISSED_KEY);
+    if (!raw) return new Set();
+    const parsed: { id: number; ts: number }[] = JSON.parse(raw);
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000; // 7 days
+    return new Set(parsed.filter(e => e.ts > cutoff).map(e => e.id));
+  } catch { return new Set(); }
+}
+
+function saveDismissed(ids: Set<number>) {
+  try {
+    const entries = [...ids].map(id => ({ id, ts: Date.now() }));
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify(entries));
+  } catch {}
+}
+
 export default function CostAlerts() {
   const [alerts, setAlerts] = useState<CostAlert[]>([]);
   const [stats, setStats] = useState<CostStats | null>(null);
-  const [dismissed, setDismissed] = useState<Set<number>>(new Set());
+  const [dismissed, setDismissed] = useState<Set<number>>(() => {
+    if (typeof window === "undefined") return new Set();
+    return loadDismissed();
+  });
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [statsOpen, setStatsOpen] = useState(false);
+
+  const dismiss = (id: number) => {
+    setDismissed(prev => {
+      const next = new Set([...prev, id]);
+      saveDismissed(next);
+      return next;
+    });
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -148,7 +178,7 @@ export default function CostAlerts() {
           {!expanded && (
             <div style={{ marginTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               {visible.slice(0, 2).map(alert => (
-                <AlertRow key={alert.id} alert={alert} onDismiss={id => setDismissed(d => new Set([...d, id]))} />
+                <AlertRow key={alert.id} alert={alert} onDismiss={dismiss} />
               ))}
               {alertCount > 2 && (
                 <button
@@ -166,11 +196,11 @@ export default function CostAlerts() {
           {expanded && (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               {visible.map(alert => (
-                <AlertRow key={alert.id} alert={alert} onDismiss={id => setDismissed(d => new Set([...d, id]))} />
+                <AlertRow key={alert.id} alert={alert} onDismiss={dismiss} />
               ))}
               {visible.length === 0 && (
                 <div className="has-text-grey" style={{ fontSize: "12px", padding: "0.5rem 0" }}>
-                  All alerts dismissed for this session.
+                  All alerts dismissed.
                 </div>
               )}
             </div>
