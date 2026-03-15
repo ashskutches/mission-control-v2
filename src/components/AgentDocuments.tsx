@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { FileText, Trash2, Loader2, Plus, ExternalLink, Clock, RefreshCw } from "lucide-react";
+import { FileText, Trash2, Loader2, Plus, ExternalLink, Clock, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "";
 
@@ -115,8 +115,10 @@ function CreateDocModal({ agentId, onCreated, onClose }: { agentId: string; onCr
 
 function DocCard({ doc, agentId, onDeleted }: { doc: AgentDoc; agentId: string; onDeleted: () => void }) {
     const [deleting, setDeleting] = useState(false);
+    const [expanded, setExpanded] = useState(false);
 
     const isLiving = !!doc.last_updated_at;
+    const hasContent = !!doc.content?.trim();
 
     const handleDelete = async (e: React.MouseEvent) => {
         e.preventDefault(); e.stopPropagation();
@@ -128,7 +130,7 @@ function DocCard({ doc, agentId, onDeleted }: { doc: AgentDoc; agentId: string; 
         } finally { setDeleting(false); }
     };
 
-    const cardContent = (
+    const rowContent = (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px" }}>
             <FileText size={13} color={isLiving ? "#f59e0b" : "#555"} style={{ flexShrink: 0 }} />
 
@@ -146,7 +148,10 @@ function DocCard({ doc, agentId, onDeleted }: { doc: AgentDoc; agentId: string; 
                 {fmtDate(doc.last_updated_at ?? doc.created_at)}
             </span>
 
-            {doc.url && <ExternalLink size={10} color="#444" style={{ flexShrink: 0 }} />}
+            {doc.url
+                ? <ExternalLink size={10} color="#444" style={{ flexShrink: 0 }} />
+                : hasContent && (expanded ? <ChevronUp size={10} color="#555" style={{ flexShrink: 0 }} /> : <ChevronDown size={10} color="#555" style={{ flexShrink: 0 }} />)
+            }
 
             <button onClick={handleDelete} disabled={deleting}
                 style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", color: "#555", padding: "2px 4px", flexShrink: 0 }}
@@ -164,19 +169,42 @@ function DocCard({ doc, agentId, onDeleted }: { doc: AgentDoc; agentId: string; 
         borderLeft: isLiving ? "3px solid #f59e0b" : "3px solid rgba(255,255,255,0.08)",
         display: "block", textDecoration: "none",
         transition: "border-color 0.15s, background 0.15s",
-        cursor: doc.url ? "pointer" : "default",
     };
 
+    const hoverHandlers = {
+        onMouseEnter: (e: React.MouseEvent<HTMLElement>) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; },
+        onMouseLeave: (e: React.MouseEvent<HTMLElement>) => { (e.currentTarget as HTMLElement).style.background = ""; },
+    };
+
+    // Has a Drive URL — whole card is a link
     if (doc.url) {
         return (
-            <a href={doc.url} target="_blank" rel="noopener noreferrer" style={cardStyle}
-                onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = isLiving ? "#f59e0b" : "rgba(255,255,255,0.18)"; (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.05)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = ""; (e.currentTarget as HTMLAnchorElement).style.background = ""; }}>
-                {cardContent}
+            <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                style={{ ...cardStyle, cursor: "pointer" }} {...hoverHandlers}>
+                {rowContent}
             </a>
         );
     }
-    return <div style={cardStyle}>{cardContent}</div>;
+
+    // No URL but has content — click to expand
+    if (hasContent) {
+        return (
+            <div style={{ ...cardStyle, cursor: "pointer" }}
+                onClick={() => setExpanded(x => !x)} {...hoverHandlers}>
+                {rowContent}
+                {expanded && (
+                    <div style={{ padding: "8px 12px 10px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" }}>
+                        <p style={{ fontSize: 11, color: "#888", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                            {doc.content}
+                        </p>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // No URL, no content — static card with tooltip
+    return <div style={{ ...cardStyle, cursor: "default" }} title="No Drive link yet">{rowContent}</div>;
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────
