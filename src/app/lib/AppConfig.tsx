@@ -1,6 +1,7 @@
 import {
     BarChart3,
     Bot,
+    FolderKanban,
     LayoutDashboard,
     Palette,
     Settings,
@@ -13,12 +14,13 @@ export const APP_CONFIG = {
     version: '3.0.0',
     author: 'Gravity Claw',
     navigation: [
-        { id: 'overview',  href: '/',         icon: LayoutDashboard, label: 'Overview'  },
-        { id: 'agents',    href: '/agents',    icon: Bot,             label: 'Agents'    },
-        { id: 'commerce',  href: '/commerce',  icon: ShoppingBag,     label: 'Commerce'  },
-        { id: 'brand',     href: '/brand',     icon: Palette,         label: 'Brand'     },
-        { id: 'engine',    href: '/engine',    icon: Zap,             label: 'Engine'    },
-        { id: 'settings',  href: '/settings',  icon: Settings,        label: 'Settings'  },
+        { id: 'overview',  href: '/',          icon: LayoutDashboard, label: 'Overview'  },
+        { id: 'agents',    href: '/agents',     icon: Bot,             label: 'Agents'    },
+        { id: 'projects',  href: '/projects',   icon: FolderKanban,    label: 'Projects'  },
+        { id: 'commerce',  href: '/commerce',   icon: ShoppingBag,     label: 'Commerce'  },
+        { id: 'brand',     href: '/brand',      icon: Palette,         label: 'Brand'     },
+        { id: 'engine',    href: '/engine',     icon: Zap,             label: 'Engine'    },
+        { id: 'settings',  href: '/settings',   icon: Settings,        label: 'Settings'  },
     ],
     theme: {
         accent: 'var(--accent-orange)',

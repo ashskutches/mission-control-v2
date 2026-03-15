@@ -442,19 +442,23 @@ export default function MissionControl() {
                   </CollapsibleSection>
 
                   <CollapsibleSection
-                    title="Projects"
-                    subtitle="Agent-driven objectives and deliverables"
-                    defaultOpen={false}
-                  >
-                    <ProjectsDashboard />
-                  </CollapsibleSection>
-
-                  <CollapsibleSection
                     title="Manage Agents"
                     subtitle="Create, configure, and deploy AI agents"
                     defaultOpen={true}
                   >
                     <AgentCRUD />
+                  </CollapsibleSection>
+                </div>
+              )}
+
+              {activeTab === "projects" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  <CollapsibleSection
+                    title="Projects"
+                    subtitle="Agent-driven objectives and deliverables"
+                    defaultOpen={true}
+                  >
+                    <ProjectsDashboard />
                   </CollapsibleSection>
                 </div>
               )}
