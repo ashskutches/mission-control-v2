@@ -97,10 +97,13 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
     const [agent, setAgent] = useState<AgentDef | null>(null);
     const [routines, setRoutines] = useState<RoutineDef[]>([]);
     const [saving, setSaving] = useState(false);
+    // Template match state
+    const [matchedTemplate, setMatchedTemplate] = useState<{ slug: string; name: string; category: string; emoji: string } | null>(null);
+    const [loadingTemplate, setLoadingTemplate] = useState(false);
 
     const handleGenerate = async () => {
         if (!description.trim()) return;
-        setLoading(true); setError(null);
+        setLoading(true); setError(null); setMatchedTemplate(null);
         try {
             const res = await fetch(`${BOT_URL}/admin/ai/build-agent`, {
                 method: "POST",
@@ -111,6 +114,32 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
             if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
             setAgent(data.agent);
             setRoutines(data.routines.map((r: any) => ({ ...r, enabled: true })));
+
+            // If AI found a strong template match, load it and offer to swap
+            if (data.template_slug) {
+                setLoadingTemplate(true);
+                try {
+                    const tRes = await fetch(`${BOT_URL}/admin/agent-templates/${data.template_slug}`);
+                    const tData = await tRes.json();
+                    if (tRes.ok && tData.template) {
+                        const t = tData.template;
+                        setMatchedTemplate({ slug: t.slug, name: t.name, category: t.category, emoji: t.emoji ?? "🤖" });
+                        // Pre-fill agent fields from the template (user can still edit)
+                        setAgent(prev => prev ? {
+                            ...prev,
+                            emoji: t.emoji ?? prev.emoji,
+                            specialization: t.description ?? prev.specialization,
+                            mission: t.mission || prev.mission,
+                            personality: t.personality || prev.personality,
+                            context: t.context || prev.context,
+                            constraints: t.constraints || prev.constraints,
+                            features: t.features && Object.keys(t.features).length ? t.features : prev.features,
+                        } : prev);
+                    }
+                } catch { /* template load failed silently — AI draft still valid */ } finally {
+                    setLoadingTemplate(false);
+                }
+            }
             setStep("review-agent");
         } catch (e: any) {
             setError(e.message);
@@ -123,15 +152,18 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
         if (!agent) return;
         setSaving(true); setError(null);
         try {
-            // 1. Create agent
+            const catColor = matchedTemplate ? getCategoryColor(matchedTemplate.category) : undefined;
+            const agentPayload = {
+                ...agent,
+                ...(matchedTemplate ? { category: matchedTemplate.category, color: catColor } : {}),
+            };
             const agentRes = await fetch(`${BOT_URL}/admin/agents`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(agent),
+                body: JSON.stringify(agentPayload),
             });
             if (!agentRes.ok) { const b = await agentRes.json(); throw new Error(b.error || "Failed to create agent"); }
 
-            // 2. Create enabled routines
             for (const r of routines.filter(r => r.enabled)) {
                 await fetch(`${BOT_URL}/admin/routines`, {
                     method: "POST",
@@ -139,7 +171,6 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
                     body: JSON.stringify({ ...r, agent_id: agent.id, enabled: true, report_to_discord: false }),
                 });
             }
-
             setStep("done");
         } catch (e: any) {
             setError(e.message);
@@ -150,8 +181,10 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
 
     const handleReset = () => {
         setStep("describe"); setDescription(""); setAgent(null);
-        setRoutines([]); setError(null);
+        setRoutines([]); setError(null); setMatchedTemplate(null);
     };
+
+    const catColor = matchedTemplate ? getCategoryColor(matchedTemplate.category) : "#ff8c00";
 
     if (step === "done") return (
         <div style={{ textAlign: "center", padding: "3rem 1rem" }}>
@@ -184,9 +217,9 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
                             <span style={{
                                 fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em",
                                 padding: "3px 9px", borderRadius: 6,
-                                background: isCurrent ? "rgba(255,140,0,0.15)" : isDone ? "rgba(52,211,153,0.1)" : "rgba(255,255,255,0.04)",
-                                color: isCurrent ? "#ff8c00" : isDone ? "var(--accent-emerald)" : "#444",
-                                border: isCurrent ? "1px solid rgba(255,140,0,0.3)" : "1px solid transparent",
+                                background: isCurrent ? `${catColor}22` : isDone ? "rgba(52,211,153,0.1)" : "rgba(255,255,255,0.04)",
+                                color: isCurrent ? catColor : isDone ? "var(--accent-emerald)" : "#444",
+                                border: isCurrent ? `1px solid ${catColor}50` : "1px solid transparent",
                             }}>
                                 {isDone ? "✓ " : ""}{labels[i]}
                             </span>
@@ -201,7 +234,7 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
                     <div>
                         <p className="has-text-white has-text-weight-bold" style={{ fontSize: 15, marginBottom: 4 }}>What do you need this agent to do?</p>
-                        <p className="has-text-grey" style={{ fontSize: 12 }}>Describe it in plain English. The AI will design the agent and suggest routines.</p>
+                        <p className="has-text-grey" style={{ fontSize: 12 }}>Describe it in plain English. The AI will design the agent and suggest routines — and will try to match an existing template if one fits.</p>
                     </div>
                     <textarea
                         autoFocus
@@ -231,6 +264,26 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
             {/* Step 2: Review Agent */}
             {step === "review-agent" && agent && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
+                    {/* Template match banner */}
+                    {loadingTemplate && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0.6rem 0.875rem", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                            <Loader2 size={13} style={{ animation: "spin 1s linear infinite", color: "#555" }} />
+                            <span style={{ fontSize: 12, color: "#555" }}>Checking for matching templates…</span>
+                        </div>
+                    )}
+                    {matchedTemplate && !loadingTemplate && (
+                        <div style={{ padding: "0.75rem 1rem", borderRadius: 10, background: `${catColor}10`, border: `1px solid ${catColor}35`, display: "flex", alignItems: "center", gap: 10 }}>
+                            <span style={{ fontSize: 22, flexShrink: 0 }}>{matchedTemplate.emoji}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                                    <span style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.07em", color: catColor, background: `${catColor}18`, border: `1px solid ${catColor}35`, borderRadius: 4, padding: "1px 6px" }}>Template Match</span>
+                                    <p style={{ fontSize: 12, fontWeight: 800, color: "#fff" }}>{matchedTemplate.name}</p>
+                                </div>
+                                <p style={{ fontSize: 11, color: "#888" }}>Fields pre-filled from this template. Edit below as needed.</p>
+                            </div>
+                        </div>
+                    )}
+
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <span style={{ fontSize: 36 }}>{agent.emoji}</span>
                         <div>
@@ -246,8 +299,8 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
 
                     {[
                         { label: "Mission", key: "mission" as keyof AgentDef },
-                        { label: "Personality", key: "personality" as keyof AgentDef },
-                        { label: "Context", key: "context" as keyof AgentDef },
+                        { label: "Personality & Tone", key: "personality" as keyof AgentDef },
+                        { label: "Operational Context", key: "context" as keyof AgentDef },
                         { label: "Constraints", key: "constraints" as keyof AgentDef },
                     ].map(({ label, key }) => (
                         <div key={key}>
@@ -276,7 +329,7 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
                     {error && <p style={{ color: "#ef4444", fontSize: 12 }}>⚠️ {error}</p>}
                     <div style={{ display: "flex", gap: 8 }}>
                         <button onClick={() => setStep("describe")} className="button is-dark is-small"><ChevronLeft size={13} style={{ marginRight: 4 }} />Back</button>
-                        <button onClick={() => setStep("review-routines")} className="button is-small" style={{ background: "rgba(255,140,0,0.12)", border: "1px solid rgba(255,140,0,0.3)", color: "#ff8c00", fontWeight: 800 }}>
+                        <button onClick={() => setStep("review-routines")} className="button is-small" style={{ background: `${catColor}18`, border: `1px solid ${catColor}40`, color: catColor, fontWeight: 800 }}>
                             Review Routines <ChevronRight size={13} style={{ marginLeft: 4 }} />
                         </button>
                     </div>
@@ -332,7 +385,7 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
                     {error && <p style={{ color: "#ef4444", fontSize: 12 }}>⚠️ {error}</p>}
                     <div style={{ display: "flex", gap: 8 }}>
                         <button onClick={() => setStep("review-agent")} className="button is-dark is-small"><ChevronLeft size={13} style={{ marginRight: 4 }} />Back</button>
-                        <button onClick={handleDeploy} disabled={saving} className="button is-small" style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", color: "var(--accent-emerald)", fontWeight: 800 }}>
+                        <button onClick={handleDeploy} disabled={saving} className="button is-small" style={{ background: `${catColor}18`, border: `1px solid ${catColor}40`, color: catColor, fontWeight: 800 }}>
                             {saving ? <><Loader2 size={13} style={{ animation: "spin 1s linear infinite", marginRight: 6 }} />Deploying…</> : <><Zap size={13} style={{ marginRight: 6 }} />Deploy Agent + {routines.filter(r => r.enabled).length} Routine{routines.filter(r => r.enabled).length !== 1 ? "s" : ""}</>}
                         </button>
                     </div>
@@ -340,9 +393,9 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
             )}
         </div>
     );
-}
 
 // ── Templates Tab ─────────────────────────────────────────────────────────────
+
 
 function TemplatesTab({ onCreated }: { onCreated: () => void }) {
     const [templates, setTemplates] = useState<Template[]>([]);
