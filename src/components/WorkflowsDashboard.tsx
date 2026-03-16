@@ -15,7 +15,9 @@ import {
     RefreshCw,
     Plus,
     Eye,
+    Settings,
 } from "lucide-react";
+import { WorkflowWizard } from "./WorkflowWizard";
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -353,6 +355,7 @@ export function WorkflowsDashboard() {
     const [loading, setLoading]     = useState(true);
     const [error, setError]         = useState<string | null>(null);
     const [activeView, setActiveView] = useState<"workflows" | "approvals">("workflows");
+    const [isWizardOpen, setIsWizardOpen] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -402,14 +405,7 @@ export function WorkflowsDashboard() {
     };
 
     const handleCreateViaAgent = () => {
-        // Open a dialog — user describes workflow in natural language
-        const description = prompt("Describe your workflow in plain English:");
-        if (!description) return;
-        fetch(`${BOT_URL}/admin/workflow-create`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ description }),
-        }).then(() => load());
+        setIsWizardOpen(true);
     };
 
     // Summary stats
@@ -536,6 +532,15 @@ export function WorkflowsDashboard() {
                     </span>
                 </div>
             )}
+
+            <WorkflowWizard 
+                isOpen={isWizardOpen} 
+                onClose={() => setIsWizardOpen(false)} 
+                onCreated={() => {
+                    setIsWizardOpen(false);
+                    load();
+                }}
+            />
         </div>
     );
 }
