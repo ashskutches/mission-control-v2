@@ -38,6 +38,7 @@ import { TemplateLibrary } from "@/components/TemplateLibrary";
 import { ProjectsDashboard } from "@/components/ProjectsDashboard";
 import CostAlerts from "@/components/CostAlerts";
 import AgentMetrics from "@/components/AgentMetrics";
+import { WorkflowsDashboard } from "@/components/WorkflowsDashboard";
 import { cn } from "@/app/lib/utils";
 import { APP_CONFIG } from "@/app/lib/AppConfig";
 
@@ -460,6 +461,12 @@ export default function MissionControl() {
                   >
                     <ProjectsDashboard />
                   </CollapsibleSection>
+                </div>
+              )}
+
+              {activeTab === "workflows" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  <WorkflowsDashboard />
                 </div>
               )}
 
