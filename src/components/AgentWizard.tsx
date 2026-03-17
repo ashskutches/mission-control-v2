@@ -114,7 +114,7 @@ function GuidedTab({ onCreated }: { onCreated: () => void }) {
             if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
 
             setAgent(data.agent);
-            setRoutines(data.routines.map((r: any) => ({ ...r, enabled: true })));
+            setRoutines((Array.isArray(data.routines) ? data.routines : []).map((r: any) => ({ ...r, enabled: true })));
             if (data.is_research_agent) setIsResearchAgent(true);
 
             if (data.from_template) {
