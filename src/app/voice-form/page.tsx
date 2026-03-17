@@ -46,12 +46,12 @@ type PageState = "loading" | "form" | "submitted" | "error";
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "";
 
 export default function VoiceFormPage() {
-  const [pageState, setPageState]   = useState<PageState>("loading");
-  const [token, setToken]           = useState<string>("");
-  const [fields, setFields]         = useState<FormField[]>([]);
-  const [values, setValues]         = useState<Record<string, string>>({});
+  const [pageState, setPageState] = useState<PageState>("loading");
+  const [token, setToken] = useState<string>("");
+  const [fields, setFields] = useState<FormField[]>([]);
+  const [values, setValues] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError]           = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
