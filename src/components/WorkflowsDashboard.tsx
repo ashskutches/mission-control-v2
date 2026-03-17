@@ -16,6 +16,12 @@ import {
     Plus,
     Eye,
     Settings,
+    Search,
+    Image,
+    Bell,
+    ShieldCheck,
+    FileText,
+    Zap,
 } from "lucide-react";
 import { WorkflowWizard } from "./WorkflowWizard";
 
@@ -30,7 +36,15 @@ const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
 type WorkflowPattern = "A" | "B" | "C";
 type ItemStatus = "draft" | "in-review" | "approved" | "rejected" | "deployed" | "measured";
+type StepStatus = "idle" | "running" | "awaiting_approval" | "done" | "failed";
+type StepType = "research" | "generate" | "notify" | "approval_gate" | "branch" | "document";
 type PhaseConfig = { phase: number; name: string; description: string; enabled: boolean; steps: string[] };
+
+interface WorkflowStep {
+    id: string; type: StepType; label: string;
+    config: Record<string, unknown>;
+    on_success: string | null; on_failure: string | null;
+}
 
 interface Workflow {
     id: string;
@@ -41,6 +55,10 @@ interface Workflow {
     phases_config: PhaseConfig[];
     feedback_signal: string;
     enabled: boolean;
+    // Pipeline fields
+    steps: WorkflowStep[];
+    current_step_id: string | null;
+    step_status: StepStatus;
     created_at: string;
     updated_at: string;
 }
@@ -58,6 +76,18 @@ interface WorkflowItem {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const STEP_ICON: Record<StepType, React.ElementType> = {
+    research: Search, generate: Image, notify: Bell,
+    approval_gate: ShieldCheck, branch: GitBranch, document: FileText,
+};
+const STEP_COLOR: Record<StepType, string> = {
+    research: "#38bdf8", generate: "#a855f7", notify: "#f59e0b",
+    approval_gate: "#ff8c00", branch: "#22c55e", document: "#64748b",
+};
+const STEP_STATUS_COLOR: Record<StepStatus, string> = {
+    idle: "#6b7280", running: "#38bdf8", awaiting_approval: "#f59e0b", done: "#22c55e", failed: "#ef4444",
+};
 
 const STATUS_META: Record<ItemStatus, { label: string; color: string; icon: React.ElementType }> = {
     "draft":     { label: "Draft",     color: "#6b7280", icon: Clock        },
@@ -79,6 +109,102 @@ const PATTERN_COLOR: Record<WorkflowPattern, string> = {
     B: "#38bdf8",
     C: "#a855f7",
 };
+
+// ─── Pipeline View ────────────────────────────────────────────────────────────
+
+function PipelineView({ workflow, onApprove, onReject }: {
+    workflow: Workflow;
+    onApprove: (wfId: string) => Promise<void>;
+    onReject: (wfId: string, feedback: string) => Promise<void>;
+}) {
+    const [busy, setBusy] = React.useState(false);
+    const steps = workflow.steps ?? [];
+
+    if (steps.length === 0) {
+        return (
+            <div style={{ padding: "0.75rem 0", opacity: 0.4, display: "flex", alignItems: "center", gap: 8 }}>
+                <Zap size={12} style={{ color: "#6b7280" }} />
+                <span style={{ fontSize: 11, color: "#6b7280" }}>No pipeline steps defined — create a new workflow to add steps.</span>
+            </div>
+        );
+    }
+
+    const statusColor = STEP_STATUS_COLOR[workflow.step_status ?? "idle"];
+
+    return (
+        <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <p style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", fontWeight: 700 }}>Pipeline</p>
+                <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 10, background: `${statusColor}15`, color: statusColor, fontWeight: 700, border: `1px solid ${statusColor}30`, textTransform: "uppercase" }}>
+                    {(workflow.step_status ?? "idle").replace("_", " ")}
+                </span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                {steps.map((step, i) => {
+                    const Icon = STEP_ICON[step.type] ?? GitBranch;
+                    const color = STEP_COLOR[step.type] ?? "#6b7280";
+                    const isActive = workflow.current_step_id === step.id;
+                    const isApprovalGate = step.type === "approval_gate";
+                    const isAwaiting = isActive && workflow.step_status === "awaiting_approval";
+
+                    return (
+                        <div key={step.id} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%" }}>
+                            <div style={{
+                                display: "flex", alignItems: "center", gap: 10,
+                                padding: "7px 10px", borderRadius: 8, width: "100%", boxSizing: "border-box",
+                                background: isActive ? `${color}10` : "rgba(255,255,255,0.02)",
+                                border: `1px solid ${isActive ? color + "35" : "rgba(255,255,255,0.05)"}`,
+                                transition: "all 0.2s",
+                            }}>
+                                {/* Step number dot */}
+                                <div style={{ width: 20, height: 20, borderRadius: "50%", background: isActive ? `${color}25` : "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1px solid ${isActive ? color + "40" : "rgba(255,255,255,0.08)"}` }}>
+                                    <span style={{ fontSize: 8, fontWeight: 900, color: isActive ? color : "#4b5563" }}>{i + 1}</span>
+                                </div>
+                                <Icon size={12} style={{ color: isActive ? color : "#4b5563", flexShrink: 0 }} />
+                                <span style={{ fontSize: 12, fontWeight: isActive ? 700 : 500, color: isActive ? "#fff" : "#9ca3af", flex: 1 }}>
+                                    {step.label}
+                                </span>
+                                <span style={{ fontSize: 9, color: isActive ? color : "#4b5563", fontWeight: 700, textTransform: "uppercase" }}>
+                                    {step.type.replace("_", " ")}
+                                </span>
+                                {/* Approve/Reject for awaiting approval gate */}
+                                {isAwaiting && (
+                                    <div style={{ display: "flex", gap: 5 }}>
+                                        <button
+                                            disabled={busy}
+                                            onClick={async () => { setBusy(true); await onApprove(workflow.id); setBusy(false); }}
+                                            style={{ padding: "3px 10px", borderRadius: 5, fontSize: 10, fontWeight: 700, cursor: busy ? "not-allowed" : "pointer", background: "rgba(34,197,94,0.1)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.3)" }}
+                                        >
+                                            ✓ Approve
+                                        </button>
+                                        <button
+                                            disabled={busy}
+                                            onClick={async () => {
+                                                const fb = prompt("Rejection feedback (optional):") ?? "";
+                                                setBusy(true);
+                                                await onReject(workflow.id, fb);
+                                                setBusy(false);
+                                            }}
+                                            style={{ padding: "3px 10px", borderRadius: 5, fontSize: 10, fontWeight: 700, cursor: busy ? "not-allowed" : "pointer", background: "rgba(239,68,68,0.08)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}
+                                        >
+                                            ✗ Reject
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                            {/* Connector */}
+                            {i < steps.length - 1 && (
+                                <div style={{ width: 2, height: 10, background: "rgba(255,255,255,0.07)", marginLeft: 19 }} />
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+
 
 function StatusBadge({ status }: { status: ItemStatus }) {
     const m = STATUS_META[status];
@@ -171,12 +297,14 @@ function ApprovalQueue({ items, onApprove, onReject }: {
 // ─── Workflow Card ────────────────────────────────────────────────────────────
 
 function WorkflowCard({
-    workflow, items, onEnablePhase, onToggle,
+    workflow, items, onEnablePhase, onToggle, onPipelineApprove, onPipelineReject,
 }: {
     workflow: Workflow;
     items: WorkflowItem[];
     onEnablePhase: (id: string) => Promise<void>;
     onToggle: (id: string, enabled: boolean) => Promise<void>;
+    onPipelineApprove: (wfId: string) => Promise<void>;
+    onPipelineReject: (wfId: string, feedback: string) => Promise<void>;
 }) {
     const [expanded, setExpanded] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -226,6 +354,15 @@ function WorkflowCard({
                                 Paused
                             </span>
                         )}
+                        {/* Pipeline status badge */}
+                        {(workflow.steps ?? []).length > 0 && (() => {
+                            const sc = STEP_STATUS_COLOR[workflow.step_status ?? "idle"];
+                            return (
+                                <span style={{ fontSize: 8, padding: "1px 6px", borderRadius: 10, background: `${sc}15`, color: sc, fontWeight: 700, textTransform: "uppercase", border: `1px solid ${sc}25` }}>
+                                    {(workflow.step_status ?? "idle").replace("_", " ")}
+                                </span>
+                            );
+                        })()}
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         <span style={{ fontSize: 10, color, fontWeight: 700, textTransform: "uppercase" }}>
@@ -266,6 +403,15 @@ function WorkflowCard({
                 <div style={{ padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
                     {/* Description */}
                     <p style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.5 }}>{workflow.description}</p>
+
+                    {/* Pipeline visualization */}
+                    {(workflow.steps ?? []).length > 0 && (
+                        <PipelineView
+                            workflow={workflow}
+                            onApprove={onPipelineApprove}
+                            onReject={onPipelineReject}
+                        />
+                    )}
 
                     {/* Phase track */}
                     <div>
@@ -408,6 +554,20 @@ export function WorkflowsDashboard() {
         setIsWizardOpen(true);
     };
 
+    const handlePipelineApprove = async (workflowId: string) => {
+        await fetch(`${BOT_URL}/admin/workflows/${workflowId}/approve`, { method: "POST" });
+        await load();
+    };
+
+    const handlePipelineReject = async (workflowId: string, feedback: string) => {
+        await fetch(`${BOT_URL}/admin/workflows/${workflowId}/reject`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ feedback }),
+        });
+        await load();
+    };
+
     // Summary stats
     const totalPending  = pendingApproval.length;
     const totalDeployed = items.filter(i => i.status === "deployed" || i.status === "measured").length;
@@ -518,6 +678,8 @@ export function WorkflowsDashboard() {
                             items={items.filter(i => i.workflow_id === wf.id)}
                             onEnablePhase={handleEnablePhase}
                             onToggle={handleToggle}
+                            onPipelineApprove={handlePipelineApprove}
+                            onPipelineReject={handlePipelineReject}
                         />
                     ))}
                 </div>
