@@ -41,11 +41,19 @@ export function TemplateLibrary() {
     const [spawned, setSpawned] = useState<string | null>(null);
 
     useEffect(() => {
-        fetch(`${BOT_URL}/admin/agent-templates`)
+        fetch(`${BOT_URL}/admin/agents/templates`)
             .then(r => r.json())
             .then(data => {
-                setTemplates(data.templates ?? []);
-                setGrouped(data.grouped ?? {});
+                console.log('[TemplateLibrary] templates response:', data);
+                const fetchedTemplates = Array.isArray(data) ? data : (data.templates ?? []);
+                setTemplates(fetchedTemplates);
+
+                const newGrouped: Grouped = {};
+                for (const t of fetchedTemplates) {
+                    if (!newGrouped[t.category]) newGrouped[t.category] = [];
+                    newGrouped[t.category]!.push(t);
+                }
+                setGrouped(newGrouped);
             })
             .catch(() => setError("Could not load template library. Run: npx tsx scripts/seed-agent-templates.ts"))
             .finally(() => setLoading(false));
@@ -72,9 +80,9 @@ export function TemplateLibrary() {
         setSpawning(template.slug);
         try {
             // Fetch full template with system_prompt
-            const res = await fetch(`${BOT_URL}/admin/agent-templates/${template.slug}`);
+            const res = await fetch(`${BOT_URL}/admin/agents/templates/${template.slug}`);
             if (!res.ok) throw new Error(`Could not load template (${res.status})`);
-            const { template: full } = await res.json();
+            const full = await res.json();
 
             // Build payload matching AgentDef shape expected by POST /admin/agents
             const id = `agent-${Date.now()}`;
