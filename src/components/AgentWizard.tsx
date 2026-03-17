@@ -57,6 +57,8 @@ const FEATURE_LABELS: Record<string, string> = {
     moderation: "Moderation",
     design_intelligence: "Design Intelligence",
     discord_notify: "Discord DMs",
+    call: "📞 Voice Calls",
+    sms: "💬 SMS Messaging",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {

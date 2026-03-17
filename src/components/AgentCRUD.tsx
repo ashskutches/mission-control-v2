@@ -111,6 +111,9 @@ const ALL_FEATURES: { id: string; label: string; icon: any; description: string;
     { id: "gmail_read",         label: "Gmail Read",           icon: Mail,       description: "Read, search, and fetch full email content from the agent's connected Gmail inbox.", category: "Communication" },
     { id: "gmail_write",        label: "Gmail Write",          icon: Mail,       description: "Compose and send emails (including replies) from the agent's connected Gmail account.", category: "Communication" },
     { id: "google_workspace",   label: "Google Workspace",     icon: FileText,   description: "Create and share Google Sheets and Docs from the agent's connected Google account.", category: "Communication" },
+    { id: "call",               label: "📞 Voice Calls",       icon: Zap,        description: "Initiate outbound phone calls via Twilio. The AI voice agent handles the conversation.", category: "Communication" },
+    { id: "sms",                label: "💬 SMS Messaging",     icon: Zap,        description: "Send, receive, and broadcast SMS messages via Twilio.", category: "Communication" },
+
     // ── ⚡ Automation ─────────────────────────────────────────────────────────
     { id: "task_queue",         label: "Task Queue",           icon: Zap,        description: "Claim, complete, and create tasks in shared projects. Required for multi-agent collaboration.", category: "Automation" },
     { id: "moderation",         label: "AI Moderation",        icon: ShieldAlert,description: "Auto-deletes harmful or policy-violating messages.", category: "Automation" },
