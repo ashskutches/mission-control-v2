@@ -1,7 +1,5 @@
 import {
-    BarChart3,
     Bot,
-    FolderKanban,
     GitBranch,
     LayoutDashboard,
     Lightbulb,
@@ -18,7 +16,7 @@ export const APP_CONFIG = {
     navigation: [
         { id: 'overview',  href: '/',          icon: LayoutDashboard, label: 'Overview'  },
         { id: 'agents',    href: '/agents',     icon: Bot,             label: 'Agents',    color: '#38bdf8' },
-        { id: 'projects',   href: '/projects',   icon: FolderKanban,    label: 'Projects'   },
+
         { id: 'workflows',  href: '/workflows',  icon: GitBranch,       label: 'Workflows',  color: '#ff8c00' },
         { id: 'ideas',      href: '/ideas',      icon: Lightbulb,       label: 'Ideas',      color: '#a78bfa' },
         { id: 'commerce',  href: '/commerce',   icon: ShoppingBag,     label: 'Commerce'  },
