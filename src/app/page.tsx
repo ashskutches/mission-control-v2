@@ -452,6 +452,13 @@ export default function MissionControl() {
                 </div>
               )}
 
+              {activeTab === "templates" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  <TemplateLibrary />
+                </div>
+              )}
+
+
               {activeTab === "projects" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                   <CollapsibleSection
