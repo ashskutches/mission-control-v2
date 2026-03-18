@@ -47,7 +47,7 @@ export function BusinessContextEditor() {
 
     // Load existing fields
     useEffect(() => {
-        fetch(`${BOT_URL}/admin/business-context`)
+        fetch(`${BOT_URL}/admin/business/context`)
             .then(r => r.json())
             .then(data => {
                 setFields(data.fields ?? []);
@@ -78,7 +78,7 @@ export function BusinessContextEditor() {
         setError(null);
         setParseResult(null);
         try {
-            const res = await fetch(`${BOT_URL}/admin/brand-ai-parse`, {
+            const res = await fetch(`${BOT_URL}/admin/business/ai-parse`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text: pasteText }),
@@ -101,7 +101,7 @@ export function BusinessContextEditor() {
         try {
             const updates = Object.entries(pendingEdits).map(([key, value]) => ({ key, value }));
             if (updates.length === 0) return;
-            const res = await fetch(`${BOT_URL}/admin/business-context`, {
+            const res = await fetch(`${BOT_URL}/admin/business/context`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ updates }),
