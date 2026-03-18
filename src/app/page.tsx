@@ -213,6 +213,7 @@ export default function MissionControl() {
   const [agents, setAgents]       = useState<any[]>([]);
   const [todayTasks, setTodayTasks] = useState(0);
   const [monthProjects, setMonthProjects] = useState(0);
+  const [tagStats, setTagStats] = useState<{ tagged: number; total: number } | null>(null);
   const [loading, setLoading]     = useState(true);
 
   useEffect(() => {
@@ -222,14 +223,14 @@ export default function MissionControl() {
       const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-      const [actResp, factResp, costResp, todayTasksResp, monthProjectsResp] = await Promise.all([
+      const [actResp, factResp, costResp, todayTasksResp, monthProjectsResp, taggedImgResp, taggedVidResp] = await Promise.all([
         supabase.from("activity_log").select("*").order("created_at", { ascending: false }).limit(100),
         supabase.from("bot_facts").select("*").order("updated_at", { ascending: false }),
-        // 30d filter keeps payload small and matches the label shown in Revenue Vitality
         supabase.from("cost_log").select("cost_usd, created_at").gte("created_at", thirtyDaysAgo).order("created_at", { ascending: false }),
         supabase.from("tasks").select("id", { count: "exact" }).gte("created_at", `${today}T00:00:00`).eq("status", "success"),
-        // Count projects (not task runs) completed this month
         supabase.from("projects").select("id", { count: "exact" }).gte("created_at", monthStart),
+        supabase.from("image_library").select("id", { count: "exact" }),
+        supabase.from("video_library").select("id", { count: "exact" }),
       ]);
 
       if (actResp.data)  setActivity(actResp.data);
@@ -240,6 +241,9 @@ export default function MissionControl() {
       }
       setTodayTasks(todayTasksResp.count ?? 0);
       setMonthProjects(monthProjectsResp.count ?? 0);
+      const taggedCount = (taggedImgResp.count ?? 0) + (taggedVidResp.count ?? 0);
+      // Total is unknown without scanning Drive — show tagged count only (total populated by batch-tagger runs)
+      if (taggedCount > 0) setTagStats({ tagged: taggedCount, total: 16123 });
 
       // Bot API fetches
       try {
@@ -385,6 +389,30 @@ export default function MissionControl() {
                         <KpiCard label="Projects This Month" icon={Target} color="var(--accent-purple, #a855f7)"
                           value={monthProjects}
                           sub="Active projects" />
+                      </div>
+                      <div className="column is-4">
+                        {/* Content Library Tagging Progress */}
+                        <div className="box p-5" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", height: "100%" }}>
+                          <div className="is-flex is-align-items-center mb-3" style={{ gap: 10 }}>
+                            <div style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(168,85,247,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              <ImageIcon size={16} style={{ color: "#a855f7" }} />
+                            </div>
+                            <span className="is-size-7 has-text-grey-light has-text-weight-black is-uppercase" style={{ fontSize: 10, letterSpacing: "0.09em" }}>Content Library</span>
+                          </div>
+                          <p className="title is-size-3 has-text-white mb-1" style={{ lineHeight: 1, color: "#a855f7" }}>
+                            {tagStats ? tagStats.tagged.toLocaleString() : "—"}
+                          </p>
+                          <p className="is-size-7 has-text-grey" style={{ fontSize: 11 }}>
+                            {tagStats
+                              ? `${Math.round((tagStats.tagged / tagStats.total) * 100)}% tagged · ${(tagStats.total - tagStats.tagged).toLocaleString()} remaining`
+                              : "No files tagged yet"}
+                          </p>
+                          {tagStats && (
+                            <div style={{ marginTop: 8, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
+                              <div style={{ height: "100%", width: `${Math.min(100, Math.round((tagStats.tagged / tagStats.total) * 100))}%`, background: "linear-gradient(90deg, #a855f7, #7c3aed)", borderRadius: 2, transition: "width 0.5s ease" }} />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
