@@ -72,7 +72,8 @@ export const AgentRoster: React.FC<AgentRosterProps> = ({ facts = [] }) => {
                         style={{
                             background: 'rgba(255,255,255,0.02) !important',
                             border: '1px solid var(--glass-border)',
-                            borderRadius: '12px'
+                            borderRadius: '12px',
+                            minHeight: '90px',
                         }}
                     >
                         <div className="media is-align-items-center">
@@ -159,9 +160,19 @@ export const AgentRoster: React.FC<AgentRosterProps> = ({ facts = [] }) => {
                                     </div>
                                 </div>
 
-                                <div className="mt-3 is-flex is-align-items-center" style={{ gap: '0.5rem' }}>
-                                    <Activity size={10} className="has-text-grey" />
-                                    <p className="is-size-7 has-text-grey truncate" style={{ maxWidth: '200px' }}>
+                                <div className="mt-3 is-flex is-align-items-center" style={{ gap: '0.5rem', overflow: 'hidden' }}>
+                                    <Activity size={10} className="has-text-grey" style={{ flexShrink: 0 }} />
+                                    <p
+                                        className="is-size-7 has-text-grey"
+                                        title={agent.currentTask || "Standby Protocol"}
+                                        style={{
+                                            overflow: 'hidden',
+                                            whiteSpace: 'nowrap',
+                                            textOverflow: 'ellipsis',
+                                            maxWidth: '100%',
+                                            cursor: 'default',
+                                        }}
+                                    >
                                         {agent.currentTask || "Standby Protocol"}
                                     </p>
                                 </div>
