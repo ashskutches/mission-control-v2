@@ -96,28 +96,30 @@ function deriveCategory(agent: AgentDef): string {
 
 const ALL_FEATURES: { id: string; label: string; icon: any; description: string; category: string }[] = [
     // ── 🧠 Intelligence ───────────────────────────────────────────────────────
-    { id: "search",             label: "Web Search",           icon: Globe,      description: "Real-time web research via Tavily.", category: "Intelligence" },
+    { id: "search",             label: "Web Search",           icon: Globe,      description: "Real-time web research via Tavily. Required for market research, competitor research, and SEO.", category: "Intelligence" },
     { id: "web_intelligence",   label: "Web Intelligence",     icon: BarChart2,  description: "Audit competitor websites for traffic data, Core Web Vitals, tech stack, and competitive signals.", category: "Intelligence" },
-    { id: "memory",             label: "Long-term Memory",     icon: ShieldCheck,description: "Remembers past conversations across sessions.", category: "Intelligence" },
-    { id: "codebase_awareness", label: "Codebase Awareness",   icon: Brain,      description: "Read internal documentation, architecture files, and skill guides.", category: "Intelligence" },
+    { id: "memory",             label: "Long-term Memory",     icon: ShieldCheck,description: "Remembers past conversations and facts across sessions via Supabase.", category: "Intelligence" },
+    { id: "codebase_awareness", label: "Codebase Awareness",   icon: Brain,      description: "Loads system architecture docs and skill guides. Use for dev/engineering agents.", category: "Intelligence" },
     // ── 🛒 Commerce ───────────────────────────────────────────────────────────
-    { id: "shopify",            label: "Shopify",              icon: Cpu,        description: "Live store data: orders, products, inventory, customers.", category: "Commerce" },
-    { id: "content_creation",   label: "Content Studio (OCA)", icon: Sparkles,   description: "Full content pipeline: competitor research → brief → image generation.", category: "Commerce" },
-    { id: "image_generation",   label: "Image Generation",     icon: ImageIcon,  description: "Multi-model image creation (DALL-E 3, Nano Banana 2, Ideogram).", category: "Commerce" },
-    { id: "design_intelligence",label: "Design Intelligence",  icon: Palette,    description: "Auto-enhances image prompts for HD quality. Requires Image Generation.", category: "Commerce" },
-    { id: "brand_enforcement",  label: "Brand-Aware Images",   icon: Layers,     description: "Uses your brand style guide when generating images.", category: "Commerce" },
-    { id: "business_context",   label: "Brand Guide",          icon: FileText,   description: "Injects your brand context (mission, voice, products) into every conversation.", category: "Commerce" },
+    { id: "shopify",            label: "Shopify",              icon: Cpu,        description: "Live store data: orders, products, inventory, customers. Required for any e-com agent.", category: "Commerce" },
+    { id: "content_creation",   label: "Content Studio",       icon: Sparkles,   description: "Full content pipeline: copy, briefs, social posts, email campaigns. Loads content-intelligence, ecom-content, prompt-library, social-optimizer, email-campaign skills.", category: "Commerce" },
+    { id: "image_generation",   label: "Image Generation",     icon: ImageIcon,  description: "Multi-model image creation via Kie.ai (nano-banana-2, kie-lifestyle, background-swap).", category: "Commerce" },
+    { id: "design_intelligence",label: "Prompt Enhancement",   icon: Palette,    description: "Auto-enhances image prompts for HD quality using style presets. Requires Image Generation.", category: "Commerce" },
+    { id: "brand_enforcement",  label: "Brand-Aware Images",   icon: Layers,     description: "Enforces L&R color rules and product reference when generating images. Requires Image Generation.", category: "Commerce" },
+    { id: "business_context",   label: "Brand Guide",          icon: FileText,   description: "Injects brand context (mission, voice, products) into every conversation. Loads brand-identity and brand-voice skills.", category: "Commerce" },
+    { id: "seo_strategy",       label: "SEO Strategy",         icon: Search,     description: "Dual-mode SEO: article optimization with competitor research, or full site audit with HTML report. Loads seo-strategy skill.", category: "Commerce" },
     // ── ✉️ Communication ──────────────────────────────────────────────────────
     { id: "gmail_read",         label: "Gmail Read",           icon: Mail,       description: "Read, search, and fetch full email content from the agent's connected Gmail inbox.", category: "Communication" },
     { id: "gmail_write",        label: "Gmail Write",          icon: Mail,       description: "Compose and send emails (including replies) from the agent's connected Gmail account.", category: "Communication" },
-    { id: "google_workspace",   label: "Google Workspace",     icon: FileText,   description: "Create and share Google Sheets and Docs from the agent's connected Google account.", category: "Communication" },
-    { id: "call",               label: "📞 Voice Calls",       icon: Zap,        description: "Initiate outbound phone calls via Twilio. The AI voice agent handles the conversation.", category: "Communication" },
-    { id: "sms",                label: "💬 SMS Messaging",     icon: Zap,        description: "Send, receive, and broadcast SMS messages via Twilio.", category: "Communication" },
+    { id: "google_workspace",   label: "Google Workspace",     icon: FileText,   description: "Create and share Google Docs/Sheets. Loads report-writer and content-library skills.", category: "Communication" },
+    { id: "call",               label: "📞 Voice Calls",       icon: Zap,        description: "Initiate outbound phone calls via Twilio. Loads the call skill with full conversation handling.", category: "Communication" },
+    { id: "sms",                label: "💬 SMS Messaging",     icon: Zap,        description: "Send, receive, and broadcast SMS messages via Twilio. Loads the sms skill.", category: "Communication" },
 
     // ── ⚡ Automation ─────────────────────────────────────────────────────────
     { id: "task_queue",         label: "Task Queue",           icon: Zap,        description: "Claim, complete, and create tasks in shared projects. Required for multi-agent collaboration.", category: "Automation" },
-    { id: "moderation",         label: "AI Moderation",        icon: ShieldAlert,description: "Auto-deletes harmful or policy-violating messages.", category: "Automation" },
+    { id: "moderation",         label: "AI Moderation",        icon: ShieldAlert,description: "Auto-deletes harmful or policy-violating messages in Discord.", category: "Automation" },
 ];
+
 
 const FEATURE_CATEGORIES = ["Intelligence", "Commerce", "Communication", "Automation"];
 
