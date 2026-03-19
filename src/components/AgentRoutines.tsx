@@ -36,6 +36,9 @@ interface RoutineRun {
 const CRON_PRESETS = [
     { label: "Every 15 min",  value: "*/15 * * * *" },
     { label: "Hourly",        value: "0 * * * *" },
+    { label: "Every 2 hrs",   value: "0 */2 * * *" },
+    { label: "Every 4 hrs",   value: "0 */4 * * *" },
+    { label: "Every 6 hrs",   value: "0 */6 * * *" },
     { label: "Daily 9am",     value: "0 9 * * *" },
     { label: "Daily 6pm",     value: "0 18 * * *" },
     { label: "Mon–Fri 9am",   value: "0 9 * * 1-5" },
