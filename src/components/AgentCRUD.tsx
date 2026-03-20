@@ -116,8 +116,7 @@ const ALL_FEATURES: { id: string; label: string; icon: any; description: string;
     { id: "sms",                label: "💬 SMS Messaging",     icon: Zap,        description: "Send, receive, and broadcast SMS messages via Twilio. Loads the sms skill.", category: "Communication" },
 
     // ── ⚡ Automation ─────────────────────────────────────────────────────────
-    { id: "task_queue",         label: "Task Queue",           icon: Zap,        description: "Claim, complete, and create tasks in shared projects. Required for multi-agent collaboration.", category: "Automation" },
-    { id: "moderation",         label: "AI Moderation",        icon: ShieldAlert,description: "Auto-deletes harmful or policy-violating messages in Discord.", category: "Automation" },
+    { id: \"moderation\",         label: \"AI Moderation\",        icon: ShieldAlert,description: \"Auto-deletes harmful or policy-violating messages in Discord.\", category: \"Automation\" },
 ];
 
 
