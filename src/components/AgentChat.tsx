@@ -274,6 +274,7 @@ export default function AgentChat() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const msgCountRef = useRef<number>(0);
+  const messagesRef = useRef<Message[]>([]);
 
   const isNearBottom = () => {
     const el = scrollContainerRef.current;
@@ -317,27 +318,37 @@ export default function AgentChat() {
   }, [fetchConversations]);
 
   // ── Fetch messages when conversation changes ──────────────────────────────
-  const fetchMessages = useCallback(async (convoId: string) => {
-    setLoadingMsgs(true);
+  const fetchMessages = useCallback(async (convoId: string, silent = false) => {
+    if (!silent) setLoadingMsgs(true);
     try {
       const r = await fetch(`${BOT_URL}/admin/chat/conversations/${convoId}/messages`);
-      const data = await r.json();
-      setMessages(Array.isArray(data) ? data : []);
+      const data: Message[] = await r.json();
+      const incoming = Array.isArray(data) ? data : [];
+      // Only update state if something actually changed (new message ID at the end)
+      const current = messagesRef.current;
+      const lastIncomingId = incoming[incoming.length - 1]?.id;
+      const lastCurrentId = current[current.length - 1]?.id;
+      if (lastIncomingId !== lastCurrentId || incoming.length !== current.length) {
+        messagesRef.current = incoming;
+        setMessages(incoming);
+      }
     } catch {
-      setMessages([]);
+      if (!silent) setMessages([]);
     } finally {
-      setLoadingMsgs(false);
+      if (!silent) setLoadingMsgs(false);
     }
   }, []);
 
   useEffect(() => {
     if (!activeConvoId) return;
+    // Full load on conversation switch
+    messagesRef.current = [];
     fetchMessages(activeConvoId);
 
-    // Poll for new messages every 5 seconds (agent replies may take a moment)
+    // Background poll — silent (no loading spinner, no scroll unless new message)
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(() => {
-      if (!sending) fetchMessages(activeConvoId);
+      if (!sending) fetchMessages(activeConvoId, true);
     }, 5000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [activeConvoId, fetchMessages, sending]);

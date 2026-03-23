@@ -54,6 +54,7 @@ export function AgentDetailChat({ agentId, agentName, agentEmoji = "🤖", agent
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const msgCountRef = useRef<number>(0);
+  const messagesRef = useRef<Message[]>([]);
 
   const isNearBottom = () => {
     const el = scrollContainerRef.current;
@@ -91,19 +92,27 @@ export function AgentDetailChat({ agentId, agentName, agentEmoji = "🤖", agent
     })();
   }, [agentId, agentName]);
 
-  const fetchMessages = useCallback(async (cid: string) => {
+  const fetchMessages = useCallback(async (cid: string, silent = false) => {
     try {
       const r = await fetch(`${BOT_URL}/admin/chat/conversations/${cid}/messages`);
-      const data = await r.json();
-      setMessages(Array.isArray(data) ? data : []);
+      const data: Message[] = await r.json();
+      const incoming = Array.isArray(data) ? data : [];
+      const current = messagesRef.current;
+      const lastIncomingId = incoming[incoming.length - 1]?.id;
+      const lastCurrentId = current[current.length - 1]?.id;
+      if (lastIncomingId !== lastCurrentId || incoming.length !== current.length) {
+        messagesRef.current = incoming;
+        setMessages(incoming);
+      }
     } catch { /* non-fatal */ }
   }, []);
 
   useEffect(() => {
     if (!convoId) return;
+    messagesRef.current = [];
     fetchMessages(convoId);
     if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(() => { if (!sending) fetchMessages(convoId); }, 5000);
+    pollRef.current = setInterval(() => { if (!sending) fetchMessages(convoId, true); }, 5000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [convoId, fetchMessages, sending]);
 
