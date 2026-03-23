@@ -270,8 +270,22 @@ export default function AgentChat() {
   const [loadingMsgs, setLoadingMsgs] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const msgCountRef = useRef<number>(0);
+
+  const isNearBottom = () => {
+    const el = scrollContainerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+  };
+
+  const scrollToBottom = (force = false) => {
+    if (force || isNearBottom()) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
   // ── Fetch list of agents ──────────────────────────────────────────────────
   useEffect(() => {
@@ -328,10 +342,18 @@ export default function AgentChat() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [activeConvoId, fetchMessages, sending]);
 
-  // ── Auto scroll to bottom ─────────────────────────────────────────────────
+  // ── Auto scroll — only when near bottom or a new message arrived ───────────
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sending]);
+    const newCount = messages.length;
+    const hadNewMessage = newCount > msgCountRef.current;
+    msgCountRef.current = newCount;
+    // Force scroll when a new message arrives; respect position on background polls
+    scrollToBottom(hadNewMessage);
+  }, [messages]);
+
+  useEffect(() => {
+    if (sending) scrollToBottom(true);
+  }, [sending]);
 
   // ── Start a new conversation ──────────────────────────────────────────────
   const handleNewConvo = async (agent: Agent) => {
@@ -551,6 +573,7 @@ export default function AgentChat() {
             {/* Messages */}
             <div
               id="chat-messages-area"
+              ref={scrollContainerRef}
               style={{ flex: 1, overflowY: "auto", padding: "1.5rem", display: "flex", flexDirection: "column" }}
               className="custom-scrollbar"
             >

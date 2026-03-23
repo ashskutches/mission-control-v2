@@ -50,8 +50,19 @@ export function AgentDetailChat({ agentId, agentName, agentEmoji = "🤖", agent
   const [booting, setBooting] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const msgCountRef = useRef<number>(0);
+
+  const isNearBottom = () => {
+    const el = scrollContainerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+  };
+  const scrollToBottom = (force = false) => {
+    if (force || isNearBottom()) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   // On mount: find or create a conversation for this agent
   useEffect(() => {
@@ -96,7 +107,13 @@ export function AgentDetailChat({ agentId, agentName, agentEmoji = "🤖", agent
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [convoId, fetchMessages, sending]);
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, sending]);
+  useEffect(() => {
+    const newCount = messages.length;
+    const hadNew = newCount > msgCountRef.current;
+    msgCountRef.current = newCount;
+    scrollToBottom(hadNew);
+  }, [messages]);
+  useEffect(() => { if (sending) scrollToBottom(true); }, [sending]);
 
   const handleSend = async () => {
     const text = input.trim();
@@ -152,7 +169,7 @@ export function AgentDetailChat({ agentId, agentName, agentEmoji = "🤖", agent
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "1rem 1.25rem" }} className="custom-scrollbar">
+      <div ref={scrollContainerRef} style={{ flex: 1, overflowY: "auto", padding: "1rem 1.25rem" }} className="custom-scrollbar">
         {messages.length === 0 && !sending ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", opacity: 0.35, gap: 8 }}>
             <span style={{ fontSize: 40 }}>{agentEmoji}</span>
