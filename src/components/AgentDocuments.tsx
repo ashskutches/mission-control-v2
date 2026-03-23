@@ -1,277 +1,499 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { FileText, Trash2, Loader2, Plus, ExternalLink, Clock, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import {
+  FileText, Trash2, Loader2, Plus, ExternalLink, Clock,
+  RefreshCw, ChevronDown, ChevronUp, Link2, Upload, Search,
+  File, FileJson, FileSpreadsheet, AlertCircle, X,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "";
 
+// ── Types ────────────────────────────────────────────────────────────────────
+
 interface AgentDoc {
-    id: string;
-    title: string;
-    description: string | null;
-    content: string | null;
-    url: string | null;
-    doc_type: "doc" | "sheet";
-    routine_id: string | null;
-    last_updated_at: string | null;
-    created_at: string;
+  id: string;
+  title: string;
+  description: string | null;
+  content: string | null;
+  url: string | null;
+  doc_type: "doc" | "sheet" | "link" | string;
+  routine_id: string | null;
+  last_updated_at: string | null;
+  created_at: string;
 }
+
+type AddMode = "upload" | "link" | "create" | null;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDate(iso: string | null): string {
-    if (!iso) return "Never";
-    const d = new Date(iso);
-    const now = Date.now();
-    const diff = now - d.getTime();
-    if (diff < 60_000) return "Just now";
-    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-    if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (!iso) return "Never";
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  if (diff < 60_000) return "Just now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-// ── Create Document Modal ─────────────────────────────────────────────────────
+function DocTypeIcon({ doc }: { doc: AgentDoc }) {
+  const ext = doc.url?.includes("sheets.google.com") ? "sheet"
+    : doc.doc_type === "link" ? "link"
+    : doc.title.match(/\.(csv|xlsx?)$/i) ? "sheet"
+    : doc.title.match(/\.json$/i) ? "json"
+    : "doc";
 
-function CreateDocModal({ agentId, onCreated, onClose }: { agentId: string; onCreated: () => void; onClose: () => void }) {
-    const [title, setTitle] = useState("");
-    const [description, setDescription] = useState("");
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [createDriveDoc, setCreateDriveDoc] = useState(true);
+  if (ext === "link")  return <Link2 size={13} color="#38bdf8" />;
+  if (ext === "sheet") return <FileSpreadsheet size={13} color="#22c55e" />;
+  if (ext === "json")  return <FileJson size={13} color="#f59e0b" />;
+  return <FileText size={13} color="#a855f7" />;
+}
 
-    const handleCreate = async () => {
-        if (!title.trim()) return;
-        setSaving(true); setError(null);
-        try {
-            const res = await fetch(`${BOT_URL}/admin/agents/${agentId}/documents`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title: title.trim(), description: description.trim() || undefined, createGoogleDoc: createDriveDoc }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Failed to create document");
-            onCreated();
-            onClose();
-        } catch (e: any) {
-            setError(e.message);
-        } finally {
-            setSaving(false);
-        }
-    };
+// ── Add Document Modal ───────────────────────────────────────────────────────
 
-    return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}
-            onClick={onClose}>
-            <div style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: "1.5rem", width: "min(440px, 95vw)", display: "flex", flexDirection: "column", gap: "0.875rem" }}
-                onClick={e => e.stopPropagation()}>
-                <p className="has-text-white has-text-weight-bold" style={{ fontSize: 15 }}>📄 New Living Document</p>
-                <p className="has-text-grey" style={{ fontSize: 12 }}>
-                    Research routines can write to this document. Task routines can read from it as context — no re-researching.
-                </p>
+function AddDocModal({ agentId, onDone, onClose }: { agentId: string; onDone: () => void; onClose: () => void }) {
+  const [mode, setMode] = useState<"upload" | "link" | "create">("upload");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
 
-                <div>
-                    <label style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "#555", display: "block", marginBottom: 4 }}>Title *</label>
-                    <input
-                        autoFocus
-                        value={title}
-                        onChange={e => setTitle(e.target.value)}
-                        placeholder="e.g. Reddit Strategy, Competitor Analysis, Weekly Market Brief"
-                        className="input is-small"
-                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" }}
-                        onKeyDown={e => e.key === "Enter" && handleCreate()}
-                    />
-                </div>
-                <div>
-                    <label style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "#555", display: "block", marginBottom: 4 }}>Description</label>
-                    <input
-                        value={description}
-                        onChange={e => setDescription(e.target.value)}
-                        placeholder="What does this document track?"
-                        className="input is-small"
-                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" }}
-                    />
-                </div>
+  // Upload state
+  const [file, setFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-                {/* Google Drive toggle */}
-                <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-                    <input type="checkbox" checked={createDriveDoc} onChange={e => setCreateDriveDoc(e.target.checked)}
-                        style={{ accentColor: "#ff8c00", width: 14, height: 14 }} />
-                    <span style={{ fontSize: 12, color: "#aaa" }}>Create matching Google Doc in <code style={{ color: "#f59e0b" }}>ai-agent-files/</code></span>
-                </label>
+  // Link state
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkDesc, setLinkDesc] = useState("");
 
-                {error && <p style={{ color: "#ef4444", fontSize: 12 }}>⚠️ {error}</p>}
+  // Create state
+  const [createTitle, setCreateTitle] = useState("");
+  const [createDesc, setCreateDesc] = useState("");
+  const [createDriveDoc, setCreateDriveDoc] = useState(true);
 
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                    <button onClick={onClose} className="button is-dark is-small">Cancel</button>
-                    <button onClick={handleCreate} disabled={saving || !title.trim()} className="button is-small"
-                        style={{ background: "rgba(255,140,0,0.15)", border: "1px solid rgba(255,140,0,0.35)", color: "#ff8c00", fontWeight: 800 }}>
-                        {saving ? <><Loader2 size={13} style={{ animation: "spin 1s linear infinite", marginRight: 6 }} />Creating…</> : "Create Document"}
-                    </button>
-                </div>
-            </div>
+  const reset = () => {
+    setError(null);
+    setProgress(null);
+    setFile(null);
+    setLinkUrl("");
+    setLinkTitle("");
+    setLinkDesc("");
+    setCreateTitle("");
+    setCreateDesc("");
+  };
+
+  const handleSubmit = async () => {
+    setError(null);
+    setSaving(true);
+
+    try {
+      if (mode === "upload") {
+        if (!file) return setError("Please select a file.");
+        setProgress("Extracting text…");
+        const form = new FormData();
+        form.append("file", file);
+        form.append("title", file.name.replace(/\.[^.]+$/, ""));
+        const r = await fetch(`${BOT_URL}/admin/agents/${agentId}/documents/upload`, { method: "POST", body: form });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error ?? "Upload failed");
+      } else if (mode === "link") {
+        if (!linkUrl.trim()) return setError("Please paste a URL.");
+        if (!linkTitle.trim()) return setError("Please enter a title.");
+        const r = await fetch(`${BOT_URL}/admin/agents/${agentId}/documents/link`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: linkUrl.trim(), title: linkTitle.trim(), description: linkDesc.trim() || undefined }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error ?? "Failed to add link");
+      } else {
+        if (!createTitle.trim()) return setError("Title is required.");
+        const r = await fetch(`${BOT_URL}/admin/agents/${agentId}/documents`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: createTitle.trim(), description: createDesc.trim() || undefined, createGoogleDoc: createDriveDoc }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error ?? "Failed to create doc");
+      }
+
+      onDone();
+      onClose();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+      setProgress(null);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const f = e.dataTransfer.files[0];
+    if (f) setFile(f);
+  };
+
+  const TABS: { id: typeof mode; label: string; icon: React.ReactNode }[] = [
+    { id: "upload", label: "Upload File",   icon: <Upload size={12} /> },
+    { id: "link",   label: "Link URL",      icon: <Link2 size={12} /> },
+    { id: "create", label: "Create Blank",  icon: <Plus size={12} /> },
+  ];
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: 8, color: "#fff", fontSize: 13, padding: "8px 12px", outline: "none", boxSizing: "border-box",
+  };
+  const labelStyle: React.CSSProperties = {
+    display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase",
+    letterSpacing: "0.07em", color: "#555", marginBottom: 4,
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.93, y: 14, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={{ scale: 0.93, y: 8, opacity: 0 }} transition={{ type: "spring", stiffness: 420, damping: 30 }}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(500px, 95vw)", background: "rgba(10,10,14,0.98)", border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 18, overflow: "hidden", boxShadow: "0 32px 80px rgba(0,0,0,0.8)",
+        }}
+      >
+        {/* Header */}
+        <div style={{ padding: "1.25rem 1.5rem 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <p style={{ color: "#fff", fontWeight: 800, fontSize: 15, margin: 0 }}>Add to Library</p>
+            <p style={{ color: "#555", fontSize: 12, margin: "2px 0 0" }}>Upload a file, paste a link, or create a blank doc</p>
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "#666", cursor: "pointer", padding: "5px 7px", display: "flex" }}>
+            <X size={15} />
+          </button>
         </div>
-    );
+
+        {/* Mode Tabs */}
+        <div style={{ display: "flex", gap: 6, padding: "1rem 1.5rem 0" }}>
+          {TABS.map(tab => (
+            <button key={tab.id} onClick={() => { setMode(tab.id); reset(); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, border: "1px solid",
+                background: mode === tab.id ? "rgba(255,140,0,0.12)" : "rgba(255,255,255,0.03)",
+                borderColor: mode === tab.id ? "rgba(255,140,0,0.35)" : "rgba(255,255,255,0.07)",
+                color: mode === tab.id ? "#ff8c00" : "#666",
+                transition: "all 0.15s",
+              }}
+            >
+              {tab.icon}{tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "1rem 1.5rem 1.5rem", display: "flex", flexDirection: "column", gap: 12 }}>
+
+          {/* ── Upload ── */}
+          {mode === "upload" && (
+            <>
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={handleDrop}
+                onClick={() => fileRef.current?.click()}
+                style={{
+                  border: `2px dashed ${dragging ? "#ff8c00" : file ? "#22c55e" : "rgba(255,255,255,0.12)"}`,
+                  borderRadius: 12, padding: "1.75rem 1rem", textAlign: "center", cursor: "pointer",
+                  background: dragging ? "rgba(255,140,0,0.04)" : "rgba(255,255,255,0.02)", transition: "all 0.2s",
+                }}
+              >
+                <input ref={fileRef} type="file" accept=".pdf,.txt,.md,.csv,.json,.yaml,.yml,.xml" style={{ display: "none" }}
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                {file ? (
+                  <>
+                    <File size={24} color="#22c55e" style={{ marginBottom: 6, display: "block", margin: "0 auto 8px" }} />
+                    <p style={{ color: "#22c55e", fontWeight: 700, fontSize: 13, margin: 0 }}>{file.name}</p>
+                    <p style={{ color: "#555", fontSize: 11, marginTop: 4 }}>{(file.size / 1024).toFixed(0)} KB — click to change</p>
+                  </>
+                ) : (
+                  <>
+                    <Upload size={24} style={{ color: "#555", marginBottom: 8, display: "block", margin: "0 auto 8px" }} />
+                    <p style={{ color: "#aaa", fontWeight: 700, fontSize: 13, margin: 0 }}>Drop a file or click to browse</p>
+                    <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>PDF · TXT · MD · CSV · JSON (max 10 MB)</p>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* ── Link ── */}
+          {mode === "link" && (
+            <>
+              <div>
+                <label style={labelStyle}>URL *</label>
+                <input autoFocus value={linkUrl} onChange={(e) => {
+                  setLinkUrl(e.target.value);
+                  // Auto-fill title from Google Doc URL pattern
+                  if (e.target.value.includes("docs.google.com") && !linkTitle) setLinkTitle("Google Doc");
+                  if (e.target.value.includes("notion.so") && !linkTitle) setLinkTitle("Notion Page");
+                }}
+                  placeholder="https://docs.google.com/… or any URL"
+                  style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Title *</label>
+                <input value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} placeholder="e.g. Brand Guidelines, Q1 Report…" style={inputStyle}
+                  onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
+              </div>
+              <div>
+                <label style={labelStyle}>Description</label>
+                <input value={linkDesc} onChange={(e) => setLinkDesc(e.target.value)} placeholder="What is this document?" style={inputStyle} />
+              </div>
+            </>
+          )}
+
+          {/* ── Create ── */}
+          {mode === "create" && (
+            <>
+              <div>
+                <label style={labelStyle}>Title *</label>
+                <input autoFocus value={createTitle} onChange={(e) => setCreateTitle(e.target.value)}
+                  placeholder="e.g. Reddit Strategy, Weekly Market Brief"
+                  style={inputStyle} onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
+              </div>
+              <div>
+                <label style={labelStyle}>Description</label>
+                <input value={createDesc} onChange={(e) => setCreateDesc(e.target.value)} placeholder="What will this document track?" style={inputStyle} />
+              </div>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                <input type="checkbox" checked={createDriveDoc} onChange={(e) => setCreateDriveDoc(e.target.checked)}
+                  style={{ accentColor: "#ff8c00", width: 14, height: 14 }} />
+                <span style={{ fontSize: 12, color: "#aaa" }}>Create matching Google Doc in <code style={{ color: "#f59e0b" }}>ai-agent-files/</code></span>
+              </label>
+            </>
+          )}
+
+          {/* Error */}
+          <AnimatePresence>
+            {error && (
+              <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8 }}>
+                <AlertCircle size={13} color="#ef4444" />
+                <p style={{ color: "#ef4444", fontSize: 12, margin: 0 }}>{error}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
+            <button onClick={onClose} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#888", cursor: "pointer", padding: "7px 16px", fontSize: 13 }}>
+              Cancel
+            </button>
+            <button onClick={handleSubmit} disabled={saving}
+              style={{
+                background: "rgba(255,140,0,0.15)", border: "1px solid rgba(255,140,0,0.35)", borderRadius: 8,
+                color: "#ff8c00", fontWeight: 800, cursor: saving ? "default" : "pointer",
+                padding: "7px 18px", fontSize: 13, display: "flex", alignItems: "center", gap: 6, opacity: saving ? 0.7 : 1,
+              }}>
+              {saving ? (
+                <><Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />{progress ?? "Saving…"}</>
+              ) : (
+                mode === "upload" ? "Upload" : mode === "link" ? "Add Link" : "Create Doc"
+              )}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
 }
 
-// ── Document Card ─────────────────────────────────────────────────────────────
+// ── Document Card ────────────────────────────────────────────────────────────
 
 function DocCard({ doc, agentId, onDeleted }: { doc: AgentDoc; agentId: string; onDeleted: () => void }) {
-    const [deleting, setDeleting] = useState(false);
-    const [expanded, setExpanded] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const isLiving = doc.doc_type !== "link" && !!doc.last_updated_at;
+  const hasContent = !!doc.content?.trim();
+  const isLink = !!doc.url;
+  const accentColor = isLiving ? "#f59e0b" : isLink ? "#38bdf8" : "#a855f7";
 
-    const isLiving = !!doc.last_updated_at;
-    const hasContent = !!doc.content?.trim();
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!window.confirm(`Remove "${doc.title}"?`)) return;
+    setDeleting(true);
+    try {
+      await fetch(`${BOT_URL}/admin/agents/${agentId}/documents/${doc.id}`, { method: "DELETE" });
+      onDeleted();
+    } finally { setDeleting(false); }
+  };
 
-    const handleDelete = async (e: React.MouseEvent) => {
-        e.preventDefault(); e.stopPropagation();
-        if (!window.confirm(`Remove "${doc.title}"? The Google Doc will not be deleted.`)) return;
-        setDeleting(true);
-        try {
-            await fetch(`${BOT_URL}/admin/agents/${agentId}/documents/${doc.id}`, { method: "DELETE" });
-            onDeleted();
-        } finally { setDeleting(false); }
-    };
+  const inner = (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px" }}>
+      <DocTypeIcon doc={doc} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ color: "#e5e5e5", fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>{doc.title}</p>
+        {doc.description && (
+          <p style={{ color: "#555", fontSize: 10, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>{doc.description}</p>
+        )}
+      </div>
+      <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: isLiving ? "#f59e0b" : "#444", flexShrink: 0 }}>
+        {isLiving && <Clock size={9} />}
+        {fmtDate(doc.last_updated_at ?? doc.created_at)}
+      </span>
+      {isLink && <ExternalLink size={10} color="#444" style={{ flexShrink: 0 }} />}
+      {!isLink && hasContent && (expanded ? <ChevronUp size={10} color="#555" style={{ flexShrink: 0 }} /> : <ChevronDown size={10} color="#555" style={{ flexShrink: 0 }} />)}
+      <button onClick={handleDelete} disabled={deleting}
+        style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", color: "#555", padding: "2px 4px", flexShrink: 0 }}
+        onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#ef4444")}
+        onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#555")}
+        title="Remove" aria-label="Remove document"
+      >
+        {deleting ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={11} />}
+      </button>
+    </div>
+  );
 
-    const rowContent = (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px" }}>
-            <FileText size={13} color={isLiving ? "#f59e0b" : "#555"} style={{ flexShrink: 0 }} />
+  const cardStyle: React.CSSProperties = {
+    background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)",
+    borderLeft: `3px solid ${accentColor}55`, borderRadius: 10, overflow: "hidden",
+    transition: "background 0.15s",
+  };
 
-            <div style={{ flex: 1, minWidth: 0 }}>
-                <p className="has-text-white" style={{ fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {doc.title}
-                </p>
-                {doc.description && (
-                    <p className="has-text-grey" style={{ fontSize: 10, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.description}</p>
-                )}
-            </div>
+  if (isLink) return (
+    <a href={doc.url!} target="_blank" rel="noopener noreferrer"
+      style={{ ...cardStyle, display: "block", textDecoration: "none", cursor: "pointer" }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "")}>
+      {inner}
+    </a>
+  );
 
-            <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: isLiving ? "#f59e0b" : "#444", flexShrink: 0 }}>
-                {isLiving && <Clock size={9} />}
-                {fmtDate(doc.last_updated_at ?? doc.created_at)}
-            </span>
+  if (hasContent) return (
+    <div style={{ ...cardStyle, cursor: "pointer" }}
+      onClick={() => setExpanded(x => !x)}
+      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)")}
+      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "")}>
+      {inner}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            style={{ borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.25)", overflow: "hidden" }}>
+            <p style={{ padding: "10px 12px", fontSize: 11, color: "#888", lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0 }}>
+              {doc.content}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 
-            {doc.url
-                ? <ExternalLink size={10} color="#444" style={{ flexShrink: 0 }} />
-                : hasContent && (expanded ? <ChevronUp size={10} color="#555" style={{ flexShrink: 0 }} /> : <ChevronDown size={10} color="#555" style={{ flexShrink: 0 }} />)
-            }
-
-            <button onClick={handleDelete} disabled={deleting}
-                style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", color: "#555", padding: "2px 4px", flexShrink: 0 }}
-                title="Remove document"
-                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = "#ef4444")}
-                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "#555")}>
-                {deleting ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={11} />}
-            </button>
-        </div>
-    );
-
-    const cardStyle: React.CSSProperties = {
-        background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
-        borderRadius: 10, overflow: "hidden",
-        borderLeft: isLiving ? "3px solid #f59e0b" : "3px solid rgba(255,255,255,0.08)",
-        display: "block", textDecoration: "none",
-        transition: "border-color 0.15s, background 0.15s",
-    };
-
-    const hoverHandlers = {
-        onMouseEnter: (e: React.MouseEvent<HTMLElement>) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; },
-        onMouseLeave: (e: React.MouseEvent<HTMLElement>) => { (e.currentTarget as HTMLElement).style.background = ""; },
-    };
-
-    // Has a Drive URL — whole card is a link
-    if (doc.url) {
-        return (
-            <a href={doc.url} target="_blank" rel="noopener noreferrer"
-                style={{ ...cardStyle, cursor: "pointer" }} {...hoverHandlers}>
-                {rowContent}
-            </a>
-        );
-    }
-
-    // No URL but has content — click to expand
-    if (hasContent) {
-        return (
-            <div style={{ ...cardStyle, cursor: "pointer" }}
-                onClick={() => setExpanded(x => !x)} {...hoverHandlers}>
-                {rowContent}
-                {expanded && (
-                    <div style={{ padding: "8px 12px 10px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" }}>
-                        <p style={{ fontSize: 11, color: "#888", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                            {doc.content}
-                        </p>
-                    </div>
-                )}
-            </div>
-        );
-    }
-
-    // No URL, no content — static card with tooltip
-    return <div style={{ ...cardStyle, cursor: "default" }} title="No Drive link yet">{rowContent}</div>;
+  return <div style={{ ...cardStyle }}>{inner}</div>;
 }
 
-// ── Main Component ─────────────────────────────────────────────────────────────
+// ── Main Component ───────────────────────────────────────────────────────────
 
 export function AgentDocuments({ agentId }: { agentId: string }) {
-    const [docs, setDocs]           = useState<AgentDoc[]>([]);
-    const [loading, setLoading]     = useState(true);
-    const [showCreate, setShowCreate] = useState(false);
+  const [docs, setDocs] = useState<AgentDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [search, setSearch] = useState("");
 
-    const fetchDocs = useCallback(async () => {
-        try {
-            setLoading(true);
-            const res  = await fetch(`${BOT_URL}/admin/agents/${agentId}/documents`);
-            const data = await res.json();
-            setDocs(Array.isArray(data) ? data : []);
-        } catch { setDocs([]); }
-        finally { setLoading(false); }
-    }, [agentId]);
+  const fetchDocs = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${BOT_URL}/admin/agents/${agentId}/documents`);
+      const data = await res.json();
+      setDocs(Array.isArray(data) ? data : []);
+    } catch { setDocs([]); }
+    finally { setLoading(false); }
+  }, [agentId]);
 
-    useEffect(() => { fetchDocs(); }, [fetchDocs]);
+  useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
-    return (
-        <div style={{ padding: "0.5rem 0" }}>
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <span style={{ fontSize: 13 }}>📄</span>
-                <span className="is-size-7 has-text-weight-bold has-text-white">Living Documents</span>
-                {docs.length > 0 && (
-                    <span className="tag is-small" style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.25)", fontSize: 10 }}>
-                        {docs.length}
-                    </span>
-                )}
-                <div style={{ flex: 1 }} />
-                <button onClick={fetchDocs} style={{ all: "unset", cursor: "pointer", color: "#444" }}
-                    title="Refresh" onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = "#888")}
-                    onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "#444")}>
-                    <RefreshCw size={11} />
-                </button>
-                <button onClick={() => setShowCreate(true)}
-                    style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: "#ff8c00", padding: "3px 8px", borderRadius: 6, background: "rgba(255,140,0,0.1)", border: "1px solid rgba(255,140,0,0.25)" }}>
-                    <Plus size={11} /> New
-                </button>
-            </div>
+  const filtered = docs.filter(d =>
+    !search || d.title.toLowerCase().includes(search.toLowerCase()) ||
+    d.description?.toLowerCase().includes(search.toLowerCase())
+  );
 
-            {loading ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#555" }}>
-                    <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
-                    <span className="is-size-7">Loading documents…</span>
-                </div>
-            ) : docs.length === 0 ? (
-                <div style={{ padding: "12px 0", textAlign: "center" }}>
-                    <p className="is-size-7 has-text-grey" style={{ opacity: 0.5, fontStyle: "italic" }}>No documents yet.</p>
-                    <p className="is-size-7 has-text-grey" style={{ opacity: 0.4, fontSize: 11, marginTop: 4 }}>
-                        Create one to start the research → task workflow.
-                    </p>
-                </div>
-            ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {docs.map(doc => (
-                        <DocCard key={doc.id} doc={doc} agentId={agentId} onDeleted={fetchDocs} />
-                    ))}
-                </div>
-            )}
+  return (
+    <div style={{ padding: "0.5rem 0" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 13 }}>📚</span>
+        <span style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "#ccc" }}>Library</span>
+        {docs.length > 0 && (
+          <span style={{ background: "rgba(168,85,247,0.12)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.25)", borderRadius: 10, fontSize: 9, fontWeight: 800, padding: "1px 7px" }}>
+            {docs.length}
+          </span>
+        )}
+        <div style={{ flex: 1 }} />
+        <button onClick={fetchDocs} title="Refresh" style={{ all: "unset", cursor: "pointer", color: "#444" }}
+          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#888")}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#444")}>
+          <RefreshCw size={11} />
+        </button>
+        <button onClick={() => setShowAdd(true)} id={`add-doc-${agentId}`}
+          style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: "#ff8c00", padding: "3px 8px", borderRadius: 6, background: "rgba(255,140,0,0.1)", border: "1px solid rgba(255,140,0,0.25)" }}>
+          <Plus size={11} /> Add
+        </button>
+      </div>
 
-            {showCreate && (
-                <CreateDocModal agentId={agentId} onCreated={fetchDocs} onClose={() => setShowCreate(false)} />
-            )}
+      {/* Search */}
+      {docs.length > 3 && (
+        <div style={{ position: "relative", marginBottom: 8 }}>
+          <Search size={10} style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "#555" }} />
+          <input
+            value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search library…"
+            style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, color: "#ccc", fontSize: 12, padding: "5px 8px 5px 24px", outline: "none", boxSizing: "border-box" }}
+          />
         </div>
-    );
+      )}
+
+      {/* List */}
+      {loading ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#555", padding: "8px 0" }}>
+          <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
+          <span style={{ fontSize: 12 }}>Loading library…</span>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div style={{ padding: "14px 0", textAlign: "center" }}>
+          {docs.length === 0 ? (
+            <>
+              <p style={{ color: "#555", fontSize: 12, fontStyle: "italic", margin: 0 }}>No documents yet.</p>
+              <p style={{ color: "#444", fontSize: 11, marginTop: 4 }}>Upload a file, paste a Google Doc link, or create a blank doc.</p>
+              <button onClick={() => setShowAdd(true)}
+                style={{ marginTop: 10, background: "rgba(255,140,0,0.1)", border: "1px solid rgba(255,140,0,0.25)", borderRadius: 8, color: "#ff8c00", cursor: "pointer", padding: "5px 14px", fontSize: 12, fontWeight: 700 }}>
+                + Add First Document
+              </button>
+            </>
+          ) : (
+            <p style={{ color: "#555", fontSize: 12, margin: 0 }}>No results for "{search}"</p>
+          )}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <AnimatePresence initial={false}>
+            {filtered.map(doc => (
+              <motion.div key={doc.id} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <DocCard doc={doc} agentId={agentId} onDeleted={fetchDocs} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {showAdd && (
+          <AddDocModal agentId={agentId} onDone={fetchDocs} onClose={() => setShowAdd(false)} />
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }

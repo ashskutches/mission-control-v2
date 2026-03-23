@@ -1,16 +1,14 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Brain, Plus, Trash2, Hash, ShieldCheck, Cpu, RefreshCcw,
     CheckCircle2, XCircle, Target, Sparkles, Globe, ShieldAlert,
     ChevronDown, ChevronUp, Library, X, Zap, Image as ImageIcon,
-    Palette, FileText, BarChart2, Search, Layers, Pencil, Mail, AlignJustify,
+    Palette, FileText, BarChart2, Search, Layers, Pencil, Mail, AlignJustify, ArrowRight,
 } from "lucide-react";
 import { cn } from "@/app/lib/utils";
-import { AgentRoutines } from "@/components/AgentRoutines";
-import { AgentEmail } from "@/components/AgentEmail";
-import { AgentDocuments } from "@/components/AgentDocuments";
 import { AgentWizard } from "@/components/AgentWizard";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
@@ -419,6 +417,74 @@ function AgentSetupModal({
     );
 }
 
+// ── Compact Roster Card ────────────────────────────────────────────────────
+function AgentRosterCard({
+    agent, score, heatColor, heatLabel, categoryColor, activeFeatureCount, onEdit, onDelete,
+}: {
+    agent: AgentDef;
+    score: number;
+    heatColor: string;
+    heatLabel: string;
+    categoryColor: string;
+    activeFeatureCount: number;
+    onEdit: () => void;
+    onDelete: () => void;
+}) {
+    const router = useRouter();
+    const [hovered, setHovered] = React.useState(false);
+    const cardBg = score > 0.6 ? "rgba(52,211,153,0.04)" : score > 0.25 ? "rgba(255,140,0,0.04)" : "rgba(255,255,255,0.02)";
+
+    return (
+        <div
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            onClick={() => router.push(`/agents/${agent.id}`)}
+            style={{
+                position: "relative", overflow: "hidden", background: hovered ? "rgba(255,255,255,0.05)" : cardBg,
+                border: `1px solid ${hovered ? `${categoryColor}55` : `${categoryColor}28`}`,
+                borderLeft: `3px solid ${categoryColor}`, borderRadius: 10,
+                padding: "0.75rem 0.875rem", cursor: "pointer", transition: "all 0.15s",
+            }}
+        >
+            {/* Top row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: `${categoryColor}15`, border: `1px solid ${categoryColor}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                    {agent.emoji ?? "🤖"}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ color: "#e5e5e5", fontWeight: 900, fontSize: 13, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{agent.name}</p>
+                    <p style={{ color: "#666", fontSize: 11, margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{agent.specialization}</p>
+                </div>
+                {/* Hover actions */}
+                {hovered ? (
+                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                        <button title="Edit" onClick={onEdit}
+                            style={{ background: "rgba(255,140,0,0.1)", border: "1px solid rgba(255,140,0,0.25)", borderRadius: 7, color: "#ff8c00", cursor: "pointer", padding: "4px 7px", display: "flex", alignItems: "center" }}>
+                            <Pencil size={11} />
+                        </button>
+                        <button title="Delete" onClick={onDelete}
+                            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 7, color: "#ef4444", cursor: "pointer", padding: "4px 7px", display: "flex", alignItems: "center" }}>
+                            <Trash2 size={11} />
+                        </button>
+                    </div>
+                ) : (
+                    <ArrowRight size={13} color="#444" style={{ flexShrink: 0 }} />
+                )}
+            </div>
+            {/* Bottom row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+                {score > 0 && (
+                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.07em", textTransform: "uppercase", color: heatColor, background: `${heatColor}18`, border: `1px solid ${heatColor}35`, borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{heatLabel}</span>
+                )}
+                <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.06em", textTransform: "uppercase", color: categoryColor, background: `${categoryColor}12`, border: `1px solid ${categoryColor}30`, borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{agent.category ?? "Specialist"}</span>
+                {activeFeatureCount > 0 && (
+                    <span style={{ marginLeft: "auto", fontSize: 9, color: "#555", fontWeight: 700 }}>{activeFeatureCount} features</span>
+                )}
+            </div>
+        </div>
+    );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────
 export const AgentCRUD = () => {
     const [agents, setAgents] = useState<AgentDef[]>([]);
@@ -635,146 +701,30 @@ export const AgentCRUD = () => {
                                                 }}>{deptAgents.length} agent{deptAgents.length !== 1 ? "s" : ""}</span>
                                             </div>
                                         )}
-                                        <div className="columns is-multiline">
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
                                         {deptAgents.map(agent => {
-                                            const isOpen = !!expandedAgents[agent.id];
                                             const activeFeatures = Object.entries(agent.features ?? {}).filter(([, v]) => v);
                                             const score = activityScores[agent.id] ?? 0;
                                             const maxScore = Math.max(...Object.values(activityScores), 1);
                                             const ratio = Math.min(score / maxScore, 1);
                                             const heatColor = ratio > 0.6 ? "#34d399" : ratio > 0.25 ? "#ff8c00" : "#555";
                                             const heatLabel = ratio > 0.6 ? "ACTIVE" : ratio > 0.25 ? "MODERATE" : score > 0 ? "QUIET" : "IDLE";
-                                            const cardBg = ratio > 0.6 ? "rgba(52,211,153,0.04)" : ratio > 0.25 ? "rgba(255,140,0,0.04)" : "rgba(255,255,255,0.02)";
                                             const categoryColor = agent.color || CATEGORY_COLORS[deriveCategory(agent)] || deptColor;
                                             return (
-                                                <div key={agent.id} className="column is-12 is-6-desktop">
-
-                                    <div className="box" style={{ position: "relative", overflow: "hidden", background: cardBg, border: `1px solid ${score > 0 ? heatColor + "55" : categoryColor ? categoryColor + "30" : "rgba(255,255,255,0.07)"}`, padding: "1rem", transition: "border-color 0.3s" }}>
-                                        {/* Category color left-bar */}
-                                        {categoryColor && (
-                                            <div style={{ position: "absolute", top: 0, left: 0, width: 3, height: "100%", background: categoryColor, opacity: 0.7 }} />
-                                        )}
-                                        <div style={{ paddingLeft: categoryColor ? 6 : 0 }}>
-                                        <div className="is-flex is-align-items-center is-justify-content-space-between">
-                                            <div className="is-flex is-align-items-center" style={{ gap: "0.6rem", flex: 1, minWidth: 0 }}>
-                                                <span style={{ fontSize: 22, flexShrink: 0 }}>{agent.emoji ?? "🤖"}</span>
-                                                <div style={{ minWidth: 0 }}>
-                                                    <div className="is-flex is-align-items-center" style={{ gap: 6 }}>
-                                                        <p className="has-text-weight-black is-size-7 text-truncate">{agent.name}</p>
-                                                        {score > 0 && (
-                                                            <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.07em", textTransform: "uppercase", color: heatColor, background: `${heatColor}18`, border: `1px solid ${heatColor}40`, borderRadius: 4, padding: "1px 5px", flexShrink: 0 }}>{heatLabel}</span>
-                                                        )}
-                                                        {categoryColor && (
-                                                            <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.06em", textTransform: "uppercase", color: categoryColor, background: `${categoryColor}15`, border: `1px solid ${categoryColor}35`, borderRadius: 4, padding: "1px 5px", flexShrink: 0 }}>{deriveCategory(agent)}</span>
-                                                        )}
-                                                    </div>
-                                                    <p className="has-text-grey" style={{ fontSize: 11 }}>{agent.specialization}</p>
-                                                </div>
-                                            </div>
-                                            <div className="is-flex is-align-items-center" style={{ gap: 6, flexShrink: 0 }}>
-                                                {activeFeatures.length > 0 && (
-                                                    <span className="tag is-dark is-small" style={{ fontSize: 10 }}>{activeFeatures.length} features</span>
-                                                )}
-                                                <button className="button is-small is-dark" title="Edit agent" onClick={() => openEdit(agent)}>
-                                                    <Pencil size={12} />
-                                                </button>
-                                                <button className="button is-small is-dark" onClick={() => setExpandedAgents(p => ({ ...p, [agent.id]: !isOpen }))}>
-                                                    {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                                                </button>
-                                                <button className="button is-small is-danger is-light" onClick={() => handleDelete(agent.id)}>
-                                                    <Trash2 size={12} />
-                                                </button>
-                                            </div>
+                                                <AgentRosterCard
+                                                    key={agent.id}
+                                                    agent={agent}
+                                                    score={score}
+                                                    heatColor={heatColor}
+                                                    heatLabel={heatLabel}
+                                                    categoryColor={categoryColor}
+                                                    activeFeatureCount={activeFeatures.length}
+                                                    onEdit={() => openEdit(agent)}
+                                                    onDelete={() => handleDelete(agent.id)}
+                                                />
+                                            );
+                                        })}
                                         </div>
-                                        </div>{/* /paddingLeft wrapper */}
-                                        {isOpen && (
-                                            <div className="mt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "0.75rem" }}>
-                                                {agent.discordChannelId && (
-                                                    <p className="is-size-7 has-text-grey mb-2">
-                                                        <Hash size={10} style={{ display: "inline", marginRight: 4 }} />
-                                                        {agent.discordChannelId}
-                                                    </p>
-                                                )}
-                                                {agent.mission && (
-                                                    <p className="is-size-7 has-text-grey mb-2" style={{ lineHeight: 1.5 }}>
-                                                        <Target size={10} style={{ display: "inline", marginRight: 4 }} />
-                                                        {agent.mission.slice(0, 150)}{agent.mission.length > 150 ? "..." : ""}
-                                                    </p>
-                                                )}
-                                                {/* ── Skills ── */}
-                                                <div className="mt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
-                                                    <button
-                                                        onClick={() => toggleSection(agent.id, "skills")}
-                                                        style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, marginBottom: 8, width: "100%" }}
-                                                    >
-                                                        <AlignJustify size={11} color="#555" />
-                                                        <span className="is-size-7 has-text-grey-light has-text-weight-black is-uppercase" style={{ fontSize: 10, letterSpacing: "0.08em", flex: 1 }}>Skills</span>
-                                                        {(sectionOpen[agent.id]?.skills ?? true) ? <ChevronUp size={10} color="#444" /> : <ChevronDown size={10} color="#444" />}
-                                                    </button>
-                                                    {(sectionOpen[agent.id]?.skills ?? true) && (
-                                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                                                            {ALL_FEATURES.map(f => (
-                                                                <span key={f.id} className="tag is-small" style={{
-                                                                    background: agent.features?.[f.id] ? "rgba(255,140,0,0.15)" : "rgba(255,255,255,0.04)",
-                                                                    color: agent.features?.[f.id] ? "#ff8c00" : "#555",
-                                                                    border: `1px solid ${agent.features?.[f.id] ? "rgba(255,140,0,0.3)" : "rgba(255,255,255,0.06)"}`,
-                                                                }}>
-                                                                    {f.label}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                {/* ── Routines ── */}
-                                                <div className="mt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
-                                                    <button
-                                                        onClick={() => toggleSection(agent.id, "routines")}
-                                                        style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, marginBottom: 8, width: "100%" }}
-                                                    >
-                                                        <AlignJustify size={11} color="#555" />
-                                                        <span className="is-size-7 has-text-grey-light has-text-weight-black is-uppercase" style={{ fontSize: 10, letterSpacing: "0.08em", flex: 1 }}>Routines</span>
-                                                        {(sectionOpen[agent.id]?.routines ?? true) ? <ChevronUp size={10} color="#444" /> : <ChevronDown size={10} color="#444" />}
-                                                    </button>
-                                                    {(sectionOpen[agent.id]?.routines ?? true) && (
-                                                        <AgentRoutines agentId={agent.id} agentName={agent.name} />
-                                                    )}
-                                                </div>
-                                                {/* ── Integrations ── */}
-                                                <div className="mt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
-                                                    <button
-                                                        onClick={() => toggleSection(agent.id, "integrations")}
-                                                        style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, marginBottom: 8, width: "100%" }}
-                                                    >
-                                                        <AlignJustify size={11} color="#555" />
-                                                        <span className="is-size-7 has-text-grey-light has-text-weight-black is-uppercase" style={{ fontSize: 10, letterSpacing: "0.08em", flex: 1 }}>Integrations</span>
-                                                        {(sectionOpen[agent.id]?.integrations ?? true) ? <ChevronUp size={10} color="#444" /> : <ChevronDown size={10} color="#444" />}
-                                                    </button>
-                                                    {(sectionOpen[agent.id]?.integrations ?? true) && (
-                                                        <AgentEmail agentId={agent.id} agentName={agent.name} />
-                                                    )}
-                                                </div>
-                                                {/* ── Documents ── */}
-                                                <div className="mt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
-                                                    <button
-                                                        onClick={() => toggleSection(agent.id, "documents")}
-                                                        style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, marginBottom: 8, width: "100%" }}
-                                                    >
-                                                        <AlignJustify size={11} color="#555" />
-                                                        <span className="is-size-7 has-text-grey-light has-text-weight-black is-uppercase" style={{ fontSize: 10, letterSpacing: "0.08em", flex: 1 }}>Documents</span>
-                                                        {(sectionOpen[agent.id]?.documents ?? true) ? <ChevronUp size={10} color="#444" /> : <ChevronDown size={10} color="#444" />}
-                                                    </button>
-                                                    {(sectionOpen[agent.id]?.documents ?? true) && (
-                                                        <AgentDocuments agentId={agent.id} />
-                                                    )}
-                                                </div>
-
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        </div>
                     </div>
                 );
             })
