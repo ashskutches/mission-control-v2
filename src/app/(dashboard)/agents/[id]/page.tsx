@@ -24,24 +24,51 @@ interface AgentDef {
 }
 
 const ALL_FEATURES = [
-  { id: "search",             label: "Web Search",         icon: Globe },
-  { id: "web_intelligence",   label: "Web Intelligence",   icon: BarChart2 },
-  { id: "memory",             label: "Long-term Memory",   icon: Brain },
-  { id: "codebase_awareness", label: "Codebase Awareness", icon: Brain },
-  { id: "shopify",            label: "Shopify",            icon: Bot },
-  { id: "content_creation",   label: "Content Studio",     icon: Sparkles },
-  { id: "image_generation",   label: "Image Generation",   icon: ImageIcon },
-  { id: "design_intelligence",label: "Prompt Enhancement", icon: Palette },
-  { id: "brand_enforcement",  label: "Brand-Aware Images", icon: Layers },
-  { id: "business_context",   label: "Brand Guide",        icon: FileText },
-  { id: "seo_strategy",       label: "SEO Strategy",       icon: Search },
-  { id: "gmail_read",         label: "Gmail Read",         icon: Mail },
-  { id: "gmail_write",        label: "Gmail Write",        icon: Mail },
-  { id: "google_workspace",   label: "Google Workspace",   icon: FileText },
-  { id: "call",               label: "Voice Calls",        icon: Zap },
-  { id: "sms",                label: "SMS Messaging",      icon: Zap },
-  { id: "moderation",         label: "AI Moderation",      icon: ShieldAlert },
+  { id: "search",             label: "Web Search",         icon: Globe,       description: "Real-time web research via Tavily. Required for market research, competitor analysis, and SEO." },
+  { id: "web_intelligence",   label: "Web Intelligence",   icon: BarChart2,   description: "Audit competitor websites for traffic data, Core Web Vitals, tech stack, and competitive signals." },
+  { id: "memory",             label: "Long-term Memory",   icon: Brain,       description: "Remembers facts and past conversations across sessions via Supabase." },
+  { id: "codebase_awareness", label: "Codebase Awareness", icon: Brain,       description: "Loads system architecture docs and skill guides. Use for dev/engineering agents." },
+  { id: "shopify",            label: "Shopify",            icon: Bot,         description: "Live store data: orders, products, inventory, customers. Required for any e-commerce agent." },
+  { id: "content_creation",   label: "Content Studio",     icon: Sparkles,    description: "Full content pipeline: copy, briefs, social posts, email campaigns. Loads content-intelligence, ecom-content, prompt-library, social-optimizer, email-campaign skills." },
+  { id: "image_generation",   label: "Image Generation",   icon: ImageIcon,   description: "Multi-model image creation via Kie.ai — product shots, lifestyle imagery, backgrounds." },
+  { id: "design_intelligence",label: "Prompt Enhancement", icon: Palette,     description: "Auto-enhances image prompts for HD quality using style presets. Requires Image Generation." },
+  { id: "brand_enforcement",  label: "Brand-Aware Images", icon: Layers,      description: "Enforces L&R color rules and product references when generating images. Requires Image Generation." },
+  { id: "business_context",   label: "Brand Guide",        icon: FileText,    description: "Injects brand context (mission, voice, products) into every conversation. Loads brand-identity and brand-voice skills." },
+  { id: "seo_strategy",       label: "SEO Strategy",       icon: Search,      description: "Dual-mode SEO: article optimization with competitor research, or full site audit with HTML report." },
+  { id: "gmail_read",         label: "Gmail Read",         icon: Mail,        description: "Read, search, and fetch full email content from the agent's connected Gmail inbox." },
+  { id: "gmail_write",        label: "Gmail Write",        icon: Mail,        description: "Compose and send emails (including replies) from the agent's connected Gmail account." },
+  { id: "google_workspace",   label: "Google Workspace",   icon: FileText,    description: "Create and share Google Docs/Sheets. Loads report-writer and content-library skills." },
+  { id: "call",               label: "Voice Calls",        icon: Zap,         description: "Initiate outbound phone calls via Twilio with full conversation handling." },
+  { id: "sms",                label: "SMS Messaging",      icon: Zap,         description: "Send, receive, and broadcast SMS messages via Twilio." },
+  { id: "moderation",         label: "AI Moderation",      icon: ShieldAlert, description: "Auto-deletes harmful or policy-violating messages in Discord channels." },
 ];
+
+// ── Skill tooltip wrapper ──────────────────────────────────────────────────────
+function SkillTooltip({ label, description, children }: { label: string; description?: string; children: React.ReactNode }) {
+  const [visible, setVisible] = React.useState(false);
+  const [pos, setPos] = React.useState({ x: 0, y: 0 });
+  if (!description) return <>{children}</>;
+  return (
+    <span
+      style={{ position: "relative", display: "inline-flex" }}
+      onMouseEnter={e => { setVisible(true); const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setPos({ x: r.left, y: r.bottom + 8 }); }}
+      onMouseLeave={() => setVisible(false)}
+    >
+      {children}
+      {visible && (
+        <span style={{
+          position: "fixed", left: pos.x, top: pos.y, zIndex: 99999,
+          background: "rgba(10,10,16,0.97)", border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 10, padding: "8px 12px", maxWidth: 280, pointerEvents: "none",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+        }}>
+          <span style={{ display: "block", fontSize: 11, fontWeight: 800, color: "#ff8c00", marginBottom: 3 }}>{label}</span>
+          <span style={{ display: "block", fontSize: 11, color: "#aaa", lineHeight: 1.55 }}>{description}</span>
+        </span>
+      )}
+    </span>
+  );
+}
 
 const CATEGORY_COLORS: Record<string, string> = {
   "Design": "#ff6b9d", "Engineering": "#4da6ff", "Marketing": "#ff8c00",
@@ -102,7 +129,20 @@ function EditModal({ agent, onSaved, onClose }: { agent: AgentDef; onSaved: () =
               <div key={cat} style={{ marginBottom: 10 }}>
                 <p style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.07em", color: catColors[cat] ?? "#888", marginBottom: 5 }}>{cat}</p>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
-                  {ids.map(id => { const feat = ALL_FEATURES.find(f => f.id === id); if (!feat) return null; const Icon = feat.icon; const active = !!form.features?.[id]; const c = catColors[cat] ?? "#888"; return (<button key={id} type="button" onClick={() => toggleFeature(id)} style={{ textAlign: "left", padding: "7px 10px", borderRadius: 8, background: active ? `${c}15` : "rgba(255,255,255,0.03)", border: `1px solid ${active ? c + "50" : "rgba(255,255,255,0.06)"}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}><Icon size={11} style={{ color: active ? c : "#555", flexShrink: 0 }} /><span style={{ fontSize: 11, fontWeight: 700, color: active ? "#fff" : "#666" }}>{feat.label}</span>{active && <CheckCircle2 size={10} style={{ color: c, marginLeft: "auto" }} />}</button>); })}
+                  {ids.map(id => {
+                    const feat = ALL_FEATURES.find(f => f.id === id);
+                    if (!feat) return null;
+                    const Icon = feat.icon; const active = !!form.features?.[id]; const c = catColors[cat] ?? "#888";
+                    return (
+                      <SkillTooltip key={id} label={feat.label} description={feat.description}>
+                        <button type="button" onClick={() => toggleFeature(id)} style={{ textAlign: "left", padding: "7px 10px", borderRadius: 8, background: active ? `${c}15` : "rgba(255,255,255,0.03)", border: `1px solid ${active ? c + "50" : "rgba(255,255,255,0.06)"}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
+                          <Icon size={11} style={{ color: active ? c : "#555", flexShrink: 0 }} />
+                          <span style={{ fontSize: 11, fontWeight: 700, color: active ? "#fff" : "#666" }}>{feat.label}</span>
+                          {active && <CheckCircle2 size={10} style={{ color: c, marginLeft: "auto" }} />}
+                        </button>
+                      </SkillTooltip>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -237,7 +277,13 @@ export default function AgentDetailPage() {
           {activeFeatures.length > 0 && (
             <Section title="Active Features" icon={<AlignJustify size={11} />}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                {activeFeatures.map(f => { const Icon = f.icon; return (<span key={f.id} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(255,140,0,0.08)", border: "1px solid rgba(255,140,0,0.22)", borderRadius: 8, color: "#ff8c00", fontSize: 11, fontWeight: 700, padding: "3px 9px" }}><Icon size={10} /> {f.label}</span>); })}
+                {activeFeatures.map(f => { const Icon = f.icon; return (
+                  <SkillTooltip key={f.id} label={f.label} description={f.description}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(255,140,0,0.08)", border: "1px solid rgba(255,140,0,0.22)", borderRadius: 8, color: "#ff8c00", fontSize: 11, fontWeight: 700, padding: "3px 9px", cursor: "default" }}>
+                      <Icon size={10} /> {f.label}
+                    </span>
+                  </SkillTooltip>
+                ); })}
               </div>
             </Section>
           )}
