@@ -10,7 +10,9 @@ import {
   Bot,
   ChevronRight,
   AlertCircle,
+  ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
@@ -529,7 +531,15 @@ export default function AgentChat() {
                 {activeAgent?.emoji ?? "🤖"}
               </div>
               <div>
-                <p style={{ color: "#fff", fontWeight: 800, fontSize: 15, margin: 0 }}>{activeAgent?.name ?? activeConvo.agent_id}</p>
+                <Link
+                  href={`/agents/${activeConvo.agent_id}`}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "#fff", fontWeight: 800, fontSize: 15, textDecoration: "none", transition: "color 0.15s" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = agentColor; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+                >
+                  {activeAgent?.name ?? activeConvo.agent_id}
+                  <ExternalLink size={12} style={{ opacity: 0.5, flexShrink: 0 }} />
+                </Link>
                 <p style={{ color: "#555", fontSize: 12, margin: 0, marginTop: 1 }}>{activeAgent?.specialization ?? "AI Agent"}</p>
               </div>
               <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
