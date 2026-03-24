@@ -1,7 +1,6 @@
 import {
     Bot,
     BookOpen,
-    GitBranch,
     LayoutDashboard,
     Library,
     Lightbulb,
@@ -23,7 +22,6 @@ export const APP_CONFIG = {
         { id: 'chats',     href: '/chats',     icon: MessageSquare, label: 'Chats',     color: '#22c55e' },
         { id: 'library',   href: '/library',   icon: BookOpen,      label: 'Library',   color: '#f59e0b' },
         { id: 'templates', href: '/templates', icon: Library,       label: 'Templates', color: '#a855f7' },
-        { id: 'workflows',  href: '/workflows',   icon: GitBranch,       label: 'Workflows', color: '#ff8c00' },
         { id: 'ideas',      href: '/ideas',      icon: Lightbulb,       label: 'Ideas',      color: '#a78bfa' },
         { id: 'commerce',  href: '/commerce',   icon: ShoppingBag,     label: 'Commerce'  },
         { id: 'brand',     href: '/brand',      icon: Palette,         label: 'Brand'     },
