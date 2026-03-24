@@ -529,7 +529,7 @@ function AgentSetupModal({
 
 // ── Compact Roster Card ────────────────────────────────────────────────────
 function AgentRosterCard({
-    agent, score, heatColor, heatLabel, categoryColor, activeFeatureCount, routineCount, onEdit, onDelete,
+    agent, score, heatColor, heatLabel, categoryColor, activeFeatureCount, routineCount, discordMembers, onEdit, onDelete,
 }: {
     agent: AgentDef;
     score: number;
@@ -538,12 +538,16 @@ function AgentRosterCard({
     categoryColor: string;
     activeFeatureCount: number;
     routineCount: number;
+    discordMembers: DiscordMember[];
     onEdit: () => void;
     onDelete: () => void;
 }) {
     const router = useRouter();
     const [hovered, setHovered] = React.useState(false);
     const cardBg = score > 0.6 ? "rgba(52,211,153,0.04)" : score > 0.25 ? "rgba(255,140,0,0.04)" : "rgba(255,255,255,0.02)";
+    const manager = agent.discordManagerId
+        ? discordMembers.find(m => m.username === agent.discordManagerId) ?? { username: agent.discordManagerId, displayName: agent.discordManagerId, avatar: "" }
+        : null;
 
     return (
         <div
@@ -598,7 +602,20 @@ function AgentRosterCard({
                 }}>
                     ⚡ {routineCount} routine{routineCount !== 1 ? "s" : ""}
                 </span>
-                {activeFeatureCount > 0 && (
+                {/* Manager blurb */}
+                {manager && (
+                    <span
+                        title={`Manager: ${manager.displayName} (@${manager.username})`}
+                        style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}
+                    >
+                        {manager.avatar
+                            ? <img src={manager.avatar} alt="" style={{ width: 14, height: 14, borderRadius: "50%", opacity: 0.75 }} />
+                            : <span style={{ fontSize: 9, color: "#555" }}>👤</span>
+                        }
+                        <span style={{ fontSize: 9, color: "#555", fontWeight: 700 }}>@{manager.username}</span>
+                    </span>
+                )}
+                {!manager && activeFeatureCount > 0 && (
                     <span style={{ marginLeft: "auto", fontSize: 9, color: "#555", fontWeight: 700 }}>{activeFeatureCount} features</span>
                 )}
             </div>
@@ -859,6 +876,7 @@ export const AgentCRUD = () => {
                                                     categoryColor={categoryColor}
                                                     activeFeatureCount={activeFeatures.length}
                                                     routineCount={routineCounts[agent.id] ?? 0}
+                                                    discordMembers={discordMembers}
                                                     onEdit={() => openEdit(agent)}
                                                     onDelete={() => handleDelete(agent.id)}
                                                 />
