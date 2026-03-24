@@ -23,6 +23,10 @@ interface AgentDef {
   emoji?: string; color?: string; category?: string;
 }
 
+interface DiscordMember {
+  id: string; username: string; displayName: string; avatar: string;
+}
+
 const ALL_FEATURES = [
   { id: "search",             label: "Web Search",         icon: Globe,       description: "Real-time web research via Tavily. Required for market research, competitor analysis, and SEO." },
   { id: "web_intelligence",   label: "Web Intelligence",   icon: BarChart2,   description: "Audit competitor websites for traffic data, Core Web Vitals, tech stack, and competitive signals." },
@@ -93,6 +97,22 @@ function EditModal({ agent, onSaved, onClose }: { agent: AgentDef; onSaved: () =
   const set = (k: keyof AgentDef, v: any) => setForm(p => ({ ...p, [k]: v }));
   const toggleFeature = (id: string) => setForm(p => ({ ...p, features: { ...p.features, [id]: !p.features?.[id] } }));
   const inputStyle: React.CSSProperties = { width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff", fontSize: 13, padding: "8px 12px", outline: "none", boxSizing: "border-box" };
+
+  // Discord member roster for manager dropdown
+  const [discordMembers, setDiscordMembers] = useState<DiscordMember[]>([]);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  useEffect(() => {
+    fetch(`${BOT_URL}/admin/agents/discord-members`)
+      .then(r => r.json())
+      .then(data => Array.isArray(data) ? setDiscordMembers(data) : [])
+      .catch(() => {});
+  }, []);
+  const filteredMembers = discordMembers.filter(m =>
+    m.displayName.toLowerCase().includes(memberSearch.toLowerCase()) ||
+    m.username.toLowerCase().includes(memberSearch.toLowerCase())
+  );
+  const selectedMember = discordMembers.find(m => m.username === form.discordManagerId || m.id === form.discordManagerId);
   const catColors: Record<string, string> = { Intelligence: "#38bdf8", Commerce: "#f59e0b", Communication: "#7289da", Automation: "#a78bfa" };
   const featureCats = [
     { cat: "Intelligence", ids: ["search","web_intelligence","memory","codebase_awareness"] },
@@ -136,18 +156,86 @@ function EditModal({ agent, onSaved, onClose }: { agent: AgentDef; onSaved: () =
             </div>
             <p style={{ fontSize: 10, color: "#555", margin: "4px 0 0" }}>Right-click any Discord channel → Copy Channel ID (requires Developer Mode)</p>
           </div>
-          <div>
+          <div style={{ position: "relative" }}>
             <label style={{ display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#555", marginBottom: 4 }}>Discord Manager / Owner</label>
-            <div style={{ position: "relative" }}>
-              <Hash size={12} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#ff8c00", pointerEvents: "none" }} />
+            {discordMembers.length > 0 ? (
+              <div style={{ position: "relative" }}>
+                {/* Trigger button */}
+                <button
+                  type="button"
+                  onClick={() => { setDropdownOpen(p => !p); setMemberSearch(""); }}
+                  style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", textAlign: "left" }}
+                >
+                  {selectedMember ? (
+                    <>
+                      <img src={selectedMember.avatar} alt="" style={{ width: 18, height: 18, borderRadius: "50%" }} />
+                      <span style={{ flex: 1 }}>{selectedMember.displayName}</span>
+                      <span style={{ color: "#555", fontSize: 11 }}>@{selectedMember.username}</span>
+                    </>
+                  ) : (
+                    <span style={{ color: "#555" }}>Select a Discord member…</span>
+                  )}
+                  <ChevronDown size={13} style={{ color: "#555", marginLeft: "auto", flexShrink: 0 }} />
+                </button>
+                {/* Dropdown */}
+                {dropdownOpen && (
+                  <div style={{
+                    position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 10000,
+                    background: "#0e0e14", border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 10, overflow: "hidden", boxShadow: "0 16px 48px rgba(0,0,0,0.8)",
+                  }}>
+                    <div style={{ padding: "8px 8px 4px" }}>
+                      <input
+                        autoFocus
+                        placeholder="Search members…"
+                        value={memberSearch}
+                        onChange={e => setMemberSearch(e.target.value)}
+                        style={{ ...inputStyle, fontSize: 12, padding: "6px 10px" }}
+                      />
+                    </div>
+                    <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                      <button
+                        type="button"
+                        onClick={() => { set("discordManagerId", ""); setDropdownOpen(false); }}
+                        style={{ width: "100%", padding: "8px 12px", textAlign: "left", background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: 12 }}
+                      >
+                        — None
+                      </button>
+                      {filteredMembers.map(m => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => { set("discordManagerId", m.username); setDropdownOpen(false); }}
+                          style={{
+                            width: "100%", padding: "7px 12px", textAlign: "left",
+                            background: form.discordManagerId === m.username ? "rgba(255,140,0,0.12)" : "none",
+                            border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                          onMouseLeave={e => (e.currentTarget.style.background = form.discordManagerId === m.username ? "rgba(255,140,0,0.12)" : "none")}
+                        >
+                          <img src={m.avatar} alt="" style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0 }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ color: "#e5e5e5", fontWeight: 700, fontSize: 12, margin: 0 }}>{m.displayName}</p>
+                            <p style={{ color: "#555", fontSize: 10, margin: 0 }}>@{m.username}</p>
+                          </div>
+                          {form.discordManagerId === m.username && <CheckCircle2 size={13} style={{ color: "#ff8c00", flexShrink: 0 }} />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Fallback: plain text if Discord members couldn't be fetched
               <input
                 value={form.discordManagerId ?? ""}
                 onChange={e => set("discordManagerId", e.target.value)}
                 placeholder="e.g. robert (Discord username)"
-                style={{ ...inputStyle, paddingLeft: 28 }}
+                style={inputStyle}
               />
-            </div>
-            <p style={{ fontSize: 10, color: "#555", margin: "4px 0 0" }}>Agent will discord_dm this person for escalations, issues, or when clarification is needed</p>
+            )}
+            <p style={{ fontSize: 10, color: "#555", margin: "4px 0 0" }}>Agent will discord_dm this person for escalations or when clarification is needed</p>
           </div>
           <div>
             <label style={{ display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#555", marginBottom: 8 }}>Features</label>
