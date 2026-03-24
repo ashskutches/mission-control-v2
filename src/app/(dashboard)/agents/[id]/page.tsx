@@ -18,7 +18,7 @@ const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
 interface AgentDef {
   id: string; name: string; type: string; specialization: string;
-  discordChannelId?: string; features: Record<string, boolean>;
+  discordChannelId?: string; discordManagerId?: string; features: Record<string, boolean>;
   personality?: string; mission?: string; context?: string; constraints?: string;
   emoji?: string; color?: string; category?: string;
 }
@@ -135,6 +135,19 @@ function EditModal({ agent, onSaved, onClose }: { agent: AgentDef; onSaved: () =
               />
             </div>
             <p style={{ fontSize: 10, color: "#555", margin: "4px 0 0" }}>Right-click any Discord channel → Copy Channel ID (requires Developer Mode)</p>
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#555", marginBottom: 4 }}>Discord Manager / Owner</label>
+            <div style={{ position: "relative" }}>
+              <Hash size={12} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#ff8c00", pointerEvents: "none" }} />
+              <input
+                value={form.discordManagerId ?? ""}
+                onChange={e => set("discordManagerId", e.target.value)}
+                placeholder="e.g. robert (Discord username)"
+                style={{ ...inputStyle, paddingLeft: 28 }}
+              />
+            </div>
+            <p style={{ fontSize: 10, color: "#555", margin: "4px 0 0" }}>Agent will discord_dm this person for escalations, issues, or when clarification is needed</p>
           </div>
           <div>
             <label style={{ display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#555", marginBottom: 8 }}>Features</label>
