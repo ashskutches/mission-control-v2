@@ -78,14 +78,14 @@ const CATEGORY_COLORS: Record<string, string> = {
   "Design": "#ff6b9d", "Engineering": "#4da6ff", "Marketing": "#ff8c00",
   "Paid Media": "#a855f7", "Product": "#22c55e", "Project Management": "#06b6d4",
   "Testing": "#f59e0b", "Support": "#10b981", "Specialized": "#e879f9",
-  "Influencing": "#f43f5e", "Organics": "#84cc16",
+  "Influencing": "#f43f5e", "Organics": "#84cc16", "General": "#6366f1",
 };
 
 const CATEGORY_EMOJI: Record<string, string> = {
   "Design": "🎨", "Engineering": "⚙️", "Marketing": "📢",
   "Paid Media": "💰", "Product": "📦", "Project Management": "📋",
   "Testing": "🧪", "Support": "🛀", "Specialized": "🎯",
-  "Influencing": "🌟", "Organics": "🌱",
+  "Influencing": "🌟", "Organics": "🌱", "General": "🤖",
 };
 
 const PRIMING_FIELDS = [

@@ -58,6 +58,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
     "Specialized": "🎯",
     "Influencing": "🌟",
     "Organics": "🌱",
+    "General": "🤖",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -72,6 +73,7 @@ const CATEGORY_COLORS: Record<string, string> = {
     "Specialized": "#e879f9",
     "Influencing": "#f43f5e",
     "Organics": "#84cc16",
+    "General": "#6366f1",
 };
 
 // Keywords → department mapping for agents that lack a category field
