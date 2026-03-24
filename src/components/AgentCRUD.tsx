@@ -54,8 +54,10 @@ const CATEGORY_EMOJI: Record<string, string> = {
     "Product": "📦",
     "Project Management": "📋",
     "Testing": "🧪",
-    "Support": "🛟",
+    "Support": "🛀",
     "Specialized": "🎯",
+    "Influencing": "🌟",
+    "Organics": "🌱",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -68,12 +70,16 @@ const CATEGORY_COLORS: Record<string, string> = {
     "Testing": "#f59e0b",
     "Support": "#10b981",
     "Specialized": "#e879f9",
+    "Influencing": "#f43f5e",
+    "Organics": "#84cc16",
 };
 
 // Keywords → department mapping for agents that lack a category field
 const SPECIALIZATION_TO_CATEGORY: [RegExp, string][] = [
-    [/seo|search engine|content market|blog|keyword|organic/i, "Marketing"],
-    [/email|campaign|social|brand|advertis|copywr|influencer|outreach|growth/i, "Marketing"],
+    [/seo|search engine|content market|blog|keyword|organic/i, "Organics"],
+    [/reddit|grayhat|grey.?hat|forum|community post|upvot/i, "Organics"],
+    [/influenc|ugc|creator|tiktok|instagram|youtube|collab|partnership|ambassador/i, "Influencing"],
+    [/email|campaign|social|brand|advertis|copywr|outreach|growth/i, "Marketing"],
     [/paid|ppc|ads|google ads|meta ads|facebook ads|tiktok ads/i, "Paid Media"],
     [/design|ui|ux|figma|creative|graphic|photo|visual|illustrat/i, "Design"],
     [/engineer|dev|code|software|frontend|backend|fullstack|api|database|devops/i, "Engineering"],
@@ -303,6 +309,28 @@ function AgentSetupModal({
                             </div>
                         </div>
                         <p className="is-size-7 has-text-grey mt-1">Used as the agent's internal identifier</p>
+                    </div>
+
+                    {/* Department / Category */}
+                    <div className="field mb-3">
+                        <label className="is-size-7 has-text-grey-light has-text-weight-bold mb-1" style={{ display: "block", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                            Department
+                        </label>
+                        <div className="control">
+                            <div className="select is-fullwidth" style={{ width: "100%" }}>
+                                <select
+                                    value={form.category ?? ""}
+                                    onChange={e => set("category", e.target.value || undefined)}
+                                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: form.category ? "#fff" : "#888", width: "100%" }}
+                                >
+                                    <option value="">— Auto-detect from specialization</option>
+                                    {Object.keys(CATEGORY_COLORS).map(cat => (
+                                        <option key={cat} value={cat}>{CATEGORY_EMOJI[cat]} {cat}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <p className="is-size-7 has-text-grey mt-1">Sets which group this agent appears under on the roster</p>
                     </div>
 
                     {/* Discord Channel ID */}

@@ -78,6 +78,14 @@ const CATEGORY_COLORS: Record<string, string> = {
   "Design": "#ff6b9d", "Engineering": "#4da6ff", "Marketing": "#ff8c00",
   "Paid Media": "#a855f7", "Product": "#22c55e", "Project Management": "#06b6d4",
   "Testing": "#f59e0b", "Support": "#10b981", "Specialized": "#e879f9",
+  "Influencing": "#f43f5e", "Organics": "#84cc16",
+};
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  "Design": "🎨", "Engineering": "⚙️", "Marketing": "📢",
+  "Paid Media": "💰", "Product": "📦", "Project Management": "📋",
+  "Testing": "🧪", "Support": "🛀", "Specialized": "🎯",
+  "Influencing": "🌟", "Organics": "🌱",
 };
 
 const PRIMING_FIELDS = [
@@ -143,6 +151,20 @@ function EditModal({ agent, onSaved, onClose }: { agent: AgentDef; onSaved: () =
         <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div><label style={{ display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#555", marginBottom: 6 }}>Icon</label><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{EMOJI_PRESETS.map(e => (<button key={e} type="button" onClick={() => set("emoji", e)} style={{ fontSize: 18, padding: "4px 8px", borderRadius: 8, cursor: "pointer", background: form.emoji === e ? "rgba(255,140,0,0.2)" : "rgba(255,255,255,0.05)", border: form.emoji === e ? "1px solid rgba(255,140,0,0.5)" : "1px solid transparent" }}>{e}</button>))}</div></div>
           <div><label style={{ display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#555", marginBottom: 4 }}>Name *</label><input required value={form.name ?? ""} onChange={e => set("name", e.target.value)} placeholder="Agent name" style={inputStyle} /></div>
+          <div>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#555", marginBottom: 4 }}>Department</label>
+            <select
+              value={form.category ?? ""}
+              onChange={e => set("category", e.target.value || undefined)}
+              style={{ ...inputStyle, cursor: "pointer" }}
+            >
+              <option value="">— Auto-detect from specialization</option>
+              {Object.keys(CATEGORY_COLORS).map(cat => (
+                <option key={cat} value={cat}>{CATEGORY_EMOJI[cat]} {cat}</option>
+              ))}
+            </select>
+            <p style={{ fontSize: 10, color: "#555", margin: "4px 0 0" }}>Sets which group this agent appears under on the roster</p>
+          </div>
           <div>
             <label style={{ display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#555", marginBottom: 4 }}>Discord Channel ID</label>
             <div style={{ position: "relative" }}>
