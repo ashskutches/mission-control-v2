@@ -20,6 +20,7 @@ interface AgentDef {
     type: string;
     specialization: string;
     discordChannelId: string;
+    discordManagerId?: string;
     features: Record<string, boolean>;
     personality?: string;
     mission?: string;
@@ -137,7 +138,7 @@ function slugify(name: string) {
 }
 
 const blank: Partial<AgentDef> = {
-    name: "", discordChannelId: "", type: "worker",
+    name: "", discordChannelId: "", discordManagerId: "", type: "worker",
     specialization: "General Tasks", features: {},
     personality: "", mission: "", context: "", constraints: "", emoji: "🤖",
 };
@@ -300,6 +301,24 @@ function AgentSetupModal({
                             <span className="icon is-left has-text-grey"><Hash size={14} /></span>
                         </div>
                         <p className="is-size-7 has-text-grey mt-1">Right-click a Discord channel → Copy Channel ID</p>
+                    </div>
+
+                    {/* Discord Manager */}
+                    <div className="field mb-3">
+                        <label className="is-size-7 has-text-grey-light has-text-weight-bold mb-1" style={{ display: "block", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                            Discord Manager / Owner
+                        </label>
+                        <div className="control has-icons-left">
+                            <input
+                                className="input"
+                                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff" }}
+                                placeholder="e.g. robert (Discord username)"
+                                value={form.discordManagerId ?? ""}
+                                onChange={e => set("discordManagerId", e.target.value)}
+                            />
+                            <span className="icon is-left has-text-grey"><Hash size={14} /></span>
+                        </div>
+                        <p className="is-size-7 has-text-grey mt-1">Agent will discord_dm this person for escalations, issues, or clarification</p>
                     </div>
 
                     {/* Feature Allocation */}
