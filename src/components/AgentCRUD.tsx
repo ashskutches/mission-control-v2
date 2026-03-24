@@ -506,7 +506,7 @@ function AgentSetupModal({
 
 // ── Compact Roster Card ────────────────────────────────────────────────────
 function AgentRosterCard({
-    agent, score, heatColor, heatLabel, categoryColor, activeFeatureCount, onEdit, onDelete,
+    agent, score, heatColor, heatLabel, categoryColor, activeFeatureCount, routineCount, onEdit, onDelete,
 }: {
     agent: AgentDef;
     score: number;
@@ -514,6 +514,7 @@ function AgentRosterCard({
     heatLabel: string;
     categoryColor: string;
     activeFeatureCount: number;
+    routineCount: number;
     onEdit: () => void;
     onDelete: () => void;
 }) {
@@ -564,6 +565,16 @@ function AgentRosterCard({
                     <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.07em", textTransform: "uppercase", color: heatColor, background: `${heatColor}18`, border: `1px solid ${heatColor}35`, borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{heatLabel}</span>
                 )}
                 <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.06em", textTransform: "uppercase", color: categoryColor, background: `${categoryColor}12`, border: `1px solid ${categoryColor}30`, borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{agent.category ?? "Specialist"}</span>
+                {/* Routine count badge */}
+                <span style={{
+                    fontSize: 9, fontWeight: 900, letterSpacing: "0.05em", textTransform: "uppercase",
+                    color: routineCount > 0 ? "#a78bfa" : "#444",
+                    background: routineCount > 0 ? "rgba(167,139,250,0.12)" : "transparent",
+                    border: `1px solid ${routineCount > 0 ? "rgba(167,139,250,0.3)" : "rgba(255,255,255,0.06)"}`,
+                    borderRadius: 4, padding: "1px 6px", flexShrink: 0,
+                }}>
+                    ⚡ {routineCount} routine{routineCount !== 1 ? "s" : ""}
+                </span>
                 {activeFeatureCount > 0 && (
                     <span style={{ marginLeft: "auto", fontSize: 9, color: "#555", fontWeight: 700 }}>{activeFeatureCount} features</span>
                 )}
@@ -591,6 +602,7 @@ export const AgentCRUD = () => {
         }));
     const isSectionOpen = (agentId: string, section: string) => p => (p[agentId]?.[section] ?? true);
     const [activityScores, setActivityScores] = useState<Record<string, number>>({});
+    const [routineCounts, setRoutineCounts] = useState<Record<string, number>>({});
     const [wizardOpen, setWizardOpen] = useState(false);
 
     // Modal state
@@ -621,6 +633,17 @@ export const AgentCRUD = () => {
 
     useEffect(() => {
         Promise.all([fetchAgents(), fetchTemplates()]).finally(() => setLoading(false));
+        // Fetch routine counts (non-blocking)
+        fetch(`${BOT_URL}/admin/routines`)
+            .then(r => r.json())
+            .then(data => {
+                const counts: Record<string, number> = {};
+                for (const r of (Array.isArray(data) ? data : [])) {
+                    if (r.agent_id) counts[r.agent_id] = (counts[r.agent_id] ?? 0) + 1;
+                }
+                setRoutineCounts(counts);
+            })
+            .catch(() => {});
         // Fetch activity scores independently (non-blocking)
         fetch(`${BOT_URL}/admin/agent-metrics`)
             .then(r => r.json())
@@ -806,6 +829,7 @@ export const AgentCRUD = () => {
                                                     heatLabel={heatLabel}
                                                     categoryColor={categoryColor}
                                                     activeFeatureCount={activeFeatures.length}
+                                                    routineCount={routineCounts[agent.id] ?? 0}
                                                     onEdit={() => openEdit(agent)}
                                                     onDelete={() => handleDelete(agent.id)}
                                                 />
