@@ -160,12 +160,14 @@ function AgentSetupModal({
     onClose,
     onSaved,
     isEditing,
+    discordMembers,
 }: {
     initial: Partial<AgentDef>;
     templateInfo?: { name: string; description: string; category: string; system_prompt: string; emoji: string };
     onClose: () => void;
     onSaved: () => void;
     isEditing?: boolean;
+    discordMembers: DiscordMember[];
 }) {
     const [form, setForm] = useState<Partial<AgentDef>>(initial);
     const [saving, setSaving] = useState(false);
@@ -178,16 +180,9 @@ function AgentSetupModal({
         features: { ...p.features, [id]: !p.features?.[id] }
     }));
 
-    // Discord member roster for manager dropdown
-    const [discordMembers, setDiscordMembers] = useState<DiscordMember[]>([]);
+    // Discord manager dropdown (members passed from parent — fetched once)
     const [memberSearch, setMemberSearch] = useState("");
     const [dropdownOpen, setDropdownOpen] = useState(false);
-    useEffect(() => {
-        fetch(`${BOT_URL}/admin/agents/discord-members`)
-            .then(r => r.json())
-            .then(data => Array.isArray(data) ? setDiscordMembers(data) : [])
-            .catch(() => {});
-    }, []);
     const filteredMembers = discordMembers.filter(m =>
         m.displayName.toLowerCase().includes(memberSearch.toLowerCase()) ||
         m.username.toLowerCase().includes(memberSearch.toLowerCase())
@@ -631,6 +626,7 @@ export const AgentCRUD = () => {
     const isSectionOpen = (agentId: string, section: string) => p => (p[agentId]?.[section] ?? true);
     const [activityScores, setActivityScores] = useState<Record<string, number>>({});
     const [routineCounts, setRoutineCounts] = useState<Record<string, number>>({});
+    const [discordMembers, setDiscordMembers] = useState<DiscordMember[]>([]);
     const [wizardOpen, setWizardOpen] = useState(false);
 
     // Modal state
@@ -661,6 +657,11 @@ export const AgentCRUD = () => {
 
     useEffect(() => {
         Promise.all([fetchAgents(), fetchTemplates()]).finally(() => setLoading(false));
+        // Fetch Discord members once (passed down to modal as prop — avoids per-open refetch)
+        fetch(`${BOT_URL}/admin/agents/discord-members`)
+            .then(r => r.json())
+            .then(data => Array.isArray(data) ? setDiscordMembers(data) : null)
+            .catch(() => {});
         // Fetch routine counts (non-blocking)
         fetch(`${BOT_URL}/admin/routines`)
             .then(r => r.json())
@@ -954,6 +955,7 @@ export const AgentCRUD = () => {
                         isEditing={modal.isEditing}
                         onClose={() => setModal(p => ({ ...p, open: false }))}
                         onSaved={onSaved}
+                        discordMembers={discordMembers}
                     />
                 )}
             </AnimatePresence>
