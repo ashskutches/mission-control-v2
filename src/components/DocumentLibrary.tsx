@@ -98,7 +98,7 @@ function DocViewer({ doc, agent, onClose }: { doc: LibraryDoc; agent: Agent | un
 
         {/* Content */}
         <div style={{ flex: 1, overflowY: "auto", padding: "1.5rem" }} className="custom-scrollbar">
-          <pre style={{ color: "#ddd", fontSize: 13, lineHeight: 1.8, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "inherit", margin: 0 }}>
+          <pre style={{ color: "#e8e8e8", fontSize: 13, lineHeight: 1.8, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "inherit", margin: 0, background: "rgba(0,0,0,0.45)", borderRadius: 10, padding: "1.25rem", border: "1px solid rgba(255,255,255,0.06)" }}>
             {doc.content}
           </pre>
         </div>

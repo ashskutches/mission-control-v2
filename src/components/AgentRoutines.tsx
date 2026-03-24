@@ -521,47 +521,65 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
             }
         } catch (e) {
             console.error("Failed to trigger routine", e);
-            // Clear running state on error so button re-enables
             setLiveRuns(p => ({ ...p, [r.id]: { ...p[r.id], status: "error", error: "Failed to trigger" } }));
         } finally {
-            // Only clear the button spinner — the task may still be executing.
-            // Run Now stays disabled via liveRuns[r.id].status === "running" until DebugPanel polling updates it.
             setRunning(p => ({ ...p, [r.id]: false }));
         }
     };
 
     return (
         <div>
-            <div className="is-flex is-align-items-center is-justify-content-space-between mb-3">
-                <div className="is-flex is-align-items-center" style={{ gap: 6 }}>
-                    <Clock size={13} style={{ color: "var(--accent-orange)" }} />
-                    <span className="is-size-7 has-text-weight-black is-uppercase has-text-grey-light" style={{ letterSpacing: "0.08em" }}>Routines</span>
+            {/* ── Section Header ─────────────────────────────────────────────── */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,140,0,0.12)", border: "1px solid rgba(255,140,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Clock size={14} style={{ color: "var(--accent-orange)" }} />
+                    </div>
+                    <div>
+                        <p style={{ color: "#fff", fontWeight: 800, fontSize: 14, margin: 0, lineHeight: 1 }}>Routines</p>
+                        <p style={{ color: "#555", fontSize: 11, margin: 0, marginTop: 2 }}>{routines.length} scheduled task{routines.length !== 1 ? "s" : ""}</p>
+                    </div>
                 </div>
-                <button className="button is-warning is-small" onClick={() => setModal({ open: true })}>
-                    <Plus size={12} style={{ marginRight: 4 }} />New
+                <button
+                    onClick={() => setModal({ open: true })}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 8, cursor: "pointer", background: "rgba(255,140,0,0.12)", border: "1px solid rgba(255,140,0,0.3)", color: "#ff8c00", transition: "all 0.15s" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,140,0,0.2)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,140,0,0.12)"; }}
+                >
+                    <Plus size={13} /> New Routine
                 </button>
             </div>
 
-            {loading && <p className="is-size-7 has-text-grey italic">Loading...</p>}
+            {/* ── Empty / Loading States ──────────────────────────────────────── */}
+            {loading && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "1rem 0", color: "#555", fontSize: 13 }}>
+                    <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Loading routines…
+                </div>
+            )}
             {!loading && routines.length === 0 && (
-                <p className="is-size-7 has-text-grey italic">No routines yet. Add one to schedule periodic tasks for this agent.</p>
+                <div style={{ padding: "1.5rem", borderRadius: 10, border: "1px dashed rgba(255,255,255,0.08)", textAlign: "center" }}>
+                    <Clock size={28} style={{ color: "#333", marginBottom: 8 }} />
+                    <p style={{ color: "#666", fontSize: 13, fontWeight: 600, margin: 0 }}>No routines yet</p>
+                    <p style={{ color: "#444", fontSize: 11, margin: "4px 0 0" }}>Schedule periodic tasks for this agent using the button above.</p>
+                </div>
             )}
 
-            <div className="is-flex is-flex-direction-column" style={{ gap: 8 }}>
+            {/* ── Routine Cards ───────────────────────────────────────────────── */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {routines.map(r => (
                     <div key={r.id} style={{
-                        borderRadius: 10,
-                        background: r.enabled ? "rgba(255,140,0,0.04)" : "rgba(255,255,255,0.02)",
-                        border: `1px solid ${debugOpen[r.id] ? "rgba(255,140,0,0.25)" : (r.enabled ? "rgba(255,140,0,0.14)" : "rgba(255,255,255,0.06)")}`  ,
+                        borderRadius: 12,
+                        background: r.enabled ? "rgba(255,140,0,0.03)" : "rgba(255,255,255,0.02)",
+                        border: `1px solid ${debugOpen[r.id] ? "rgba(255,140,0,0.3)" : (r.enabled ? "rgba(255,140,0,0.12)" : "rgba(255,255,255,0.06)")}`,
                         overflow: "hidden",
                         transition: "border-color 0.15s",
                     }}>
 
-                        {/* ── Routine Header — click anywhere to expand/collapse ── */}
+                        {/* ── Card Header ── */}
                         <div
                             onClick={() => setDebugOpen(p => ({ ...p, [r.id]: !p[r.id] }))}
                             style={{
-                                padding: "0.65rem 0.875rem",
+                                padding: "0.75rem 1rem",
                                 cursor: "pointer",
                                 userSelect: "none",
                                 background: debugOpen[r.id] ? "rgba(255,255,255,0.025)" : "transparent",
@@ -570,67 +588,92 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
                             onMouseEnter={e => { if (!debugOpen[r.id]) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)"; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = debugOpen[r.id] ? "rgba(255,255,255,0.025)" : "transparent"; }}
                         >
-                            <div className="is-flex is-align-items-center is-justify-content-space-between">
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div className="is-flex is-align-items-center" style={{ gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
-                                        {/* Expand chevron */}
-                                        <span style={{ color: debugOpen[r.id] ? "var(--accent-orange)" : "#444", flexShrink: 0, transition: "color 0.15s" }}>
-                                            {debugOpen[r.id] ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                                        </span>
-                                        <span className="is-size-7 has-text-weight-black has-text-white" style={{ lineHeight: 1 }}>{r.name}</span>
-                                        <StatusBadge status={r.last_status} small />
-                                        <ResourceBadge level={r.resource_level} />
-                                        {!r.enabled && <span className="tag is-small is-dark" style={{ fontSize: 9 }}>Paused</span>}
-                                        {r.report_to_discord && <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(88,101,242,0.15)", color: "#7289da", border: "1px solid rgba(88,101,242,0.25)", fontWeight: 700 }}>📢 Discord</span>}
-                                    </div>
-                                    <div className="is-flex is-align-items-center" style={{ gap: 8, paddingLeft: 21 }}>
-                                        <code style={{ fontSize: 10, color: "#888", background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{r.cron}</code>
-                                        <span style={{ fontSize: 10, color: "#555" }}>Last: {formatRelative(r.last_run_at)}</span>
-                                    </div>
-                                    {/* Prompt preview — only visible when collapsed */}
-                                    {!debugOpen[r.id] && (
-                                        <p className="is-size-7 has-text-grey mt-1" style={{ fontSize: 11, lineHeight: 1.4, paddingLeft: 21, opacity: 0.7 }}>
-                                            {r.prompt.slice(0, 100)}{r.prompt.length > 100 ? "…" : ""}
-                                        </p>
-                                    )}
-                                </div>
+                            {/* Row 1: chevron + name */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                                <span style={{ color: debugOpen[r.id] ? "var(--accent-orange)" : "#444", flexShrink: 0, transition: "color 0.15s", display: "flex" }}>
+                                    {debugOpen[r.id] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </span>
+                                <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, flex: 1, minWidth: 0, lineHeight: 1 }}>{r.name}</span>
+                            </div>
 
-                                {/* ── Action Buttons — stop propagation so they don't toggle the card ── */}
-                                <div className="is-flex is-align-items-center" style={{ gap: 5, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                                    {/* ▶ Run Now */}
+                            {/* Row 2: badges only — horizontal */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 22, marginBottom: 6, flexWrap: "wrap" }}>
+                                <StatusBadge status={r.last_status} small />
+                                <ResourceBadge level={r.resource_level} />
+                                {!r.enabled && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(255,255,255,0.06)", color: "#666", letterSpacing: "0.06em", textTransform: "uppercase" }}>Paused</span>}
+                                {r.report_to_discord && <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(88,101,242,0.15)", color: "#7289da", border: "1px solid rgba(88,101,242,0.25)", fontWeight: 700 }}>📢 Discord</span>}
+                            </div>
+
+                            {/* Row 3: cron + last-run (left) | action buttons (right) */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 22 }} onClick={e => e.stopPropagation()}>
+                                <code style={{ fontSize: 10, color: "#888", background: "rgba(255,255,255,0.06)", padding: "2px 6px", borderRadius: 4 }}>{r.cron}</code>
+                                <span style={{ fontSize: 10, color: "#444" }}>Last: {formatRelative(r.last_run_at)}</span>
+
+                                {/* Push actions to right */}
+                                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5 }}>
                                     <button
                                         title="Run now"
                                         disabled={running[r.id] || liveRuns[r.id]?.status === "running"}
                                         onClick={() => handleRunNow(r)}
-                                        style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, padding: "4px 10px", borderRadius: 7, cursor: (running[r.id] || liveRuns[r.id]?.status === "running") ? "not-allowed" : "pointer", border: "1px solid rgba(52,211,153,0.3)", background: "rgba(52,211,153,0.08)", color: (running[r.id] || liveRuns[r.id]?.status === "running") ? "#555" : "var(--accent-emerald)", fontWeight: 700, transition: "all 0.15s" }}>
+                                        style={{
+                                            display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700,
+                                            padding: "4px 10px", borderRadius: 7, transition: "all 0.15s",
+                                            cursor: (running[r.id] || liveRuns[r.id]?.status === "running") ? "not-allowed" : "pointer",
+                                            border: "1px solid rgba(52,211,153,0.3)",
+                                            background: "rgba(52,211,153,0.08)",
+                                            color: (running[r.id] || liveRuns[r.id]?.status === "running") ? "#555" : "var(--accent-emerald)",
+                                        }}
+                                    >
                                         {(running[r.id] || liveRuns[r.id]?.status === "running")
                                             ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
                                             : <Play size={11} />}
                                         {(running[r.id] || liveRuns[r.id]?.status === "running") ? "Running…" : "Run Now"}
                                     </button>
 
-                                    {/* Pause/Resume */}
-                                    <button className="button is-small is-dark" title={r.enabled ? "Pause" : "Resume"} onClick={() => handleToggle(r)}>
-                                        {r.enabled ? <Pause size={11} /> : <Play size={11} />}
+                                    <button
+                                        title={r.enabled ? "Pause" : "Resume"}
+                                        onClick={() => handleToggle(r)}
+                                        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 7, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#888", cursor: "pointer", transition: "all 0.15s" }}
+                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.color = "#ccc"; }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.color = "#888"; }}
+                                    >
+                                        {r.enabled ? <Pause size={12} /> : <Play size={12} />}
                                     </button>
 
-                                    {/* Edit */}
-                                    <button className="button is-small is-dark" onClick={() => setModal({ open: true, initial: r })}>
-                                        <span style={{ fontSize: 11 }}>Edit</span>
+                                    <button
+                                        title="Edit"
+                                        onClick={() => setModal({ open: true, initial: r })}
+                                        style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 28, padding: "0 10px", borderRadius: 7, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#888", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}
+                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.color = "#ccc"; }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.color = "#888"; }}
+                                    >
+                                        Edit
                                     </button>
 
-                                    {/* Delete */}
-                                    <button className="button is-small is-danger is-light" onClick={() => handleDelete(r.id)}>
-                                        <Trash2 size={11} />
+                                    <button
+                                        title="Delete"
+                                        onClick={() => handleDelete(r.id)}
+                                        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 7, border: "1px solid rgba(239,68,68,0.15)", background: "rgba(239,68,68,0.06)", color: "#ef4444", cursor: "pointer", transition: "all 0.15s" }}
+                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.15)"; }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.06)"; }}
+                                    >
+                                        <Trash2 size={12} />
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Row 4: prompt preview — full width, collapsed only */}
+                            {!debugOpen[r.id] && r.prompt && (
+                                <p style={{ fontSize: 11, color: "#555", lineHeight: 1.45, margin: "8px 0 0", paddingLeft: 22, paddingRight: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                                    {r.prompt}
+                                </p>
+                            )}
                         </div>
 
-                        {/* ── Debug Panel — expands below header ── */}
+                        {/* ── Debug Panel ── */}
                         <AnimatePresence>
                             {debugOpen[r.id] && (
-                                <div style={{ padding: "0 0.875rem 0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                                <div style={{ padding: "0 1rem 0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
                                     <DebugPanel routineId={r.id} liveRun={liveRuns[r.id] ?? null} />
                                 </div>
                             )}

@@ -166,17 +166,29 @@ function EditModal({ agent, onSaved, onClose }: { agent: AgentDef; onSaved: () =
   );
 }
 
-function Section({ title, icon, children, defaultOpen = true }: { title: string; icon: React.ReactNode; children: React.ReactNode; defaultOpen?: boolean }) {
+function Section({ title, icon, children, defaultOpen = false }: { title: string; icon: React.ReactNode; children: React.ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "1rem", marginTop: "0.75rem" }}>
-      <button onClick={() => setOpen(p => !p)} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", marginBottom: open ? 12 : 0 }}>
-        <span style={{ color: "#555" }}>{icon}</span>
-        <span style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.09em", color: "#888", flex: 1 }}>{title}</span>
-        {open ? <ChevronUp size={11} color="#444" /> : <ChevronDown size={11} color="#444" />}
+    <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: "0.5rem" }}>
+      <button
+        onClick={() => setOpen(p => !p)}
+        style={{
+          all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
+          width: "100%", padding: "0.65rem 0.75rem", borderRadius: 8,
+          background: open ? "rgba(255,140,0,0.06)" : "transparent",
+          transition: "background 0.15s",
+          marginBottom: open ? 6 : 0,
+          boxSizing: "border-box",
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = open ? "rgba(255,140,0,0.08)" : "rgba(255,255,255,0.04)"; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = open ? "rgba(255,140,0,0.06)" : "transparent"; }}
+      >
+        <span style={{ color: open ? "#ff8c00" : "#555", transition: "color 0.15s" }}>{icon}</span>
+        <span style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.09em", color: open ? "#cc6e00" : "#666", flex: 1, transition: "color 0.15s" }}>{title}</span>
+        {open ? <ChevronUp size={11} color="#ff8c00" /> : <ChevronDown size={11} color="#444" />}
       </button>
       <AnimatePresence initial={false}>
-        {open && <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: "hidden" }}>{children}</motion.div>}
+        {open && <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: "hidden", paddingLeft: "0.5rem", paddingRight: "0.5rem" }}>{children}</motion.div>}
       </AnimatePresence>
     </div>
   );
@@ -275,7 +287,7 @@ export default function AgentDetailPage() {
             </div>
           )}
           {activeFeatures.length > 0 && (
-            <Section title="Active Features" icon={<AlignJustify size={11} />}>
+            <Section title="Active Features" icon={<AlignJustify size={11} />} defaultOpen={false}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                 {activeFeatures.map(f => { const Icon = f.icon; return (
                   <SkillTooltip key={f.id} label={f.label} description={f.description}>
