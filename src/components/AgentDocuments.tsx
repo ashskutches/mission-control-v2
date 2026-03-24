@@ -313,15 +313,77 @@ function AddDocModal({ agentId, onDone, onClose }: { agentId: string; onDone: ()
   );
 }
 
+// ── Full Screen Document Viewer Modal ────────────────────────────────────────
+
+function DocViewerModal({ doc, onClose }: { doc: AgentDoc; onClose: () => void }) {
+  const wordCount = doc.content ? doc.content.trim().split(/\s+/).length : 0;
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1.5rem" }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, y: 16, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 400, damping: 32 }}
+        onClick={e => e.stopPropagation()}
+        style={{ width: "min(780px, 96vw)", maxHeight: "88vh", display: "flex", flexDirection: "column", background: "#0e0e14", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 18, overflow: "hidden", boxShadow: "0 40px 100px rgba(0,0,0,0.9)" }}
+      >
+        {/* Header */}
+        <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "flex-start", gap: 12, flexShrink: 0 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <DocTypeIcon doc={doc} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ color: "#fff", fontWeight: 900, fontSize: 16, margin: "0 0 2px", lineHeight: 1.3 }}>{doc.title}</p>
+            {doc.description && <p style={{ color: "#666", fontSize: 12, margin: 0 }}>{doc.description}</p>}
+            <p style={{ color: "#444", fontSize: 11, margin: "4px 0 0" }}>
+              {fmtDate(doc.last_updated_at ?? doc.created_at)}
+              {wordCount > 0 && ` · ${wordCount.toLocaleString()} words`}
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+            {doc.url && (
+              <a href={doc.url} target="_blank" rel="noopener noreferrer" title="Open in Google Docs"
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.25)", borderRadius: 8, color: "#38bdf8", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>
+                <ExternalLink size={11} /> Open
+              </a>
+            )}
+            <button onClick={onClose}
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "#666", cursor: "pointer", padding: "5px 7px", display: "flex" }}>
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "1.5rem" }}>
+          {doc.content ? (
+            <p style={{ color: "#c5c5d2", fontSize: 13, lineHeight: 1.8, whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0, fontFamily: "Georgia, serif" }}>
+              {doc.content}
+            </p>
+          ) : doc.url ? (
+            <div style={{ textAlign: "center", padding: "3rem 0", opacity: 0.5 }}>
+              <ExternalLink size={32} color="#38bdf8" style={{ marginBottom: 12 }} />
+              <p style={{ color: "#aaa", fontWeight: 700, margin: "0 0 6px" }}>External document</p>
+              <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ color: "#38bdf8", fontSize: 13 }}>Open in browser →</a>
+            </div>
+          ) : (
+            <p style={{ color: "#555", textAlign: "center", margin: "3rem 0" }}>No content stored for this document.</p>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // ── Document Card ────────────────────────────────────────────────────────────
 
 function DocCard({ doc, agentId, onDeleted }: { doc: AgentDoc; agentId: string; onDeleted: () => void }) {
   const [deleting, setDeleting] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const isLiving = doc.doc_type !== "link" && !!doc.last_updated_at;
+  const [viewerOpen, setViewerOpen] = useState(false);
   const hasContent = !!doc.content?.trim();
   const isLink = !!doc.url;
-  const accentColor = isLiving ? "#f59e0b" : isLink ? "#38bdf8" : "#a855f7";
+  const accentColor = doc.doc_type === "link" ? "#38bdf8" : hasContent ? "#a855f7" : "#555";
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation();
@@ -333,68 +395,57 @@ function DocCard({ doc, agentId, onDeleted }: { doc: AgentDoc; agentId: string; 
     } finally { setDeleting(false); }
   };
 
-  const inner = (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px" }}>
-      <DocTypeIcon doc={doc} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ color: "#e5e5e5", fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>{doc.title}</p>
-        {doc.description && (
-          <p style={{ color: "#555", fontSize: 10, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>{doc.description}</p>
-        )}
-      </div>
-      <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: isLiving ? "#f59e0b" : "#444", flexShrink: 0 }}>
-        {isLiving && <Clock size={9} />}
-        {fmtDate(doc.last_updated_at ?? doc.created_at)}
-      </span>
-      {isLink && <ExternalLink size={10} color="#444" style={{ flexShrink: 0 }} />}
-      {!isLink && hasContent && (expanded ? <ChevronUp size={10} color="#555" style={{ flexShrink: 0 }} /> : <ChevronDown size={10} color="#555" style={{ flexShrink: 0 }} />)}
-      <button onClick={handleDelete} disabled={deleting}
-        style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", color: "#555", padding: "2px 4px", flexShrink: 0 }}
-        onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#ef4444")}
-        onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#555")}
-        title="Remove" aria-label="Remove document"
-      >
-        {deleting ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={11} />}
-      </button>
-    </div>
-  );
-
-  const cardStyle: React.CSSProperties = {
-    background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)",
-    borderLeft: `3px solid ${accentColor}55`, borderRadius: 10, overflow: "hidden",
-    transition: "background 0.15s",
+  const handleClick = (e: React.MouseEvent) => {
+    // Don't open viewer if clicking the delete button
+    if ((e.target as HTMLElement).closest("button[data-role='delete']")) return;
+    if (isLink && doc.url) { window.open(doc.url, "_blank"); return; }
+    if (hasContent) setViewerOpen(true);
   };
 
-  if (isLink) return (
-    <a href={doc.url!} target="_blank" rel="noopener noreferrer"
-      style={{ ...cardStyle, display: "block", textDecoration: "none", cursor: "pointer" }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
-      onMouseLeave={(e) => (e.currentTarget.style.background = "")}>
-      {inner}
-    </a>
-  );
+  const isClickable = isLink || hasContent;
 
-  if (hasContent) return (
-    <div style={{ ...cardStyle, cursor: "pointer" }}
-      onClick={() => setExpanded(x => !x)}
-      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)")}
-      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "")}>
-      {inner}
+  return (
+    <>
+      <div
+        onClick={isClickable ? handleClick : undefined}
+        style={{
+          display: "flex", alignItems: "center", gap: 8, padding: "9px 12px",
+          background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)",
+          borderLeft: `3px solid ${accentColor}55`, borderRadius: 10, overflow: "hidden",
+          transition: "background 0.15s",
+          cursor: isClickable ? "pointer" : "default",
+        }}
+        onMouseEnter={isClickable ? e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)") : undefined}
+        onMouseLeave={isClickable ? e => (e.currentTarget.style.background = "rgba(255,255,255,0.025)") : undefined}
+      >
+        <DocTypeIcon doc={doc} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ color: "#e5e5e5", fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>{doc.title}</p>
+          {doc.description && (
+            <p style={{ color: "#555", fontSize: 10, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>{doc.description}</p>
+          )}
+        </div>
+        <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#444", flexShrink: 0 }}>
+          {fmtDate(doc.last_updated_at ?? doc.created_at)}
+        </span>
+        {isLink && <ExternalLink size={10} color="#38bdf8" style={{ flexShrink: 0 }} />}
+        {!isLink && hasContent && <ChevronDown size={10} color="#a855f7" style={{ flexShrink: 0 }} />}
+        <button data-role="delete" onClick={handleDelete} disabled={deleting}
+          style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", color: "#555", padding: "2px 4px", flexShrink: 0 }}
+          onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = "#ef4444")}
+          onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "#555")}
+          title="Remove" aria-label="Remove document">
+          {deleting ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={11} />}
+        </button>
+      </div>
+
       <AnimatePresence>
-        {expanded && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            style={{ borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.25)", overflow: "hidden" }}>
-            <p style={{ padding: "10px 12px", fontSize: 11, color: "#888", lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0 }}>
-              {doc.content}
-            </p>
-          </motion.div>
-        )}
+        {viewerOpen && <DocViewerModal doc={doc} onClose={() => setViewerOpen(false)} />}
       </AnimatePresence>
-    </div>
+    </>
   );
-
-  return <div style={{ ...cardStyle }}>{inner}</div>;
 }
+
 
 // ── Main Component ───────────────────────────────────────────────────────────
 
