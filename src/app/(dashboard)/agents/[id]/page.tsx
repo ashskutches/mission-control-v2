@@ -124,6 +124,19 @@ function EditModal({ agent, onSaved, onClose }: { agent: AgentDef; onSaved: () =
           <div><label style={{ display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#555", marginBottom: 6 }}>Icon</label><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{EMOJI_PRESETS.map(e => (<button key={e} type="button" onClick={() => set("emoji", e)} style={{ fontSize: 18, padding: "4px 8px", borderRadius: 8, cursor: "pointer", background: form.emoji === e ? "rgba(255,140,0,0.2)" : "rgba(255,255,255,0.05)", border: form.emoji === e ? "1px solid rgba(255,140,0,0.5)" : "1px solid transparent" }}>{e}</button>))}</div></div>
           <div><label style={{ display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#555", marginBottom: 4 }}>Name *</label><input required value={form.name ?? ""} onChange={e => set("name", e.target.value)} placeholder="Agent name" style={inputStyle} /></div>
           <div>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#555", marginBottom: 4 }}>Discord Channel ID</label>
+            <div style={{ position: "relative" }}>
+              <Hash size={12} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#7289da", pointerEvents: "none" }} />
+              <input
+                value={form.discordChannelId ?? ""}
+                onChange={e => set("discordChannelId", e.target.value)}
+                placeholder="e.g. 1234567890123456789"
+                style={{ ...inputStyle, paddingLeft: 28 }}
+              />
+            </div>
+            <p style={{ fontSize: 10, color: "#555", margin: "4px 0 0" }}>Right-click any Discord channel → Copy Channel ID (requires Developer Mode)</p>
+          </div>
+          <div>
             <label style={{ display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#555", marginBottom: 8 }}>Features</label>
             {featureCats.map(({ cat, ids }) => (
               <div key={cat} style={{ marginBottom: 10 }}>
