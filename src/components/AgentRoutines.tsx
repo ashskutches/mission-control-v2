@@ -270,7 +270,7 @@ function DebugPanel({ routineId, liveRun }: { routineId: string; liveRun: Routin
                                         )}
                                         {/* Agent output */}
                                         {h.agent_output ? (
-                                            <pre style={{ fontSize: 10, color: "#ccc", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 200, overflowY: "auto", margin: 0 }}>
+                                            <pre style={{ fontSize: 10, color: "#ccc", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 200, overflowY: "auto", margin: 0, background: "#0a0a12", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "10px 12px" }}>
                                                 {h.agent_output}
                                             </pre>
                                         ) : (
