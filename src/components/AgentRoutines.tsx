@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Plus, Trash2, Play, Pause, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp, Terminal, Sparkles } from "lucide-react";
+import { Clock, Plus, Trash2, Play, Pause, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp, Terminal, Sparkles, Bot, Check, X } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
@@ -18,6 +18,10 @@ interface Routine {
     last_status: "success" | "error" | "running" | null;
     resource_level: "LOW" | "MEDIUM" | "HIGH" | null;
     created_at: string;
+    // Agent proposal fields
+    approval_status: "approved" | "pending" | "rejected" | null;
+    proposed_by: string | null;
+    proposal_notes: string | null;
 }
 
 interface RoutineRun {
@@ -527,6 +531,24 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
         }
     };
 
+    const handleApprove = async (id: string) => {
+        await fetch(`${BOT_URL}/admin/routines/${id}/approve`, { method: "POST" });
+        fetch_();
+    };
+
+    const handleReject = async (id: string) => {
+        const feedback = window.prompt("Optional: leave a note for the agent about why this was rejected.");
+        await fetch(`${BOT_URL}/admin/routines/${id}/reject`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ feedback: feedback ?? "" }),
+        });
+        fetch_();
+    };
+
+    const pendingRoutines = routines.filter(r => r.approval_status === "pending");
+    const activeRoutines  = routines.filter(r => r.approval_status !== "pending");
+
     return (
         <div>
             {/* ── Section Header ─────────────────────────────────────────────── */}
@@ -537,7 +559,7 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
                     </div>
                     <div>
                         <p style={{ color: "#fff", fontWeight: 800, fontSize: 14, margin: 0, lineHeight: 1 }}>Routines</p>
-                        <p style={{ color: "#555", fontSize: 11, margin: 0, marginTop: 2 }}>{routines.length} scheduled task{routines.length !== 1 ? "s" : ""}</p>
+                        <p style={{ color: "#555", fontSize: 11, margin: 0, marginTop: 2 }}>{activeRoutines.length} scheduled task{activeRoutines.length !== 1 ? "s" : ""}{pendingRoutines.length > 0 ? ` · ${pendingRoutines.length} pending approval` : ""}</p>
                     </div>
                 </div>
                 <button
@@ -564,9 +586,91 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
                 </div>
             )}
 
+            {/* ── Pending Agent Proposals ──────────────────────────────────────── */}
+            {pendingRoutines.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                        <Bot size={13} style={{ color: "#f59e0b" }} />
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                            Agent Proposals — Awaiting Approval
+                        </span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {pendingRoutines.map(r => (
+                            <motion.div
+                                key={r.id}
+                                initial={{ opacity: 0, y: -6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                style={{
+                                    borderRadius: 12,
+                                    background: "rgba(245,158,11,0.04)",
+                                    border: "1px solid rgba(245,158,11,0.25)",
+                                    padding: "0.85rem 1rem",
+                                }}
+                            >
+                                {/* Header row */}
+                                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                            <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{r.name}</span>
+                                            <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                                                Pending
+                                            </span>
+                                        </div>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                            <code style={{ fontSize: 10, color: "#888", background: "rgba(255,255,255,0.06)", padding: "2px 6px", borderRadius: 4 }}>{r.cron}</code>
+                                            {r.proposed_by && (
+                                                <span style={{ fontSize: 10, color: "#666" }}>Proposed by {r.proposed_by}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {/* Approve / Reject */}
+                                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                                        <button
+                                            onClick={() => handleApprove(r.id)}
+                                            title="Approve — activates routine immediately"
+                                            style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, padding: "5px 12px", borderRadius: 7, cursor: "pointer", border: "1px solid rgba(52,211,153,0.4)", background: "rgba(52,211,153,0.1)", color: "var(--accent-emerald)", transition: "all 0.15s" }}
+                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(52,211,153,0.2)"; }}
+                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(52,211,153,0.1)"; }}
+                                        >
+                                            <Check size={11} /> Approve
+                                        </button>
+                                        <button
+                                            onClick={() => handleReject(r.id)}
+                                            title="Reject proposal"
+                                            style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 7, cursor: "pointer", border: "1px solid rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.07)", color: "#ef4444", transition: "all 0.15s" }}
+                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.15)"; }}
+                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.07)"; }}
+                                        >
+                                            <X size={11} /> Reject
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Rationale / notes */}
+                                {r.proposal_notes && (
+                                    <p style={{ fontSize: 11, color: "#888", lineHeight: 1.5, margin: "0 0 8px", fontStyle: "italic" }}>
+                                        {r.proposal_notes.split("\n")[0]}
+                                    </p>
+                                )}
+
+                                {/* Prompt preview */}
+                                <div style={{ background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 8, padding: "8px 10px" }}>
+                                    <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 4px", fontWeight: 700 }}>Prompt</p>
+                                    <p style={{ fontSize: 11, color: "#777", lineHeight: 1.5, margin: 0, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
+                                        {r.prompt}
+                                    </p>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* ── Routine Cards ───────────────────────────────────────────────── */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {routines.map(r => (
+
+                {activeRoutines.map(r => (
                     <div key={r.id} style={{
                         borderRadius: 12,
                         background: r.enabled ? "rgba(255,140,0,0.03)" : "rgba(255,255,255,0.02)",
