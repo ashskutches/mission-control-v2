@@ -103,12 +103,18 @@ function ResourceBadge({ level }: { level: Routine["resource_level"] }) {
 
 // ── Debug Panel ────────────────────────────────────────────────────────────────
 
-function DebugPanel({ routineId, liveRun }: { routineId: string; liveRun: RoutineRun | null }) {
+function DebugPanel({ routineId, liveRun, onRunComplete }: {
+    routineId: string;
+    liveRun: RoutineRun | null;
+    onRunComplete?: () => void;   // called when run transitions running → done
+}) {
     const [run, setRun] = useState<RoutineRun | null>(liveRun);
     const [history, setHistory] = useState<RoutineRun[]>([]);
     const [tab, setTab] = useState<"current" | "history">("current");
     const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
     const pollRef = useRef<NodeJS.Timeout | null>(null);
+    const onRunCompleteRef = useRef(onRunComplete);
+    useEffect(() => { onRunCompleteRef.current = onRunComplete; }, [onRunComplete]);
 
     // Poll for updates every 2s while running
     useEffect(() => {
@@ -147,6 +153,8 @@ function DebugPanel({ routineId, liveRun }: { routineId: string; liveRun: Routin
                     clearInterval(pollRef.current!);
                     pollRef.current = null;
                     await fetchHistory();
+                    // Notify parent so routine card header refreshes immediately
+                    onRunCompleteRef.current?.();
                 }
             }, 2000);
         }
@@ -494,7 +502,14 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
         } catch { /* silent */ } finally { setLoading(false); }
     }, [agentId]);
 
-    useEffect(() => { fetch_(); }, [fetch_]);
+    useEffect(() => {
+        fetch_();
+        // Background poll: re-fetch routine list every 15s so cron-fired runs
+        // and status changes are reflected without user interaction.
+        const interval = setInterval(fetch_, 15_000);
+        return () => clearInterval(interval);
+    }, [fetch_]);
+
 
     const handleDelete = async (id: string) => {
         if (!confirm("Delete this routine?")) return;
@@ -818,7 +833,7 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
                         <AnimatePresence>
                             {debugOpen[r.id] && (
                                 <div style={{ padding: "0 1rem 0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-                                    <DebugPanel routineId={r.id} liveRun={liveRuns[r.id] ?? null} />
+                                    <DebugPanel routineId={r.id} liveRun={liveRuns[r.id] ?? null} onRunComplete={fetch_} />
                                 </div>
                             )}
                         </AnimatePresence>
