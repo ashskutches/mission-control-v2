@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Plus, Trash2, Play, Pause, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp, Terminal, Sparkles, Bot, Check, X } from "lucide-react";
+import { Clock, Plus, Trash2, Play, Pause, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp, Terminal, Sparkles, Bot, Check, X, Square } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
@@ -476,6 +476,7 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
     const [modal, setModal] = useState<{ open: boolean; initial?: Partial<Routine> }>({ open: false });
     const [debugOpen, setDebugOpen] = useState<Record<string, boolean>>({});
     const [running, setRunning] = useState<Record<string, boolean>>({});
+    const [cancelling, setCancelling] = useState<Record<string, boolean>>({});
     const [liveRuns, setLiveRuns] = useState<Record<string, RoutineRun>>({});
 
     const fetch_ = useCallback(async () => {
@@ -528,6 +529,21 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
             setLiveRuns(p => ({ ...p, [r.id]: { ...p[r.id], status: "error", error: "Failed to trigger" } }));
         } finally {
             setRunning(p => ({ ...p, [r.id]: false }));
+        }
+    };
+
+    const handleCancel = async (r: Routine) => {
+        if (!confirm(`Cancel "${r.name}"? This stops the current run and cleans up any stuck task records.`)) return;
+        setCancelling(p => ({ ...p, [r.id]: true }));
+        try {
+            await fetch(`${BOT_URL}/admin/routines/${r.id}/cancel`, { method: "POST" });
+            // Optimistically clear local running state
+            setLiveRuns(p => ({ ...p, [r.id]: { ...p?.[r.id], status: "error" } as RoutineRun }));
+            await fetch_();
+        } catch (e) {
+            console.error("Failed to cancel routine", e);
+        } finally {
+            setCancelling(p => ({ ...p, [r.id]: false }));
         }
     };
 
@@ -715,24 +731,48 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
 
                                 {/* Push actions to right */}
                                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5 }}>
+                                    {/* Run Now / Cancel — mutually exclusive */}
+                                {(r.last_status === "running" || liveRuns?.[r.id]?.status === "running") ? (
+                                    <button
+                                        title="Cancel this run"
+                                        disabled={cancelling[r.id]}
+                                        onClick={() => handleCancel(r)}
+                                        style={{
+                                            display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700,
+                                            padding: "4px 10px", borderRadius: 7, transition: "all 0.15s",
+                                            cursor: cancelling[r.id] ? "not-allowed" : "pointer",
+                                            border: "1px solid rgba(239,68,68,0.4)",
+                                            background: "rgba(239,68,68,0.1)",
+                                            color: cancelling[r.id] ? "#555" : "#ef4444",
+                                        }}
+                                        onMouseEnter={e => { if (!cancelling[r.id]) (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.2)"; }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.1)"; }}
+                                    >
+                                        {cancelling[r.id]
+                                            ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
+                                            : <Square size={11} />}
+                                        {cancelling[r.id] ? "Cancelling…" : "Cancel"}
+                                    </button>
+                                ) : (
                                     <button
                                         title="Run now"
-                                        disabled={running[r.id] || liveRuns[r.id]?.status === "running"}
+                                        disabled={running[r.id]}
                                         onClick={() => handleRunNow(r)}
                                         style={{
                                             display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700,
                                             padding: "4px 10px", borderRadius: 7, transition: "all 0.15s",
-                                            cursor: (running[r.id] || liveRuns[r.id]?.status === "running") ? "not-allowed" : "pointer",
+                                            cursor: running[r.id] ? "not-allowed" : "pointer",
                                             border: "1px solid rgba(52,211,153,0.3)",
                                             background: "rgba(52,211,153,0.08)",
-                                            color: (running[r.id] || liveRuns[r.id]?.status === "running") ? "#555" : "var(--accent-emerald)",
+                                            color: running[r.id] ? "#555" : "var(--accent-emerald)",
                                         }}
                                     >
-                                        {(running[r.id] || liveRuns[r.id]?.status === "running")
+                                        {running[r.id]
                                             ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
                                             : <Play size={11} />}
-                                        {(running[r.id] || liveRuns[r.id]?.status === "running") ? "Running…" : "Run Now"}
+                                        {running[r.id] ? "Running…" : "Run Now"}
                                     </button>
+                                )}
 
                                     <button
                                         title={r.enabled ? "Pause" : "Resume"}
