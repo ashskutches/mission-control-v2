@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { MarkdownMessage } from "./MarkdownMessage";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageSquare,
@@ -240,10 +241,10 @@ function MessageBubble({ msg, agentColor, agentEmoji }: { msg: Message; agentCol
             fontSize: 14,
             lineHeight: 1.6,
             wordBreak: "break-word",
-            whiteSpace: "pre-wrap",
+            whiteSpace: isUser ? "pre-wrap" : undefined,
           }}
         >
-          {msg.content}
+          {isUser ? msg.content : <MarkdownMessage content={msg.content} />}
         </div>
         <span style={{ fontSize: 10, color: "#444", paddingInline: 4 }}>{formatTime(msg.created_at)}</span>
       </div>

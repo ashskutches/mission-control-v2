@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import { MarkdownMessage } from "./MarkdownMessage";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, AlertCircle, X } from "lucide-react";
 
@@ -200,9 +201,9 @@ export function AgentDetailChat({ agentId, agentName, agentEmoji = "🤖", agent
                     maxWidth: "75%", padding: "9px 13px", borderRadius: isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
                     background: isUser ? "linear-gradient(135deg, rgba(255,140,0,0.22), rgba(255,140,0,0.14))" : "rgba(255,255,255,0.05)",
                     border: isUser ? "1px solid rgba(255,140,0,0.22)" : "1px solid rgba(255,255,255,0.07)",
-                    color: "#eee", fontSize: 13, lineHeight: 1.6, wordBreak: "break-word", whiteSpace: "pre-wrap",
+                    color: "#eee", fontSize: 13, lineHeight: 1.6, wordBreak: "break-word", whiteSpace: isUser ? "pre-wrap" : undefined,
                   }}>
-                    {msg.content}
+                    {isUser ? msg.content : <MarkdownMessage content={msg.content} />}
                   </div>
                 </motion.div>
               );
