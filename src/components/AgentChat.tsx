@@ -228,7 +228,7 @@ function MessageBubble({ msg, agentColor, agentEmoji }: { msg: Message; agentCol
         </div>
       )}
 
-      <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: isUser ? "flex-end" : "flex-start", gap: 4 }}>
+      <div style={{ maxWidth: "72%", minWidth: 0, display: "flex", flexDirection: "column", alignItems: isUser ? "flex-end" : "flex-start", gap: 4 }}>
         <div
           style={{
             padding: "10px 14px",
