@@ -3,8 +3,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot, UserPlus, Users, MessageSquare, ChevronDown, X, Check, Zap,
-  Play, Loader, ExternalLink,
+  Play, Loader, ExternalLink, AlertTriangle,
 } from "lucide-react";
+
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 
@@ -41,6 +42,10 @@ export default function SectionAgentPanel({ sectionId, sectionName, onAgentAssig
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [lastRun, setLastRun] = useState<Date | null>(null);
+  const [convId, setConvId] = useState<string | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [runStage, setRunStage] = useState<"idle"|"creating"|"working"|"done"|"error">("idle");
+  const [elapsed, setElapsed] = useState(0);
 
   // Open-ended research prompt — agent decides what to do, how to research, and what to track
   const ANALYSIS_PROMPT = `You are the Lead Agent for the ${sectionName} domain. You have full agency over this section's dashboard.
@@ -111,21 +116,48 @@ Your goal is to help grow this area of the business. Surface what's actually imp
   const runAnalysis = async () => {
     if (!section?.lead_agent_id || running) return;
     setRunning(true);
+    setRunError(null);
+    setConvId(null);
+    setElapsed(0);
+
+    // Live elapsed timer
+    const timerRef = setInterval(() => setElapsed(s => s + 1), 1000);
+
     try {
-      await fetch(`${BOT_URL}/admin/chat/conversations`, {
+      // Step 1: Create a conversation
+      setRunStage("creating");
+      const convRes = await fetch(`${BOT_URL}/admin/chat/conversations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           agent_id: section.lead_agent_id,
-          message: ANALYSIS_PROMPT,
-          source: "manual_trigger",
+          title: `${sectionName} Analysis — ${new Date().toLocaleDateString()}`,
         }),
       });
+      if (!convRes.ok) throw new Error(`Failed to create conversation: ${await convRes.text()}`);
+      const conv = await convRes.json();
+      setConvId(conv.id);
+
+      // Step 2: Send the analysis prompt — this actually invokes the agent (blocks until done ~30-90s)
+      setRunStage("working");
+      const msgRes = await fetch(`${BOT_URL}/admin/chat/conversations/${conv.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: ANALYSIS_PROMPT }),
+        signal: AbortSignal.timeout(180_000), // 3 min max
+      });
+      if (!msgRes.ok) throw new Error(`Agent call failed: ${await msgRes.text()}`);
+
       setLastRun(new Date());
+      setRunStage("done");
       onAnalysisDone?.();
-    } catch (err) {
-      console.error("Run analysis failed:", err);
+    } catch (err: any) {
+      const msg = err?.name === "TimeoutError" ? "Agent timed out after 3 minutes" : err.message;
+      setRunError(msg);
+      setRunStage("error");
+      console.error("Run analysis failed:", msg);
     } finally {
+      clearInterval(timerRef);
       setRunning(false);
     }
   };
@@ -276,29 +308,72 @@ Your goal is to help grow this area of the business. Surface what's actually imp
 
             </div>
 
-            {/* Footer row — last run + results link */}
-            {(lastRun || section?.team_size === 0) && (
-              <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${accentColor}15` }}>
-                <div className="is-flex is-align-items-center is-justify-content-space-between">
-                  <div className="is-flex is-align-items-center" style={{ gap: "0.5rem" }}>
-                    <Zap size={12} color={accentColor} />
-                    <p style={{ fontSize: "11px", color: "#64748b" }}>
-                      {lastRun
-                        ? `Analysis started at ${lastRun.toLocaleTimeString()} — insights are being filed now.`
-                        : `${lead.name} has received an onboarding message. Open Chat to see their routine proposals.`}
-                    </p>
-                  </div>
-                  {lastRun && (
-                    <a
-                      href={`/intelligence?section=${sectionId}`}
-                      style={{ fontSize: "11px", color: accentColor, fontWeight: 700, display: "flex", alignItems: "center", gap: "0.3rem", whiteSpace: "nowrap" }}
-                    >
-                      View Results <ExternalLink size={11} />
-                    </a>
+            {/* Footer row — progress, errors, results */}
+            <AnimatePresence>
+              {runStage !== "idle" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                  className="mt-3 pt-3" style={{ borderTop: `1px solid ${accentColor}15` }}
+                >
+                  {runStage === "creating" && (
+                    <div className="is-flex is-align-items-center" style={{ gap: "0.5rem" }}>
+                      <Loader size={12} color={accentColor} className="spin" />
+                      <p style={{ fontSize: "11px", color: "#94a3b8" }}>Starting analysis session...</p>
+                    </div>
                   )}
-                </div>
-              </div>
-            )}
+                  {runStage === "working" && (
+                    <div className="is-flex is-align-items-center is-justify-content-space-between" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+                      <div className="is-flex is-align-items-center" style={{ gap: "0.5rem" }}>
+                        <Loader size={12} color={accentColor} className="spin" />
+                        <p style={{ fontSize: "11px", color: "#94a3b8" }}>
+                          Agent is analysing and filing insights
+                          <span style={{ color: accentColor, fontWeight: 700 }}> · {elapsed}s</span>
+                          <span style={{ color: "#475569" }}> (usually 30–90s)</span>
+                        </p>
+                      </div>
+                      {convId && (
+                        <a href={`/chats?conversation=${convId}`} style={{ fontSize: "11px", color: accentColor, fontWeight: 700, display: "flex", alignItems: "center", gap: "0.3rem", whiteSpace: "nowrap" }}>
+                          <MessageSquare size={11} /> Watch live
+                        </a>
+                      )}
+                    </div>
+                  )}
+                  {runStage === "done" && (
+                    <div className="is-flex is-align-items-center is-justify-content-space-between" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+                      <div className="is-flex is-align-items-center" style={{ gap: "0.5rem" }}>
+                        <Check size={12} color="#22c55e" />
+                        <p style={{ fontSize: "11px", color: "#22c55e", fontWeight: 600 }}>
+                          Analysis complete in {elapsed}s — dashboard updated
+                        </p>
+                      </div>
+                      <div className="is-flex" style={{ gap: "0.5rem" }}>
+                        {convId && (
+                          <a href={`/chats?conversation=${convId}`} style={{ fontSize: "11px", color: "#64748b", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                            <MessageSquare size={11} /> View chat
+                          </a>
+                        )}
+                        <a href={`/intelligence?section=${sectionId}`} style={{ fontSize: "11px", color: accentColor, fontWeight: 700, display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                          <ExternalLink size={11} /> View insights
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                  {runStage === "error" && (
+                    <div className="is-flex is-align-items-center is-justify-content-space-between" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+                      <div className="is-flex is-align-items-center" style={{ gap: "0.5rem" }}>
+                        <AlertTriangle size={12} color="#f43f5e" />
+                        <p style={{ fontSize: "11px", color: "#f43f5e" }}>{runError}</p>
+                      </div>
+                      {convId && (
+                        <a href={`/chats?conversation=${convId}`} style={{ fontSize: "11px", color: "#64748b", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                          <MessageSquare size={11} /> Debug in chat
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
           </motion.div>
         )}
