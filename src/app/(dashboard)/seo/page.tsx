@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SearchCheck, RefreshCw, Check, X, MessageSquare, ChevronDown } from "lucide-react";
 import SectionAgentPanel from "@/components/SectionAgentPanel";
 import SectionMetricsPanel from "@/components/SectionMetricsPanel";
+import SectionChat from "@/components/SectionChat";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 
@@ -181,7 +182,8 @@ export default function SEOPage() {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [statusFilter, setStatusFilter] = useState("new");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [assignedAgent, setAssignedAgent] = useState<{ id: string; name: string } | null>(null);
+  const [metrics, setMetrics] = useState<any[]>([]);
+  const [assignedAgent, setAssignedAgent] = useState<{ id: string; name: string; emoji?: string; color?: string } | null>(null);
 
   const fetchInsights = useCallback(async () => {
     try {
@@ -190,10 +192,17 @@ export default function SEOPage() {
     } catch (e) { console.error(e); }
   }, []);
 
-  useEffect(() => { fetchInsights(); }, [fetchInsights]);
+  const fetchMetrics = useCallback(async () => {
+    try {
+      const res = await fetch(`${BOT_URL}/admin/section-metrics?section=seo`);
+      if (res.ok) setMetrics(await res.json());
+    } catch (e) { console.error(e); }
+  }, []);
+
+  useEffect(() => { fetchInsights(); fetchMetrics(); }, [fetchInsights, fetchMetrics]);
 
   // Refresh metrics after analysis runs
-  const handleAnalysisDone = () => setRefreshTrigger(t => t + 1);
+  const handleAnalysisDone = () => { setRefreshTrigger(t => t + 1); fetchMetrics(); };
 
   const handleFeedback = async (id: string, action: "accepted" | "rejected" | "completed" | "dismissed", note?: string) => {
     try {
@@ -290,6 +299,20 @@ export default function SEOPage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Inline Section Chat — agent knows the page context */}
+      {assignedAgent && (
+        <SectionChat
+          sectionId="seo"
+          sectionName="SEO"
+          agentId={assignedAgent.id}
+          agentName={assignedAgent.name}
+          agentEmoji={(assignedAgent as any).emoji}
+          agentColor={(assignedAgent as any).color ?? "#38bdf8"}
+          metrics={metrics.map(m => ({ label: m.label, value: m.value, sub: m.sub }))}
+          insights={insights}
+        />
+      )}
     </div>
   );
 }

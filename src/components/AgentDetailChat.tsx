@@ -162,7 +162,7 @@ export function AgentDetailChat({ agentId, agentName, agentEmoji = "🤖", agent
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "rgba(0,0,0,0.25)", borderRadius: 14, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "rgba(0,0,0,0.25)", borderRadius: 14, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden", minWidth: 0 }}>
       {/* Header */}
       <div style={{ padding: "0.875rem 1.25rem", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
         <div style={{ width: 36, height: 36, borderRadius: "50%", background: `${agentColor}18`, border: `2px solid ${agentColor}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
@@ -179,7 +179,7 @@ export function AgentDetailChat({ agentId, agentName, agentEmoji = "🤖", agent
       </div>
 
       {/* Messages */}
-      <div ref={scrollContainerRef} style={{ flex: 1, overflowY: "auto", padding: "1rem 1.25rem" }} className="custom-scrollbar">
+      <div ref={scrollContainerRef} style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "1rem 1.25rem", minWidth: 0 }} className="custom-scrollbar">
         {messages.length === 0 && !sending ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", opacity: 0.35, gap: 8 }}>
             <span style={{ fontSize: 40 }}>{agentEmoji}</span>
@@ -198,10 +198,11 @@ export function AgentDetailChat({ agentId, agentName, agentEmoji = "🤖", agent
                     </div>
                   )}
                   <div style={{
-                    maxWidth: "75%", padding: "9px 13px", borderRadius: isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                    maxWidth: "75%", minWidth: 0, padding: "9px 13px", borderRadius: isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
                     background: isUser ? "linear-gradient(135deg, rgba(255,140,0,0.22), rgba(255,140,0,0.14))" : "rgba(255,255,255,0.05)",
                     border: isUser ? "1px solid rgba(255,140,0,0.22)" : "1px solid rgba(255,255,255,0.07)",
-                    color: "#eee", fontSize: 13, lineHeight: 1.6, wordBreak: "break-word", whiteSpace: isUser ? "pre-wrap" : undefined,
+                    color: "#eee", fontSize: 13, lineHeight: 1.6, wordBreak: "break-word", overflowWrap: "anywhere",
+                    whiteSpace: isUser ? "pre-wrap" : undefined,
                   }}>
                     {isUser ? msg.content : <MarkdownMessage content={msg.content} />}
                   </div>
