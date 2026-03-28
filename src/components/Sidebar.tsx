@@ -62,35 +62,47 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
       </div>
 
-      <p className="menu-label has-text-grey-light is-uppercase" style={{ letterSpacing: "0.1em" }}>
-        Operations
-      </p>
-      <ul className="menu-list">
-        {APP_CONFIG.navigation.map((item) => {
-          const isActive = activeId === item.id;
-          const Icon = item.icon;
-          const accent = (item as any).color ?? "var(--accent-orange)";
-          return (
-            <li key={item.id}>
-              <a
-                onClick={() => navigate(item.href)}
-                className={cn(isActive ? "is-active" : "has-text-grey-light", "is-flex is-align-items-center")}
-                style={{
-                  gap: "0.75rem", cursor: "pointer",
-                  backgroundColor: isActive ? `${accent}18` : "transparent",
-                  borderLeft: isActive ? `2px solid ${accent}` : "2px solid transparent",
-                  paddingLeft: "0.6rem", transition: "all 0.15s",
-                }}
-              >
-                <Icon size={18} color={isActive ? accent : undefined} />
-                <span className="is-uppercase has-text-weight-bold" style={{ fontSize: "12px", color: isActive ? accent : undefined }}>
-                  {item.label}
-                </span>
-              </a>
-            </li>
-          );
-        })}
-      </ul>
+      {/* Grouped Navigation */}
+      {(["core", "domains", "command"] as const).map((group) => {
+        const groupItems = APP_CONFIG.navigation.filter((item: any) => item.group === group);
+        const groupLabel = group === "core" ? null : group === "domains" ? "Business" : "Command";
+        return (
+          <div key={group} style={{ marginBottom: group === "domains" ? "0.5rem" : undefined }}>
+            {groupLabel && (
+              <p className="menu-label has-text-grey-light is-uppercase mt-4" style={{ letterSpacing: "0.1em", fontSize: "9px" }}>
+                {groupLabel}
+              </p>
+            )}
+            <ul className="menu-list">
+              {groupItems.map((item: any) => {
+                const isActive = activeId === item.id;
+                const Icon = item.icon;
+                const accent = item.color ?? "var(--accent-orange)";
+                return (
+                  <li key={item.id}>
+                    <a
+                      onClick={() => navigate(item.href)}
+                      className={cn(isActive ? "is-active" : "has-text-grey-light", "is-flex is-align-items-center")}
+                      style={{
+                        gap: "0.75rem", cursor: "pointer",
+                        backgroundColor: isActive ? `${accent}18` : "transparent",
+                        borderLeft: isActive ? `2px solid ${accent}` : "2px solid transparent",
+                        paddingLeft: "0.6rem", transition: "all 0.15s",
+                      }}
+                    >
+                      <Icon size={18} color={isActive ? accent : undefined} />
+                      <span className="is-uppercase has-text-weight-bold" style={{ fontSize: "12px", color: isActive ? accent : undefined }}>
+                        {item.label}
+                      </span>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
+
 
       <div style={{ marginTop: "auto", paddingTop: "2rem" }}>
         <div className="box p-4 mb-5" style={{ backgroundColor: "rgba(255,255,255,0.02) !important" }}>
