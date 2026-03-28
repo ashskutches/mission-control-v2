@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot, UserPlus, Users, MessageSquare, ChevronDown, X, Check, Zap,
+  Play, Loader, ExternalLink,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -37,6 +38,25 @@ export default function SectionAgentPanel({ sectionId, sectionName, onAgentAssig
   const [showPicker, setShowPicker] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [lastRun, setLastRun] = useState<Date | null>(null);
+
+  // Domain-specific analysis prompts
+  const ANALYSIS_PROMPTS: Record<string, string> = {
+    seo: `Run a full SEO analysis right now. Do the following:
+1. Pull the last 7 days of Google Search Console data (clicks, impressions, CTR, average position) and compare to the prior 7 days
+2. Identify the top 5 keywords driving the most traffic and any keywords that dropped significantly in ranking
+3. Pull GA4 sessions and user data for the same period
+4. Identify any critical issues (major ranking drops, indexation problems, traffic anomalies)
+5. Identify your top 3 growth opportunities with estimated revenue impact
+6. File ALL significant findings using log_insight — include estimated_monthly_value for each finding where you can calculate it from traffic × CVR × AOV
+Be thorough. File at least 3 insights, including at least 1 suggestion with a specific recommended action.`,
+    email: `Run a full Email & CRM analysis right now. Pull campaign performance, list health, open rates, click rates, and revenue attribution for the last 30 days. Identify underperforming segments, list decay issues, and high-ROI opportunities. File all significant findings using log_insight with estimated revenue impact.`,
+    content: `Run a full Content analysis right now. Review top-performing content, identify gaps, and surface pages with declining traffic. Identify the highest-ROI content opportunities — topics we should write, pages we should update, or formats we should test. File all findings using log_insight.`,
+    ads: `Run a full Ads analysis right now. Review ROAS, CPC, CTR, and conversion rate by campaign and ad set for the last 30 days. Identify underperforming spend and highest-opportunity scaling candidates. File all significant findings using log_insight with estimated revenue impact.`,
+    commerce: `Run a full Commerce analysis right now. Review conversion rate, AOV, top-selling products, cart abandonment rate, and product page performance. Identify revenue leaks and growth opportunities. File all findings using log_insight with estimated monthly revenue impact.`,
+    general: `Run a full business analysis for the ${sectionName} domain. Gather all available data, identify key trends, risks, and opportunities. File your most important findings using log_insight with estimated revenue impact where possible.`,
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -88,6 +108,28 @@ export default function SectionAgentPanel({ sectionId, sectionName, onAgentAssig
   const unassign = async () => {
     await fetch(`${BOT_URL}/admin/sections/${sectionId}/agent`, { method: "DELETE" });
     await fetchData();
+  };
+
+  const runAnalysis = async () => {
+    if (!section?.lead_agent_id || running) return;
+    setRunning(true);
+    try {
+      const prompt = ANALYSIS_PROMPTS[sectionId] ?? ANALYSIS_PROMPTS.general;
+      await fetch(`${BOT_URL}/admin/chat/conversations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agent_id: section.lead_agent_id,
+          message: prompt,
+          source: "manual_trigger",
+        }),
+      });
+      setLastRun(new Date());
+    } catch (err) {
+      console.error("Run analysis failed:", err);
+    } finally {
+      setRunning(false);
+    }
   };
 
   const lead = section?.lead_agent;
@@ -184,7 +226,29 @@ export default function SectionAgentPanel({ sectionId, sectionName, onAgentAssig
                     <span style={{ fontSize: "11px", color: "#64748b" }}>{teamAgents.map(a => a.emoji ?? "🤖").join(" ")}</span>
                   </div>
                 )}
-                {/* Chat button */}
+
+                {/* ── Run Analysis ───────────────────────────────── */}
+                <motion.button
+                  onClick={runAnalysis}
+                  disabled={running}
+                  whileHover={!running ? { scale: 1.03 } : {}}
+                  whileTap={!running ? { scale: 0.97 } : {}}
+                  className="button is-small"
+                  style={{
+                    background: running ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.15)",
+                    color: running ? "#b45309" : "#f59e0b",
+                    border: `1px solid ${running ? "rgba(245,158,11,0.2)" : "rgba(245,158,11,0.35)"}`,
+                    fontWeight: 700, fontSize: "11px", gap: "0.35rem",
+                    cursor: running ? "not-allowed" : "pointer",
+                  }}
+                  title="Trigger an immediate analysis run"
+                >
+                  {running
+                    ? <><Loader size={12} className="spin" /> Running...</>
+                    : <><Play size={12} /> Run Analysis</>}
+                </motion.button>
+
+                {/* ── Chat ───────────────────────────────────────── */}
                 <a
                   href={`/chats?agent=${lead.id}`}
                   className="button is-small"
@@ -211,19 +275,33 @@ export default function SectionAgentPanel({ sectionId, sectionName, onAgentAssig
                   <X size={13} />
                 </button>
               </div>
+
             </div>
 
-            {/* Onboarding hint — first time only */}
-            {lead && section?.team_size === 0 && (
+            {/* Footer row — last run + results link */}
+            {(lastRun || section?.team_size === 0) && (
               <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${accentColor}15` }}>
-                <div className="is-flex is-align-items-center" style={{ gap: "0.5rem" }}>
-                  <Zap size={12} color={accentColor} />
-                  <p style={{ fontSize: "11px", color: "#64748b" }}>
-                    {lead.name} has received an onboarding message. Open Chat to see their routine proposals.
-                  </p>
+                <div className="is-flex is-align-items-center is-justify-content-space-between">
+                  <div className="is-flex is-align-items-center" style={{ gap: "0.5rem" }}>
+                    <Zap size={12} color={accentColor} />
+                    <p style={{ fontSize: "11px", color: "#64748b" }}>
+                      {lastRun
+                        ? `Analysis started at ${lastRun.toLocaleTimeString()} — insights are being filed now.`
+                        : `${lead.name} has received an onboarding message. Open Chat to see their routine proposals.`}
+                    </p>
+                  </div>
+                  {lastRun && (
+                    <a
+                      href={`/intelligence?section=${sectionId}`}
+                      style={{ fontSize: "11px", color: accentColor, fontWeight: 700, display: "flex", alignItems: "center", gap: "0.3rem", whiteSpace: "nowrap" }}
+                    >
+                      View Results <ExternalLink size={11} />
+                    </a>
+                  )}
                 </div>
               </div>
             )}
+
           </motion.div>
         )}
       </AnimatePresence>
