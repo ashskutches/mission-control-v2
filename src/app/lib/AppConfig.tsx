@@ -26,12 +26,12 @@ export const APP_CONFIG = {
         // ── Core ──────────────────────────────────────────────────
         { id: 'overview',      href: '/',              icon: LayoutDashboard, label: 'Overview',      group: 'core' },
         { id: 'intelligence',  href: '/intelligence',  icon: BrainCircuit,    label: 'Intelligence',  color: '#f59e0b', group: 'core' },
-        // ── Business Domains ──────────────────────────────────────
-        { id: 'seo',           href: '/seo',           icon: SearchCheck,     label: 'SEO',           color: '#38bdf8', group: 'domains' },
-        { id: 'email',         href: '/email',         icon: Mail,            label: 'Email & CRM',   color: '#a78bfa', group: 'domains' },
-        { id: 'content',       href: '/content',       icon: FileText,        label: 'Content',       color: '#22c55e', group: 'domains' },
-        { id: 'ads',           href: '/ads',           icon: Megaphone,       label: 'Ads',           color: '#f43f5e', group: 'domains' },
-        { id: 'commerce',      href: '/commerce',      icon: ShoppingBag,     label: 'Commerce',      color: '#fb923c', group: 'domains' },
+        // ── Commerce ──────────────────────────────────────────────
+        { id: 'seo',           href: '/commerce/seo',     icon: SearchCheck,     label: 'SEO',           color: '#38bdf8', group: 'commerce' },
+        { id: 'email',         href: '/commerce/email',   icon: Mail,            label: 'Email & CRM',   color: '#a78bfa', group: 'commerce' },
+        { id: 'content',       href: '/commerce/content', icon: FileText,        label: 'Content',       color: '#22c55e', group: 'commerce' },
+        { id: 'ads',           href: '/commerce/ads',     icon: Megaphone,       label: 'Ads',           color: '#f43f5e', group: 'commerce' },
+        { id: 'store',         href: '/commerce',         icon: ShoppingBag,     label: 'Store',         color: '#fb923c', group: 'commerce' },
         // ── Command ───────────────────────────────────────────────
         { id: 'agents',        href: '/agents',        icon: Bot,             label: 'Agents',        color: '#64748b', group: 'command' },
         { id: 'chats',         href: '/chats',         icon: MessageSquare,   label: 'Chats',         color: '#64748b', group: 'command' },

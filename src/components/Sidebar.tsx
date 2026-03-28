@@ -16,8 +16,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const getActiveId = () => {
     if (pathname === "/") return "overview";
-    const segment = pathname.split("/")[1];
-    return segment ?? "overview";
+    // Match against full hrefs so nested routes like /commerce/seo work correctly
+    const matched = APP_CONFIG.navigation.find((item: any) =>
+      pathname === item.href || pathname.startsWith(item.href + "/")
+    );
+    return matched?.id ?? pathname.split("/")[1] ?? "overview";
   };
   const activeId = getActiveId();
 
@@ -63,11 +66,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       </div>
 
       {/* Grouped Navigation */}
-      {(["core", "domains", "command"] as const).map((group) => {
+      {(["core", "commerce", "command"] as const).map((group) => {
         const groupItems = APP_CONFIG.navigation.filter((item: any) => item.group === group);
-        const groupLabel = group === "core" ? null : group === "domains" ? "Business" : "Command";
+        const groupLabel = group === "core" ? null : group === "commerce" ? "Commerce" : "Command";
         return (
-          <div key={group} style={{ marginBottom: group === "domains" ? "0.5rem" : undefined }}>
+          <div key={group} style={{ marginBottom: group === "commerce" ? "0.5rem" : undefined }}>
             {groupLabel && (
               <p className="menu-label has-text-grey-light is-uppercase mt-4" style={{ letterSpacing: "0.1em", fontSize: "9px" }}>
                 {groupLabel}
