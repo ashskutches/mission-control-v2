@@ -378,7 +378,7 @@ export default function AgentDetailPage() {
   );
 
   return (
-    <div style={{ overflowY: "auto" }}>
+    <div style={{ overflowY: "auto", overflowX: "hidden", minWidth: 0 }}>
       {/* ── Header ── */}
       <div style={{ padding: "1.5rem 1.5rem 1.25rem", borderBottom: "1px solid rgba(255,255,255,0.06)", position: "sticky", top: 0, background: "rgba(8,8,12,0.95)", backdropFilter: "blur(12px)", zIndex: 50 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: "0.875rem" }}>
@@ -407,7 +407,7 @@ export default function AgentDetailPage() {
       </div>
 
       {/* ── Two-column layout ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 3fr", gap: "1.5rem", padding: "1.5rem", minHeight: "calc(100vh - 160px)", alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 3fr", gap: "1.5rem", padding: "1.5rem", minHeight: "calc(100vh - 160px)", alignItems: "start", minWidth: 0, overflow: "hidden" }}>
 
         {/* LEFT */}
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
@@ -450,7 +450,7 @@ export default function AgentDetailPage() {
         </div>
 
         {/* RIGHT: Chat */}
-        <div style={{ position: "sticky", top: "140px", height: "calc(100vh - 200px)" }}>
+        <div style={{ position: "sticky", top: "140px", height: "calc(100vh - 200px)", minWidth: 0, overflow: "hidden" }}>
           <AgentDetailChat agentId={agent.id} agentName={agent.name} agentEmoji={agent.emoji} agentColor={accentColor} />
         </div>
       </div>
