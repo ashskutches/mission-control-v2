@@ -29,9 +29,10 @@ interface SectionAgentPanelProps {
   sectionId: string;
   sectionName: string;
   onAgentAssigned?: (agent: Agent) => void;
+  onAnalysisDone?: () => void;
 }
 
-export default function SectionAgentPanel({ sectionId, sectionName, onAgentAssigned }: SectionAgentPanelProps) {
+export default function SectionAgentPanel({ sectionId, sectionName, onAgentAssigned, onAnalysisDone }: SectionAgentPanelProps) {
   const [section, setSection] = useState<SectionData | null>(null);
   const [allAgents, setAllAgents] = useState<Agent[]>([]);
   const [teamAgents, setTeamAgents] = useState<Agent[]>([]);
@@ -41,22 +42,19 @@ export default function SectionAgentPanel({ sectionId, sectionName, onAgentAssig
   const [running, setRunning] = useState(false);
   const [lastRun, setLastRun] = useState<Date | null>(null);
 
-  // Domain-specific analysis prompts
-  const ANALYSIS_PROMPTS: Record<string, string> = {
-    seo: `Run a full SEO analysis right now. Do the following:
-1. Pull the last 7 days of Google Search Console data (clicks, impressions, CTR, average position) and compare to the prior 7 days
-2. Identify the top 5 keywords driving the most traffic and any keywords that dropped significantly in ranking
-3. Pull GA4 sessions and user data for the same period
-4. Identify any critical issues (major ranking drops, indexation problems, traffic anomalies)
-5. Identify your top 3 growth opportunities with estimated revenue impact
-6. File ALL significant findings using log_insight — include estimated_monthly_value for each finding where you can calculate it from traffic × CVR × AOV
-Be thorough. File at least 3 insights, including at least 1 suggestion with a specific recommended action.`,
-    email: `Run a full Email & CRM analysis right now. Pull campaign performance, list health, open rates, click rates, and revenue attribution for the last 30 days. Identify underperforming segments, list decay issues, and high-ROI opportunities. File all significant findings using log_insight with estimated revenue impact.`,
-    content: `Run a full Content analysis right now. Review top-performing content, identify gaps, and surface pages with declining traffic. Identify the highest-ROI content opportunities — topics we should write, pages we should update, or formats we should test. File all findings using log_insight.`,
-    ads: `Run a full Ads analysis right now. Review ROAS, CPC, CTR, and conversion rate by campaign and ad set for the last 30 days. Identify underperforming spend and highest-opportunity scaling candidates. File all significant findings using log_insight with estimated revenue impact.`,
-    commerce: `Run a full Commerce analysis right now. Review conversion rate, AOV, top-selling products, cart abandonment rate, and product page performance. Identify revenue leaks and growth opportunities. File all findings using log_insight with estimated monthly revenue impact.`,
-    general: `Run a full business analysis for the ${sectionName} domain. Gather all available data, identify key trends, risks, and opportunities. File your most important findings using log_insight with estimated revenue impact where possible.`,
-  };
+  // Open-ended research prompt — agent decides what to do, how to research, and what to track
+  const ANALYSIS_PROMPT = `You are the Lead Agent for the ${sectionName} domain. You have full agency over this section's dashboard.
+
+Start by calling get_section_feedback for section "${sectionId}" to understand what kinds of insights the team has found valuable vs. dismissed before.
+
+Then conduct your research — you decide what data to pull, what tools to use, and what to investigate. There is no fixed script.
+
+After research:
+1. Call upsert_section_metric for each KPI you want to display on the ${sectionName} dashboard. You decide what metrics matter. Update existing ones with fresh values.
+2. Call log_insight for each significant finding — prioritize by revenue impact. Include estimated_monthly_value where you can calculate it.
+3. Remove any stale metrics with delete_section_metric if they are no longer relevant.
+
+Your goal is to help grow this area of the business. Surface what's actually important, not what's easy to find.`;
 
   const fetchData = useCallback(async () => {
     try {
@@ -114,17 +112,17 @@ Be thorough. File at least 3 insights, including at least 1 suggestion with a sp
     if (!section?.lead_agent_id || running) return;
     setRunning(true);
     try {
-      const prompt = ANALYSIS_PROMPTS[sectionId] ?? ANALYSIS_PROMPTS.general;
       await fetch(`${BOT_URL}/admin/chat/conversations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           agent_id: section.lead_agent_id,
-          message: prompt,
+          message: ANALYSIS_PROMPT,
           source: "manual_trigger",
         }),
       });
       setLastRun(new Date());
+      onAnalysisDone?.();
     } catch (err) {
       console.error("Run analysis failed:", err);
     } finally {
