@@ -3,8 +3,9 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   SearchCheck, TrendingUp, MousePointerClick, BarChart2,
-  Percent, Star, RefreshCw, BrainCircuit, AlertTriangle, Lightbulb,
+  Percent, Star, RefreshCw, BrainCircuit,
 } from "lucide-react";
+import SectionAgentPanel from "@/components/SectionAgentPanel";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 
@@ -119,8 +120,12 @@ export default function SEOPage() {
         </div>
       </div>
 
+      {/* Agent Panel */}
+      <SectionAgentPanel sectionId="seo" sectionName="SEO" />
+
       {loading ? (
         <p className="has-text-grey has-text-centered py-6">Loading SEO data...</p>
+
       ) : (
         <>
           {/* GSC KPIs */}
