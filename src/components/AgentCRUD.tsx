@@ -21,8 +21,13 @@ interface AgentDef {
     specialization: string;
     discordChannelId: string;
     discordManagerId?: string;
-    skills?: string[];     // Skill tier bundles — gates tool access
-    role?: string;         // Role preset used to assign skills
+    role?: string;          // Semantic role hint — backend uses for skill inference
+    action_perms?: {        // The ONLY live-fire gate humans control
+        email?: boolean;
+        sms?: boolean;
+        social?: boolean;
+        calls?: boolean;
+    };
     personality?: string;
     mission?: string;
     context?: string;
@@ -105,19 +110,17 @@ function deriveCategory(agent: AgentDef): string {
     return "General";
 }
 
-
-const ROLE_PRESETS: { id: string; label: string; emoji: string; description: string; skills: string[] }[] = [
-    { id: "general",           label: "General Assistant",          emoji: "🤖", description: "All-purpose tasks, writing, research. Core + Google Workspace.",                                             skills: ["core","workspace"] },
-    { id: "lead-agent",        label: "Lead Agent / Dept Head",      emoji: "🧠", description: "Full access: analytics, comms, content, commerce, workflow orchestration.",                                 skills: ["core","workspace","intelligence","communication","content","commerce","workflows"] },
-    { id: "seo-analyst",       label: "SEO Analyst",                 emoji: "🔍", description: "Google Search Console, GA4, DataForSEO, PageSpeed, site auditing.",                                       skills: ["core","workspace","intelligence"] },
-    { id: "email-marketer",    label: "Email Marketer",              emoji: "📧", description: "Gmail, Klaviyo, Shopify. Writes and manages email campaigns.",                                             skills: ["core","workspace","communication","commerce"] },
-    { id: "content-creator",   label: "Content Creator",            emoji: "🎨", description: "Image & video generation, social publishing, brand asset library, research.",                             skills: ["core","workspace","intelligence","content","asset-library"] },
-    { id: "influencing-agent", label: "Influencer / Social Media",  emoji: "⭐", description: "Influencer outreach, partnership content, social post scheduling.",                                        skills: ["core","workspace","communication","content"] },
-    { id: "support-agent",     label: "Customer Support",           emoji: "🛟", description: "Support tickets, order lookups, Gorgias, SMS & voice calls.",                                            skills: ["core","workspace","communication","commerce","outreach"] },
-    { id: "ads-manager",       label: "Paid Ads Manager",           emoji: "📢", description: "Ad performance research, creative generation, asset library, reporting.",                                  skills: ["core","workspace","intelligence","content","asset-library"] },
-    { id: "analytics-agent",   label: "Analytics & Commerce",       emoji: "📊", description: "Revenue dashboards, Triple Whale, Klaviyo, Shopify metrics, reporting.",                                  skills: ["core","workspace","intelligence","commerce"] },
+const ROLE_PRESETS: { id: string; label: string; emoji: string; description: string }[] = [
+    { id: "general",           label: "General Assistant",          emoji: "🤖", description: "All-purpose tasks, writing, research." },
+    { id: "lead-agent",        label: "Lead Agent / Dept Head",      emoji: "🧠", description: "Full access including live-fire actions (email, SMS, social, calls)." },
+    { id: "seo-analyst",       label: "SEO Analyst",                 emoji: "🔍", description: "Google Search Console, GA4, DataForSEO, PageSpeed, site auditing." },
+    { id: "email-marketer",    label: "Email Marketer",              emoji: "📧", description: "Gmail, Klaviyo, Shopify. Drafts and manages email campaigns." },
+    { id: "content-creator",   label: "Content Creator",            emoji: "🎨", description: "Image & video generation, social content, brand asset library." },
+    { id: "influencing-agent", label: "Influencer / Social Media",  emoji: "⭐", description: "Influencer outreach, partnership content, social scheduling." },
+    { id: "support-agent",     label: "Customer Support",           emoji: "🛟", description: "Customer queries, order lookups, Gorgias, SMS & voice calls." },
+    { id: "ads-manager",       label: "Paid Ads Manager",           emoji: "📢", description: "Ad performance research, creative generation, asset library." },
+    { id: "analytics-agent",   label: "Analytics & Commerce",       emoji: "📊", description: "Revenue dashboards, Triple Whale, Klaviyo, Shopify metrics." },
 ];
-
 
 // ── Skill Tiers ────────────────────────────────────────────────────────────
 const SKILL_TIERS: { id: string; label: string; description: string; tokens: number; color: string; always?: boolean }[] = [
@@ -150,7 +153,8 @@ function slugify(name: string) {
 
 const blank: Partial<AgentDef> = {
     name: "", discordChannelId: "", discordManagerId: "", type: "worker",
-    specialization: "General Tasks", skills: ["core","workspace"], role: "general",
+    specialization: "General Tasks", role: "general",
+    action_perms: { email: false, sms: false, social: false, calls: false },
     personality: "", mission: "", context: "", constraints: "", emoji: "🤖",
 };
 
@@ -179,15 +183,16 @@ function AgentSetupModal({
     const applyRolePreset = (roleId: string) => {
         const preset = ROLE_PRESETS.find(r => r.id === roleId);
         if (!preset) return;
-        setForm(p => ({ ...p, role: roleId, skills: preset.skills }));
+        setForm(p => ({ ...p, role: roleId }));
     };
-    const toggleSkill = (id: string) => {
-        if (SKILL_TIERS.find(s => s.id === id)?.always) return; // core is always on
-        setForm(p => {
-            const current = p.skills ?? [];
-            const next = current.includes(id) ? current.filter(s => s !== id) : [...current, id];
-            return { ...p, skills: next };
-        });
+    const toggleActionPerm = (perm: keyof NonNullable<AgentDef["action_perms"]>) => {
+        setForm(p => ({
+            ...p,
+            action_perms: {
+                ...(p.action_perms ?? {}),
+                [perm]: !(p.action_perms?.[perm]),
+            },
+        }));
     };
 
     // Discord manager dropdown (members passed from parent — fetched once)
@@ -455,55 +460,37 @@ function AgentSetupModal({
                         </div>
                     </div>
 
-                    {/* Capabilities */}
+                    {/* Action Permissions */}
                     <div className="mb-4">
-                        <div className="is-flex is-align-items-center is-justify-content-space-between mb-2">
-                            <label className="is-size-7 has-text-grey-light has-text-weight-bold" style={{ letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                                Capabilities
-                            </label>
-                            {(() => {
-                                const activeSkills = form.skills ?? [];
-                                const totalTokens = SKILL_TIERS.filter(s => activeSkills.includes(s.id) || s.always).reduce((t, s) => t + s.tokens, 0);
-                                const pct = Math.round((totalTokens / SKILL_TOKEN_BUDGET) * 100);
-                                const color = pct < 50 ? "#34d399" : pct < 75 ? "#f59e0b" : "#ef4444";
-                                return (
-                                    <span style={{ fontSize: 10, fontWeight: 800, color, background: `${color}18`, border: `1px solid ${color}35`, borderRadius: 6, padding: "2px 7px" }}>
-                                        ~{totalTokens.toLocaleString()} tokens ({pct}% of budget)
-                                    </span>
-                                );
-                            })()}
-                        </div>
-                        <p className="is-size-7 has-text-grey mb-2">Select which tool bundles this agent can access. Fewer skills = faster, cheaper responses.</p>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {SKILL_TIERS.map(skill => {
-                                const active = skill.always || (form.skills ?? []).includes(skill.id);
+                        <label className="is-size-7 has-text-grey-light has-text-weight-bold mb-2" style={{ display: "block", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                            Action Permissions
+                        </label>
+                        <p className="is-size-7 has-text-grey mb-3">Control which live-fire actions this agent can take. Off by default — explicit grant required.</p>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                            {([
+                                { key: "email" as const,  label: "📧 Email",       desc: "Send real emails via gmail_send" },
+                                { key: "sms" as const,    label: "📱 SMS",         desc: "Send SMS / broadcasts via Twilio" },
+                                { key: "social" as const, label: "📢 Social Post", desc: "Publish to social accounts" },
+                                { key: "calls" as const,  label: "📞 Calls",       desc: "Initiate outbound phone calls" },
+                            ] as const).map(({ key, label, desc }) => {
+                                const active = !!(form.action_perms?.[key]);
                                 return (
                                     <button
-                                        key={skill.id}
+                                        key={key}
                                         type="button"
-                                        onClick={() => toggleSkill(skill.id)}
-                                        disabled={skill.always}
+                                        onClick={() => toggleActionPerm(key)}
                                         style={{
-                                            textAlign: "left", padding: "7px 10px", borderRadius: 8,
-                                            background: active ? `${skill.color}15` : "rgba(255,255,255,0.02)",
-                                            border: active ? `1px solid ${skill.color}45` : "1px solid rgba(255,255,255,0.06)",
-                                            cursor: skill.always ? "default" : "pointer",
-                                            opacity: skill.always ? 0.7 : 1,
-                                            display: "flex", alignItems: "center", gap: 10,
-                                            transition: "all 0.12s",
+                                            textAlign: "left", padding: "10px 12px", borderRadius: 10,
+                                            background: active ? "rgba(239,68,68,0.08)" : "rgba(255,255,255,0.02)",
+                                            border: active ? "1px solid rgba(239,68,68,0.35)" : "1px solid rgba(255,255,255,0.07)",
+                                            cursor: "pointer", transition: "all 0.15s",
                                         }}
                                     >
-                                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: active ? skill.color : "#444", flexShrink: 0, transition: "background 0.12s" }} />
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <span style={{ fontSize: 12, fontWeight: 700, color: active ? "#fff" : "#777", display: "block" }}>
-                                                {skill.label}
-                                                {skill.always && <span style={{ fontSize: 9, color: "#555", fontWeight: 400, marginLeft: 5 }}>Always on</span>}
-                                            </span>
-                                            <span style={{ fontSize: 10, color: "#555" }}>{skill.description}</span>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: active ? "#ef4444" : "#444", flexShrink: 0, transition: "background 0.15s" }} />
+                                            <span style={{ fontSize: 12, fontWeight: 800, color: active ? "#fff" : "#666" }}>{label}</span>
                                         </div>
-                                        <span style={{ fontSize: 9, fontWeight: 800, color: active ? skill.color : "#444", background: active ? `${skill.color}15` : "rgba(255,255,255,0.04)", border: `1px solid ${active ? skill.color + "35" : "rgba(255,255,255,0.06)"}`, borderRadius: 4, padding: "1px 5px", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
-                                            ~{skill.tokens.toLocaleString()}t
-                                        </span>
+                                        <p style={{ fontSize: 10, color: "#555", margin: 0, paddingLeft: 16 }}>{desc}</p>
                                     </button>
                                 );
                             })}
@@ -620,39 +607,51 @@ function AgentRosterCard({
                     <ArrowRight size={13} color="#444" style={{ flexShrink: 0 }} />
                 )}
             </div>
-            {/* Bottom row */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
-                {score > 0 && (
-                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.07em", textTransform: "uppercase", color: heatColor, background: `${heatColor}18`, border: `1px solid ${heatColor}35`, borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{heatLabel}</span>
-                )}
-                <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.06em", textTransform: "uppercase", color: categoryColor, background: `${categoryColor}12`, border: `1px solid ${categoryColor}30`, borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{agent.category ?? "Specialist"}</span>
-                {/* Routine count badge */}
-                <span style={{
-                    fontSize: 9, fontWeight: 900, letterSpacing: "0.05em", textTransform: "uppercase",
-                    color: routineCount > 0 ? "#a78bfa" : "#444",
-                    background: routineCount > 0 ? "rgba(167,139,250,0.12)" : "transparent",
-                    border: `1px solid ${routineCount > 0 ? "rgba(167,139,250,0.3)" : "rgba(255,255,255,0.06)"}`,
-                    borderRadius: 4, padding: "1px 6px", flexShrink: 0,
-                }}>
-                    ⚡ {routineCount} routine{routineCount !== 1 ? "s" : ""}
-                </span>
-                {/* Manager blurb */}
-                {manager && (
-                    <span
-                        title={`Manager: ${manager.displayName} (@${manager.username})`}
-                        style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}
-                    >
-                        {manager.avatar
-                            ? <img src={manager.avatar} alt="" style={{ width: 14, height: 14, borderRadius: "50%", opacity: 0.75 }} />
-                            : <span style={{ fontSize: 9, color: "#555" }}>👤</span>
-                        }
-                        <span style={{ fontSize: 9, color: "#555", fontWeight: 700 }}>@{manager.username}</span>
+                {/* Bottom row */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+                    {score > 0 && (
+                        <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.07em", textTransform: "uppercase", color: heatColor, background: `${heatColor}18`, border: `1px solid ${heatColor}35`, borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{heatLabel}</span>
+                    )}
+                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.06em", textTransform: "uppercase", color: categoryColor, background: `${categoryColor}12`, border: `1px solid ${categoryColor}30`, borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{agent.category ?? "Specialist"}</span>
+                    {/* Routine count badge */}
+                    <span style={{
+                        fontSize: 9, fontWeight: 900, letterSpacing: "0.05em", textTransform: "uppercase",
+                        color: routineCount > 0 ? "#a78bfa" : "#444",
+                        background: routineCount > 0 ? "rgba(167,139,250,0.12)" : "transparent",
+                        border: `1px solid ${routineCount > 0 ? "rgba(167,139,250,0.3)" : "rgba(255,255,255,0.06)"}`,
+                        borderRadius: 4, padding: "1px 6px", flexShrink: 0,
+                    }}>
+                        ⚡ {routineCount} routine{routineCount !== 1 ? "s" : ""}
                     </span>
-                )}
-                {!manager && (agent.skills ?? []).length > 0 && (
-                    <span style={{ marginLeft: "auto", fontSize: 9, color: "#555", fontWeight: 700 }}>{(agent.skills ?? []).length} skills</span>
-                )}
-            </div>
+                    {/* Role badge */}
+                    {agent.role && (
+                        <span style={{ fontSize: 9, fontWeight: 700, color: "#555", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>
+                            {agent.role}
+                        </span>
+                    )}
+                    {/* Manager blurb */}
+                    {manager && (
+                        <span
+                            title={`Manager: ${manager.displayName} (@${manager.username})`}
+                            style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}
+                        >
+                            {manager.avatar
+                                ? <img src={manager.avatar} alt="" style={{ width: 14, height: 14, borderRadius: "50%", opacity: 0.75 }} />
+                                : <span style={{ fontSize: 9, color: "#555" }}>👤</span>
+                            }
+                            <span style={{ fontSize: 9, color: "#555", fontWeight: 700 }}>@{manager.username}</span>
+                        </span>
+                    )}
+                    {/* Action perms dot indicators */}
+                    {!manager && agent.action_perms && (
+                        <span style={{ marginLeft: "auto", display: "flex", gap: 3 }}>
+                            {agent.action_perms.email  && <span title="Email" style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444" }} />}
+                            {agent.action_perms.sms    && <span title="SMS" style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} />}
+                            {agent.action_perms.social && <span title="Social Post" style={{ width: 6, height: 6, borderRadius: "50%", background: "#a855f7" }} />}
+                            {agent.action_perms.calls  && <span title="Calls" style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e" }} />}
+                        </span>
+                    )}
+                </div>
         </div>
     );
 }
@@ -893,7 +892,7 @@ export const AgentCRUD = () => {
                                         )}
                                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
                                         {deptAgents.map(agent => {
-                                            const activeSkillCount = (agent.skills ?? []).length;
+                                            const activeActionCount = Object.values(agent.action_perms ?? {}).filter(Boolean).length;
                                             const score = activityScores[agent.id] ?? 0;
                                             const maxScore = Math.max(...Object.values(activityScores), 1);
                                             const ratio = Math.min(score / maxScore, 1);
@@ -908,7 +907,7 @@ export const AgentCRUD = () => {
                                                     heatColor={heatColor}
                                                     heatLabel={heatLabel}
                                                     categoryColor={categoryColor}
-                                                    activeFeatureCount={activeSkillCount}
+                                                    activeFeatureCount={activeActionCount}
                                                     routineCount={routineCounts[agent.id] ?? 0}
                                                     discordMembers={discordMembers}
                                                     onEdit={() => openEdit(agent)}
