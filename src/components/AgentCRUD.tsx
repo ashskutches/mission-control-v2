@@ -21,9 +21,8 @@ interface AgentDef {
     specialization: string;
     discordChannelId: string;
     discordManagerId?: string;
-    features: Record<string, boolean>;
     skills?: string[];     // Skill tier bundles — gates tool access
-    role?: string;         // Semantic role for ROLE_SKILLS lookup
+    role?: string;         // Role preset used to assign skills
     personality?: string;
     mission?: string;
     context?: string;
@@ -107,34 +106,17 @@ function deriveCategory(agent: AgentDef): string {
 }
 
 
-const ALL_FEATURES: { id: string; label: string; icon: any; description: string; category: string }[] = [
-    // ── 🧠 Intelligence ───────────────────────────────────────────────────────
-    { id: "search",             label: "Web Search",           icon: Globe,      description: "Real-time web research via Tavily. Required for market research, competitor research, and SEO.", category: "Intelligence" },
-    { id: "web_intelligence",   label: "Web Intelligence",     icon: BarChart2,  description: "Audit competitor websites for traffic data, Core Web Vitals, tech stack, and competitive signals.", category: "Intelligence" },
-    { id: "memory",             label: "Long-term Memory",     icon: ShieldCheck,description: "Remembers past conversations and facts across sessions via Supabase.", category: "Intelligence" },
-    { id: "codebase_awareness", label: "Codebase Awareness",   icon: Brain,      description: "Loads system architecture docs and skill guides. Use for dev/engineering agents.", category: "Intelligence" },
-    // ── 🛒 Commerce ───────────────────────────────────────────────────────────
-    { id: "shopify",            label: "Shopify",              icon: Cpu,        description: "Live store data: orders, products, inventory, customers. Required for any e-com agent.", category: "Commerce" },
-    { id: "content_creation",   label: "Content Studio",       icon: Sparkles,   description: "Full content pipeline: copy, briefs, social posts, email campaigns. Loads content-intelligence, ecom-content, prompt-library, social-optimizer, email-campaign skills.", category: "Commerce" },
-    { id: "image_generation",   label: "Image Generation",     icon: ImageIcon,  description: "Multi-model image creation via Kie.ai (nano-banana-2, kie-lifestyle, background-swap).", category: "Commerce" },
-    { id: "design_intelligence",label: "Prompt Enhancement",   icon: Palette,    description: "Auto-enhances image prompts for HD quality using style presets. Requires Image Generation.", category: "Commerce" },
-    { id: "brand_enforcement",  label: "Brand-Aware Images",   icon: Layers,     description: "Enforces L&R color rules and product reference when generating images. Requires Image Generation.", category: "Commerce" },
-    { id: "business_context",   label: "Brand Guide",          icon: FileText,   description: "Injects brand context (mission, voice, products) into every conversation. Loads brand-identity and brand-voice skills.", category: "Commerce" },
-    { id: "seo_strategy",       label: "SEO Strategy",         icon: Search,     description: "Dual-mode SEO: article optimization with competitor research, or full site audit with HTML report. Loads seo-strategy skill.", category: "Commerce" },
-    // ── ✉️ Communication ──────────────────────────────────────────────────────
-    { id: "gmail_read",         label: "Gmail Read",           icon: Mail,       description: "Read, search, and fetch full email content from the agent's connected Gmail inbox.", category: "Communication" },
-    { id: "gmail_write",        label: "Gmail Write",          icon: Mail,       description: "Compose and send emails (including replies) from the agent's connected Gmail account.", category: "Communication" },
-    { id: "google_workspace",   label: "Google Workspace",     icon: FileText,   description: "Create and share Google Docs/Sheets. Loads report-writer and content-library skills.", category: "Communication" },
-    { id: "call",               label: "📞 Voice Calls",       icon: Zap,        description: "Initiate outbound phone calls via Twilio. Loads the call skill with full conversation handling.", category: "Communication" },
-    { id: "sms",                label: "💬 SMS Messaging",     icon: Zap,        description: "Send, receive, and broadcast SMS messages via Twilio. Loads the sms skill.", category: "Communication" },
-
-    // ── ⚡ Automation ─────────────────────────────────────────────────────────
-    { id: "moderation",         label: "AI Moderation",        icon: ShieldAlert,description: "Auto-deletes harmful or policy-violating messages in Discord.", category: "Automation" },
-
+const ROLE_PRESETS: { id: string; label: string; emoji: string; description: string; skills: string[] }[] = [
+    { id: "general",           label: "General Assistant",          emoji: "🤖", description: "All-purpose tasks, writing, research. Core + Google Workspace.",                                             skills: ["core","workspace"] },
+    { id: "lead-agent",        label: "Lead Agent / Dept Head",      emoji: "🧠", description: "Full access: analytics, comms, content, commerce, workflow orchestration.",                                 skills: ["core","workspace","intelligence","communication","content","commerce","workflows"] },
+    { id: "seo-analyst",       label: "SEO Analyst",                 emoji: "🔍", description: "Google Search Console, GA4, DataForSEO, PageSpeed, site auditing.",                                       skills: ["core","workspace","intelligence"] },
+    { id: "email-marketer",    label: "Email Marketer",              emoji: "📧", description: "Gmail, Klaviyo, Shopify. Writes and manages email campaigns.",                                             skills: ["core","workspace","communication","commerce"] },
+    { id: "content-creator",   label: "Content Creator",            emoji: "🎨", description: "Image & video generation, social publishing, brand asset library, research.",                             skills: ["core","workspace","intelligence","content","asset-library"] },
+    { id: "influencing-agent", label: "Influencer / Social Media",  emoji: "⭐", description: "Influencer outreach, partnership content, social post scheduling.",                                        skills: ["core","workspace","communication","content"] },
+    { id: "support-agent",     label: "Customer Support",           emoji: "🛟", description: "Support tickets, order lookups, Gorgias, SMS & voice calls.",                                            skills: ["core","workspace","communication","commerce","outreach"] },
+    { id: "ads-manager",       label: "Paid Ads Manager",           emoji: "📢", description: "Ad performance research, creative generation, asset library, reporting.",                                  skills: ["core","workspace","intelligence","content","asset-library"] },
+    { id: "analytics-agent",   label: "Analytics & Commerce",       emoji: "📊", description: "Revenue dashboards, Triple Whale, Klaviyo, Shopify metrics, reporting.",                                  skills: ["core","workspace","intelligence","commerce"] },
 ];
-
-
-const FEATURE_CATEGORIES = ["Intelligence", "Commerce", "Communication", "Automation"];
 
 
 // ── Skill Tiers ────────────────────────────────────────────────────────────
@@ -168,7 +150,7 @@ function slugify(name: string) {
 
 const blank: Partial<AgentDef> = {
     name: "", discordChannelId: "", discordManagerId: "", type: "worker",
-    specialization: "General Tasks", features: {},
+    specialization: "General Tasks", skills: ["core","workspace"], role: "general",
     personality: "", mission: "", context: "", constraints: "", emoji: "🤖",
 };
 
@@ -194,10 +176,11 @@ function AgentSetupModal({
     const [showAdvanced, setShowAdvanced] = useState(false);
 
     const set = (k: keyof AgentDef, v: any) => setForm(p => ({ ...p, [k]: v }));
-    const toggleFeature = (id: string) => setForm(p => ({
-        ...p,
-        features: { ...p.features, [id]: !p.features?.[id] }
-    }));
+    const applyRolePreset = (roleId: string) => {
+        const preset = ROLE_PRESETS.find(r => r.id === roleId);
+        if (!preset) return;
+        setForm(p => ({ ...p, role: roleId, skills: preset.skills }));
+    };
     const toggleSkill = (id: string) => {
         if (SKILL_TIERS.find(s => s.id === id)?.always) return; // core is always on
         setForm(p => {
@@ -439,75 +422,44 @@ function AgentSetupModal({
                         <p className="is-size-7 has-text-grey mt-1">Agent will discord_dm this person for escalations or when clarification is needed</p>
                     </div>
 
-                    {/* Feature Allocation */}
+                    {/* Role Preset */}
                     <div className="mb-4">
-                        <div className="is-flex is-align-items-center is-justify-content-space-between mb-2">
-                            <label className="is-size-7 has-text-grey-light has-text-weight-bold" style={{ letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                                Feature Allocation
-                            </label>
-                            {(() => {
-                                const count = Object.values(form.features ?? {}).filter(Boolean).length;
-                                if (count >= 8) return (
-                                    <span style={{ fontSize: 10, fontWeight: 800, color: "#ef4444", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6, padding: "2px 7px" }}>
-                                        ⚠️ {count} tools — too many, reduces performance
-                                    </span>
+                        <label className="is-size-7 has-text-grey-light has-text-weight-bold mb-2" style={{ display: "block", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                            Role
+                        </label>
+                        <p className="is-size-7 has-text-grey mb-2">Picking a role auto-assigns the right capabilities. You can fine-tune below.</p>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                            {ROLE_PRESETS.map(preset => {
+                                const active = (form.role ?? "general") === preset.id;
+                                return (
+                                    <button
+                                        key={preset.id}
+                                        type="button"
+                                        onClick={() => applyRolePreset(preset.id)}
+                                        style={{
+                                            textAlign: "left", padding: "9px 11px", borderRadius: 9,
+                                            background: active ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.02)",
+                                            border: active ? "1px solid rgba(99,102,241,0.45)" : "1px solid rgba(255,255,255,0.07)",
+                                            cursor: "pointer", transition: "all 0.15s",
+                                        }}
+                                    >
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                                            <span style={{ fontSize: 14 }}>{preset.emoji}</span>
+                                            <span style={{ fontSize: 12, fontWeight: 700, color: active ? "#fff" : "#888" }}>{preset.label}</span>
+                                            {active && <span style={{ marginLeft: "auto", fontSize: 9, fontWeight: 800, color: "#6366f1", background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 4, padding: "1px 5px" }}>Selected</span>}
+                                        </div>
+                                        <p style={{ fontSize: 10, color: "#555", margin: 0, paddingLeft: 20 }}>{preset.description}</p>
+                                    </button>
                                 );
-                                if (count >= 5) return (
-                                    <span style={{ fontSize: 10, fontWeight: 800, color: "#ff8c00", background: "rgba(255,140,0,0.1)", border: "1px solid rgba(255,140,0,0.3)", borderRadius: 6, padding: "2px 7px" }}>
-                                        ⚡ {count} tools — best to keep at 3–5
-                                    </span>
-                                );
-                                return <span style={{ fontSize: 10, color: "#555" }}>{count} enabled</span>;
-                            })()}
+                            })}
                         </div>
-                        {FEATURE_CATEGORIES.map(cat => {
-                            const catFeatures = ALL_FEATURES.filter(f => f.category === cat);
-                            const catColors: Record<string, string> = {
-                                Intelligence: "#38bdf8",
-                                Commerce:     "#f59e0b",
-                                Communication:"#7289da",
-                                Automation:   "#a78bfa",
-                            };
-                            return (
-                                <div key={cat} className="mb-3">
-                                    <p className="is-size-7 has-text-weight-bold mb-1" style={{ color: catColors[cat] ?? "#888", letterSpacing: "0.05em", textTransform: "uppercase", fontSize: 9 }}>
-                                        {cat}
-                                    </p>
-                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                                        {catFeatures.map(feat => {
-                                            const Icon = feat.icon;
-                                            const active = !!form.features?.[feat.id];
-                                            return (
-                                                <button
-                                                    key={feat.id}
-                                                    type="button"
-                                                    onClick={() => toggleFeature(feat.id)}
-                                                    style={{
-                                                        textAlign: "left", padding: "8px 10px", borderRadius: 8,
-                                                        background: active ? `${catColors[cat]}18` : "rgba(255,255,255,0.03)",
-                                                        border: active ? `1px solid ${catColors[cat]}55` : "1px solid rgba(255,255,255,0.07)",
-                                                        cursor: "pointer", transition: "all 0.15s",
-                                                    }}
-                                                >
-                                                    <div className="is-flex is-align-items-center" style={{ gap: 6 }}>
-                                                        <Icon size={12} style={{ color: active ? catColors[cat] : "#666", flexShrink: 0 }} />
-                                                        <span className="is-size-7 has-text-weight-bold" style={{ color: active ? "#fff" : "#888" }}>{feat.label}</span>
-                                                    </div>
-                                                    <p className="is-size-7" style={{ color: "#555", marginTop: 2, paddingLeft: 18 }}>{feat.description}</p>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        })}
                     </div>
 
-                    {/* Skill Tiers */}
+                    {/* Capabilities */}
                     <div className="mb-4">
                         <div className="is-flex is-align-items-center is-justify-content-space-between mb-2">
                             <label className="is-size-7 has-text-grey-light has-text-weight-bold" style={{ letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                                Skill Tiers
+                                Capabilities
                             </label>
                             {(() => {
                                 const activeSkills = form.skills ?? [];
@@ -697,8 +649,8 @@ function AgentRosterCard({
                         <span style={{ fontSize: 9, color: "#555", fontWeight: 700 }}>@{manager.username}</span>
                     </span>
                 )}
-                {!manager && activeFeatureCount > 0 && (
-                    <span style={{ marginLeft: "auto", fontSize: 9, color: "#555", fontWeight: 700 }}>{activeFeatureCount} features</span>
+                {!manager && (agent.skills ?? []).length > 0 && (
+                    <span style={{ marginLeft: "auto", fontSize: 9, color: "#555", fontWeight: 700 }}>{(agent.skills ?? []).length} skills</span>
                 )}
             </div>
         </div>
@@ -941,7 +893,7 @@ export const AgentCRUD = () => {
                                         )}
                                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
                                         {deptAgents.map(agent => {
-                                            const activeFeatures = Object.entries(agent.features ?? {}).filter(([, v]) => v);
+                                            const activeSkillCount = (agent.skills ?? []).length;
                                             const score = activityScores[agent.id] ?? 0;
                                             const maxScore = Math.max(...Object.values(activityScores), 1);
                                             const ratio = Math.min(score / maxScore, 1);
@@ -956,7 +908,7 @@ export const AgentCRUD = () => {
                                                     heatColor={heatColor}
                                                     heatLabel={heatLabel}
                                                     categoryColor={categoryColor}
-                                                    activeFeatureCount={activeFeatures.length}
+                                                    activeFeatureCount={activeSkillCount}
                                                     routineCount={routineCounts[agent.id] ?? 0}
                                                     discordMembers={discordMembers}
                                                     onEdit={() => openEdit(agent)}
