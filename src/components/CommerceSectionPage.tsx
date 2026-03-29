@@ -377,10 +377,24 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
 
   const fetchInsights = useCallback(async () => {
     try {
-      const res = await fetch(`${BOT_URL}/admin/insights?section=${sectionId}&limit=100`);
-      if (res.ok) setInsights(await res.json());
+      const sectionFetch = fetch(`${BOT_URL}/admin/insights?section=${sectionId}&limit=100`);
+      const agentFetch = assignedAgent?.id
+        ? fetch(`${BOT_URL}/admin/insights?agent_id=${assignedAgent.id}&limit=100`)
+        : Promise.resolve(null);
+
+      const [sectionRes, agentRes] = await Promise.all([sectionFetch, agentFetch]);
+
+      const bySection: Insight[] = sectionRes.ok ? await sectionRes.json() : [];
+      const byAgent: Insight[] = (agentRes && agentRes.ok) ? await agentRes.json() : [];
+
+      // Merge and deduplicate by id — section-specific ones take priority
+      const seen = new Set<string>();
+      const merged = [...bySection, ...byAgent].filter(i =>
+        seen.has(i.id) ? false : (seen.add(i.id), true)
+      );
+      setInsights(merged);
     } catch { /* silent */ }
-  }, [sectionId]);
+  }, [sectionId, assignedAgent?.id]);
 
   const fetchMetrics = useCallback(async () => {
     try {
