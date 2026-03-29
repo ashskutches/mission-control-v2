@@ -437,28 +437,25 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
       {/* Two-column main */}
       <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 380px", gap: "1.25rem", minHeight: 0 }}>
 
-        {/* LEFT: Metrics + Integration Requests + Insights */}
-        <div style={{ display: "flex", flexDirection: "column", minWidth: 0, height: "100%", overflow: "hidden" }}>
+        {/* LEFT: single scroll container — metrics → integrations → insights */}
+        <div style={{ minWidth: 0, height: "100%", overflowY: "auto", overflowX: "hidden" }} className="custom-scrollbar">
+
           {/* Metrics */}
-          <div style={{ flexShrink: 0, marginBottom: "1rem" }}>
-            <SectionMetricsPanel sectionId={sectionId} agentName={assignedAgent?.name} refreshTrigger={refreshTrigger} />
-          </div>
+          <SectionMetricsPanel sectionId={sectionId} agentName={assignedAgent?.name} refreshTrigger={refreshTrigger} />
 
           {/* Integration Requests — only show if any */}
           <AnimatePresence>
             {integrationRequests.length > 0 && (
-              <motion.div key="integrations" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-                style={{ flexShrink: 0, marginBottom: "1rem", overflow: "hidden" }}>
-                <div className="is-flex is-justify-content-space-between is-align-items-center mb-2">
-                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <Plug size={11} color="#fb923c" />
-                    <p style={{ fontSize: "10px", color: "#fb923c", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, margin: 0 }}>
-                      Data Sources Requested
-                    </p>
-                    <span style={{ fontSize: "9px", background: "rgba(251,146,60,0.15)", color: "#fb923c", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>
-                      {integrationRequests.length}
-                    </span>
-                  </div>
+              <motion.div key="integrations" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                style={{ marginBottom: "1rem" }}>
+                <div className="is-flex is-align-items-center mb-2" style={{ gap: 5 }}>
+                  <Plug size={11} color="#fb923c" />
+                  <p style={{ fontSize: "10px", color: "#fb923c", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, margin: 0 }}>
+                    Data Sources Requested
+                  </p>
+                  <span style={{ fontSize: "9px", background: "rgba(251,146,60,0.15)", color: "#fb923c", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>
+                    {integrationRequests.length}
+                  </span>
                 </div>
                 {integrationRequests.map(ir => (
                   <IntegrationCard key={ir.id} insight={ir} onFeedback={handleFeedback} />
@@ -468,7 +465,7 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
           </AnimatePresence>
 
           {/* Insights */}
-          <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", minWidth: 0, minHeight: 0 }} className="custom-scrollbar">
+          <div>
             <div className="is-flex is-justify-content-space-between is-align-items-center mb-3">
               <p style={{ fontSize: "10px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700 }}>Insights & Recommendations</p>
               <a href={`/intelligence?section=${sectionId}`} style={{ fontSize: "10px", color: "#334155" }}>View all →</a>
@@ -487,14 +484,12 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
                 </button>
               ))}
             </div>
-            <AnimatePresence initial={false}>
-              {filtered.length === 0
-                ? <motion.p key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ fontSize: "0.82rem", color: "#334155", textAlign: "center", padding: "2rem 0" }}>
-                    No {statusFilter.replace("_", " ")} insights.{statusFilter === "new" ? " Run an analysis to generate findings." : ""}
-                  </motion.p>
-                : filtered.map(insight => <InsightCard key={insight.id} insight={insight} onFeedback={handleFeedback} />)
-              }
-            </AnimatePresence>
+            {filtered.length === 0
+              ? <p style={{ fontSize: "0.82rem", color: "#334155", textAlign: "center", padding: "2rem 0" }}>
+                  No {statusFilter.replace("_", " ")} insights.{statusFilter === "new" ? " Run an analysis to generate findings." : ""}
+                </p>
+              : filtered.map(insight => <InsightCard key={insight.id} insight={insight} onFeedback={handleFeedback} />)
+            }
           </div>
         </div>
 
