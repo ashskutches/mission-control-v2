@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import * as LucideIcons from "lucide-react";
-import { RefreshCw, Clock } from "lucide-react";
+import { RefreshCw, Clock, X, ThumbsDown } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 
@@ -23,7 +23,7 @@ interface SectionMetric {
 interface SectionMetricsPanelProps {
   sectionId: string;
   agentName?: string;
-  refreshTrigger?: number; // increment to force refresh
+  refreshTrigger?: number;
 }
 
 function getIcon(name: string): React.ElementType {
@@ -31,37 +31,105 @@ function getIcon(name: string): React.ElementType {
   return icon ?? LucideIcons.BarChart2;
 }
 
-function MetricCard({ metric }: { metric: SectionMetric }) {
+function MetricCard({
+  metric,
+  onDismiss,
+  onReject,
+}: {
+  metric: SectionMetric;
+  onDismiss: (key: string) => void;
+  onReject: (key: string, label: string) => void;
+}) {
   const Icon = getIcon(metric.icon);
+  const [hovered, setHovered] = useState(false);
+  const [acting, setActing] = useState<"dismiss" | "reject" | null>(null);
   const isPositive = metric.sub?.startsWith("↑") || metric.sub?.includes("+");
   const isNegative = metric.sub?.startsWith("↓") || metric.sub?.includes("-");
 
   return (
     <motion.div
+      layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.92, transition: { duration: 0.18 } }}
       whileHover={{ y: -2, transition: { duration: 0.15 } }}
-      className="box p-4"
+      onHoverStart={() => setHovered(true)}
+      onHoverEnd={() => setHovered(false)}
+      className="box p-3"
       style={{
         background: "rgba(255,255,255,0.03)",
         border: `1px solid ${metric.color}20`,
         borderTop: `2px solid ${metric.color}`,
-        flex: "1 1 160px",
+        flex: "1 1 150px",
         minWidth: 0,
+        position: "relative",
       }}
     >
+      {/* Hover action buttons */}
+      <AnimatePresence>
+        {hovered && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: "absolute",
+              top: 5, right: 5,
+              display: "flex", gap: 4,
+            }}
+          >
+            {/* Dismiss — silently remove */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setActing("dismiss"); onDismiss(metric.key); }}
+              disabled={!!acting}
+              aria-label="Dismiss metric"
+              title="Dismiss (remove silently)"
+              style={{
+                width: 22, height: 22, borderRadius: 5, border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(255,255,255,0.06)", display: "flex", alignItems: "center",
+                justifyContent: "center", cursor: "pointer", color: "#64748b",
+                transition: "all 0.15s",
+              }}
+            >
+              <X size={10} />
+            </button>
+
+            {/* Reject — remove + log + trigger agent reflection */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setActing("reject"); onReject(metric.key, metric.label); }}
+              disabled={!!acting}
+              aria-label="Reject metric — agent will reflect"
+              title="Reject (agent will learn from this)"
+              style={{
+                width: 22, height: 22, borderRadius: 5, border: "1px solid rgba(244,63,94,0.25)",
+                background: "rgba(244,63,94,0.08)", display: "flex", alignItems: "center",
+                justifyContent: "center", cursor: "pointer", color: "#f43f5e",
+                transition: "all 0.15s",
+              }}
+            >
+              <ThumbsDown size={10} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="is-flex is-align-items-center mb-2" style={{ gap: "0.4rem" }}>
-        <Icon size={13} color={metric.color} />
-        <span style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
+        <Icon size={12} color={metric.color} />
+        <span style={{ fontSize: "9px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
           {metric.label}
         </span>
       </div>
-      <div style={{ fontSize: "1.45rem", fontWeight: 800, color: metric.color, lineHeight: 1, marginBottom: "0.3rem" }}>
-        {metric.value}
+
+      {/* Main value — smaller than before (was 1.45rem → now 1.05rem) */}
+      <div style={{ fontSize: "1.05rem", fontWeight: 800, color: metric.color, lineHeight: 1, marginBottom: "0.25rem" }}>
+        {acting === "dismiss" ? <span style={{ color: "#475569", fontSize: "0.75rem" }}>Removing…</span>
+         : acting === "reject" ? <span style={{ color: "#f43f5e", fontSize: "0.75rem" }}>Rejected ✓</span>
+         : metric.value}
       </div>
-      {metric.sub && (
+
+      {metric.sub && !acting && (
         <div style={{
-          fontSize: "10px", fontWeight: 600,
+          fontSize: "9px", fontWeight: 600,
           color: isPositive ? "#22c55e" : isNegative ? "#f43f5e" : "#64748b",
         }}>
           {metric.sub}
@@ -96,6 +164,26 @@ export default function SectionMetricsPanel({ sectionId, agentName, refreshTrigg
 
   useEffect(() => { fetchMetrics(); }, [fetchMetrics, refreshTrigger]);
 
+  const handleFeedback = async (key: string, action: "dismiss" | "reject", label?: string) => {
+    // Optimistic remove from UI immediately
+    const metric = metrics.find(m => m.key === key);
+    setMetrics(prev => prev.filter(m => m.key !== key));
+
+    try {
+      await fetch(`${BOT_URL}/admin/section-metrics/${sectionId}/${encodeURIComponent(key)}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          label: label ?? key,
+          agent_id: metric?.agent_id,
+        }),
+      });
+    } catch {
+      // Non-fatal; metric already removed from UI
+    }
+  };
+
   const timeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
@@ -106,7 +194,7 @@ export default function SectionMetricsPanel({ sectionId, agentName, refreshTrigg
     return `${Math.floor(hrs / 24)}d ago`;
   };
 
-  if (loading) return null; // silently wait; SectionAgentPanel shows loading state
+  if (loading) return null;
 
   if (metrics.length === 0) {
     return (
@@ -121,9 +209,12 @@ export default function SectionMetricsPanel({ sectionId, agentName, refreshTrigg
   return (
     <div className="mb-5">
       <div className="is-flex is-justify-content-space-between is-align-items-center mb-3">
-        <p style={{ fontSize: "10px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700 }}>
-          Analytics
-        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <p style={{ fontSize: "10px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, margin: 0 }}>
+            Analytics
+          </p>
+          <span style={{ fontSize: "9px", color: "#334155" }} title="Hover a card to dismiss or reject it">· hover to manage</span>
+        </div>
         <div className="is-flex is-align-items-center" style={{ gap: "0.4rem" }}>
           {lastUpdated && (
             <span style={{ fontSize: "10px", color: "#475569", display: "flex", alignItems: "center", gap: "0.25rem" }}>
@@ -136,10 +227,18 @@ export default function SectionMetricsPanel({ sectionId, agentName, refreshTrigg
           </button>
         </div>
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
-        {metrics.map(metric => (
-          <MetricCard key={metric.key} metric={metric} />
-        ))}
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.65rem" }}>
+        <AnimatePresence mode="popLayout">
+          {metrics.map(metric => (
+            <MetricCard
+              key={metric.key}
+              metric={metric}
+              onDismiss={(k) => handleFeedback(k, "dismiss", metric.label)}
+              onReject={(k, l) => handleFeedback(k, "reject", l)}
+            />
+          ))}
+        </AnimatePresence>
       </div>
     </div>
   );
