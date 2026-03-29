@@ -459,61 +459,42 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
         <SectionAgentPanel sectionId={sectionId} sectionName={sectionName} sectionHint={config.sectionHint} onAgentAssigned={a => setAssignedAgent(a)} onAnalysisDone={handleAnalysisDone} />
       </div>
 
-      {/* ── Row 1: Analytics (left) + Chat (right) ─────────────────── */}
-      <div style={{ flexShrink: 0, display: "grid", gridTemplateColumns: "1fr 380px", gap: "1.25rem", height: "42vh", minHeight: 280 }}>
+      {/* ── Row 1: Analytics — full width ────────────────────────────── */}
+      <div style={{ flexShrink: 0, marginBottom: "1.25rem" }}>
 
-        {/* LEFT: Live KPIs + Metrics + Integration Requests */}
-        <div style={{ minWidth: 0, height: "100%", overflowY: "auto", overflowX: "hidden" }} className="custom-scrollbar">
+        {/* Live KPI auto-refresh bar */}
+        <SectionLiveKPIs
+          sectionId={sectionId}
+          accentColor={accentColor}
+          onRefreshed={() => {
+            setRefreshTrigger(t => t + 1);
+            fetchMetrics();
+          }}
+        />
 
-          {/* Live KPI auto-refresh bar */}
-          <SectionLiveKPIs
-            sectionId={sectionId}
-            accentColor={accentColor}
-            onRefreshed={() => {
-              setRefreshTrigger(t => t + 1);
-              fetchMetrics();
-            }}
-          />
+        {/* Metrics */}
+        <SectionMetricsPanel sectionId={sectionId} agentName={assignedAgent?.name} refreshTrigger={refreshTrigger} />
 
-          {/* Metrics */}
-          <SectionMetricsPanel sectionId={sectionId} agentName={assignedAgent?.name} refreshTrigger={refreshTrigger} />
-
-          {/* Integration Requests — only show if any */}
-          <AnimatePresence>
-            {integrationRequests.length > 0 && (
-              <motion.div key="integrations" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                style={{ marginBottom: "1rem" }}>
-                <div className="is-flex is-align-items-center mb-2" style={{ gap: 5 }}>
-                  <Plug size={11} color="#fb923c" />
-                  <p style={{ fontSize: "10px", color: "#fb923c", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, margin: 0 }}>
-                    Data Sources Requested
-                  </p>
-                  <span style={{ fontSize: "9px", background: "rgba(251,146,60,0.15)", color: "#fb923c", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>
-                    {integrationRequests.length}
-                  </span>
-                </div>
-                {integrationRequests.map(ir => (
-                  <IntegrationCard key={ir.id} insight={ir} onFeedback={handleFeedback} />
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* RIGHT: Always-on Chat */}
-        <div style={{ minWidth: 0, minHeight: 0, height: "100%" }}>
-          {assignedAgent ? (
-            <EmbeddedChat
-              agentId={assignedAgent.id} agentName={assignedAgent.name}
-              agentEmoji={(assignedAgent as any).emoji} accentColor={accentColor}
-              metrics={metrics} insights={regularInsights} buildContext={buildContext}
-            />
-          ) : (
-            <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.15)", borderRadius: 14, border: "1px dashed rgba(255,255,255,0.06)", opacity: 0.4, gap: 8 }}>
-              <p style={{ fontSize: "12px", color: "#475569", textAlign: "center" }}>Assign a lead agent<br />to enable the chat panel.</p>
-            </div>
+        {/* Integration Requests — only show if any */}
+        <AnimatePresence>
+          {integrationRequests.length > 0 && (
+            <motion.div key="integrations" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              style={{ marginBottom: "1rem" }}>
+              <div className="is-flex is-align-items-center mb-2" style={{ gap: 5 }}>
+                <Plug size={11} color="#fb923c" />
+                <p style={{ fontSize: "10px", color: "#fb923c", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, margin: 0 }}>
+                  Data Sources Requested
+                </p>
+                <span style={{ fontSize: "9px", background: "rgba(251,146,60,0.15)", color: "#fb923c", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>
+                  {integrationRequests.length}
+                </span>
+              </div>
+              {integrationRequests.map(ir => (
+                <IntegrationCard key={ir.id} insight={ir} onFeedback={handleFeedback} />
+              ))}
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
       </div>
 
       {/* ── Row 2: Full-width Insights & Recommendations ─────────── */}
@@ -582,6 +563,41 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
               {filtered.map(insight => (
                 <InsightCard key={insight.id} insight={insight} onFeedback={handleFeedback} onOpenPanel={setReviewInsight} />
               ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Row 3: Full-width Chat ───────────────────────────────────── */}
+      <div style={{
+        flexShrink: 0,
+        marginTop: "1.25rem",
+        minHeight: "70vh",
+        marginBottom: "1.5rem",
+        display: "flex",
+        flexDirection: "column",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "0.65rem" }}>
+          <div style={{ width: 26, height: 26, borderRadius: 8, background: `${accentColor}18`, border: `1px solid ${accentColor}30`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: 13 }}>💬</span>
+          </div>
+          <div>
+            <p style={{ fontSize: "12px", fontWeight: 800, color: "#e2e8f0", margin: 0, lineHeight: 1 }}>
+              {assignedAgent ? `Chat with ${assignedAgent.name}` : "Department Chat"}
+            </p>
+            <p style={{ fontSize: "10px", color: "#475569", margin: 0, marginTop: 2 }}>Ask your agent anything about this department</p>
+          </div>
+        </div>
+        <div style={{ flex: 1, minHeight: 0 }}>
+          {assignedAgent ? (
+            <EmbeddedChat
+              agentId={assignedAgent.id} agentName={assignedAgent.name}
+              agentEmoji={(assignedAgent as any).emoji} accentColor={accentColor}
+              metrics={metrics} insights={regularInsights} buildContext={buildContext}
+            />
+          ) : (
+            <div style={{ height: "100%", minHeight: 400, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.15)", borderRadius: 14, border: "1px dashed rgba(255,255,255,0.06)", opacity: 0.4, gap: 8 }}>
+              <p style={{ fontSize: "13px", color: "#475569", textAlign: "center" }}>Assign a lead agent above<br />to enable the chat panel.</p>
             </div>
           )}
         </div>
