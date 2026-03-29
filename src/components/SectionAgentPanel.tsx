@@ -413,33 +413,35 @@ Your goal is to help grow this area of the business. Surface what's actually imp
             {allAgents.length === 0 ? (
               <p className="has-text-grey" style={{ fontSize: "0.85rem" }}>No agents found. Create one first.</p>
             ) : (
-              allAgents.map(agent => {
-                const isCurrent = agent.id === section?.lead_agent_id;
-                return (
-                  <motion.button
-                    key={agent.id}
-                    onClick={() => !isCurrent && assignAgent(agent)}
-                    whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
-                    disabled={assigning || isCurrent}
-                    className="is-flex is-align-items-center is-fullwidth"
-                    style={{
-                      gap: "0.75rem", padding: "0.5rem 0.6rem", borderRadius: 8,
-                      background: isCurrent ? "rgba(56,189,248,0.08)" : "transparent",
-                      border: "none", cursor: isCurrent ? "default" : "pointer",
-                      width: "100%", textAlign: "left",
-                    }}
-                  >
-                    <span style={{ fontSize: "1.1rem" }}>{agent.emoji ?? "🤖"}</span>
-                    <div style={{ flex: 1 }}>
-                      <p className="has-text-white" style={{ fontWeight: 600, fontSize: "0.875rem" }}>{agent.name}</p>
-                      {agent.specialization && (
-                        <p style={{ fontSize: "10px", color: "#64748b" }}>{agent.specialization}</p>
-                      )}
-                    </div>
-                    {isCurrent && <Check size={14} color="#38bdf8" />}
-                  </motion.button>
-                );
-              })
+              <div style={{ maxHeight: 320, overflowY: "auto", overflowX: "hidden" }} className="custom-scrollbar">
+                {allAgents.map(agent => {
+                  const isCurrent = agent.id === section?.lead_agent_id;
+                  return (
+                    <motion.button
+                      key={agent.id}
+                      onClick={() => !isCurrent && assignAgent(agent)}
+                      whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
+                      disabled={assigning || isCurrent}
+                      className="is-flex is-align-items-center is-fullwidth"
+                      style={{
+                        gap: "0.75rem", padding: "0.5rem 0.6rem", borderRadius: 8,
+                        background: isCurrent ? "rgba(56,189,248,0.08)" : "transparent",
+                        border: "none", cursor: isCurrent ? "default" : "pointer",
+                        width: "100%", textAlign: "left",
+                      }}
+                    >
+                      <span style={{ fontSize: "1.1rem" }}>{agent.emoji ?? "🤖"}</span>
+                      <div style={{ flex: 1 }}>
+                        <p className="has-text-white" style={{ fontWeight: 600, fontSize: "0.875rem" }}>{agent.name}</p>
+                        {agent.specialization && (
+                          <p style={{ fontSize: "10px", color: "#64748b" }}>{agent.specialization}</p>
+                        )}
+                      </div>
+                      {isCurrent && <Check size={14} color="#38bdf8" />}
+                    </motion.button>
+                  );
+                })}
+              </div>
             )}
           </motion.div>
         )}
