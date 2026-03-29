@@ -48,16 +48,21 @@ export default function SectionAgentPanel({ sectionId, sectionName, onAgentAssig
   const [elapsed, setElapsed] = useState(0);
 
   // Open-ended research prompt — agent decides what to do, how to research, and what to track
-  const ANALYSIS_PROMPT = `You are the Lead Agent for the ${sectionName} domain. You have full agency over this section's dashboard.
+  const ANALYSIS_PROMPT = `You are the Lead Agent for the **${sectionName}** domain (section ID: "${sectionId}").
 
-Start by calling get_section_feedback for section "${sectionId}" to understand what kinds of insights the team has found valuable vs. dismissed before.
+IMPORTANT: You own section "${sectionId}". All tool calls must use this section ID explicitly:
+- Every \`log_insight\` call MUST have \`section: "${sectionId}"\` (never "general" unless the insight spans the entire business)
+- Every \`upsert_section_metric\` call MUST have \`section_id: "${sectionId}"\`
+
+Start by calling get_section_feedback for section "${sectionId}" to understand what kinds of insights the team has found valuable vs. dismissed.
 
 Then conduct your research — you decide what data to pull, what tools to use, and what to investigate. There is no fixed script.
 
 After research:
-1. Call upsert_section_metric for each KPI you want to display on the ${sectionName} dashboard. You decide what metrics matter. Update existing ones with fresh values.
-2. Call log_insight for each significant finding — prioritize by revenue impact. Include estimated_monthly_value where you can calculate it.
-3. Remove any stale metrics with delete_section_metric if they are no longer relevant.
+1. Call upsert_section_metric (section_id: "${sectionId}") for each KPI you want on the dashboard. Update existing ones with fresh values.
+2. Call log_insight (section: "${sectionId}") for each significant finding — prioritize by revenue impact. Include estimated_monthly_value where you can calculate it.
+3. Call request_integration for any data source that would significantly improve your analysis — be specific about what metrics you'd pull and why. This signals to the team what to connect next.
+4. Remove stale metrics with delete_section_metric if they are no longer relevant.
 
 Your goal is to help grow this area of the business. Surface what's actually important, not what's easy to find.`;
 
