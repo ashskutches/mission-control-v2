@@ -10,6 +10,7 @@ import { RefreshCw, Check, X, Plug, ExternalLink } from "lucide-react";
 import SectionAgentPanel from "@/components/SectionAgentPanel";
 import SectionMetricsPanel from "@/components/SectionMetricsPanel";
 import { MarkdownMessage } from "@/components/MarkdownMessage";
+import InsightReviewPanel from "@/components/InsightReviewPanel";
 import { Send, AlertCircle } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -123,9 +124,10 @@ function IntegrationCard({ insight, onFeedback }: {
 }
 
 // ── Insight Card ───────────────────────────────────────────────────────────────
-function InsightCard({ insight, onFeedback }: {
+function InsightCard({ insight, onFeedback, onOpenPanel }: {
   insight: Insight;
   onFeedback: (id: string, action: "accepted" | "rejected" | "completed" | "dismissed", note?: string) => Promise<void>;
+  onOpenPanel: (insight: Insight) => void;
 }) {
   const [acting, setActing] = useState(false);
   const [rejecting, setRejecting] = useState(false);
@@ -134,9 +136,13 @@ function InsightCard({ insight, onFeedback }: {
   const act = async (action: "accepted" | "rejected" | "completed" | "dismissed", note?: string) => {
     setActing(true); await onFeedback(insight.id, action, note); setActing(false); setRejecting(false);
   };
+  // Insight types that have rich content worth opening in the review panel
+  const hasRichContent = ["klaviyo_draft", "social_draft", "review_reply", "product_change"].includes(insight.type);
   return (
     <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }}
-      className="box mb-3 p-0" style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${color}20`, borderLeft: `3px solid ${color}`, overflow: "hidden" }}>
+      className="box mb-3 p-0"
+      onClick={hasRichContent ? () => onOpenPanel(insight) : undefined}
+      style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${color}20`, borderLeft: `3px solid ${color}`, overflow: "hidden", cursor: hasRichContent ? "pointer" : "default" }}>
       <div style={{ height: 2, background: `linear-gradient(to right, ${color}, ${color}30)`, width: `${insight.priority * 10}%` }} />
       <div className="p-3">
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -150,6 +156,7 @@ function InsightCard({ insight, onFeedback }: {
           </div>
           <p className="has-text-white" style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: "0.2rem" }}>{insight.title}</p>
           {insight.body && <p style={{ fontSize: "0.75rem", color: "#94a3b8", lineHeight: 1.5 }}>{insight.body.slice(0, 140)}{insight.body.length > 140 ? "…" : ""}</p>}
+          {hasRichContent && <p style={{ fontSize: "9px", color: "#334155", marginTop: 2 }}>Click to review full draft →</p>}
         </div>
         <div className="mt-2 pt-2 is-flex is-align-items-center is-flex-wrap-wrap" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", gap: "0.4rem" }}>
           {insight.status === "new" && (
@@ -376,6 +383,7 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [metrics, setMetrics] = useState<any[]>([]);
   const [assignedAgent, setAssignedAgent] = useState<{ id: string; name: string; emoji?: string } | null>(null);
+  const [reviewInsight, setReviewInsight] = useState<Insight | null>(null);
 
   const fetchInsights = useCallback(async () => {
     try {
@@ -504,7 +512,7 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
               ? <p style={{ fontSize: "0.82rem", color: "#334155", textAlign: "center", padding: "2rem 0" }}>
                   No {statusFilter.replace("_", " ")} insights.{statusFilter === "new" ? " Run an analysis to generate findings." : ""}
                 </p>
-              : filtered.map(insight => <InsightCard key={insight.id} insight={insight} onFeedback={handleFeedback} />)
+              : filtered.map(insight => <InsightCard key={insight.id} insight={insight} onFeedback={handleFeedback} onOpenPanel={setReviewInsight} />)
             }
           </div>
         </div>
@@ -524,6 +532,17 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
           )}
         </div>
       </div>
+
+      {/* Approval Review Panel — slide-out overlay */}
+      <InsightReviewPanel
+        insight={reviewInsight}
+        onClose={() => setReviewInsight(null)}
+        onStatusChange={(_id, status) => {
+          // Optimistically update status in local state + re-fetch
+          setInsights(prev => prev.map(i => i.id === _id ? { ...i, status } : i));
+          fetchInsights();
+        }}
+      />
     </div>
   );
 }
