@@ -438,7 +438,7 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
       <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 380px", gap: "1.25rem", minHeight: 0 }}>
 
         {/* LEFT: Metrics + Integration Requests + Insights */}
-        <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", minWidth: 0, height: "100%", overflow: "hidden" }}>
           {/* Metrics */}
           <div style={{ flexShrink: 0, marginBottom: "1rem" }}>
             <SectionMetricsPanel sectionId={sectionId} agentName={assignedAgent?.name} refreshTrigger={refreshTrigger} />
@@ -468,7 +468,7 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
           </AnimatePresence>
 
           {/* Insights */}
-          <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", minWidth: 0 }} className="custom-scrollbar">
+          <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", minWidth: 0, minHeight: 0 }} className="custom-scrollbar">
             <div className="is-flex is-justify-content-space-between is-align-items-center mb-3">
               <p style={{ fontSize: "10px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700 }}>Insights & Recommendations</p>
               <a href={`/intelligence?section=${sectionId}`} style={{ fontSize: "10px", color: "#334155" }}>View all →</a>

@@ -95,6 +95,15 @@ Your goal is to help grow this area of the business. Surface what's actually imp
       .catch(() => setTeamAgents([]));
   }, [section?.lead_agent_id]);
 
+  // Notify parent whenever the lead agent changes (covers page-load AND assignment)
+  useEffect(() => {
+    if (section?.lead_agent) {
+      onAgentAssigned?.(section.lead_agent);
+    }
+    // Note: intentionally doesn't clear — parent manages its own null state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section?.lead_agent_id]);
+
   const assignAgent = async (agent: Agent) => {
     setAssigning(true);
     try {
