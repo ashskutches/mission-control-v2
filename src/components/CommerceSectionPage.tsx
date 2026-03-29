@@ -242,7 +242,15 @@ function EmbeddedChat({ agentId, agentName, agentEmoji = "🤖", accentColor, me
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [convoId, fetchMsg, sending]);
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, sending]);
+  const prevMsgCountRef = useRef(0);
+  useEffect(() => {
+    // Only scroll within the chat box when new messages actually arrive —
+    // not on initial mount, which would jump the page to the bottom chat section.
+    if (messages.length > 0 && messages.length > prevMsgCountRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    prevMsgCountRef.current = messages.length;
+  }, [messages, sending]);
 
   const handleSend = async () => {
     const text = input.trim();
