@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Clock, Plus, Trash2, Play, Pause, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp, Terminal, Sparkles, Bot, Check, X, Square } from "lucide-react";
+import RoutineTemplates from "@/components/RoutineTemplates";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
@@ -615,6 +616,11 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
                     <p style={{ color: "#666", fontSize: 13, fontWeight: 600, margin: 0 }}>No routines yet</p>
                     <p style={{ color: "#444", fontSize: 11, margin: "4px 0 0" }}>Schedule periodic tasks for this agent using the button above.</p>
                 </div>
+            )}
+
+            {/* ── Playbook Templates — always visible, collapsible ─────────────── */}
+            {!loading && (
+                <RoutineTemplates agentId={agentId} onInstalled={() => { fetch_(); }} />
             )}
 
             {/* ── Pending Agent Proposals ──────────────────────────────────────── */}
