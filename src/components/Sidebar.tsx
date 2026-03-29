@@ -16,11 +16,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const getActiveId = () => {
     if (pathname === "/") return "overview";
-    // Match against full hrefs so nested routes like /commerce/seo work correctly
-    const matched = APP_CONFIG.navigation.find((item: any) =>
+    // Filter all items that match, then pick the most specific (longest href).
+    // This prevents /commerce/seo from matching the "Store" item (/commerce)
+    // before it finds the correct "SEO" item (/commerce/seo).
+    const matches = APP_CONFIG.navigation.filter((item: any) =>
       pathname === item.href || pathname.startsWith(item.href + "/")
     );
-    return matched?.id ?? pathname.split("/")[1] ?? "overview";
+    if (matches.length === 0) return pathname.split("/")[1] ?? "overview";
+    const best = matches.reduce((a: any, b: any) =>
+      b.href.length > a.href.length ? b : a
+    );
+    return best.id;
   };
   const activeId = getActiveId();
 
