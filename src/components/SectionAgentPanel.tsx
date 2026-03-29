@@ -29,11 +29,12 @@ interface SectionData {
 interface SectionAgentPanelProps {
   sectionId: string;
   sectionName: string;
+  sectionHint?: string;
   onAgentAssigned?: (agent: Agent) => void;
   onAnalysisDone?: () => void;
 }
 
-export default function SectionAgentPanel({ sectionId, sectionName, onAgentAssigned, onAnalysisDone }: SectionAgentPanelProps) {
+export default function SectionAgentPanel({ sectionId, sectionName, sectionHint, onAgentAssigned, onAnalysisDone }: SectionAgentPanelProps) {
   const [section, setSection] = useState<SectionData | null>(null);
   const [allAgents, setAllAgents] = useState<Agent[]>([]);
   const [teamAgents, setTeamAgents] = useState<Agent[]>([]);
@@ -64,7 +65,7 @@ After research:
 3. Call request_integration for any data source that would significantly improve your analysis — be specific about what metrics you'd pull and why. This signals to the team what to connect next.
 4. Remove stale metrics with delete_section_metric if they are no longer relevant.
 
-Your goal is to help grow this area of the business. Surface what's actually important, not what's easy to find.`;
+Your goal is to help grow this area of the business. Surface what's actually important, not what's easy to find.${sectionHint ? `\n\nChannel focus for this section:\n${sectionHint}` : ""}`;
 
   const fetchData = useCallback(async () => {
     try {

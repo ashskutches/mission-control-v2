@@ -34,6 +34,8 @@ export interface SectionConfig {
   subtitle: string;
   accentColor: string;
   icon: React.ReactNode;
+  /** Optional channel/domain context injected into the analysis prompt */
+  sectionHint?: string;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -342,7 +344,7 @@ const CONTEXT_BUILDERS: Record<string, (agentName: string, sectionName: string, 
   influencing: (agentName, _, metrics, insights) => buildCtx(agentName, "Influencing", "Lead Influencing Agent", "manages influencer outreach, collaboration deals, and brand partnerships", metrics, insights),
   support: (agentName, _, metrics, insights) => buildCtx(agentName, "Support", "Lead Customer Support Agent", "manages customer service, issue resolution, and support quality. Be empathetic, practical, and solution-focused", metrics, insights),
   email: (agentName, _, metrics, insights) => buildCtx(agentName, "Email & CRM", "Lead Email Agent", "owns email marketing and CRM strategy", metrics, insights),
-  content: (agentName, _, metrics, insights) => buildCtx(agentName, "Content", "Lead Content Agent", "owns content strategy and creation", metrics, insights),
+  content: (agentName, _, metrics, insights) => buildCtx(agentName, "Content", "Lead Content Agent", "owns the content strategy across all organic channels including blog posts, YouTube videos, Facebook Groups, external guest posts, Reddit engagement, and any other owned/earned media", metrics, insights),
   ads: (agentName, _, metrics, insights) => buildCtx(agentName, "Ads", "Lead Paid Media Agent", "owns paid advertising strategy across all channels", metrics, insights),
 };
 
@@ -445,7 +447,7 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
 
       {/* Agent Panel */}
       <div style={{ flexShrink: 0, marginBottom: "1rem" }}>
-        <SectionAgentPanel sectionId={sectionId} sectionName={sectionName} onAgentAssigned={a => setAssignedAgent(a)} onAnalysisDone={handleAnalysisDone} />
+        <SectionAgentPanel sectionId={sectionId} sectionName={sectionName} sectionHint={config.sectionHint} onAgentAssigned={a => setAssignedAgent(a)} onAnalysisDone={handleAnalysisDone} />
       </div>
 
       {/* Two-column main */}
