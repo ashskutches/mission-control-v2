@@ -74,8 +74,13 @@ function MetricCard({
             exit={{ opacity: 0 }}
             style={{
               position: "absolute",
-              top: 5, right: 5,
-              display: "flex", gap: 4,
+              top: 4, right: 4,
+              display: "flex", gap: 3,
+              zIndex: 10,
+              background: "rgba(10,10,15,0.75)",
+              backdropFilter: "blur(4px)",
+              borderRadius: 7,
+              padding: "2px 3px",
             }}
           >
             {/* Dismiss — silently remove */}
