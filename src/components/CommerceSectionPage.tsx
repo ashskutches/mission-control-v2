@@ -13,6 +13,7 @@ import SectionLiveKPIs from "@/components/SectionLiveKPIs";
 import { MarkdownMessage } from "@/components/MarkdownMessage";
 import InsightReviewPanel from "@/components/InsightReviewPanel";
 import { Send, AlertCircle } from "lucide-react";
+import SectionTaskQueue from "@/components/SectionTaskQueue";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 
@@ -567,6 +568,9 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
           )}
         </div>
       </div>
+
+      {/* ── Row 2b: Agent Task Queue (actions awaiting approval) ──── */}
+      <SectionTaskQueue sectionId={sectionId} accentColor={accentColor} />
 
       {/* ── Row 3: Full-width Chat ───────────────────────────────────── */}
       <div style={{
