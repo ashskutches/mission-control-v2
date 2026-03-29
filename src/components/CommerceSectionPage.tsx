@@ -34,7 +34,6 @@ export interface SectionConfig {
   subtitle: string;
   accentColor: string;
   icon: React.ReactNode;
-  buildContext: (agentName: string, metrics: any[], insights: Insight[]) => string;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -337,9 +336,38 @@ function EmbeddedChat({ agentId, agentName, agentEmoji = "🤖", accentColor, me
   );
 }
 
+// ── Per-section context builders (internal — not passed as props) ─────────────
+const CONTEXT_BUILDERS: Record<string, (agentName: string, sectionName: string, metrics: any[], insights: Insight[]) => string> = {
+  seo: (agentName, _, metrics, insights) => buildCtx(agentName, "SEO", "Lead SEO Agent", "owns SEO for this business. You know why you filed those insights. Be direct and actionable", metrics, insights),
+  influencing: (agentName, _, metrics, insights) => buildCtx(agentName, "Influencing", "Lead Influencing Agent", "manages influencer outreach, collaboration deals, and brand partnerships", metrics, insights),
+  support: (agentName, _, metrics, insights) => buildCtx(agentName, "Support", "Lead Customer Support Agent", "manages customer service, issue resolution, and support quality. Be empathetic, practical, and solution-focused", metrics, insights),
+  email: (agentName, _, metrics, insights) => buildCtx(agentName, "Email & CRM", "Lead Email Agent", "owns email marketing and CRM strategy", metrics, insights),
+  content: (agentName, _, metrics, insights) => buildCtx(agentName, "Content", "Lead Content Agent", "owns content strategy and creation", metrics, insights),
+  ads: (agentName, _, metrics, insights) => buildCtx(agentName, "Ads", "Lead Paid Media Agent", "owns paid advertising strategy across all channels", metrics, insights),
+};
+
+function buildCtx(agentName: string, section: string, role: string, description: string, metrics: any[], insights: Insight[]): string {
+  const metricLines = metrics.length > 0
+    ? metrics.map(m => `  - ${m.label}: ${m.value}${m.sub ? ` (${m.sub})` : ""}`).join("\n")
+    : "  (No metrics yet — run analysis)";
+  const insightLines = insights.slice(0, 8).map(i =>
+    `  - [${i.type.replace("_", " ").toUpperCase()}] "${i.title}"${i.estimated_monthly_value ? ` (+$${i.estimated_monthly_value.toLocaleString()}/mo)` : ""} [${i.status}]`
+  ).join("\n") || "  (None yet)";
+  return (
+    `[SECTION CONTEXT — do not repeat this block to the user]\n` +
+    `You are ${agentName}, ${role} for Leaps & Rebounds. ` +
+    `This chat is embedded on the ${section} dashboard. You ${description}.\n\n` +
+    `Current Dashboard Metrics:\n${metricLines}\n\n` +
+    `Insights you filed (visible to user):\n${insightLines}\n\n` +
+    `Respond as the domain expert who owns ${section} for this business.\n---\nUser: `
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function CommerceSectionPage({ config }: { config: SectionConfig }) {
-  const { sectionId, sectionName, subtitle, accentColor, icon, buildContext } = config;
+  const { sectionId, sectionName, subtitle, accentColor, icon } = config;
+  const contextBuilder = CONTEXT_BUILDERS[sectionId] ?? ((agentName: string, sectionName: string, metrics: any[], insights: Insight[]) => buildCtx(agentName, sectionName, "Lead Agent", `owns the ${sectionName} domain`, metrics, insights));
+  const buildContext = (agentName: string, metrics: any[], insights: Insight[]) => contextBuilder(agentName, sectionName, metrics, insights);
 
   const [insights, setInsights] = useState<Insight[]>([]);
   const [statusFilter, setStatusFilter] = useState("new");
