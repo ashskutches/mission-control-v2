@@ -459,13 +459,13 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
         <SectionAgentPanel sectionId={sectionId} sectionName={sectionName} sectionHint={config.sectionHint} onAgentAssigned={a => setAssignedAgent(a)} onAnalysisDone={handleAnalysisDone} />
       </div>
 
-      {/* Two-column main */}
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 380px", gap: "1.25rem", minHeight: 0 }}>
+      {/* ── Row 1: Analytics (left) + Chat (right) ─────────────────── */}
+      <div style={{ flex: "0 0 auto", display: "grid", gridTemplateColumns: "1fr 380px", gap: "1.25rem", minHeight: 0, maxHeight: "calc(55vh - 60px)" }}>
 
-        {/* LEFT: single scroll container — metrics → integrations → insights */}
+        {/* LEFT: Live KPIs + Metrics + Integration Requests */}
         <div style={{ minWidth: 0, height: "100%", overflowY: "auto", overflowX: "hidden" }} className="custom-scrollbar">
 
-          {/* Live KPI auto-refresh bar (email/ads/products/orders) */}
+          {/* Live KPI auto-refresh bar */}
           <SectionLiveKPIs
             sectionId={sectionId}
             accentColor={accentColor}
@@ -498,38 +498,10 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* Insights */}
-          <div>
-            <div className="is-flex is-justify-content-space-between is-align-items-center mb-3">
-              <p style={{ fontSize: "10px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700 }}>Insights & Recommendations</p>
-              <a href={`/intelligence?section=${sectionId}`} style={{ fontSize: "10px", color: "#334155" }}>View all →</a>
-            </div>
-            {/* Status tabs */}
-            <div className="is-flex mb-3" style={{ gap: "0.35rem", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0.5rem" }}>
-              {STATUS_FILTERS.map(s => (
-                <button key={s} onClick={() => setStatusFilter(s)} className="button is-small" style={{
-                  background: statusFilter === s ? "rgba(255,255,255,0.08)" : "transparent",
-                  color: statusFilter === s ? "#e2e8f0" : "#475569",
-                  border: statusFilter === s ? "1px solid rgba(255,255,255,0.12)" : "1px solid transparent",
-                  fontWeight: statusFilter === s ? 700 : 400, fontSize: "10px", textTransform: "capitalize",
-                }}>
-                  {s.replace("_", " ")}
-                  {counts[s] > 0 && <span className="ml-1" style={{ fontSize: "9px", color: s === "new" && counts[s] > 0 ? "#f59e0b" : "#475569" }}>{counts[s]}</span>}
-                </button>
-              ))}
-            </div>
-            {filtered.length === 0
-              ? <p style={{ fontSize: "0.82rem", color: "#334155", textAlign: "center", padding: "2rem 0" }}>
-                  No {statusFilter.replace("_", " ")} insights.{statusFilter === "new" ? " Run an analysis to generate findings." : ""}
-                </p>
-              : filtered.map(insight => <InsightCard key={insight.id} insight={insight} onFeedback={handleFeedback} onOpenPanel={setReviewInsight} />)
-            }
-          </div>
         </div>
 
         {/* RIGHT: Always-on Chat */}
-        <div style={{ minWidth: 0, minHeight: 0 }}>
+        <div style={{ minWidth: 0, minHeight: 0, height: "100%" }}>
           {assignedAgent ? (
             <EmbeddedChat
               agentId={assignedAgent.id} agentName={assignedAgent.name}
@@ -544,12 +516,81 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
         </div>
       </div>
 
+      {/* ── Row 2: Full-width Insights & Recommendations ─────────────────── */}
+      <div style={{
+        flex: 1,
+        marginTop: "1.25rem",
+        minHeight: 0,
+        display: "flex",
+        flexDirection: "column",
+        background: "rgba(0,0,0,0.15)",
+        borderRadius: 14,
+        border: "1px solid rgba(255,255,255,0.06)",
+        overflow: "hidden",
+      }}>
+        {/* Section header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "0.85rem 1.25rem",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          flexShrink: 0,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 26, height: 26, borderRadius: 8, background: `${accentColor}18`, border: `1px solid ${accentColor}30`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontSize: 13 }}>💡</span>
+            </div>
+            <div>
+              <p style={{ fontSize: "12px", fontWeight: 800, color: "#e2e8f0", margin: 0, lineHeight: 1 }}>Insights & Recommendations</p>
+              <p style={{ fontSize: "10px", color: "#475569", margin: 0, marginTop: 2 }}>Agent-generated findings for this department</p>
+            </div>
+            {counts["new"] > 0 && (
+              <span style={{ fontSize: "10px", fontWeight: 700, background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 6, padding: "2px 8px" }}>
+                {counts["new"]} new
+              </span>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {/* Status filter tabs */}
+            <div style={{ display: "flex", gap: "0.35rem" }}>
+              {STATUS_FILTERS.map(s => (
+                <button key={s} onClick={() => setStatusFilter(s)} className="button is-small" style={{
+                  background: statusFilter === s ? "rgba(255,255,255,0.08)" : "transparent",
+                  color: statusFilter === s ? "#e2e8f0" : "#475569",
+                  border: statusFilter === s ? "1px solid rgba(255,255,255,0.12)" : "1px solid transparent",
+                  fontWeight: statusFilter === s ? 700 : 400, fontSize: "10px", textTransform: "capitalize",
+                }}>
+                  {s.replace("_", " ")}
+                  {counts[s] > 0 && <span className="ml-1" style={{ fontSize: "9px", color: s === "new" && counts[s] > 0 ? "#f59e0b" : "#475569" }}>{counts[s]}</span>}
+                </button>
+              ))}
+            </div>
+            <a href={`/intelligence?section=${sectionId}`} style={{ fontSize: "10px", color: "#334155", whiteSpace: "nowrap" }}>View all →</a>
+          </div>
+        </div>
+
+        {/* Insight cards — scrollable grid */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "1rem 1.25rem" }} className="custom-scrollbar">
+          {filtered.length === 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 8, opacity: 0.5 }}>
+              <p style={{ fontSize: "12px", color: "#475569", textAlign: "center" }}>
+                No {statusFilter.replace("_", " ")} insights.{statusFilter === "new" ? " Run an analysis to generate findings." : ""}
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "0.75rem" }}>
+              {filtered.map(insight => (
+                <InsightCard key={insight.id} insight={insight} onFeedback={handleFeedback} onOpenPanel={setReviewInsight} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Approval Review Panel — slide-out overlay */}
       <InsightReviewPanel
         insight={reviewInsight}
         onClose={() => setReviewInsight(null)}
         onStatusChange={(_id, status) => {
-          // Optimistically update status in local state + re-fetch
           setInsights(prev => prev.map(i => i.id === _id ? { ...i, status } : i));
           fetchInsights();
         }}
@@ -557,3 +598,4 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
     </div>
   );
 }
+
