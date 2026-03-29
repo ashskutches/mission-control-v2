@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw, Check, X, Plug, ExternalLink } from "lucide-react";
 import SectionAgentPanel from "@/components/SectionAgentPanel";
 import SectionMetricsPanel from "@/components/SectionMetricsPanel";
+import SectionLiveKPIs from "@/components/SectionLiveKPIs";
 import { MarkdownMessage } from "@/components/MarkdownMessage";
 import InsightReviewPanel from "@/components/InsightReviewPanel";
 import { Send, AlertCircle } from "lucide-react";
@@ -463,6 +464,16 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
 
         {/* LEFT: single scroll container — metrics → integrations → insights */}
         <div style={{ minWidth: 0, height: "100%", overflowY: "auto", overflowX: "hidden" }} className="custom-scrollbar">
+
+          {/* Live KPI auto-refresh bar (email/ads/products/orders) */}
+          <SectionLiveKPIs
+            sectionId={sectionId}
+            accentColor={accentColor}
+            onRefreshed={() => {
+              setRefreshTrigger(t => t + 1);
+              fetchMetrics();
+            }}
+          />
 
           {/* Metrics */}
           <SectionMetricsPanel sectionId={sectionId} agentName={assignedAgent?.name} refreshTrigger={refreshTrigger} />
