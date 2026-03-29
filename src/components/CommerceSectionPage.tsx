@@ -438,7 +438,7 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
   }, {});
 
   return (
-    <div style={{ padding: "1.25rem 1.5rem", height: "calc(100vh - 60px)", display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
+    <div style={{ padding: "1.25rem 1.5rem", height: "calc(100vh - 60px)", display: "flex", flexDirection: "column", minWidth: 0, overflowY: "auto" }}>
 
       {/* Header */}
       <div className="is-flex is-justify-content-space-between is-align-items-center mb-4" style={{ flexShrink: 0 }}>
@@ -460,7 +460,7 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
       </div>
 
       {/* ── Row 1: Analytics (left) + Chat (right) ─────────────────── */}
-      <div style={{ flex: "0 0 auto", display: "grid", gridTemplateColumns: "1fr 380px", gap: "1.25rem", minHeight: 0, maxHeight: "calc(55vh - 60px)" }}>
+      <div style={{ flexShrink: 0, display: "grid", gridTemplateColumns: "1fr 380px", gap: "1.25rem", height: "42vh", minHeight: 280 }}>
 
         {/* LEFT: Live KPIs + Metrics + Integration Requests */}
         <div style={{ minWidth: 0, height: "100%", overflowY: "auto", overflowX: "hidden" }} className="custom-scrollbar">
@@ -516,17 +516,18 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
         </div>
       </div>
 
-      {/* ── Row 2: Full-width Insights & Recommendations ─────────────────── */}
+      {/* ── Row 2: Full-width Insights & Recommendations ─────────── */}
       <div style={{
-        flex: 1,
+        flexShrink: 0,
         marginTop: "1.25rem",
-        minHeight: 0,
+        minHeight: 360,
         display: "flex",
         flexDirection: "column",
-        background: "rgba(0,0,0,0.15)",
+        background: "rgba(0,0,0,0.2)",
         borderRadius: 14,
-        border: "1px solid rgba(255,255,255,0.06)",
+        border: "1px solid rgba(255,255,255,0.07)",
         overflow: "hidden",
+        marginBottom: "1.5rem",
       }}>
         {/* Section header */}
         <div style={{
@@ -569,7 +570,7 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
         </div>
 
         {/* Insight cards — scrollable grid */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "1rem 1.25rem" }} className="custom-scrollbar">
+        <div style={{ overflowY: "auto", padding: "1rem 1.25rem", minHeight: 240 }} className="custom-scrollbar">
           {filtered.length === 0 ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 8, opacity: 0.5 }}>
               <p style={{ fontSize: "12px", color: "#475569", textAlign: "center" }}>
