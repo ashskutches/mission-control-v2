@@ -438,7 +438,7 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
       <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 380px", gap: "1.25rem", minHeight: 0 }}>
 
         {/* LEFT: Metrics + Integration Requests + Insights */}
-        <div style={{ display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
           {/* Metrics */}
           <div style={{ flexShrink: 0, marginBottom: "1rem" }}>
             <SectionMetricsPanel sectionId={sectionId} agentName={assignedAgent?.name} refreshTrigger={refreshTrigger} />
@@ -487,7 +487,7 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
                 </button>
               ))}
             </div>
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence initial={false}>
               {filtered.length === 0
                 ? <motion.p key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ fontSize: "0.82rem", color: "#334155", textAlign: "center", padding: "2rem 0" }}>
                     No {statusFilter.replace("_", " ")} insights.{statusFilter === "new" ? " Run an analysis to generate findings." : ""}
