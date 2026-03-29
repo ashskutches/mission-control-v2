@@ -2,14 +2,14 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Lightbulb, Plus, Trash2, Pencil, X, ChevronDown, Bot,
-  Workflow, BarChart2, ShoppingBag, Megaphone, Database, Rocket, Sparkles, Check,
+  Lightbulb, Plus, Trash2, Pencil, X, ChevronDown, Bot, AlertTriangle, Bug,
+  Workflow, BarChart2, ShoppingBag, Megaphone, Database, Rocket, Sparkles, Check, Wrench,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
 type IdeaStatus = "new" | "in-review" | "planned" | "done" | "dismissed";
-type IdeaCategory = "workflow" | "content" | "data" | "marketing" | "product" | "outreach" | "general";
+type IdeaCategory = "workflow" | "content" | "data" | "marketing" | "product" | "outreach" | "general" | "limitation" | "bug";
 
 interface Idea {
   id: string;
@@ -25,13 +25,15 @@ interface Idea {
 }
 
 const CATEGORY_META: Record<IdeaCategory, { label: string; color: string; icon: React.ElementType }> = {
-  workflow:  { label: "Workflow",  color: "#ff8c00", icon: Workflow },
-  content:   { label: "Content",   color: "#38bdf8", icon: Sparkles },
-  data:      { label: "Data",      color: "#a78bfa", icon: Database },
-  marketing: { label: "Marketing", color: "#f43f5e", icon: Megaphone },
-  product:   { label: "Product",   color: "#22c55e", icon: ShoppingBag },
-  outreach:  { label: "Outreach",  color: "#f59e0b", icon: Rocket },
-  general:   { label: "General",   color: "#6366f1", icon: Lightbulb },
+  workflow:    { label: "Workflow",    color: "#ff8c00", icon: Workflow },
+  content:     { label: "Content",     color: "#38bdf8", icon: Sparkles },
+  data:        { label: "Data",        color: "#a78bfa", icon: Database },
+  marketing:   { label: "Marketing",   color: "#f43f5e", icon: Megaphone },
+  product:     { label: "Product",     color: "#22c55e", icon: ShoppingBag },
+  outreach:    { label: "Outreach",    color: "#f59e0b", icon: Rocket },
+  general:     { label: "General",     color: "#6366f1", icon: Lightbulb },
+  limitation:  { label: "Limitation",  color: "#fb923c", icon: Wrench },
+  bug:         { label: "Bug",         color: "#ef4444", icon: Bug },
 };
 
 const STATUS_META: Record<IdeaStatus, { label: string; color: string }> = {
@@ -43,7 +45,8 @@ const STATUS_META: Record<IdeaStatus, { label: string; color: string }> = {
 };
 
 const STATUSES: IdeaStatus[] = ["new", "in-review", "planned", "done", "dismissed"];
-const CATEGORIES: IdeaCategory[] = ["workflow", "content", "data", "marketing", "product", "outreach", "general"];
+// limitation and bug shown first so agent-reported issues are easily filterable
+const CATEGORIES: IdeaCategory[] = ["limitation", "bug", "workflow", "content", "data", "marketing", "product", "outreach", "general"];
 
 const inputStyle: React.CSSProperties = {
   width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
@@ -272,7 +275,7 @@ export default function IdeasPage() {
             )}
           </div>
           <p style={{ color: "#555", fontSize: 12, margin: 0 }}>
-            Ideas logged by you or your agents — review, plan, and act on them when ready.
+            Ideas, limitations, and bugs logged by you or your agents — review, plan, and act on them when ready.
             {agentCount > 0 && ` ${agentCount} from agents.`}
           </p>
         </div>
