@@ -57,14 +57,6 @@ export function AgentDetailChat({ agentId, agentName, agentEmoji = "🤖", agent
   const msgCountRef = useRef<number>(0);
   const messagesRef = useRef<Message[]>([]);
 
-  const isNearBottom = () => {
-    const el = scrollContainerRef.current;
-    if (!el) return true;
-    return el.scrollHeight - el.scrollTop - el.clientHeight < 150;
-  };
-  const scrollToBottom = (force = false) => {
-    if (force || isNearBottom()) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
 
   // On mount: find or create a conversation for this agent
   useEffect(() => {
@@ -117,13 +109,6 @@ export function AgentDetailChat({ agentId, agentName, agentEmoji = "🤖", agent
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [convoId, fetchMessages, sending]);
 
-  useEffect(() => {
-    const newCount = messages.length;
-    const hadNew = newCount > msgCountRef.current;
-    msgCountRef.current = newCount;
-    scrollToBottom(hadNew);
-  }, [messages]);
-  useEffect(() => { if (sending) scrollToBottom(true); }, [sending]);
 
   const handleSend = async () => {
     const text = input.trim();

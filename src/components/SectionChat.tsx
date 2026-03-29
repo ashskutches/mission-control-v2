@@ -163,15 +163,6 @@ export default function SectionChat({
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [convoId, fetchMessages, sending]);
 
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sending]);
-
-  // Focus textarea when opened
-  useEffect(() => {
-    if (open) setTimeout(() => textareaRef.current?.focus(), 150);
-  }, [open]);
 
   const handleSend = async () => {
     const text = input.trim();

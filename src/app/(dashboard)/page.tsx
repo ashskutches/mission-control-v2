@@ -158,9 +158,7 @@ function MasterBotChat({ masterAgentId }: { masterAgentId: string | null }) {
     }
   }, []);
 
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+
 
   const send = useCallback(async () => {
     const text = input.trim();
