@@ -22,6 +22,8 @@ interface AgentDef {
     discordChannelId: string;
     discordManagerId?: string;
     features: Record<string, boolean>;
+    skills?: string[];     // Skill tier bundles — gates tool access
+    role?: string;         // Semantic role for ROLE_SKILLS lookup
     personality?: string;
     mission?: string;
     context?: string;
@@ -135,6 +137,21 @@ const ALL_FEATURES: { id: string; label: string; icon: any; description: string;
 const FEATURE_CATEGORIES = ["Intelligence", "Commerce", "Communication", "Automation"];
 
 
+// ── Skill Tiers ────────────────────────────────────────────────────────────
+const SKILL_TIERS: { id: string; label: string; description: string; tokens: number; color: string; always?: boolean }[] = [
+    { id: "core",          label: "Core",          description: "Memories, web search, insights, routines",  tokens: 2800,  color: "#6366f1", always: true },
+    { id: "workspace",     label: "Workspace",      description: "Google Docs / Sheets CRUD",                tokens: 1500,  color: "#38bdf8" },
+    { id: "intelligence",  label: "Intelligence",   description: "GA4, GSC, YouTube, Facebook/IG, DataForSEO, Firecrawl", tokens: 1841, color: "#f59e0b" },
+    { id: "communication", label: "Communication",  description: "Gmail + Discord DM",                       tokens: 1200,  color: "#7289da" },
+    { id: "content",       label: "Content",        description: "Image/video gen, social scheduling, Pinterest", tokens: 2400, color: "#e879f9" },
+    { id: "asset-library", label: "Asset Library",  description: "Gemini image/video tagging & search",      tokens: 1400,  color: "#34d399" },
+    { id: "commerce",      label: "Commerce",       description: "Shopify MCP, Triple Whale, Klaviyo metrics",tokens: 900,   color: "#f87171" },
+    { id: "outreach",      label: "Outreach",       description: "SMS + Voice calls",                        tokens: 800,   color: "#fb923c" },
+    { id: "workflows",     label: "Workflows",      description: "Workflow orchestration (lead agents only)", tokens: 1698,  color: "#a78bfa" },
+    { id: "admin",         label: "Admin",          description: "Shell, browser, system logs",              tokens: 600,   color: "#94a3b8" },
+];
+const SKILL_TOKEN_BUDGET = 18827; // current max
+
 
 const PRIMING_FIELDS = [
     { id: "personality", label: "Personality & Tone", icon: Sparkles, placeholder: "e.g. Direct, no-nonsense, uses dry humour." },
@@ -181,6 +198,14 @@ function AgentSetupModal({
         ...p,
         features: { ...p.features, [id]: !p.features?.[id] }
     }));
+    const toggleSkill = (id: string) => {
+        if (SKILL_TIERS.find(s => s.id === id)?.always) return; // core is always on
+        setForm(p => {
+            const current = p.skills ?? [];
+            const next = current.includes(id) ? current.filter(s => s !== id) : [...current, id];
+            return { ...p, skills: next };
+        });
+    };
 
     // Discord manager dropdown (members passed from parent — fetched once)
     const [memberSearch, setMemberSearch] = useState("");
@@ -476,6 +501,61 @@ function AgentSetupModal({
                                 </div>
                             );
                         })}
+                    </div>
+
+                    {/* Skill Tiers */}
+                    <div className="mb-4">
+                        <div className="is-flex is-align-items-center is-justify-content-space-between mb-2">
+                            <label className="is-size-7 has-text-grey-light has-text-weight-bold" style={{ letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                                Skill Tiers
+                            </label>
+                            {(() => {
+                                const activeSkills = form.skills ?? [];
+                                const totalTokens = SKILL_TIERS.filter(s => activeSkills.includes(s.id) || s.always).reduce((t, s) => t + s.tokens, 0);
+                                const pct = Math.round((totalTokens / SKILL_TOKEN_BUDGET) * 100);
+                                const color = pct < 50 ? "#34d399" : pct < 75 ? "#f59e0b" : "#ef4444";
+                                return (
+                                    <span style={{ fontSize: 10, fontWeight: 800, color, background: `${color}18`, border: `1px solid ${color}35`, borderRadius: 6, padding: "2px 7px" }}>
+                                        ~{totalTokens.toLocaleString()} tokens ({pct}% of budget)
+                                    </span>
+                                );
+                            })()}
+                        </div>
+                        <p className="is-size-7 has-text-grey mb-2">Select which tool bundles this agent can access. Fewer skills = faster, cheaper responses.</p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                            {SKILL_TIERS.map(skill => {
+                                const active = skill.always || (form.skills ?? []).includes(skill.id);
+                                return (
+                                    <button
+                                        key={skill.id}
+                                        type="button"
+                                        onClick={() => toggleSkill(skill.id)}
+                                        disabled={skill.always}
+                                        style={{
+                                            textAlign: "left", padding: "7px 10px", borderRadius: 8,
+                                            background: active ? `${skill.color}15` : "rgba(255,255,255,0.02)",
+                                            border: active ? `1px solid ${skill.color}45` : "1px solid rgba(255,255,255,0.06)",
+                                            cursor: skill.always ? "default" : "pointer",
+                                            opacity: skill.always ? 0.7 : 1,
+                                            display: "flex", alignItems: "center", gap: 10,
+                                            transition: "all 0.12s",
+                                        }}
+                                    >
+                                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: active ? skill.color : "#444", flexShrink: 0, transition: "background 0.12s" }} />
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <span style={{ fontSize: 12, fontWeight: 700, color: active ? "#fff" : "#777", display: "block" }}>
+                                                {skill.label}
+                                                {skill.always && <span style={{ fontSize: 9, color: "#555", fontWeight: 400, marginLeft: 5 }}>Always on</span>}
+                                            </span>
+                                            <span style={{ fontSize: 10, color: "#555" }}>{skill.description}</span>
+                                        </div>
+                                        <span style={{ fontSize: 9, fontWeight: 800, color: active ? skill.color : "#444", background: active ? `${skill.color}15` : "rgba(255,255,255,0.04)", border: `1px solid ${active ? skill.color + "35" : "rgba(255,255,255,0.06)"}`, borderRadius: 4, padding: "1px 5px", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
+                                            ~{skill.tokens.toLocaleString()}t
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
 
                     {/* Advanced (mission, personality, etc.) — collapsed by default for template spawn */}
