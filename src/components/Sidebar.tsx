@@ -1,8 +1,8 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut, ShieldCheck } from "lucide-react";
-import { APP_CONFIG } from "@/app/lib/AppConfig";
+import { LogOut, ShieldCheck, ChevronDown, ChevronRight } from "lucide-react";
+import { APP_CONFIG, SQUADS } from "@/app/lib/AppConfig";
 import { cn } from "@/app/lib/utils";
 
 interface SidebarProps {
@@ -14,13 +14,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
+  // Track which squads are collapsed (default: all expanded)
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
   const getActiveId = () => {
     if (pathname === "/") return "overview";
-    // Filter all items that match, then pick the most specific (longest href).
-    // This prevents /commerce/seo from matching the "Store" item (/commerce)
-    // before it finds the correct "SEO" item (/commerce/seo).
     const matches = APP_CONFIG.navigation.filter((item: any) =>
-      pathname === item.href || pathname.startsWith(item.href + "/")
+      item.href && (pathname === item.href || pathname.startsWith(item.href + "/"))
     );
     if (matches.length === 0) return pathname.split("/")[1] ?? "overview";
     const best = matches.reduce((a: any, b: any) =>
@@ -35,11 +35,41 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     onClose?.();
   };
 
+  const toggleSquad = (squadId: string) =>
+    setCollapsed(prev => ({ ...prev, [squadId]: !prev[squadId] }));
+
+  const renderNavItem = (item: any, indented = false) => {
+    const isActive = activeId === item.id;
+    const Icon = item.icon;
+    const accent = item.color ?? "var(--accent-orange)";
+    return (
+      <li key={item.id}>
+        <a
+          onClick={() => navigate(item.href)}
+          className={cn(isActive ? "is-active" : "has-text-grey-light", "is-flex is-align-items-center")}
+          style={{
+            gap: "0.75rem",
+            cursor: "pointer",
+            backgroundColor: isActive ? `${accent}18` : "transparent",
+            borderLeft: isActive ? `2px solid ${accent}` : "2px solid transparent",
+            paddingLeft: indented ? "1.4rem" : "0.6rem",
+            transition: "all 0.15s",
+          }}
+        >
+          <Icon size={indented ? 15 : 18} color={isActive ? accent : undefined} />
+          <span
+            className="is-uppercase has-text-weight-bold"
+            style={{ fontSize: indented ? "11px" : "12px", color: isActive ? accent : undefined }}
+          >
+            {item.label}
+          </span>
+        </a>
+      </li>
+    );
+  };
+
   return (
-    <aside className={cn(
-      "sidebar-bulma menu custom-scrollbar",
-      isOpen && "is-active"
-    )} style={{ overflowY: "auto" }}>
+    <aside className={cn("sidebar-bulma menu custom-scrollbar", isOpen && "is-active")} style={{ overflowY: "auto" }}>
 
       {/* Brand Header */}
       <div
@@ -71,48 +101,100 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
       </div>
 
-      {/* Grouped Navigation */}
-      {(["core", "commerce", "command"] as const).map((group) => {
-        const groupItems = APP_CONFIG.navigation.filter((item: any) => item.group === group);
-        const groupLabel = group === "core" ? null : group === "commerce" ? "Commerce" : "Command";
+      {/* Core group */}
+      {(() => {
+        const coreItems = APP_CONFIG.navigation.filter((i: any) => i.group === "core");
         return (
-          <div key={group} style={{ marginBottom: group === "commerce" ? "0.5rem" : undefined }}>
-            {groupLabel && (
-              <p className="menu-label has-text-grey-light is-uppercase mt-4" style={{ letterSpacing: "0.1em", fontSize: "9px" }}>
-                {groupLabel}
-              </p>
-            )}
+          <div style={{ marginBottom: "0.5rem" }}>
+            <ul className="menu-list">{coreItems.map((item: any) => renderNavItem(item))}</ul>
+          </div>
+        );
+      })()}
+
+      {/* Commerce group — squad structure */}
+      {(() => {
+        const storeItem = APP_CONFIG.navigation.find((i: any) => i.group === "commerce" && !i.squad);
+        return (
+          <div style={{ marginBottom: "0.5rem" }}>
+            <p className="menu-label has-text-grey-light is-uppercase mt-4" style={{ letterSpacing: "0.1em", fontSize: "9px" }}>
+              Commerce
+            </p>
             <ul className="menu-list">
-              {groupItems.map((item: any) => {
-                const isActive = activeId === item.id;
-                const Icon = item.icon;
-                const accent = item.color ?? "var(--accent-orange)";
+              {/* Store overview */}
+              {storeItem && renderNavItem(storeItem)}
+
+              {/* Squads */}
+              {SQUADS.map(squad => {
+                const items = APP_CONFIG.navigation.filter((i: any) => i.group === "commerce" && i.squad === squad.id);
+                if (items.length === 0) return null;
+                const isCollapsed = collapsed[squad.id] ?? false;
+                const SquadIcon = squad.icon;
+                // Is any item in this squad active?
+                const squadActive = items.some((i: any) => activeId === i.id);
+
                 return (
-                  <li key={item.id}>
+                  <li key={squad.id}>
+                    {/* Squad header — clickable to collapse */}
                     <a
-                      onClick={() => navigate(item.href)}
-                      className={cn(isActive ? "is-active" : "has-text-grey-light", "is-flex is-align-items-center")}
+                      onClick={() => toggleSquad(squad.id)}
+                      className="is-flex is-align-items-center"
                       style={{
-                        gap: "0.75rem", cursor: "pointer",
-                        backgroundColor: isActive ? `${accent}18` : "transparent",
-                        borderLeft: isActive ? `2px solid ${accent}` : "2px solid transparent",
-                        paddingLeft: "0.6rem", transition: "all 0.15s",
+                        gap: "0.6rem",
+                        cursor: "pointer",
+                        padding: "0.35rem 0.6rem",
+                        borderLeft: squadActive ? `2px solid ${squad.color}60` : "2px solid transparent",
+                        background: squadActive ? `${squad.color}08` : "transparent",
+                        transition: "all 0.15s",
+                        marginTop: "0.25rem",
                       }}
                     >
-                      <Icon size={18} color={isActive ? accent : undefined} />
-                      <span className="is-uppercase has-text-weight-bold" style={{ fontSize: "12px", color: isActive ? accent : undefined }}>
-                        {item.label}
+                      <div style={{
+                        width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+                        background: `${squad.color}20`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <SquadIcon size={10} style={{ color: squad.color }} />
+                      </div>
+                      <span
+                        className="is-uppercase has-text-weight-black"
+                        style={{ fontSize: "9px", letterSpacing: "0.08em", color: squad.color, flex: 1 }}
+                      >
+                        {squad.label}
                       </span>
+                      {isCollapsed
+                        ? <ChevronRight size={10} style={{ color: squad.color, opacity: 0.6 }} />
+                        : <ChevronDown size={10} style={{ color: squad.color, opacity: 0.6 }} />
+                      }
                     </a>
+
+                    {/* Agent sub-items */}
+                    {!isCollapsed && (
+                      <ul className="menu-list" style={{ marginLeft: 0 }}>
+                        {items.map((item: any) => renderNavItem(item, true))}
+                      </ul>
+                    )}
                   </li>
                 );
               })}
             </ul>
           </div>
         );
-      })}
+      })()}
 
+      {/* Command group */}
+      {(() => {
+        const commandItems = APP_CONFIG.navigation.filter((i: any) => i.group === "command");
+        return (
+          <div>
+            <p className="menu-label has-text-grey-light is-uppercase mt-4" style={{ letterSpacing: "0.1em", fontSize: "9px" }}>
+              Command
+            </p>
+            <ul className="menu-list">{commandItems.map((item: any) => renderNavItem(item))}</ul>
+          </div>
+        );
+      })()}
 
+      {/* Footer */}
       <div style={{ marginTop: "auto", paddingTop: "2rem" }}>
         <div className="box p-4 mb-5" style={{ backgroundColor: "rgba(255,255,255,0.02) !important" }}>
           <div className="is-flex is-justify-content-between is-align-items-center mb-3">
