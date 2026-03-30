@@ -25,7 +25,7 @@ interface CostAlert {
   created_at: string;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
 
 export default function CostSummaryPanel() {
   const [agentCosts, setAgentCosts] = useState<CostByAgent[]>([]);
