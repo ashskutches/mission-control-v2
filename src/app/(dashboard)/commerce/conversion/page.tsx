@@ -1,3 +1,4 @@
+"use client";
 import { Target, FlaskConical, Tag, LayoutGrid, Zap } from "lucide-react";
 import SquadOverviewPage, { type SquadConfig } from "@/components/SquadOverviewPage";
 

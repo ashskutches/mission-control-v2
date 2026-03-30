@@ -1,3 +1,4 @@
+"use client";
 import { Activity, LineChart, Eye } from "lucide-react";
 import SquadOverviewPage, { type SquadConfig } from "@/components/SquadOverviewPage";
 

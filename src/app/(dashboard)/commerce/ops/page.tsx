@@ -1,3 +1,4 @@
+"use client";
 import { ShieldCheck, LifeBuoy, Truck, MessageCircle } from "lucide-react";
 import SquadOverviewPage, { type SquadConfig } from "@/components/SquadOverviewPage";
 

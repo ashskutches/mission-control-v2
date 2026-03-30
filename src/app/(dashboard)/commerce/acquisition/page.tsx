@@ -1,3 +1,4 @@
+"use client";
 import { TrendingUp, Megaphone, Users, Share2, SearchCheck } from "lucide-react";
 import SquadOverviewPage, { type SquadConfig } from "@/components/SquadOverviewPage";
 
