@@ -24,6 +24,7 @@ import {
     Target,
     ShieldCheck,
     Activity,
+    DollarSign,
 } from 'lucide-react';
 
 export const SQUADS = [
@@ -94,6 +95,7 @@ export const APP_CONFIG = {
         { id: 'agents',   href: '/agents',   icon: Bot,          label: 'Agents',  color: '#64748b', group: 'command' },
         { id: 'chats',    href: '/chats',    icon: MessageSquare,label: 'Chats',   color: '#64748b', group: 'command' },
         { id: 'ideas',    href: '/ideas',    icon: Lightbulb,    label: 'Ideas',   color: '#64748b', group: 'command' },
+        { id: 'costs',    href: '/costs',    icon: DollarSign,   label: 'Costs',   color: '#22c55e', group: 'command' },
         { id: 'settings', href: '/settings', icon: Settings,     label: 'Settings',                  group: 'command' },
     ],
     theme: {

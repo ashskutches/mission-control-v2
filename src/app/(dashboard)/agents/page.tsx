@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
 import { AgentCRUD } from "@/components/AgentCRUD";
-import AgentMetrics from "@/components/AgentMetrics";
 import { ChevronDown, ChevronUp, Brain, ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -103,10 +102,25 @@ export default function AgentsPage() {
           <SquadLeadRoster />
         </CollapsibleSection>
 
-        {/* ── Performance ── */}
-        <CollapsibleSection title="Agent Intelligence" subtitle="Performance · Cost · ROI — 30 Day Window" defaultOpen={false}>
-          <AgentMetrics />
-        </CollapsibleSection>
+        {/* ── Costs link ── */}
+        <div style={{
+          padding: "0.85rem 1.25rem", borderRadius: 12,
+          border: "1px solid rgba(34,197,94,0.18)", background: "rgba(34,197,94,0.04)",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <div>
+            <p style={{ color: "#e2e8f0", fontWeight: 700, fontSize: 13, margin: 0 }}>Agent Costs & ROI</p>
+            <p style={{ color: "#475569", fontSize: 11, margin: "2px 0 0" }}>LLM spend, routine costs, and time-saved value have moved to their own page.</p>
+          </div>
+          <a href="/costs" style={{
+            fontSize: 11, fontWeight: 700, color: "#22c55e",
+            display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
+            background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)",
+            borderRadius: 7, padding: "5px 12px", textDecoration: "none",
+          }}>
+            View Costs →
+          </a>
+        </div>
 
         {/* ── All other agents ── */}
         <CollapsibleSection title="Manage Agents" subtitle="Create, configure, and deploy AI agents" defaultOpen={true}>
