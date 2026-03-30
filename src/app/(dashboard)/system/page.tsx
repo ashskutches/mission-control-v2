@@ -97,7 +97,12 @@ function BlockagesPanel() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
-    setItems(prev => prev.map(i => i.id === id ? { ...i, status } : i));
+    // Remove from list if dismissing/resolving while in open/new filter — item no longer belongs
+    const shouldRemove = (status === "dismissed" || status === "resolved") && (filterStatus === "open" || filterStatus === "in_progress");
+    setItems(prev => shouldRemove
+      ? prev.filter(i => i.id !== id)
+      : prev.map(i => i.id === id ? { ...i, status } : i)
+    );
   };
 
   const toggle = (id: string) => setExpanded(p => ({ ...p, [id]: !p[id] }));
