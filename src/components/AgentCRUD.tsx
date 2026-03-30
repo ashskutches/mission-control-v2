@@ -53,6 +53,7 @@ interface AgentTemplate {
 
 // ── Constants ──────────────────────────────────────────────────────────
 const CATEGORY_EMOJI: Record<string, string> = {
+    "Squad Lead": "🧠",
     "Design": "🎨",
     "Engineering": "⚙️",
     "Marketing": "📢",
@@ -68,6 +69,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
+    "Squad Lead": "#a78bfa",
     "Design": "#ff6b9d",
     "Engineering": "#4da6ff",
     "Marketing": "#ff8c00",

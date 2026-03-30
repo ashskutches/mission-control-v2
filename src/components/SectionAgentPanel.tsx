@@ -3,8 +3,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot, UserPlus, Users, MessageSquare, ChevronDown, X, Check, Zap,
-  Play, Loader, ExternalLink, AlertTriangle,
+  Play, Loader, ExternalLink, AlertTriangle, Sparkles,
 } from "lucide-react";
+
 
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -30,17 +31,25 @@ interface SectionAgentPanelProps {
   sectionId: string;
   sectionName: string;
   sectionHint?: string;
+  /** Optional squad metadata — passed to the generator for better output */
+  squad?: string;
+  squadDescription?: string;
+  accentColor?: string;
   onAgentAssigned?: (agent: Agent) => void;
   onAnalysisDone?: () => void;
 }
 
-export default function SectionAgentPanel({ sectionId, sectionName, sectionHint, onAgentAssigned, onAnalysisDone }: SectionAgentPanelProps) {
+
+export default function SectionAgentPanel({ sectionId, sectionName, sectionHint, squad, squadDescription, accentColor: accentColorProp, onAgentAssigned, onAnalysisDone }: SectionAgentPanelProps) {
   const [section, setSection] = useState<SectionData | null>(null);
   const [allAgents, setAllAgents] = useState<Agent[]>([]);
   const [teamAgents, setTeamAgents] = useState<Agent[]>([]);
   const [showPicker, setShowPicker] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
   const [running, setRunning] = useState(false);
   const [lastRun, setLastRun] = useState<Date | null>(null);
   const [convId, setConvId] = useState<string | null>(null);
@@ -105,7 +114,47 @@ Your goal is to help grow this area of the business. Surface what's actually imp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section?.lead_agent_id]);
 
+  const generateAgent = async () => {
+    setGenerating(true);
+    setGenerateError(null);
+    try {
+      // Step 1: Generate + create the agent
+      const genRes = await fetch(`${BOT_URL}/admin/agents/generate-for-section`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sectionId, sectionName,
+          squad: squad ?? "",
+          squadDescription: squadDescription ?? "",
+          accentColor: accentColorProp ?? "#38bdf8",
+        }),
+        signal: AbortSignal.timeout(60_000), // Claude can take ~15s
+      });
+      if (!genRes.ok) {
+        const body = await genRes.json().catch(() => ({}));
+        throw new Error(body.error ?? `Generate failed (${genRes.status})`);
+      }
+      const { agent } = await genRes.json();
+
+      // Step 2: Assign to section
+      const assignRes = await fetch(`${BOT_URL}/admin/sections/${sectionId}/agent`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agent_id: agent.id, trigger_onboarding: true }),
+      });
+      if (!assignRes.ok) throw new Error("Agent created but section assignment failed");
+
+      await fetchData();
+      onAgentAssigned?.(agent);
+    } catch (err: any) {
+      setGenerateError(err.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const assignAgent = async (agent: Agent) => {
+
     setAssigning(true);
     try {
       const res = await fetch(`${BOT_URL}/admin/sections/${sectionId}/agent`, {
@@ -199,7 +248,7 @@ Your goal is to help grow this area of the business. Surface what's actually imp
             className="box p-4"
             style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.1)" }}
           >
-            <div className="is-flex is-align-items-center is-justify-content-space-between">
+            <div className="is-flex is-align-items-center is-justify-content-space-between" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
               <div className="is-flex is-align-items-center" style={{ gap: "0.75rem" }}>
                 <div style={{
                   width: 40, height: 40, borderRadius: 10,
@@ -215,15 +264,41 @@ Your goal is to help grow this area of the business. Surface what's actually imp
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setShowPicker(!showPicker)}
-                className="button is-small"
-                style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.25)", fontWeight: 700 }}
-              >
-                <UserPlus size={13} style={{ marginRight: "0.4rem" }} />
-                Assign Agent
-              </button>
+              <div className="is-flex is-align-items-center" style={{ gap: "0.5rem", flexWrap: "wrap" }}>
+                {/* Auto-Generate */}
+                <button
+                  onClick={generateAgent}
+                  disabled={generating}
+                  className="button is-small"
+                  style={{
+                    background: generating ? "rgba(167,139,250,0.06)" : "rgba(167,139,250,0.14)",
+                    color: generating ? "#7c3aed" : "#a78bfa",
+                    border: `1px solid ${generating ? "rgba(167,139,250,0.2)" : "rgba(167,139,250,0.35)"}`,
+                    fontWeight: 700, gap: "0.35rem",
+                    cursor: generating ? "not-allowed" : "pointer",
+                  }}
+                  title="Auto-generate a perfectly configured lead agent for this section"
+                >
+                  {generating
+                    ? <><Loader size={12} className="spin" /> Generating...</>
+                    : <><Sparkles size={12} /> Auto-Generate</>}
+                </button>
+                {/* Manual assign */}
+                <button
+                  onClick={() => setShowPicker(!showPicker)}
+                  className="button is-small"
+                  style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.25)", fontWeight: 700 }}
+                >
+                  <UserPlus size={13} style={{ marginRight: "0.4rem" }} />
+                  Assign Agent
+                </button>
+              </div>
             </div>
+            {/* Generate error */}
+            {generateError && (
+              <p style={{ fontSize: "11px", color: "#f43f5e", marginTop: "0.5rem" }}>⚠ {generateError}</p>
+            )}
+
           </motion.div>
         ) : (
           // ── Assigned state ────────────────────────────────────────────────
