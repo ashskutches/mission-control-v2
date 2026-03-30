@@ -6,6 +6,7 @@ import {
   ShoppingBag, Plug, Server,
 } from "lucide-react";
 import AgentMetrics from "@/components/AgentMetrics";
+import CostAlertsPanel from "@/components/CostAlertsPanel";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
@@ -70,6 +71,11 @@ export default function CostsPage() {
             <strong>Cost discipline matters.</strong> Every routine run, tool call, and LLM response is logged. Use this page to find waste, justify spend, and optimize costly workflows.
           </p>
         </div>
+      </div>
+
+      {/* ── Cost Alerts Panel ── */}
+      <div style={{ marginBottom: "2.5rem" }}>
+        <CostAlertsPanel />
       </div>
 
       {/* ── Agent LLM Metrics (full component) ── */}
