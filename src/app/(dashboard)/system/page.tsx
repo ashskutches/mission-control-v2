@@ -58,6 +58,10 @@ function BlockagesPanel() {
   const [filterStatus, setFilterStatus] = useState("open");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
+  // Health-check state
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<{ message: string; jobs: any[] } | null>(null);
+
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
@@ -72,6 +76,20 @@ function BlockagesPanel() {
   }, [filterType, filterStatus]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
+
+  const runHealthCheck = async () => {
+    setChecking(true);
+    setCheckResult(null);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/insights/health-check`, { method: "POST" });
+      const data = await res.json();
+      setCheckResult(data);
+    } catch (err: any) {
+      setCheckResult({ message: `Error: ${err.message}`, jobs: [] });
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const patch = async (id: string, status: string) => {
     await fetch(`${BOT_URL}/admin/insights/${id}`, {
@@ -94,6 +112,63 @@ function BlockagesPanel() {
 
   return (
     <div>
+      {/* Health Check */}
+      <div className="is-flex is-align-items-center mb-4" style={{ gap: "0.75rem" }}>
+        <motion.button
+          onClick={runHealthCheck}
+          disabled={checking}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="button is-small"
+          style={{
+            background: checking ? "rgba(56,189,248,0.08)" : "rgba(56,189,248,0.14)",
+            border: "1px solid rgba(56,189,248,0.3)",
+            color: "#38bdf8", fontWeight: 800, fontSize: "12px",
+            gap: "0.4rem", display: "flex", alignItems: "center",
+          }}
+        >
+          {checking ? (
+            <>
+              <RefreshCw size={13} className="spin" />
+              Checking…
+            </>
+          ) : (
+            <>
+              <RefreshCw size={13} />
+              Run Health Check
+            </>
+          )}
+        </motion.button>
+        <span style={{ fontSize: "11px", color: "#334155" }}>
+          Dispatches each open blockage to the agent that filed it — they verify if the issue still exists.
+        </span>
+      </div>
+
+      {/* Health check result banner */}
+      <AnimatePresence>
+        {checkResult && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
+            className="mb-4 px-4 py-3"
+            style={{
+              background: checkResult.jobs.length > 0 ? "rgba(34,197,94,0.08)" : "rgba(100,116,139,0.08)",
+              border: `1px solid ${checkResult.jobs.length > 0 ? "rgba(34,197,94,0.25)" : "rgba(100,116,139,0.2)"}`,
+              borderRadius: 10,
+            }}
+          >
+            <p style={{ fontSize: "13px", color: checkResult.jobs.length > 0 ? "#22c55e" : "#64748b", fontWeight: 700, margin: 0 }}>
+              {checkResult.message}
+            </p>
+            {checkResult.jobs.length > 0 && (
+              <p style={{ fontSize: "11px", color: "#475569", margin: "0.25rem 0 0" }}>
+                Agents: {checkResult.jobs.map((j: any) => j.agent_name ?? j.agent_id).join(", ")} — refresh in ~60s to see any auto-resolved items.
+              </p>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Stat bar */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
         {(["bug", "blocker", "integration_request", "feature_request"] as const).map(t => {
