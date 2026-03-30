@@ -4,16 +4,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   BrainCircuit, AlertTriangle, Lightbulb, Eye, Users, Trophy,
   TrendingUp, Clock, ChevronDown, ChevronUp, ExternalLink, RefreshCw,
-  Filter,
+  Filter, Bug, ShieldAlert, Plug, Zap, Sparkles,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type InsightType = "observation" | "critical_issue" | "suggestion" | "competitor" | "win";
+type InsightType =
+  | "observation" | "critical_issue" | "suggestion" | "competitor" | "win"
+  | "bug" | "blocker" | "integration_request" | "feature_request" | "general";
 type InsightStatus = "new" | "acknowledged" | "in_progress" | "resolved" | "dismissed";
-type Section = "all" | "seo" | "email" | "content" | "ads" | "product" | "general";
+type Section = "all" | "seo" | "email" | "content" | "ads" | "product" | "general"
+  | "influencing" | "support" | "logistics" | "media" | "pricing"
+  | "catalog" | "revenue" | "brand" | "profitability" | "community";
 
 interface Insight {
   id: string;
@@ -30,6 +34,9 @@ interface Insight {
   effort: string | null;
   metrics: Record<string, any>;
   week_key: string | null;
+  tool_name?: string | null;
+  error_message?: string | null;
+  integration_name?: string | null;
 }
 
 interface Summary {
@@ -38,51 +45,82 @@ interface Summary {
   totalEstimatedMonthlyValue: number;
   byType: Record<string, number>;
   bySection: Record<string, number>;
+  openCount: number;
+  criticalCount: number;
 }
 
 // ── Config ─────────────────────────────────────────────────────────────────
 
 const TYPE_CONFIG: Record<InsightType, { label: string; icon: React.ElementType; color: string; bg: string }> = {
-  critical_issue: { label: "Critical", icon: AlertTriangle, color: "#f43f5e", bg: "rgba(244,63,94,0.12)" },
-  suggestion:     { label: "Suggestion", icon: Lightbulb, color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
-  observation:    { label: "Observation", icon: Eye, color: "#38bdf8", bg: "rgba(56,189,248,0.12)" },
-  competitor:     { label: "Competitor", icon: Users, color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  win:            { label: "Win", icon: Trophy, color: "#22c55e", bg: "rgba(34,197,94,0.12)" },
+  // Business intelligence
+  critical_issue:      { label: "Critical",      icon: AlertTriangle, color: "#f43f5e", bg: "rgba(244,63,94,0.12)" },
+  suggestion:          { label: "Suggestion",    icon: Lightbulb,     color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+  observation:         { label: "Observation",   icon: Eye,           color: "#38bdf8", bg: "rgba(56,189,248,0.12)" },
+  competitor:          { label: "Competitor",    icon: Users,         color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
+  win:                 { label: "Win",           icon: Trophy,        color: "#22c55e", bg: "rgba(34,197,94,0.12)" },
+  // Operational / blockages
+  bug:                 { label: "Bug",           icon: Bug,           color: "#ef4444", bg: "rgba(239,68,68,0.12)" },
+  blocker:             { label: "Blocker",       icon: ShieldAlert,   color: "#f97316", bg: "rgba(249,115,22,0.12)" },
+  integration_request: { label: "Integration",   icon: Plug,          color: "#38bdf8", bg: "rgba(56,189,248,0.10)" },
+  feature_request:     { label: "Feature Req.",  icon: Zap,           color: "#a78bfa", bg: "rgba(167,139,250,0.10)" },
+  // App-wide ideas
+  general:             { label: "General Idea",  icon: Sparkles,      color: "#f59e0b", bg: "rgba(245,158,11,0.08)" },
 };
 
 const STATUS_NEXT: Record<InsightStatus, InsightStatus | null> = {
   new: "acknowledged", acknowledged: "in_progress", in_progress: "resolved", resolved: null, dismissed: null,
 };
-
 const STATUS_LABEL: Record<InsightStatus, string> = {
   new: "New", acknowledged: "Acknowledged", in_progress: "In Progress", resolved: "Resolved", dismissed: "Dismissed",
 };
-
 const STATUS_COLOR: Record<InsightStatus, string> = {
   new: "#f59e0b", acknowledged: "#38bdf8", in_progress: "#a78bfa", resolved: "#22c55e", dismissed: "#64748b",
 };
-
 const PRIORITY_BAR_COLOR = (p: number) =>
   p >= 8 ? "#f43f5e" : p >= 6 ? "#f59e0b" : p >= 4 ? "#38bdf8" : "#64748b";
-
 const DIFFICULTY_COLOR: Record<string, string> = { easy: "#22c55e", medium: "#f59e0b", hard: "#f43f5e" };
 const EFFORT_COLOR: Record<string, string>     = { low: "#22c55e", medium: "#f59e0b", high: "#f43f5e" };
 
-const SECTION_LABELS: Record<string, string> = {
-  seo: "SEO", email: "Email", content: "Content",
-  ads: "Ads", product: "Product", general: "General",
-};
+// ── Type Tabs ───────────────────────────────────────────────────────────────
 
-// ── Sub-components ──────────────────────────────────────────────────────────
+const TYPE_TABS = [
+  { id: "all",                 label: "All" },
+  // Business
+  { id: "critical_issue",      label: "🔴 Critical" },
+  { id: "suggestion",          label: "💡 Suggestions" },
+  { id: "observation",         label: "👁 Observations" },
+  { id: "competitor",          label: "🔬 Competitor" },
+  { id: "win",                 label: "🏆 Wins" },
+  // Operational
+  { id: "bug",                 label: "🐛 Bugs" },
+  { id: "blocker",             label: "🚧 Blockers" },
+  { id: "integration_request", label: "🔌 Integrations" },
+  { id: "feature_request",     label: "⚡ Features" },
+  { id: "general",             label: "✨ General" },
+];
+
+const SECTION_FILTERS: { id: Section; label: string }[] = [
+  { id: "all",          label: "All" },
+  { id: "seo",          label: "SEO" },
+  { id: "email",        label: "Email" },
+  { id: "content",      label: "Content" },
+  { id: "ads",          label: "Ads" },
+  { id: "product",      label: "Product" },
+  { id: "influencing",  label: "Influencing" },
+  { id: "support",      label: "Support" },
+  { id: "general",      label: "General" },
+];
+
+// ── SummaryBar ───────────────────────────────────────────────────────────────
 
 function SummaryBar({ summary }: { summary: Summary }) {
   return (
     <div className="columns is-multiline mb-5">
       {[
-        { label: "Total Insights", value: summary.total, color: "#38bdf8", icon: BrainCircuit },
-        { label: "🔴 Critical (New)", value: summary.criticalNew, color: "#f43f5e", icon: AlertTriangle },
-        { label: "Est. Monthly Value", value: `$${(summary.totalEstimatedMonthlyValue ?? 0).toLocaleString()}`, color: "#22c55e", icon: TrendingUp },
-        { label: "Sections Active", value: Object.keys(summary.bySection ?? {}).length, color: "#a78bfa", icon: Filter },
+        { label: "Total Insights",       value: summary.total, color: "#38bdf8", icon: BrainCircuit },
+        { label: "🔴 Critical (New)",    value: summary.criticalNew, color: "#f43f5e", icon: AlertTriangle },
+        { label: "🚨 Open Blockages",    value: summary.openCount ?? 0, color: "#f97316", icon: ShieldAlert },
+        { label: "Est. Monthly Value",   value: `$${(summary.totalEstimatedMonthlyValue ?? 0).toLocaleString()}`, color: "#22c55e", icon: TrendingUp },
       ].map(({ label, value, color, icon: Icon }) => (
         <div key={label} className="column is-3-desktop is-6-tablet">
           <div className="box p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
@@ -97,6 +135,8 @@ function SummaryBar({ summary }: { summary: Summary }) {
     </div>
   );
 }
+
+// ── InsightCard ───────────────────────────────────────────────────────────────
 
 function InsightCard({ insight, onStatusChange, onDismiss }: {
   insight: Insight;
@@ -124,7 +164,6 @@ function InsightCard({ insight, onStatusChange, onDismiss }: {
     >
       {/* Header row */}
       <div className="is-flex is-align-items-flex-start" style={{ gap: "0.75rem" }}>
-        {/* Type icon */}
         <div style={{
           width: 34, height: 34, borderRadius: 8, flexShrink: 0,
           background: tc.bg, display: "flex", alignItems: "center", justifyContent: "center",
@@ -132,15 +171,13 @@ function InsightCard({ insight, onStatusChange, onDismiss }: {
           <Icon size={17} color={tc.color} />
         </div>
 
-        {/* Main content */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Badges */}
           <div className="is-flex is-flex-wrap-wrap" style={{ gap: "0.4rem", marginBottom: "0.4rem" }}>
             <span className="tag is-rounded" style={{ fontSize: "9px", background: tc.bg, color: tc.color, fontWeight: 700, textTransform: "uppercase" }}>
               {tc.label}
             </span>
             <span className="tag is-rounded" style={{ fontSize: "9px", background: "rgba(255,255,255,0.05)", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase" }}>
-              {SECTION_LABELS[insight.section] ?? insight.section}
+              {insight.section}
             </span>
             <span className="tag is-rounded" style={{ fontSize: "9px", background: `${STATUS_COLOR[insight.status]}18`, color: STATUS_COLOR[insight.status], fontWeight: 700 }}>
               {STATUS_LABEL[insight.status]}
@@ -152,39 +189,38 @@ function InsightCard({ insight, onStatusChange, onDismiss }: {
             )}
           </div>
 
-          {/* Title */}
           <p className="has-text-white" style={{ fontWeight: 700, fontSize: "0.95rem", lineHeight: 1.3, marginBottom: "0.5rem" }}>
             {insight.title}
           </p>
 
-          {/* Metrics row */}
           <div className="is-flex is-flex-wrap-wrap" style={{ gap: "1rem", marginBottom: "0.5rem" }}>
-            {/* Priority */}
             <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
               <div style={{ width: 56, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
                 <div style={{ width: `${insight.priority * 10}%`, height: "100%", background: PRIORITY_BAR_COLOR(insight.priority), borderRadius: 2 }} />
               </div>
               <span style={{ fontSize: "10px", color: "#94a3b8" }}>P{insight.priority}</span>
             </div>
-            {/* Value */}
             {insight.estimated_monthly_value != null && (
               <span style={{ fontSize: "11px", color: insight.estimated_monthly_value >= 0 ? "#22c55e" : "#f43f5e", fontWeight: 700 }}>
                 💰 {insight.estimated_monthly_value >= 0 ? "+" : ""}${Math.abs(insight.estimated_monthly_value).toLocaleString()}/mo
               </span>
             )}
-            {/* Difficulty */}
             {insight.difficulty && (
               <span style={{ fontSize: "10px", color: DIFFICULTY_COLOR[insight.difficulty] ?? "#94a3b8", fontWeight: 600 }}>
                 Difficulty: {insight.difficulty}
               </span>
             )}
-            {/* Effort */}
             {insight.effort && (
               <span style={{ fontSize: "10px", color: EFFORT_COLOR[insight.effort] ?? "#94a3b8", fontWeight: 600 }}>
                 Effort: {insight.effort}
               </span>
             )}
-            {/* Date */}
+            {/* Bug-specific: tool name */}
+            {insight.tool_name && (
+              <span style={{ fontSize: "10px", color: "#f43f5e", fontWeight: 600, fontFamily: "monospace" }}>
+                🔧 {insight.tool_name}
+              </span>
+            )}
             <span style={{ fontSize: "10px", color: "#475569", display: "flex", alignItems: "center", gap: 3 }}>
               <Clock size={10} />
               {new Date(insight.created_at).toLocaleDateString()}
@@ -192,8 +228,7 @@ function InsightCard({ insight, onStatusChange, onDismiss }: {
           </div>
         </div>
 
-        {/* Expand toggle */}
-        {insight.body && (
+        {(insight.body || insight.error_message) && (
           <button
             onClick={() => setExpanded(!expanded)}
             className="button is-ghost is-small"
@@ -205,19 +240,25 @@ function InsightCard({ insight, onStatusChange, onDismiss }: {
         )}
       </div>
 
-      {/* Expanded body */}
       <AnimatePresence>
-        {expanded && insight.body && (
+        {expanded && (insight.body || insight.error_message) && (
           <motion.div
             initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
             style={{ overflow: "hidden" }}
           >
             <div className="mt-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-              <p className="has-text-grey-light" style={{ fontSize: "0.875rem", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
-                {insight.body}
-              </p>
-              {/* Supporting metrics */}
+              {insight.error_message && (
+                <div className="mb-2 px-3 py-2" style={{ background: "rgba(239,68,68,0.08)", borderRadius: 6, border: "1px solid rgba(239,68,68,0.2)" }}>
+                  <p style={{ fontSize: "11px", color: "#94a3b8", fontWeight: 700, marginBottom: "0.25rem", textTransform: "uppercase" }}>Error</p>
+                  <p style={{ fontSize: "0.8rem", color: "#fca5a5", fontFamily: "monospace", whiteSpace: "pre-wrap" }}>{insight.error_message}</p>
+                </div>
+              )}
+              {insight.body && (
+                <p className="has-text-grey-light" style={{ fontSize: "0.875rem", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                  {insight.body}
+                </p>
+              )}
               {Object.keys(insight.metrics ?? {}).length > 0 && (
                 <div className="mt-3 is-flex is-flex-wrap-wrap" style={{ gap: "0.5rem" }}>
                   {Object.entries(insight.metrics).map(([k, v]) => (
@@ -232,7 +273,6 @@ function InsightCard({ insight, onStatusChange, onDismiss }: {
         )}
       </AnimatePresence>
 
-      {/* Actions */}
       <div className="is-flex is-align-items-center mt-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", gap: "0.5rem" }}>
         {nextStatus && (
           <button
@@ -266,25 +306,6 @@ function InsightCard({ insight, onStatusChange, onDismiss }: {
 
 // ── Main Page ───────────────────────────────────────────────────────────────
 
-const TYPE_TABS = [
-  { id: "all", label: "All" },
-  { id: "critical_issue", label: "🔴 Critical" },
-  { id: "suggestion", label: "💡 Suggestions" },
-  { id: "observation", label: "👁 Observations" },
-  { id: "competitor", label: "🔬 Competitor" },
-  { id: "win", label: "🏆 Wins" },
-];
-
-const SECTION_FILTERS: { id: Section; label: string }[] = [
-  { id: "all", label: "All Sections" },
-  { id: "seo", label: "SEO" },
-  { id: "email", label: "Email" },
-  { id: "content", label: "Content" },
-  { id: "ads", label: "Ads" },
-  { id: "product", label: "Product" },
-  { id: "general", label: "General" },
-];
-
 export default function InsightsPage() {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -297,7 +318,7 @@ export default function InsightsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: "100" });
+      const params = new URLSearchParams({ limit: "200" });
       if (activeType !== "all") params.set("type", activeType);
       if (activeSection !== "all") params.set("section", activeSection);
 
@@ -343,19 +364,21 @@ export default function InsightsPage() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
+  // Group type tabs: business vs. operational
+  const businessTabs = TYPE_TABS.filter(t => ["all", "critical_issue", "suggestion", "observation", "competitor", "win"].includes(t.id));
+  const operationalTabs = TYPE_TABS.filter(t => ["bug", "blocker", "integration_request", "feature_request", "general"].includes(t.id));
+
   return (
-    <div className="px-5 py-5" style={{ maxWidth: 900, margin: "0 auto" }}>
+    <div className="px-5 py-5" style={{ maxWidth: 920, margin: "0 auto" }}>
       {/* Header */}
       <div className="is-flex is-justify-content-space-between is-align-items-center mb-5">
         <div>
           <div style={{ gap: "0.75rem", marginBottom: "0.25rem" }} className="is-flex is-align-items-center">
             <BrainCircuit size={22} color="#f59e0b" />
-            <h1 className="has-text-white" style={{ fontWeight: 800, fontSize: "1.4rem" }}>
-              Insights
-            </h1>
+            <h1 className="has-text-white" style={{ fontWeight: 800, fontSize: "1.4rem" }}>Insights</h1>
           </div>
           <p className="has-text-grey-light" style={{ fontSize: "0.85rem" }}>
-            Agent-surfaced observations, risks, and opportunities across all business domains.
+            Business intelligence, bugs, blockers, and app ideas — all in one place.
           </p>
         </div>
         <button onClick={fetchData} className="button is-small is-ghost" style={{ color: "#64748b" }}>
@@ -363,26 +386,54 @@ export default function InsightsPage() {
         </button>
       </div>
 
-      {/* Summary bar */}
       {summary && <SummaryBar summary={summary} />}
 
-      {/* Type tabs */}
-      <div className="is-flex is-flex-wrap-wrap mb-4" style={{ gap: "0.4rem" }}>
-        {TYPE_TABS.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setActiveType(t.id)}
-            className="button is-small"
-            style={{
-              background: activeType === t.id ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.04)",
-              color: activeType === t.id ? "#f59e0b" : "#94a3b8",
-              border: activeType === t.id ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(255,255,255,0.06)",
-              fontWeight: 700, fontSize: "11px",
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Business type tabs */}
+      <div style={{ marginBottom: "0.25rem" }}>
+        <p style={{ fontSize: "9px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, marginBottom: "0.4rem" }}>
+          Business Intelligence
+        </p>
+        <div className="is-flex is-flex-wrap-wrap mb-2" style={{ gap: "0.4rem" }}>
+          {businessTabs.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setActiveType(t.id)}
+              className="button is-small"
+              style={{
+                background: activeType === t.id ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.04)",
+                color: activeType === t.id ? "#f59e0b" : "#94a3b8",
+                border: activeType === t.id ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(255,255,255,0.06)",
+                fontWeight: 700, fontSize: "11px",
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Operational type tabs */}
+      <div style={{ marginBottom: "0.75rem" }}>
+        <p style={{ fontSize: "9px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, marginBottom: "0.4rem" }}>
+          Blockages &amp; Ideas
+        </p>
+        <div className="is-flex is-flex-wrap-wrap mb-2" style={{ gap: "0.4rem" }}>
+          {operationalTabs.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setActiveType(t.id)}
+              className="button is-small"
+              style={{
+                background: activeType === t.id ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.04)",
+                color: activeType === t.id ? "#f97316" : "#94a3b8",
+                border: activeType === t.id ? "1px solid rgba(249,115,22,0.3)" : "1px solid rgba(255,255,255,0.06)",
+                fontWeight: 700, fontSize: "11px",
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Section filter + sort */}

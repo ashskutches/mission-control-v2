@@ -1,9 +1,11 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, ShieldCheck, ChevronDown, ChevronRight } from "lucide-react";
 import { APP_CONFIG, SQUADS } from "@/app/lib/AppConfig";
 import { cn } from "@/app/lib/utils";
+
+const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3000";
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -16,6 +18,24 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // Track which squads are collapsed (default: all expanded)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  // Live open-request badge
+  const [openRequests, setOpenRequests] = useState<{ open: number; critical: number } | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const fetchSummary = async () => {
+      try {
+        const res = await fetch(`${BOT_URL}/admin/insights/summary`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setOpenRequests({ open: data.openCount ?? 0, critical: data.criticalCount ?? 0 });
+      } catch { /* silent — sidebar badge is non-critical */ }
+    };
+    fetchSummary();
+    intervalRef.current = setInterval(fetchSummary, 60_000); // refresh every 60s
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, []);
 
   const getActiveId = () => {
     if (pathname === "/") return "overview";
@@ -42,6 +62,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const isActive = activeId === item.id;
     const Icon = item.icon;
     const accent = item.color ?? "var(--accent-orange)";
+
+    // Badge for the Requests nav item
+    const showBadge = item.id === "system" && openRequests && openRequests.open > 0;
+    const isCritical = showBadge && openRequests!.critical > 0;
+
     return (
       <li key={item.id}>
         <a
@@ -59,10 +84,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <Icon size={indented ? 15 : 18} color={isActive ? accent : undefined} />
           <span
             className="is-uppercase has-text-weight-bold"
-            style={{ fontSize: indented ? "11px" : "12px", color: isActive ? accent : undefined }}
+            style={{ fontSize: indented ? "11px" : "12px", color: isActive ? accent : undefined, flex: 1 }}
           >
             {item.label}
           </span>
+          {showBadge && (
+            <span style={{
+              fontSize: 9, fontWeight: 900, lineHeight: 1,
+              color: isCritical ? "#fff" : "#f43f5e",
+              background: isCritical ? "#f43f5e" : "rgba(244,63,94,0.15)",
+              border: "1px solid rgba(244,63,94,0.4)",
+              borderRadius: 10, padding: "2px 6px",
+              animation: isCritical ? "pulse-badge 2s ease-in-out infinite" : undefined,
+            }}>
+              {openRequests!.open}
+            </span>
+          )}
         </a>
       </li>
     );
