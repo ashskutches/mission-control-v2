@@ -25,6 +25,7 @@ import {
     ShieldCheck,
     Activity,
     DollarSign,
+    Wrench,
 } from 'lucide-react';
 
 export const SQUADS = [
@@ -65,7 +66,7 @@ export const APP_CONFIG = {
     navigation: [
         // ── Core ──────────────────────────────────────────────────────────────
         { id: 'overview',     href: '/',             icon: LayoutDashboard, label: 'Overview',     group: 'core' },
-        { id: 'intelligence', href: '/intelligence', icon: BrainCircuit,    label: 'Intelligence', color: '#f59e0b', group: 'core' },
+        { id: 'insights', href: '/intelligence', icon: BrainCircuit, label: 'Insights', color: '#f59e0b', group: 'core' },
 
         // ── Commerce: Overview ────────────────────────────────────────────────
         { id: 'store', href: '/commerce', icon: ShoppingBag, label: 'Commerce', color: '#fb923c', group: 'commerce' },
@@ -96,6 +97,7 @@ export const APP_CONFIG = {
         { id: 'chats',    href: '/chats',    icon: MessageSquare,label: 'Chats',   color: '#64748b', group: 'command' },
         { id: 'ideas',    href: '/ideas',    icon: Lightbulb,    label: 'Ideas',   color: '#64748b', group: 'command' },
         { id: 'costs',    href: '/costs',    icon: DollarSign,   label: 'Costs',   color: '#22c55e', group: 'command' },
+        { id: 'system',   href: '/system',   icon: Wrench,       label: 'System',  color: '#f43f5e', group: 'command' },
         { id: 'settings', href: '/settings', icon: Settings,     label: 'Settings',                  group: 'command' },
     ],
     theme: {

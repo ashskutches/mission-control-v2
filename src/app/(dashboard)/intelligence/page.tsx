@@ -285,7 +285,7 @@ const SECTION_FILTERS: { id: Section; label: string }[] = [
   { id: "general", label: "General" },
 ];
 
-export default function IntelligencePage() {
+export default function InsightsPage() {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -348,10 +348,10 @@ export default function IntelligencePage() {
       {/* Header */}
       <div className="is-flex is-justify-content-space-between is-align-items-center mb-5">
         <div>
-          <div className="is-flex is-align-items-center" style={{ gap: "0.75rem", marginBottom: "0.25rem" }}>
+          <div style={{ gap: "0.75rem", marginBottom: "0.25rem" }} className="is-flex is-align-items-center">
             <BrainCircuit size={22} color="#f59e0b" />
             <h1 className="has-text-white" style={{ fontWeight: 800, fontSize: "1.4rem" }}>
-              Intelligence Board
+              Insights
             </h1>
           </div>
           <p className="has-text-grey-light" style={{ fontSize: "0.85rem" }}>
@@ -421,7 +421,7 @@ export default function IntelligencePage() {
 
       {/* Cards */}
       {loading ? (
-        <p className="has-text-grey has-text-centered py-6">Loading intelligence...</p>
+        <p className="has-text-grey has-text-centered py-6">Loading insights...</p>
       ) : filtered.length === 0 ? (
         <div className="box has-text-centered py-6" style={{ background: "rgba(255,255,255,0.02)" }}>
           <BrainCircuit size={32} color="#334155" style={{ margin: "0 auto 1rem" }} />
