@@ -1,10 +1,7 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import { AgentCRUD } from "@/components/AgentCRUD";
-import { ChevronDown, ChevronUp, Brain, ArrowRight } from "lucide-react";
-import { useRouter } from "next/navigation";
-
-const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 function CollapsibleSection({ title, subtitle, defaultOpen = false, children }: { title: string; subtitle?: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -25,82 +22,10 @@ function CollapsibleSection({ title, subtitle, defaultOpen = false, children }: 
   );
 }
 
-// ── Squad Lead roster — shown separately at top
-function SquadLeadRoster() {
-  const [leads, setLeads] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-
-  const fetch_ = useCallback(async () => {
-    try {
-      const res = await fetch(`${BOT_URL}/admin/agents`);
-      const data = await res.json();
-      const all = Array.isArray(data) ? data : (data.agents ?? []);
-      setLeads(all.filter((a: any) => a.category === "Squad Lead" || a.type === "manager"));
-    } catch { /* silent */ } finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { fetch_(); }, [fetch_]);
-
-  if (loading) return <p className="has-text-grey is-size-7">Loading...</p>;
-  if (leads.length === 0) return (
-    <div style={{ padding: "1.5rem", textAlign: "center", opacity: 0.5 }}>
-      <Brain size={24} color="#a78bfa" style={{ margin: "0 auto 0.5rem" }} />
-      <p className="has-text-grey" style={{ fontSize: 12 }}>
-        No squad leads yet — click <strong>✨ Auto-Generate</strong> on any commerce department page to create one.
-      </p>
-    </div>
-  );
-
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
-      {leads.map(agent => (
-        <div
-          key={agent.id}
-          onClick={() => router.push(`/agents/${agent.id}`)}
-          style={{
-            display: "flex", alignItems: "center", gap: "0.85rem",
-            padding: "0.85rem 1rem", borderRadius: 10, cursor: "pointer",
-            background: "rgba(167,139,250,0.04)",
-            border: `1px solid ${agent.color ?? "#a78bfa"}30`,
-            borderLeft: `3px solid ${agent.color ?? "#a78bfa"}`,
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(167,139,250,0.08)"; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(167,139,250,0.04)"; }}
-        >
-          <div style={{
-            width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-            background: `${agent.color ?? "#a78bfa"}18`,
-            border: `1px solid ${agent.color ?? "#a78bfa"}30`,
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
-          }}>
-            {agent.emoji ?? "🧠"}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ color: "#e5e5e5", fontWeight: 900, fontSize: 13, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{agent.name}</p>
-            <p style={{ color: "#666", fontSize: 11, margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{agent.specialization}</p>
-          </div>
-          <ArrowRight size={13} color="#444" style={{ flexShrink: 0 }} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export default function AgentsPage() {
   return (
     <div className="px-4 pb-6 pt-4">
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-
-        {/* ── Squad Leads — always visible at top ── */}
-        <CollapsibleSection
-          title="🧠 Squad Leads"
-          subtitle="Auto-generated department heads — one per commerce section"
-          defaultOpen={true}
-        >
-          <SquadLeadRoster />
-        </CollapsibleSection>
 
         {/* ── Costs link ── */}
         <div style={{
@@ -122,7 +47,7 @@ export default function AgentsPage() {
           </a>
         </div>
 
-        {/* ── All other agents ── */}
+        {/* ── All agents ── */}
         <CollapsibleSection title="Manage Agents" subtitle="Create, configure, and deploy AI agents" defaultOpen={true}>
           <AgentCRUD />
         </CollapsibleSection>
