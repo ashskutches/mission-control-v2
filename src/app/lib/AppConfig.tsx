@@ -66,7 +66,8 @@ export const APP_CONFIG = {
     navigation: [
         // ── Core ──────────────────────────────────────────────────────────────
         { id: 'overview',     href: '/',             icon: LayoutDashboard, label: 'Overview',     group: 'core' },
-        { id: 'insights', href: '/intelligence', icon: BrainCircuit, label: 'Insights', color: '#f59e0b', group: 'core' },
+        { id: 'north-star',   href: '/north-star',   icon: TrendingUp,      label: 'North Star',   color: '#a78bfa', group: 'core' },
+        { id: 'insights',     href: '/intelligence', icon: BrainCircuit,    label: 'Insights',     color: '#f59e0b', group: 'core' },
 
         // ── Commerce: Overview ────────────────────────────────────────────────
         { id: 'store', href: '/commerce', icon: ShoppingBag, label: 'Commerce', color: '#fb923c', group: 'commerce' },
