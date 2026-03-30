@@ -3,10 +3,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft, Bot, Pencil, Trash2, Hash, Target, Brain,
-  ShieldAlert, Sparkles, Globe, FileText, BarChart2, Search,
-  Layers, Palette, Mail, Zap, Image as ImageIcon, ChevronDown, ChevronUp, X,
-  CheckCircle2, Loader2, AlignJustify,
+  ArrowLeft, Pencil, Trash2, Hash, Target, Brain,
+  ShieldAlert, Sparkles, FileText, ChevronDown, ChevronUp, X,
+  Loader2, CheckCircle2, AlignJustify, Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { AgentDocuments } from "@/components/AgentDocuments";
@@ -18,7 +17,9 @@ const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
 interface AgentDef {
   id: string; name: string; type: string; specialization: string;
-  discordChannelId?: string; discordManagerId?: string; features: Record<string, boolean>;
+  discordChannelId?: string; discordManagerId?: string;
+  role?: string;
+  action_perms?: { email?: boolean; sms?: boolean; social?: boolean; calls?: boolean };
   personality?: string; mission?: string; context?: string; constraints?: string;
   emoji?: string; color?: string; category?: string;
 }
@@ -27,52 +28,7 @@ interface DiscordMember {
   id: string; username: string; displayName: string; avatar: string;
 }
 
-const ALL_FEATURES = [
-  { id: "search",             label: "Web Search",         icon: Globe,       description: "Real-time web research via Tavily. Required for market research, competitor analysis, and SEO." },
-  { id: "web_intelligence",   label: "Web Intelligence",   icon: BarChart2,   description: "Audit competitor websites for traffic data, Core Web Vitals, tech stack, and competitive signals." },
-  { id: "memory",             label: "Long-term Memory",   icon: Brain,       description: "Remembers facts and past conversations across sessions via Supabase." },
-  { id: "codebase_awareness", label: "Codebase Awareness", icon: Brain,       description: "Loads system architecture docs and skill guides. Use for dev/engineering agents." },
-  { id: "shopify",            label: "Shopify",            icon: Bot,         description: "Live store data: orders, products, inventory, customers. Required for any e-commerce agent." },
-  { id: "content_creation",   label: "Content Studio",     icon: Sparkles,    description: "Full content pipeline: copy, briefs, social posts, email campaigns. Loads content-intelligence, ecom-content, prompt-library, social-optimizer, email-campaign skills." },
-  { id: "image_generation",   label: "Image Generation",   icon: ImageIcon,   description: "Multi-model image creation via Kie.ai — product shots, lifestyle imagery, backgrounds." },
-  { id: "design_intelligence",label: "Prompt Enhancement", icon: Palette,     description: "Auto-enhances image prompts for HD quality using style presets. Requires Image Generation." },
-  { id: "brand_enforcement",  label: "Brand-Aware Images", icon: Layers,      description: "Enforces L&R color rules and product references when generating images. Requires Image Generation." },
-  { id: "business_context",   label: "Brand Guide",        icon: FileText,    description: "Injects brand context (mission, voice, products) into every conversation. Loads brand-identity and brand-voice skills." },
-  { id: "seo_strategy",       label: "SEO Strategy",       icon: Search,      description: "Dual-mode SEO: article optimization with competitor research, or full site audit with HTML report." },
-  { id: "gmail_read",         label: "Gmail Read",         icon: Mail,        description: "Read, search, and fetch full email content from the agent's connected Gmail inbox." },
-  { id: "gmail_write",        label: "Gmail Write",        icon: Mail,        description: "Compose and send emails (including replies) from the agent's connected Gmail account." },
-  { id: "google_workspace",   label: "Google Workspace",   icon: FileText,    description: "Create and share Google Docs/Sheets. Loads report-writer and content-library skills." },
-  { id: "call",               label: "Voice Calls",        icon: Zap,         description: "Initiate outbound phone calls via Twilio with full conversation handling." },
-  { id: "sms",                label: "SMS Messaging",      icon: Zap,         description: "Send, receive, and broadcast SMS messages via Twilio." },
-  { id: "moderation",         label: "AI Moderation",      icon: ShieldAlert, description: "Auto-deletes harmful or policy-violating messages in Discord channels." },
-];
 
-// ── Skill tooltip wrapper ──────────────────────────────────────────────────────
-function SkillTooltip({ label, description, children }: { label: string; description?: string; children: React.ReactNode }) {
-  const [visible, setVisible] = React.useState(false);
-  const [pos, setPos] = React.useState({ x: 0, y: 0 });
-  if (!description) return <>{children}</>;
-  return (
-    <span
-      style={{ position: "relative", display: "inline-flex" }}
-      onMouseEnter={e => { setVisible(true); const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setPos({ x: r.left, y: r.bottom + 8 }); }}
-      onMouseLeave={() => setVisible(false)}
-    >
-      {children}
-      {visible && (
-        <span style={{
-          position: "fixed", left: pos.x, top: pos.y, zIndex: 99999,
-          background: "rgba(10,10,16,0.97)", border: "1px solid rgba(255,255,255,0.12)",
-          borderRadius: 10, padding: "8px 12px", maxWidth: 280, pointerEvents: "none",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-        }}>
-          <span style={{ display: "block", fontSize: 11, fontWeight: 800, color: "#ff8c00", marginBottom: 3 }}>{label}</span>
-          <span style={{ display: "block", fontSize: 11, color: "#aaa", lineHeight: 1.55 }}>{description}</span>
-        </span>
-      )}
-    </span>
-  );
-}
 
 const CATEGORY_COLORS: Record<string, string> = {
   "Design": "#ff6b9d", "Engineering": "#4da6ff", "Marketing": "#ff8c00",
@@ -87,6 +43,18 @@ const CATEGORY_EMOJI: Record<string, string> = {
   "Testing": "🧪", "Support": "🛀", "Specialized": "🎯",
   "Influencing": "🌟", "Organics": "🌱", "General": "🤖",
 };
+
+const ROLE_PRESETS: { id: string; label: string; emoji: string }[] = [
+  { id: "general",           label: "General Assistant",        emoji: "🤖" },
+  { id: "lead-agent",        label: "Lead Agent / Dept Head",    emoji: "🧠" },
+  { id: "seo-analyst",       label: "SEO Analyst",               emoji: "🔍" },
+  { id: "email-marketer",    label: "Email Marketer",            emoji: "📧" },
+  { id: "content-creator",   label: "Content Creator",          emoji: "🎨" },
+  { id: "influencing-agent", label: "Influencer / Social",      emoji: "⭐" },
+  { id: "support-agent",     label: "Customer Support",         emoji: "🛟" },
+  { id: "ads-manager",       label: "Paid Ads Manager",         emoji: "📢" },
+  { id: "analytics-agent",   label: "Analytics & Commerce",     emoji: "📊" },
+];
 
 const PRIMING_FIELDS = [
   { id: "personality", label: "Personality & Tone",   icon: Sparkles,    placeholder: "e.g. Direct, no-nonsense." },
@@ -103,7 +71,8 @@ function EditModal({ agent, onSaved, onClose }: { agent: AgentDef; onSaved: () =
   const [error, setError] = useState<string | null>(null);
   const [showAdv, setShowAdv] = useState(false);
   const set = (k: keyof AgentDef, v: any) => setForm(p => ({ ...p, [k]: v }));
-  const toggleFeature = (id: string) => setForm(p => ({ ...p, features: { ...p.features, [id]: !p.features?.[id] } }));
+  const toggleActionPerm = (perm: keyof NonNullable<AgentDef["action_perms"]>) =>
+    setForm(p => ({ ...p, action_perms: { ...(p.action_perms ?? {}), [perm]: !(p.action_perms?.[perm]) } }));
   const inputStyle: React.CSSProperties = { width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff", fontSize: 13, padding: "8px 12px", outline: "none", boxSizing: "border-box" };
 
   // Discord member roster for manager dropdown
@@ -259,29 +228,32 @@ function EditModal({ agent, onSaved, onClose }: { agent: AgentDef; onSaved: () =
             )}
             <p style={{ fontSize: 10, color: "#555", margin: "4px 0 0" }}>Agent will discord_dm this person for escalations or when clarification is needed</p>
           </div>
+          {/* Role */}
           <div>
-            <label style={{ display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#555", marginBottom: 8 }}>Features</label>
-            {featureCats.map(({ cat, ids }) => (
-              <div key={cat} style={{ marginBottom: 10 }}>
-                <p style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.07em", color: catColors[cat] ?? "#888", marginBottom: 5 }}>{cat}</p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
-                  {ids.map(id => {
-                    const feat = ALL_FEATURES.find(f => f.id === id);
-                    if (!feat) return null;
-                    const Icon = feat.icon; const active = !!form.features?.[id]; const c = catColors[cat] ?? "#888";
-                    return (
-                      <SkillTooltip key={id} label={feat.label} description={feat.description}>
-                        <button type="button" onClick={() => toggleFeature(id)} style={{ textAlign: "left", padding: "7px 10px", borderRadius: 8, background: active ? `${c}15` : "rgba(255,255,255,0.03)", border: `1px solid ${active ? c + "50" : "rgba(255,255,255,0.06)"}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
-                          <Icon size={11} style={{ color: active ? c : "#555", flexShrink: 0 }} />
-                          <span style={{ fontSize: 11, fontWeight: 700, color: active ? "#fff" : "#666" }}>{feat.label}</span>
-                          {active && <CheckCircle2 size={10} style={{ color: c, marginLeft: "auto" }} />}
-                        </button>
-                      </SkillTooltip>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+            <label style={{ display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#555", marginBottom: 4 }}>Role</label>
+            <select value={form.role ?? "general"} onChange={e => set("role", e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
+              {ROLE_PRESETS.map(r => <option key={r.id} value={r.id}>{r.emoji} {r.label}</option>)}
+            </select>
+            <p style={{ fontSize: 10, color: "#555", margin: "4px 0 0" }}>Hint to backend for skill inference — tools auto-selected per task</p>
+          </div>
+          {/* Action Permissions */}
+          <div>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#555", marginBottom: 4 }}>Action Permissions</label>
+            <p style={{ fontSize: 10, color: "#555", margin: "0 0 8px" }}>Live-fire actions — off by default, explicit grant required.</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+              {([{key:"email",label:"📧 Email",desc:"gmail_send"},{key:"sms",label:"📱 SMS",desc:"Twilio SMS"},{key:"social",label:"📢 Social",desc:"Publish posts"},{key:"calls",label:"📞 Calls",desc:"Outbound calls"}] as const).map(({key,label,desc}) => {
+                const active = !!(form.action_perms?.[key]);
+                return (
+                  <button key={key} type="button" onClick={() => toggleActionPerm(key)} style={{ textAlign:"left", padding:"9px 11px", borderRadius:9, background: active ? "rgba(239,68,68,0.08)" : "rgba(255,255,255,0.02)", border: active ? "1px solid rgba(239,68,68,0.35)" : "1px solid rgba(255,255,255,0.07)", cursor:"pointer", transition:"all 0.15s" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:2 }}>
+                      <span style={{ width:7, height:7, borderRadius:"50%", background: active ? "#ef4444" : "#444", flexShrink:0 }} />
+                      <span style={{ fontSize:11, fontWeight:800, color: active ? "#fff" : "#666" }}>{label}</span>
+                    </div>
+                    <p style={{ fontSize:9, color:"#555", margin:0, paddingLeft:14 }}>{desc}</p>
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div>
             <button type="button" onClick={() => setShowAdv(p => !p)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "#555", fontSize: 13, padding: 0 }}>
@@ -359,7 +331,6 @@ export default function AgentDetailPage() {
     router.push("/agents");
   };
 
-  const activeFeatures = agent ? ALL_FEATURES.filter(f => agent.features?.[f.id]) : [];
   const accentColor = agent?.color ?? CATEGORY_COLORS[agent?.category ?? ""] ?? "#38bdf8";
 
   if (loading) return (
@@ -395,7 +366,7 @@ export default function AgentDetailPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <h1 style={{ color: "#fff", fontWeight: 900, fontSize: 24, margin: 0 }}>{agent.name}</h1>
               {agent.category && <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: accentColor, background: `${accentColor}15`, border: `1px solid ${accentColor}35`, borderRadius: 6, padding: "2px 8px" }}>{agent.category}</span>}
-              {activeFeatures.length > 0 && <span style={{ fontSize: 10, fontWeight: 800, color: "#555", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "2px 8px" }}>{activeFeatures.length} features</span>}
+              {agent.role && <span style={{ fontSize: 10, fontWeight: 700, color: "#555", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "2px 8px" }}>{agent.role}</span>}
             </div>
             <p style={{ color: "#666", fontSize: 13, margin: "3px 0 0" }}>{agent.specialization}</p>
           </div>
@@ -422,16 +393,13 @@ export default function AgentDetailPage() {
               <Hash size={12} color="#7289da" /><span style={{ color: "#7289da", fontSize: 12, fontWeight: 700 }}>#{agent.discordChannelId}</span>
             </div>
           )}
-          {activeFeatures.length > 0 && (
-            <Section title="Active Features" icon={<AlignJustify size={11} />} defaultOpen={false}>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                {activeFeatures.map(f => { const Icon = f.icon; return (
-                  <SkillTooltip key={f.id} label={f.label} description={f.description}>
-                    <span style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(255,140,0,0.08)", border: "1px solid rgba(255,140,0,0.22)", borderRadius: 8, color: "#ff8c00", fontSize: 11, fontWeight: 700, padding: "3px 9px", cursor: "default" }}>
-                      <Icon size={10} /> {f.label}
-                    </span>
-                  </SkillTooltip>
-                ); })}
+          {agent.action_perms && Object.values(agent.action_perms).some(Boolean) && (
+            <Section title="Action Permissions" icon={<ShieldAlert size={11} />} defaultOpen={true}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "4px 0" }}>
+                {agent.action_perms.email  && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444" }}>📧 Email</span>}
+                {agent.action_perms.sms    && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", color: "#f59e0b" }}>📱 SMS</span>}
+                {agent.action_perms.social && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.3)", color: "#a855f7" }}>📢 Social</span>}
+                {agent.action_perms.calls  && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.3)", color: "#22c55e" }}>📞 Calls</span>}
               </div>
             </Section>
           )}
