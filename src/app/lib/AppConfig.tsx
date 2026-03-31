@@ -89,6 +89,7 @@ export const APP_CONFIG = {
         { id: 'resolution',         href: '/commerce/ops/resolution',         icon: LifeBuoy,     label: 'Resolution',          color: '#10b981', group: 'commerce', squad: 'ops' },
         { id: 'logistics',          href: '/commerce/ops/logistics',          icon: Truck,        label: 'Logistics',           color: '#10b981', group: 'commerce', squad: 'ops' },
         { id: 'community-support',  href: '/commerce/ops/community-support',  icon: MessageCircle,label: 'Community Support',   color: '#10b981', group: 'commerce', squad: 'ops' },
+        { id: 'email-crm',          href: '/commerce/email',                  icon: Mail,         label: 'Email & CRM',         color: '#10b981', group: 'commerce', squad: 'ops' },
 
         // ── Commerce: Strategy & Finance ──────────────────────────────────────
         { id: 'profitability',      href: '/commerce/strategy/profitability',   icon: LineChart,    label: 'Profitability',       color: '#a78bfa', group: 'commerce', squad: 'strategy' },
