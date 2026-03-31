@@ -98,7 +98,7 @@ export const APP_CONFIG = {
         { id: 'agents',   href: '/agents',   icon: Bot,          label: 'Agents',   color: '#64748b', group: 'command' },
         { id: 'chats',    href: '/chats',    icon: MessageSquare,label: 'Chats',    color: '#64748b', group: 'command' },
         { id: 'costs',    href: '/costs',    icon: DollarSign,   label: 'Costs',    color: '#22c55e', group: 'command' },
-        { id: 'system',   href: '/system',   icon: Bug,          label: 'Blockages', color: '#f43f5e', group: 'command' },
+        { id: 'system',   href: '/blockages', icon: Bug,          label: 'Blockages', color: '#f43f5e', group: 'command' },
         { id: 'settings', href: '/settings', icon: Settings,     label: 'Settings',                   group: 'command' },
     ],
     theme: {

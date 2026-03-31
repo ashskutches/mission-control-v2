@@ -211,7 +211,7 @@ function SystemRequestsPanel({ requests }: { requests: AgentRequest[] }) {
             <span style={{ fontSize: "9px", color: "#fb923c", fontWeight: 700, background: "rgba(251,146,60,0.12)", padding: "1px 6px", borderRadius: 4, marginRight: 6 }}>{r.type.replace("_", " ").toUpperCase()}</span>
             <span style={{ color: "#cbd5e1", fontSize: "11px" }}>{r.title}</span>
           </div>
-          <a href="/system" style={{ color: "#fb923c", fontSize: "9px", display: "flex", alignItems: "center", gap: 2, textDecoration: "none", whiteSpace: "nowrap" }}>
+          <a href="/blockages" style={{ color: "#fb923c", fontSize: "9px", display: "flex", alignItems: "center", gap: 2, textDecoration: "none", whiteSpace: "nowrap" }}>
             Triage <ArrowUpRight size={9} />
           </a>
         </div>
@@ -521,7 +521,7 @@ export default function NorthStarPage() {
             {[
               { label: "All Insights", href: "/intelligence", color: "#f59e0b" },
               { label: "Agent Costs", href: "/costs", color: "#22c55e" },
-              { label: "System Requests", href: "/system", color: "#f43f5e" },
+              { label: "System Requests", href: "/blockages", color: "#f43f5e" },
               { label: "Agent Roster", href: "/agents", color: "#a78bfa" },
             ].map(l => (
               <a key={l.href} href={l.href}
