@@ -96,16 +96,10 @@ function IntegrationCard({ insight, onFeedback }: {
         <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: "9px", color: "#64748b" }}>Priority {insight.priority}/10</span>
           {insight.status === "new" && (
-            <>
-              <button onClick={() => act("accepted")} disabled={acting}
-                style={{ fontSize: "10px", fontWeight: 700, color: "#22c55e", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 6, padding: "2px 8px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-                <Check size={9} /> Connect
-              </button>
-              <button onClick={() => act("dismissed")} disabled={acting}
-                style={{ fontSize: "10px", color: "#475569", background: "transparent", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>
-                Dismiss
-              </button>
-            </>
+            <button onClick={() => act("accepted")} disabled={acting}
+              style={{ fontSize: "10px", fontWeight: 700, color: "#22c55e", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 6, padding: "2px 8px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+              <Check size={9} /> Connect
+            </button>
           )}
           {insight.status === "in_progress" && (
             <button onClick={() => act("completed")} disabled={acting}
@@ -113,6 +107,11 @@ function IntegrationCard({ insight, onFeedback }: {
               Mark Connected
             </button>
           )}
+          {/* Dismiss always visible */}
+          <button onClick={() => act("dismissed")} disabled={acting}
+            style={{ fontSize: "10px", color: "#475569", background: "transparent", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>
+            Dismiss
+          </button>
           {url && (
             <a href={url} target="_blank" rel="noopener noreferrer"
               style={{ fontSize: "10px", color: "#fb923c", display: "flex", alignItems: "center", gap: 3, textDecoration: "none", marginLeft: "auto" }}>
