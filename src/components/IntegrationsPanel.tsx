@@ -76,6 +76,17 @@ export default function IntegrationsPanel() {
     }
   }
 
+  async function deleteIntegration(id: string) {
+    if (!confirm("Delete this integration entry? This cannot be undone.")) return;
+    setUpdatingId(id);
+    try {
+      await fetch(`${API_BASE}/admin/integrations/${id}`, { method: "DELETE" });
+      setIntegrations(prev => prev.filter(i => i.id !== id));
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
   const grouped = groupByCategory(integrations);
 
   const stats = {
@@ -249,7 +260,7 @@ export default function IntegrationsPanel() {
                       )}
 
                       {/* Actions */}
-                      <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
                         {item.status !== "active" && (
                           <button
                             disabled={updatingId === item.id}
@@ -260,6 +271,18 @@ export default function IntegrationsPanel() {
                             }}
                           >
                             Mark Active ✓
+                          </button>
+                        )}
+                        {item.status === "active" && (
+                          <button
+                            disabled={updatingId === item.id}
+                            onClick={() => updateStatus(item.id, "requested", { credentials_ok: false })}
+                            style={{
+                              padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                              background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.25)", color: "#f59e0b",
+                            }}
+                          >
+                            ↩ Reset to Requested
                           </button>
                         )}
                         {item.status !== "broken" && (
@@ -298,6 +321,16 @@ export default function IntegrationsPanel() {
                             Docs ↗
                           </a>
                         )}
+                        <button
+                          disabled={updatingId === item.id}
+                          onClick={() => deleteIntegration(item.id)}
+                          style={{
+                            marginLeft: "auto", padding: "5px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: "pointer",
+                            background: "transparent", border: "1px solid rgba(255,255,255,0.06)", color: "#475569",
+                          }}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
                   )}
