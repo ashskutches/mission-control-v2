@@ -84,6 +84,8 @@ function BlockagesPanel() {
       const res = await fetch(`${BOT_URL}/admin/insights/health-check`, { method: "POST" });
       const data = await res.json();
       setCheckResult(data);
+      // Refresh the list so auto-resolved items disappear immediately
+      fetchItems();
     } catch (err: any) {
       setCheckResult({ message: `Error: ${err.message}`, jobs: [] });
     } finally {
