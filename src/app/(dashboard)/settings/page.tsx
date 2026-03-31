@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { ProviderMatrix } from "@/components/ProviderMatrix";
+import IntegrationsPanel from "@/components/IntegrationsPanel";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
@@ -71,8 +72,12 @@ export default function SettingsPage() {
         <div className="column is-8">
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <div>
-              <p className="is-size-7 is-uppercase has-text-weight-black has-text-grey mb-4" style={{ letterSpacing: "0.12em" }}>Integrations</p>
+              <p className="is-size-7 is-uppercase has-text-weight-black has-text-grey mb-4" style={{ letterSpacing: "0.12em" }}>Google Drive</p>
               <GlobalDriveSettings />
+            </div>
+            <div>
+              <p className="is-size-7 is-uppercase has-text-weight-black has-text-grey mb-4" style={{ letterSpacing: "0.12em" }}>API Integrations</p>
+              <IntegrationsPanel />
             </div>
             <div>
               <p className="is-size-7 is-uppercase has-text-weight-black has-text-grey mb-4" style={{ letterSpacing: "0.12em" }}>Orchestration Logic</p>
