@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, Suspense } from "react";
 import { ShieldAlert, RefreshCw, ChevronDown, ChevronUp, Clock, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import BlockagesAgentPanel from "@/components/BlockagesAgentPanel";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
 const BLOCKAGE_TYPES = ["bug", "blocker", "integration_request", "feature_request"];
@@ -269,6 +270,7 @@ function BlockagesPageInner() {
           Bugs, blockers, missing integrations, and feature gaps filed by agents.
         </p>
       </div>
+      <BlockagesAgentPanel />
       <BlockagesPanel />
     </div>
   );
