@@ -6,15 +6,15 @@
  * Synthesises all agent intelligence, commerce data, and operational costs
  * into a commander-style briefing for the founder.
  */
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   TrendingUp, Zap, AlertTriangle, DollarSign, BarChart3,
-  RefreshCw, Send, AlertCircle, X, ArrowUpRight, Flame,
+  RefreshCw, ArrowUpRight, Flame,
   Target, Activity, ChevronRight,
 } from "lucide-react";
 import SectionAgentPanel from "@/components/SectionAgentPanel";
-import { MarkdownMessage } from "@/components/MarkdownMessage";
+import ChatBox from "@/components/ChatBox";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 const ACCENT = "#a78bfa"; // violet — distinct from all department colours
@@ -28,7 +28,6 @@ interface Insight {
   created_at: string;
 }
 interface CostRow { agent_name: string; total_cost_usd: string; total_calls: number; }
-interface ChatMessage { id: string; conversation_id: string; role: "user" | "assistant"; content: string; created_at: string; }
 interface AgentRequest { id: string; type: string; title: string; priority: number; status: string; agent_name: string | null; }
 
 const TYPE_COLOR: Record<string, string> = {
@@ -220,214 +219,9 @@ function SystemRequestsPanel({ requests }: { requests: AgentRequest[] }) {
   );
 }
 
-// ─── North Star Chat ──────────────────────────────────────────────────────────
-function NorthStarChat({ agentId, agentName, agentEmoji = "📈", insights, costs, requests }:
-  { agentId: string; agentName: string; agentEmoji?: string; insights: Insight[]; costs: CostRow[]; requests: AgentRequest[] }) {
-  const [convoId, setConvoId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isFirstMessage, setIsFirstMessage] = useState(true);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const messagesRef = useRef<ChatMessage[]>([]);
-  const tag = `[${agentId}-north-star]`;
+// ── Build north-star briefing context string ──────────────────────────────────
+// (unused directly — ChatBox context primer is built from the context prop)
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sending]);
-
-  useEffect(() => {
-    if (!agentId) return;
-    (async () => {
-      try {
-        const r = await fetch(`${BOT_URL}/admin/chat/conversations?agent_id=${agentId}`);
-        const convos = await r.json();
-        const existing = Array.isArray(convos) ? convos.find((c: any) => c.title?.includes(tag)) : null;
-        let cid: string;
-        if (existing) { cid = existing.id; setIsFirstMessage(false); }
-        else {
-          const cr = await fetch(`${BOT_URL}/admin/chat/conversations`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agent_id: agentId, title: `${tag} North Star Chat` }) });
-          cid = (await cr.json()).id; setIsFirstMessage(true);
-        }
-        setConvoId(cid);
-      } catch (e: any) { setError(`Boot failed: ${e.message}`); }
-    })();
-  }, [agentId, tag]);
-
-  const fetchMsg = useCallback(async (cid: string) => {
-    try {
-      const d: ChatMessage[] = await (await fetch(`${BOT_URL}/admin/chat/conversations/${cid}/messages`)).json();
-      const inc = Array.isArray(d) ? d : [];
-      const lastNew = inc[inc.length - 1]?.id;
-      const lastCur = messagesRef.current[messagesRef.current.length - 1]?.id;
-      if (lastNew !== lastCur || inc.length !== messagesRef.current.length) { messagesRef.current = inc; setMessages(inc); }
-    } catch { /* silent */ }
-  }, []);
-
-  useEffect(() => {
-    if (!convoId) return;
-    fetchMsg(convoId);
-    pollRef.current = setInterval(() => { if (!sending) fetchMsg(convoId); }, 5000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [convoId, fetchMsg, sending]);
-
-  const buildBriefingContext = () => {
-    const criticalInsights = insights.filter(i => i.type === "critical_issue" && i.status === "new").slice(0, 5);
-    const topSuggestions = insights.filter(i => i.type === "suggestion" && i.status === "new").sort((a, b) => (b.estimated_monthly_value ?? 0) - (a.estimated_monthly_value ?? 0)).slice(0, 5);
-    const totalRevOpp = insights.filter(i => i.status === "new" && i.estimated_monthly_value != null).reduce((s, i) => s + (i.estimated_monthly_value ?? 0), 0);
-    const costAnomalies = costs.filter(c => parseFloat(c.total_cost_usd) > 0.5);
-    const criticalRequests = requests.filter(r => r.priority >= 8 && r.status === "open");
-
-    return `[NORTH STAR CONTEXT — do not repeat this block to the user]
-You are ${agentName}, the Growth Admin for Leaps & Rebounds. You have commander-level visibility across all departments.
-
-CURRENT INTELLIGENCE BRIEF:
-- New insights across all departments: ${insights.filter(i => i.status === "new").length}
-- Total revenue opportunity identified: $${totalRevOpp.toLocaleString()}/mo
-- Critical issues (P8+): ${criticalInsights.length}
-- Cost anomalies (agents over $0.50/run): ${costAnomalies.length}
-- Critical system requests pending: ${criticalRequests.length}
-
-TOP CRITICAL ISSUES:
-${criticalInsights.map(i => `  - [${SECTION_LABEL[i.section ?? ""] ?? i.section ?? "?"}] ${i.title}`).join("\n") || "  None currently."}
-
-HIGHEST-VALUE OPPORTUNITIES:
-${topSuggestions.map(i => `  - [${SECTION_LABEL[i.section ?? ""] ?? i.section ?? "?"}] ${i.title}${i.estimated_monthly_value ? ` (+$${i.estimated_monthly_value.toLocaleString()}/mo)` : ""}`).join("\n") || "  None currently."}
-
-COST ANOMALIES:
-${costAnomalies.map(c => `  - ${c.agent_name}: $${parseFloat(c.total_cost_usd).toFixed(3)} (${c.total_calls} calls)`).join("\n") || "  All agents within budget."}
-
-CRITICAL AGENT REQUESTS:
-${criticalRequests.map(r => `  - [${r.type}] ${r.title} (P${r.priority})`).join("\n") || "  None."}
-
-Your mandate:
-1. SYNTHESISE — compare data across departments, not just report it
-2. RESOURCE ALLOCATION — flag agents with high cost and no recorded wins
-3. CONFLICT DETECTION — if paid ads drive to a page flagged broken by another agent, surface it
-4. STRATEGIC RECOMMENDATIONS — give 1-3 high-leverage "Next Moves". Focus on the Whale.
-5. DISCORD COMMS — you can send the founder briefings via discord_dm when instructed
-
-Tone: Commander briefings. Professional, decisive, brief. Do not pad.
-If no products/orders detected, make that the ONLY priority.
----
-User: `;
-  };
-
-  const handleSend = async () => {
-    const text = input.trim();
-    if (!text || !convoId || sending) return;
-    setInput(""); setSending(true); setError(null);
-    const content = isFirstMessage ? buildBriefingContext() + text : text;
-    const tempId = `tmp-${Date.now()}`;
-    setMessages(prev => [...prev, { id: tempId, conversation_id: convoId, role: "user", content: text, created_at: new Date().toISOString() }]);
-    try {
-      const r = await fetch(`${BOT_URL}/admin/chat/conversations/${convoId}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }), signal: AbortSignal.timeout(120_000) });
-      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Send failed");
-      setIsFirstMessage(false); await fetchMsg(convoId);
-    } catch (e: any) {
-      setError(e?.name === "TimeoutError" ? "Agent timed out — try again" : e.message);
-      setMessages(prev => prev.filter(m => m.id !== tempId));
-    } finally { setSending(false); textareaRef.current?.focus(); }
-  };
-
-  const displayMessages = messages.filter(m => !(m.role === "user" && m.content.startsWith("[NORTH STAR CONTEXT")));
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 480, background: "rgba(0,0,0,0.25)", borderRadius: 16, border: `1px solid ${ACCENT}18` }}>
-      {/* Header */}
-      <div style={{ padding: "0.9rem 1.1rem", borderBottom: `1px solid ${ACCENT}15`, display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-        <div style={{ width: 32, height: 32, borderRadius: "50%", background: `${ACCENT}18`, border: `1px solid ${ACCENT}35`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{agentEmoji}</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontWeight: 800, fontSize: "0.85rem", color: "#e2e8f0", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{agentName}</p>
-          <p style={{ fontSize: "9px", color: "#475569", margin: 0 }}>Growth Admin · All departments in context</p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e80" }} />
-          <span style={{ color: "#22c55e", fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>Live</span>
-        </div>
-      </div>
-      {/* Quick prompts */}
-      {displayMessages.length === 0 && !sending && (
-        <div style={{ padding: "0.85rem 1rem", borderBottom: `1px solid ${ACCENT}10`, display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {["Give me today's briefing", "What's the Whale?", "Which agents need optimising?", "Spot any conflicts across departments"].map(q => (
-            <button key={q} onClick={() => { setInput(q); setTimeout(handleSend, 50); }}
-              style={{ fontSize: "10px", color: "#94a3b8", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: "4px 10px", cursor: "pointer", transition: "all 0.15s" }}
-              onMouseEnter={e => { (e.currentTarget.style.color = ACCENT); (e.currentTarget.style.borderColor = `${ACCENT}40`); }}
-              onMouseLeave={e => { (e.currentTarget.style.color = "#94a3b8"); (e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"); }}>
-              {q}
-            </button>
-          ))}
-        </div>
-      )}
-      {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "1rem", minWidth: 0 }} className="custom-scrollbar">
-        {displayMessages.length === 0 && !sending ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", opacity: 0.3, gap: 8, textAlign: "center", padding: "2rem" }}>
-            <span style={{ fontSize: 40 }}>🌟</span>
-            <p style={{ color: "#ccc", fontSize: "12px", margin: 0 }}>Awaiting your command, founder.<br />Ask for a briefing or select a prompt above.</p>
-          </div>
-        ) : (
-          <AnimatePresence initial={false}>
-            {displayMessages.map(msg => {
-              const isUser = msg.role === "user";
-              return (
-                <motion.div key={msg.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }}
-                  style={{ display: "flex", flexDirection: isUser ? "row-reverse" : "row", gap: 6, alignItems: "flex-end", marginBottom: 12 }}>
-                  {!isUser && <div style={{ width: 24, height: 24, borderRadius: "50%", background: `${ACCENT}18`, border: `1px solid ${ACCENT}35`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0 }}>{agentEmoji}</div>}
-                  <div style={{ maxWidth: "84%", padding: "8px 12px", borderRadius: isUser ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-                    background: isUser ? `linear-gradient(135deg, ${ACCENT}28, ${ACCENT}18)` : "rgba(255,255,255,0.05)",
-                    border: isUser ? `1px solid ${ACCENT}30` : "1px solid rgba(255,255,255,0.07)",
-                    color: "#eee", fontSize: "0.82rem", lineHeight: 1.6, wordBreak: "break-word" }}>
-                    {isUser ? msg.content : <MarkdownMessage content={msg.content} />}
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        )}
-        {sending && (
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ display: "flex", alignItems: "flex-end", gap: 6, marginBottom: 8 }}>
-            <div style={{ width: 24, height: 24, borderRadius: "50%", background: `${ACCENT}18`, border: `1px solid ${ACCENT}35`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>{agentEmoji}</div>
-            <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "14px 14px 14px 4px" }}><TypingDots /></div>
-          </motion.div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-      {/* Error */}
-      <AnimatePresence>
-        {error && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ padding: "5px 1rem", display: "flex", alignItems: "center", gap: 6, background: "rgba(239,68,68,0.07)", borderTop: "1px solid rgba(239,68,68,0.15)", flexShrink: 0 }}>
-            <AlertCircle size={11} color="#ef4444" />
-            <p style={{ color: "#ef4444", fontSize: "11px", flex: 1, margin: 0 }}>{error}</p>
-            <button onClick={() => setError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444" }}><X size={11} /></button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      {/* Input */}
-      <div style={{ padding: "0.75rem 1rem", borderTop: `1px solid ${ACCENT}15`, flexShrink: 0 }}>
-        <div style={{ display: "flex", gap: 7, alignItems: "flex-end", background: "rgba(255,255,255,0.04)", border: `1px solid ${ACCENT}20`, borderRadius: 10, padding: "6px 6px 6px 10px" }}>
-          <textarea ref={textareaRef} value={input}
-            onChange={e => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 100) + "px"; }}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-            placeholder="Command your Growth Admin…" disabled={sending} rows={1}
-            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "#f0f0f0", fontSize: "0.82rem", resize: "none", lineHeight: 1.5, maxHeight: 100, minHeight: 20, fontFamily: "inherit", padding: 0 }} />
-          <button onClick={handleSend} disabled={!input.trim() || sending} aria-label="Send"
-            style={{ width: 30, height: 30, borderRadius: 8, border: "none", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", cursor: input.trim() && !sending ? "pointer" : "default", transition: "all 0.18s",
-              background: input.trim() && !sending ? `linear-gradient(135deg, ${ACCENT}, ${ACCENT}cc)` : "rgba(255,255,255,0.06)", color: input.trim() && !sending ? "#fff" : "#444" }}>
-            <Send size={13} />
-          </button>
-        </div>
-        <p style={{ fontSize: "9px", color: "#334155", margin: "5px 0 0", textAlign: "center" }}>
-          Tell the agent to "send a briefing to Discord" to get a DM via discord_dm
-        </p>
-      </div>
-    </div>
-  );
-}
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function NorthStarPage() {
@@ -462,7 +256,7 @@ export default function NorthStarPage() {
   const criticalRequests = requests.filter(r => r.priority >= 8 && r.status === "open");
 
   return (
-    <div style={{ padding: "1.25rem 1.5rem", minHeight: "100vh", background: "transparent" }}>
+    <div style={{ padding: "1.25rem 1.5rem" }}>
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -549,21 +343,32 @@ export default function NorthStarPage() {
             <p style={{ fontSize: "10px", color: "#475569", margin: 0, marginTop: 2 }}>Full business context loaded — ask for a commander briefing</p>
           </div>
         </div>
-        {assignedAgent ? (
-          <NorthStarChat
-            agentId={assignedAgent.id}
-            agentName={assignedAgent.name}
-            agentEmoji={(assignedAgent as any).emoji}
-            insights={insights}
-            costs={costs}
-            requests={requests}
-          />
-        ) : (
-          <div style={{ height: 360, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.15)", borderRadius: 14, border: "1px dashed rgba(255,255,255,0.06)", opacity: 0.4, gap: 8 }}>
-            <TrendingUp size={24} color="#475569" />
-            <p style={{ fontSize: "13px", color: "#475569", textAlign: "center", margin: 0 }}>Assign a Growth Admin agent above<br />to enable the command chat.</p>
-          </div>
-        )}
+        {/* Fixed-height container — ChatBox fills it, messages scroll inside */}
+        <div style={{ height: 520 }}>
+          {assignedAgent ? (
+            <ChatBox
+              agentId={assignedAgent.id}
+              agentName={assignedAgent.name}
+              agentEmoji={(assignedAgent as any).emoji}
+              agentColor={ACCENT}
+              mode="fill"
+              showHeader
+              showChatLink
+              conversationKey={`${assignedAgent.id}-north-star`}
+              context={{
+                sectionId: "north-star",
+                sectionName: "North Star",
+                metrics: [],
+                insights: [],
+              }}
+            />
+          ) : (
+            <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.15)", borderRadius: 14, border: "1px dashed rgba(255,255,255,0.06)", opacity: 0.4, gap: 8 }}>
+              <TrendingUp size={24} color="#475569" />
+              <p style={{ fontSize: "13px", color: "#475569", textAlign: "center", margin: 0 }}>Assign a Growth Admin agent above<br />to enable the command chat.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
