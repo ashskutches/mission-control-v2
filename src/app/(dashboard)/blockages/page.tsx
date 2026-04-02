@@ -99,7 +99,7 @@ function AgentBar({ agent, agents, onSelect, onClear }: {
             </p>
             <p style={{ fontSize: "0.75rem", color: "#64748b" }}>
               {agent
-                ? "Click "Generate Prompt" on any blockage below"
+                ? `Click "Generate Prompt" on any blockage below`
                 : "Assign an agent to generate per-item resolution prompts"}
             </p>
           </div>
