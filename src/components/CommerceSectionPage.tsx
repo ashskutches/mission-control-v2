@@ -1,19 +1,17 @@
 "use client";
 /**
  * CommerceSectionPage — shared layout for all /commerce/* section pages.
- * Provides: two-column layout (metrics + insights left, always-on chat right)
- * plus an Integration Requests panel below the main columns.
+ * Natural-scroll page (no height cap) — the dashboard layout's section handles the single scroll.
  */
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw, Check, X, Plug, ExternalLink } from "lucide-react";
 import SectionAgentPanel from "@/components/SectionAgentPanel";
 import SectionMetricsPanel from "@/components/SectionMetricsPanel";
 import SectionLiveKPIs from "@/components/SectionLiveKPIs";
-import { MarkdownMessage } from "@/components/MarkdownMessage";
 import InsightReviewPanel from "@/components/InsightReviewPanel";
-import { Send, AlertCircle } from "lucide-react";
 import SectionTaskQueue from "@/components/SectionTaskQueue";
+import ChatBox from "@/components/ChatBox";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 
@@ -189,195 +187,25 @@ function InsightCard({ insight, onFeedback, onOpenPanel }: {
   );
 }
 
-// ── Embedded Chat ──────────────────────────────────────────────────────────────
-function EmbeddedChat({ agentId, agentName, agentEmoji = "🤖", accentColor, metrics, insights, buildContext }: {
-  agentId: string; agentName: string; agentEmoji?: string; accentColor: string;
-  metrics: any[]; insights: Insight[];
-  buildContext: (agentName: string, metrics: any[], insights: Insight[]) => string;
-}) {
-  const [convoId, setConvoId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isFirstMessage, setIsFirstMessage] = useState(true);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const messagesRef = useRef<ChatMessage[]>([]);
-  const tag = `[${agentId}-commerce]`;
-
-  useEffect(() => {
-    if (!agentId) return;
-    (async () => {
-      try {
-        const r = await fetch(`${BOT_URL}/admin/chat/conversations?agent_id=${agentId}`);
-        const convos = await r.json();
-        const existing = Array.isArray(convos) ? convos.find((c: any) => c.title?.includes(tag)) : null;
-        let cid: string;
-        if (existing) { cid = existing.id; setIsFirstMessage(false); }
-        else {
-          const cr = await fetch(`${BOT_URL}/admin/chat/conversations`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agent_id: agentId, title: `${tag} Dashboard Chat` }) });
-          cid = (await cr.json()).id; setIsFirstMessage(true);
-        }
-        setConvoId(cid);
-      } catch (e: any) { setError(`Boot failed: ${e.message}`); }
-    })();
-  }, [agentId, tag]);
-
-  const fetchMsg = useCallback(async (cid: string) => {
-    try {
-      const d: ChatMessage[] = await (await fetch(`${BOT_URL}/admin/chat/conversations/${cid}/messages`)).json();
-      const inc = Array.isArray(d) ? d : [];
-      const lastNew = inc[inc.length - 1]?.id;
-      const lastCur = messagesRef.current[messagesRef.current.length - 1]?.id;
-      if (lastNew !== lastCur || inc.length !== messagesRef.current.length) { messagesRef.current = inc; setMessages(inc); }
-    } catch { /* silent */ }
-  }, []);
-
-  useEffect(() => {
-    if (!convoId) return;
-    fetchMsg(convoId);
-    pollRef.current = setInterval(() => { if (!sending) fetchMsg(convoId); }, 5000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [convoId, fetchMsg, sending]);
-
-
-
-  const handleSend = async () => {
-    const text = input.trim();
-    if (!text || !convoId || sending) return;
-    setInput(""); setSending(true); setError(null);
-    const content = isFirstMessage ? buildContext(agentName, metrics, insights) + text : text;
-    const tempId = `tmp-${Date.now()}`;
-    setMessages(prev => [...prev, { id: tempId, conversation_id: convoId, role: "user", content: text, created_at: new Date().toISOString() }]);
-    try {
-      const r = await fetch(`${BOT_URL}/admin/chat/conversations/${convoId}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }), signal: AbortSignal.timeout(120_000) });
-      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Send failed");
-      setIsFirstMessage(false); await fetchMsg(convoId);
-    } catch (e: any) {
-      setError(e?.name === "TimeoutError" ? "Agent timed out — try again" : e.message);
-      setMessages(prev => prev.filter(m => m.id !== tempId));
-    } finally { setSending(false); textareaRef.current?.focus(); }
-  };
-
-  const displayMessages = messages.filter(m => !(m.role === "user" && m.content.startsWith("[SECTION CONTEXT")));
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "rgba(0,0,0,0.25)", borderRadius: 14, border: `1px solid ${accentColor}18`, minWidth: 0 }}>
-      {/* Header */}
-      <div style={{ padding: "0.875rem 1.1rem", borderBottom: `1px solid ${accentColor}15`, display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-        <div style={{ width: 30, height: 30, borderRadius: "50%", background: `${accentColor}18`, border: `1px solid ${accentColor}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{agentEmoji}</div>
-        <div style={{ minWidth: 0 }}>
-          <p style={{ margin: 0, fontWeight: 700, fontSize: "0.82rem", color: "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{agentName}</p>
-          <p style={{ margin: 0, fontSize: "9px", color: "#475569" }}>Lead · context loaded</p>
-        </div>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e80" }} />
-          <span style={{ color: "#22c55e", fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>Live</span>
-        </div>
-      </div>
-      {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "1rem", minWidth: 0 }} className="custom-scrollbar">
-        {displayMessages.length === 0 && !sending ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", opacity: 0.35, gap: 8, textAlign: "center" }}>
-            <span style={{ fontSize: 36 }}>{agentEmoji}</span>
-            <p style={{ color: "#ccc", fontSize: "12px", margin: 0 }}>Ask {agentName} about the data on this page.</p>
-          </div>
-        ) : (
-          <AnimatePresence initial={false}>
-            {displayMessages.map(msg => {
-              const isUser = msg.role === "user";
-              return (
-                <motion.div key={msg.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }}
-                  style={{ display: "flex", flexDirection: isUser ? "row-reverse" : "row", gap: 6, alignItems: "flex-end", marginBottom: 10 }}>
-                  {!isUser && <div style={{ width: 24, height: 24, borderRadius: "50%", background: `${accentColor}18`, border: `1px solid ${accentColor}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0 }}>{agentEmoji}</div>}
-                  <div style={{ maxWidth: "82%", minWidth: 0, padding: "7px 11px", borderRadius: isUser ? "13px 13px 4px 13px" : "13px 13px 13px 4px",
-                    background: isUser ? `linear-gradient(135deg, ${accentColor}28, ${accentColor}18)` : "rgba(255,255,255,0.05)",
-                    border: isUser ? `1px solid ${accentColor}30` : "1px solid rgba(255,255,255,0.07)",
-                    color: "#eee", fontSize: "0.8rem", lineHeight: 1.55, wordBreak: "break-word", overflowWrap: "anywhere", whiteSpace: isUser ? "pre-wrap" : undefined }}>
-                    {isUser ? msg.content : <MarkdownMessage content={msg.content} />}
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        )}
-        <AnimatePresence>
-          {sending && (
-            <motion.div key="typing" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              style={{ display: "flex", alignItems: "flex-end", gap: 6, marginBottom: 8 }}>
-              <div style={{ width: 24, height: 24, borderRadius: "50%", background: `${accentColor}18`, border: `1px solid ${accentColor}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>{agentEmoji}</div>
-              <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "13px 13px 13px 4px" }}><TypingDots color={accentColor} /></div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <div ref={messagesEndRef} />
-      </div>
-      {/* Error */}
-      <AnimatePresence>
-        {error && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ padding: "5px 1rem", display: "flex", alignItems: "center", gap: 6, background: "rgba(239,68,68,0.07)", borderTop: "1px solid rgba(239,68,68,0.15)", flexShrink: 0 }}>
-            <AlertCircle size={11} color="#ef4444" />
-            <p style={{ color: "#ef4444", fontSize: "11px", margin: 0, flex: 1 }}>{error}</p>
-            <button onClick={() => setError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444" }}><X size={11} /></button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      {/* Input */}
-      <div style={{ padding: "0.75rem 1rem", borderTop: `1px solid ${accentColor}15`, flexShrink: 0 }}>
-        <div style={{ display: "flex", gap: 7, alignItems: "flex-end", background: "rgba(255,255,255,0.04)", border: `1px solid ${accentColor}20`, borderRadius: 10, padding: "6px 6px 6px 10px" }}>
-          <textarea ref={textareaRef} value={input}
-            onChange={e => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 100) + "px"; }}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-            placeholder={`Ask ${agentName}…`} disabled={sending} rows={1}
-            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "#f0f0f0", fontSize: "0.8rem", resize: "none", lineHeight: 1.5, maxHeight: 100, minHeight: 20, fontFamily: "inherit", padding: 0 }} />
-          <button onClick={handleSend} disabled={!input.trim() || sending} aria-label="Send"
-            style={{ width: 28, height: 28, borderRadius: 7, border: "none", flexShrink: 0, transition: "all 0.18s", display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: input.trim() && !sending ? "pointer" : "default",
-              background: input.trim() && !sending ? `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)` : "rgba(255,255,255,0.06)",
-              color: input.trim() && !sending ? "#fff" : "#444" }}>
-            <Send size={12} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Per-section context builders (internal — not passed as props) ─────────────
-const CONTEXT_BUILDERS: Record<string, (agentName: string, sectionName: string, metrics: any[], insights: Insight[]) => string> = {
-  seo: (agentName, _, metrics, insights) => buildCtx(agentName, "SEO", "Lead SEO Agent", "owns SEO for this business. You know why you filed those insights. Be direct and actionable", metrics, insights),
-  influencing: (agentName, _, metrics, insights) => buildCtx(agentName, "Influencing", "Lead Influencing Agent", "manages influencer outreach, collaboration deals, and brand partnerships", metrics, insights),
-  support: (agentName, _, metrics, insights) => buildCtx(agentName, "Support", "Lead Customer Support Agent", "manages customer service, issue resolution, and support quality. Be empathetic, practical, and solution-focused", metrics, insights),
-  email: (agentName, _, metrics, insights) => buildCtx(agentName, "Email & CRM", "Lead Email Agent", "owns email marketing and CRM strategy", metrics, insights),
-  content: (agentName, _, metrics, insights) => buildCtx(agentName, "Content", "Lead Content Agent", "owns the content strategy across all organic channels including blog posts, YouTube videos, Facebook Groups, external guest posts, Reddit engagement, and any other owned/earned media", metrics, insights),
-  ads: (agentName, _, metrics, insights) => buildCtx(agentName, "Ads", "Lead Paid Media Agent", "owns paid advertising strategy across all channels", metrics, insights),
-};
-
-function buildCtx(agentName: string, section: string, role: string, description: string, metrics: any[], insights: Insight[]): string {
+// ── Per-section context hint builders ────────────────────────────────────────
+function buildSectionHint(sectionId: string, sectionName: string, metrics: any[], insights: Insight[]): string {
   const metricLines = metrics.length > 0
-    ? metrics.map(m => `  - ${m.label}: ${m.value}${m.sub ? ` (${m.sub})` : ""}`).join("\n")
+    ? metrics.map((m: any) => `  - ${m.label}: ${m.value}${m.sub ? ` (${m.sub})` : ""}`).join("\n")
     : "  (No metrics yet — run analysis)";
-  const insightLines = insights.slice(0, 8).map(i =>
+  const insightLines = insights.slice(0, 8).map((i) =>
     `  - [${i.type.replace("_", " ").toUpperCase()}] "${i.title}"${i.estimated_monthly_value ? ` (+$${i.estimated_monthly_value.toLocaleString()}/mo)` : ""} [${i.status}]`
   ).join("\n") || "  (None yet)";
   return (
-    `[SECTION CONTEXT — do not repeat this block to the user]\n` +
-    `You are ${agentName}, ${role} for Leaps & Rebounds. ` +
-    `This chat is embedded on the ${section} dashboard. You ${description}.\n\n` +
+    `This chat is on the ${sectionName} dashboard (section: "${sectionId}").\n\n` +
     `Current Dashboard Metrics:\n${metricLines}\n\n` +
-    `Insights you filed (visible to user):\n${insightLines}\n\n` +
-    `Respond as the domain expert who owns ${section} for this business.\n---\nUser: `
+    `Recent Insights:\n${insightLines}\n\n` +
+    `Respond as the domain expert who owns ${sectionName} for this business.`
   );
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function CommerceSectionPage({ config }: { config: SectionConfig }) {
   const { sectionId, sectionName, subtitle, accentColor, icon } = config;
-  const contextBuilder = CONTEXT_BUILDERS[sectionId] ?? ((agentName: string, sectionName: string, metrics: any[], insights: Insight[]) => buildCtx(agentName, sectionName, "Lead Agent", `owns the ${sectionName} domain`, metrics, insights));
-  const buildContext = (agentName: string, metrics: any[], insights: Insight[]) => contextBuilder(agentName, sectionName, metrics, insights);
 
   const [insights, setInsights] = useState<Insight[]>([]);
   const [statusFilter, setStatusFilter] = useState("new");
@@ -438,7 +266,8 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
   }, {});
 
   return (
-    <div style={{ padding: "1.25rem 1.5rem", height: "calc(100vh - 60px)", display: "flex", flexDirection: "column", minWidth: 0, overflowY: "auto" }}>
+    // No height cap — page scrolls naturally through the dashboard layout's single scroll container
+    <div style={{ padding: "1.25rem 1.5rem", minWidth: 0 }}>
 
       {/* Header */}
       <div className="is-flex is-justify-content-space-between is-align-items-center mb-4" style={{ flexShrink: 0 }}>
@@ -550,10 +379,10 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
           </div>
         </div>
 
-        {/* Insight cards — scrollable grid */}
-        <div style={{ overflowY: "auto", padding: "1rem 1.25rem", minHeight: 240 }} className="custom-scrollbar">
+        {/* Insight cards — natural flow, no inner scroll */}
+        <div style={{ padding: "1rem 1.25rem" }}>
           {filtered.length === 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 8, opacity: 0.5 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 120, gap: 8, opacity: 0.5 }}>
               <p style={{ fontSize: "12px", color: "#475569", textAlign: "center" }}>
                 No {statusFilter.replace("_", " ")} insights.{statusFilter === "new" ? " Run an analysis to generate findings." : ""}
               </p>
@@ -571,15 +400,8 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
       {/* ── Row 2b: Agent Task Queue (actions awaiting approval) ──── */}
       <SectionTaskQueue sectionId={sectionId} accentColor={accentColor} />
 
-      {/* ── Row 3: Full-width Chat ───────────────────────────────────── */}
-      <div style={{
-        flexShrink: 0,
-        marginTop: "1.25rem",
-        minHeight: "70vh",
-        marginBottom: "1.5rem",
-        display: "flex",
-        flexDirection: "column",
-      }}>
+      {/* ── Row 3: Chat — fixed 520px height, scrolls inside ─────────── */}
+      <div style={{ marginTop: "1.5rem", marginBottom: "2rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "0.65rem" }}>
           <div style={{ width: 26, height: 26, borderRadius: 8, background: `${accentColor}18`, border: `1px solid ${accentColor}30`, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ fontSize: 13 }}>💬</span>
@@ -591,15 +413,27 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
             <p style={{ fontSize: "10px", color: "#475569", margin: 0, marginTop: 2 }}>Ask your agent anything about this department</p>
           </div>
         </div>
-        <div style={{ flex: 1, minHeight: 0 }}>
+        {/* Fixed-height container — ChatBox fills it, messages scroll inside */}
+        <div style={{ height: 520 }}>
           {assignedAgent ? (
-            <EmbeddedChat
-              agentId={assignedAgent.id} agentName={assignedAgent.name}
-              agentEmoji={(assignedAgent as any).emoji} accentColor={accentColor}
-              metrics={metrics} insights={regularInsights} buildContext={buildContext}
+            <ChatBox
+              agentId={assignedAgent.id}
+              agentName={assignedAgent.name}
+              agentEmoji={(assignedAgent as any).emoji}
+              agentColor={accentColor}
+              mode="fill"
+              showHeader
+              showChatLink
+              conversationKey={`${assignedAgent.id}-${sectionId}`}
+              context={{
+                sectionId,
+                sectionName,
+                metrics,
+                insights: regularInsights,
+              }}
             />
           ) : (
-            <div style={{ height: "100%", minHeight: 400, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.15)", borderRadius: 14, border: "1px dashed rgba(255,255,255,0.06)", opacity: 0.4, gap: 8 }}>
+            <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.15)", borderRadius: 14, border: "1px dashed rgba(255,255,255,0.06)", opacity: 0.4, gap: 8 }}>
               <p style={{ fontSize: "13px", color: "#475569", textAlign: "center" }}>Assign a lead agent above<br />to enable the chat panel.</p>
             </div>
           )}
