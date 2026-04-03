@@ -28,6 +28,7 @@ import {
     Wrench,
     Bug,
     Palette,
+    Layers,
 } from 'lucide-react';
 
 export const SQUADS = [
@@ -70,6 +71,7 @@ export const APP_CONFIG = {
         { id: 'overview',     href: '/',             icon: LayoutDashboard, label: 'Overview',     group: 'core' },
         { id: 'north-star',   href: '/north-star',   icon: TrendingUp,      label: 'North Star',   color: '#a78bfa', group: 'core' },
         { id: 'insights',     href: '/intelligence', icon: BrainCircuit,    label: 'Insights',     color: '#f59e0b', group: 'core' },
+        { id: 'audience',     href: '/audience',     icon: Layers,          label: 'Audience',     color: '#38bdf8', group: 'core' },
 
         // ── Commerce: Overview ────────────────────────────────────────────────
         { id: 'store', href: '/commerce', icon: ShoppingBag, label: 'Commerce', color: '#fb923c', group: 'commerce' },
