@@ -309,12 +309,20 @@ const KNOWN_SNIPPETS = [
     priority: "7",
   },
   {
+    id: "lrb-benefits-features",
+    name: "A Bounce That Feels Better",
+    description: "Tabbed benefits section — bounce experience, bungees, materials",
+    targeting: "{}",
+    priority: "3",
+  },
+  {
     id: "lrb-benefit-callouts",
     name: "Benefit Callouts Grid",
     description: "Four key product benefits — shows to everyone",
     targeting: "{}",
     priority: "3",
   },
+
 ];
 
 function SectionLibraryTab({ sections, loading, onRefresh }: {
