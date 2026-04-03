@@ -1,11 +1,11 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
 import {
   Users, Target, TrendingUp, Activity, Brain, Layers,
   RefreshCw, ChevronDown, ChevronUp, Zap, Eye, Mail,
   ShoppingBag, Plus, Edit2, Trash2, Check, X, BarChart3,
-  Rocket, AlertTriangle, CloudUpload,
+  Rocket, AlertTriangle, CloudUpload, GripVertical,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -149,10 +149,11 @@ function OverviewTab({ analytics, loading }: { analytics: Analytics | null; load
 
 // ── Section Library Tab ───────────────────────────────────────────────────────
 
-function SectionCard({ section, onToggle, onEdit }: {
+function SectionCard({ section, onToggle, onEdit, dragControls }: {
   section: PSection;
   onToggle: (id: string, active: boolean) => void;
   onEdit: (section: PSection) => void;
+  dragControls?: ReturnType<typeof useDragControls>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const rules = section.targeting_rules;
@@ -163,7 +164,21 @@ function SectionCard({ section, onToggle, onEdit }: {
       borderLeft: `3px solid ${section.active ? "#38bdf8" : "#334155"}`,
       opacity: section.active ? 1 : 0.5,
       marginBottom: "0.75rem",
+      display: "flex",
+      gap: "0.5rem",
+      alignItems: "flex-start",
     }}>
+      {/* Drag handle */}
+      {dragControls && (
+        <div
+          onPointerDown={e => dragControls.start(e)}
+          style={{ cursor: "grab", color: "#334155", paddingTop: 2, flexShrink: 0 }}
+          title="Drag to reorder"
+        >
+          <GripVertical size={16} />
+        </div>
+      )}
+      <div style={{ flex: 1 }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.4rem" }}>
@@ -241,6 +256,7 @@ function SectionCard({ section, onToggle, onEdit }: {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </motion.div>
   );
 }
@@ -288,6 +304,32 @@ function SectionLibraryTab({ sections, loading, onRefresh }: {
   const [editTarget, setEditTarget] = useState<PSection | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [orderedSections, setOrderedSections] = useState<PSection[]>([]);
+  const [savingOrder, setSavingOrder] = useState(false);
+
+  // Sync orderedSections when sections prop changes
+  useEffect(() => {
+    setOrderedSections([...sections].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0)));
+  }, [sections]);
+
+  const saveOrder = async (reordered: PSection[]) => {
+    setSavingOrder(true);
+    try {
+      // Top item = highest priority; assign descending multiples of 10
+      const total = reordered.length;
+      await Promise.all(reordered.map((s, i) => {
+        const priority = (total - i) * 10;
+        return fetch(`${BOT_URL}/admin/intelligence/sections/${s.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ priority }),
+        });
+      }));
+      onRefresh();
+    } finally {
+      setSavingOrder(false);
+    }
+  };
 
   const empty: SectionFormData = { name: "", description: "", shopify_section_id: "", targeting_rules_raw: "{}", priority: "0" };
   const [form, setForm] = useState<SectionFormData>(empty);
@@ -460,15 +502,45 @@ function SectionLibraryTab({ sections, loading, onRefresh }: {
 
       {loading ? (
         <p style={{ color: "#475569", textAlign: "center", padding: "2rem" }}>Loading sections...</p>
-      ) : sections.length === 0 ? (
+      ) : orderedSections.length === 0 ? (
         <div style={{ ...CARD, textAlign: "center", padding: "3rem" }}>
           <Layers size={32} color="#334155" style={{ margin: "0 auto 1rem" }} />
           <p style={{ color: "#475569" }}>No sections registered yet. Click "Register Section" to add your first.</p>
         </div>
       ) : (
-        <AnimatePresence mode="popLayout">
-          {sections.map(s => <SectionCard key={s.id} section={s} onToggle={toggle} onEdit={openEdit} />)}
-        </AnimatePresence>
+        <>
+          {savingOrder && (
+            <p style={{ fontSize: 11, color: "#38bdf8", marginBottom: "0.5rem" }}>Saving order...</p>
+          )}
+          <p style={{ fontSize: 11, color: "#475569", marginBottom: "0.75rem" }}>
+            <GripVertical size={11} style={{ display: "inline", marginRight: 4 }} />
+            Drag to reorder — top = highest priority
+          </p>
+          <Reorder.Group
+            axis="y"
+            values={orderedSections}
+            onReorder={(reordered) => {
+              setOrderedSections(reordered);
+              saveOrder(reordered);
+            }}
+            style={{ listStyle: "none", padding: 0, margin: 0 }}
+          >
+            {orderedSections.map((s, i) => {
+              // eslint-disable-next-line react-hooks/rules-of-hooks
+              const controls = useDragControls();
+              return (
+                <Reorder.Item key={s.id} value={s} dragControls={controls} dragListener={false} style={{ listStyle: "none" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <span style={{ fontSize: 10, color: "#334155", fontWeight: 700, minWidth: 16, textAlign: "right" }}>#{i + 1}</span>
+                    <div style={{ flex: 1 }}>
+                      <SectionCard section={s} onToggle={toggle} onEdit={openEdit} dragControls={controls} />
+                    </div>
+                  </div>
+                </Reorder.Item>
+              );
+            })}
+          </Reorder.Group>
+        </>
       )}
     </div>
   );
