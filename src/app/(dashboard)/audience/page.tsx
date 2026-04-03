@@ -250,6 +250,37 @@ interface SectionFormData {
   targeting_rules_raw: string; priority: string;
 }
 
+const KNOWN_SNIPPETS = [
+  {
+    id: "lrb-hero-pain-point",
+    name: "Knee Pain Hero",
+    description: "Primary hero for joint/knee pain visitors",
+    targeting: JSON.stringify({ pain: ["knee", "joint", "back"] }, null, 2),
+    priority: "5",
+  },
+  {
+    id: "lrb-hero-athletic",
+    name: "Athletic Performance Hero",
+    description: "Hero for fitness/athletic audience",
+    targeting: JSON.stringify({ ad_signals: { utm_campaign: "athletic_performance" } }, null, 2),
+    priority: "7",
+  },
+  {
+    id: "lrb-hero-senior",
+    name: "Senior Fitness Hero",
+    description: "Hero for 50+ active adult audience",
+    targeting: JSON.stringify({ ad_signals: { utm_campaign: "senior_fitness" } }, null, 2),
+    priority: "7",
+  },
+  {
+    id: "lrb-benefit-callouts",
+    name: "Benefit Callouts Grid",
+    description: "Four key product benefits — shows to everyone",
+    targeting: "{}",
+    priority: "3",
+  },
+];
+
 function SectionLibraryTab({ sections, loading, onRefresh }: {
   sections: PSection[]; loading: boolean; onRefresh: () => void;
 }) {
@@ -310,10 +341,45 @@ function SectionLibraryTab({ sections, loading, onRefresh }: {
             <p style={{ fontSize: 12, fontWeight: 800, color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
               {editTarget ? "Edit Section" : "Register New Section"}
             </p>
+            <div style={{ marginBottom: "0.75rem" }}>
+              <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>
+                Pick a Snippet
+              </label>
+              <select
+                className="input is-small"
+                value={form.shopify_section_id}
+                onChange={e => {
+                  const picked = KNOWN_SNIPPETS.find(s => s.id === e.target.value);
+                  if (picked) {
+                    setForm(f => ({
+                      ...f,
+                      shopify_section_id: picked.id,
+                      name: f.name || picked.name,
+                      description: f.description || picked.description,
+                      targeting_rules_raw: picked.targeting,
+                      priority: picked.priority,
+                    }));
+                  } else {
+                    setForm(f => ({ ...f, shopify_section_id: e.target.value }));
+                  }
+                }}
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(56,189,248,0.25)", color: "#e2e8f0" }}
+              >
+                <option value="">— select a snippet —</option>
+                {KNOWN_SNIPPETS.map(s => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
+                ))}
+                <option value="__custom__">Other (custom ID)</option>
+              </select>
+              {form.shopify_section_id === "__custom__" && (
+                <input className="input is-small" placeholder="my-custom-snippet-id"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", marginTop: "0.5rem" }}
+                  onChange={e => setForm(f => ({ ...f, shopify_section_id: e.target.value }))} />
+              )}
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
               {[
                 { key: "name", label: "Display Name", placeholder: "Knee Pain Hero" },
-                { key: "shopify_section_id", label: "Shopify Section ID", placeholder: "lrb-hero-knee-pain" },
                 { key: "description", label: "Description (optional)", placeholder: "Hero for knee pain visitors" },
                 { key: "priority", label: "Priority (0–10)", placeholder: "5" },
               ].map(({ key, label, placeholder }) => (
