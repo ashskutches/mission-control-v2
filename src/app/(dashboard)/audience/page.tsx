@@ -381,78 +381,109 @@ interface DeployResult {
 
 function ThemeDeployTab() {
   const [themes, setThemes] = useState<ShopifyTheme[]>([]);
+  const [selectedThemeId, setSelectedThemeId] = useState<number | null>(null);
   const [loadingThemes, setLoadingThemes] = useState(false);
   const [deploying, setDeploying] = useState(false);
-  const [publishing, setPublishing] = useState(false);
   const [deployResult, setDeployResult] = useState<DeployResult | null>(null);
   const [error, setError] = useState("");
-  const [publishConfirm, setPublishConfirm] = useState(false);
 
   const loadThemes = async () => {
-    setLoadingThemes(true); setError("");
+    setLoadingThemes(true); setError(""); setDeployResult(null);
     try {
       const res = await fetch(`${BOT_URL}/admin/intelligence/theme/list`);
       if (!res.ok) throw new Error((await res.json()).error ?? "Failed to list themes");
       const data = await res.json();
-      setThemes(data.themes ?? []);
+      const list: ShopifyTheme[] = data.themes ?? [];
+      setThemes(list);
+      // Auto-select the sandbox theme if found, otherwise the first non-live theme
+      const sandbox = list.find(t => t.name.toLowerCase().includes("dynamic sections") || t.name.toLowerCase().includes("intelligence"));
+      const fallback = list.find(t => t.role !== "main") ?? list[0];
+      setSelectedThemeId((sandbox ?? fallback)?.id ?? null);
     } catch (e: any) { setError(e.message); }
     finally { setLoadingThemes(false); }
   };
 
   const deployAll = async () => {
+    if (!selectedThemeId) return;
     setDeploying(true); setDeployResult(null); setError("");
     try {
-      const res = await fetch(`${BOT_URL}/admin/intelligence/theme/deploy`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const res = await fetch(`${BOT_URL}/admin/intelligence/theme/deploy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme_id: selectedThemeId }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Deploy failed");
       setDeployResult(data);
-      await loadThemes();
     } catch (e: any) { setError(e.message); }
     finally { setDeploying(false); }
   };
 
-  const publish = async (themeId: number) => {
-    setPublishing(true); setError("");
-    try {
-      const res = await fetch(`${BOT_URL}/admin/intelligence/theme/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ theme_id: themeId }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Publish failed");
-      setPublishConfirm(false);
-      await loadThemes();
-    } catch (e: any) { setError(e.message); }
-    finally { setPublishing(false); }
-  };
-
-  const sandboxTheme = themes.find(t => t.name.toLowerCase().includes("dynamic sections") || t.name.toLowerCase().includes("intelligence"));
-  const liveTheme = themes.find(t => t.role === "main");
+  const selectedTheme = themes.find(t => t.id === selectedThemeId);
 
   return (
     <div>
+      {/* Deploy card */}
       <div style={{ ...CARD, marginBottom: "1.5rem", border: "1px solid rgba(167,139,250,0.2)" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", marginBottom: "1rem" }}>
           <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(167,139,250,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <Rocket size={16} color="#a78bfa" />
           </div>
           <div style={{ flex: 1 }}>
-            <p style={{ fontWeight: 800, color: "#e2e8f0", marginBottom: "0.25rem" }}>One-Click Deploy</p>
+            <p style={{ fontWeight: 800, color: "#e2e8f0", marginBottom: "0.25rem" }}>Deploy Assets to Theme</p>
             <p style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
-              Pushes <code style={{ color: "#a78bfa" }}>lrb-intelligence.js</code> and all Liquid section templates to the <strong style={{ color: "#e2e8f0" }}>"7.1.11.1 (Dynamic Sections)"</strong> sandbox theme. The live store is untouched.
+              Pushes <code style={{ color: "#a78bfa" }}>lrb-personalization.js</code> and all Liquid section templates to the selected theme.
+              To publish to live, do that from <strong style={{ color: "#e2e8f0" }}>Shopify Admin → Themes</strong>.
             </p>
           </div>
         </div>
-        <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem", flexWrap: "wrap" }}>
+
+        {/* Theme selector */}
+        {themes.length > 0 && (
+          <div style={{ marginBottom: "1rem" }}>
+            <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 700, display: "block", marginBottom: "0.4rem" }}>
+              Target Theme
+            </label>
+            <select
+              value={selectedThemeId ?? ""}
+              onChange={e => setSelectedThemeId(Number(e.target.value))}
+              style={{
+                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
+                color: "#e2e8f0", borderRadius: 8, padding: "0.5rem 0.75rem",
+                fontSize: 13, width: "100%", cursor: "pointer",
+              }}
+            >
+              {themes.map(t => (
+                <option key={t.id} value={t.id} style={{ background: "#0f172a" }}>
+                  {t.name} {t.role === "main" ? "🟢 LIVE" : ""}
+                </option>
+              ))}
+            </select>
+            {selectedTheme && (
+              <p style={{ fontSize: 10, color: "#475569", marginTop: "0.3rem" }}>
+                ID: {selectedTheme.id} · {selectedTheme.role === "main"
+                  ? <span style={{ color: "#f43f5e" }}>⚠ This is your live theme — deploying will affect customers</span>
+                  : <span style={{ color: "#34d399" }}>Safe sandbox theme</span>
+                }
+              </p>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
           <button onClick={loadThemes} disabled={loadingThemes} className="button is-small"
             style={{ background: "rgba(56,189,248,0.1)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.2)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
             <RefreshCw size={12} className={loadingThemes ? "spin" : ""} />
             {themes.length ? "Refresh Themes" : "List Themes"}
           </button>
-          <button onClick={deployAll} disabled={deploying || themes.length === 0} className="button is-small"
+          <button onClick={deployAll} disabled={deploying || !selectedThemeId} className="button is-small"
             style={{ background: deploying ? "rgba(167,139,250,0.05)" : "rgba(167,139,250,0.15)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.25)", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.4rem" }}>
             <CloudUpload size={13} /> {deploying ? "Deploying..." : "Deploy All Assets"}
           </button>
         </div>
       </div>
 
+      {/* Error */}
       {error && (
         <div style={{ ...CARD, border: "1px solid rgba(244,63,94,0.3)", background: "rgba(244,63,94,0.05)", marginBottom: "1rem", display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
           <AlertTriangle size={16} color="#f43f5e" style={{ flexShrink: 0, marginTop: 1 }} />
@@ -460,6 +491,7 @@ function ThemeDeployTab() {
         </div>
       )}
 
+      {/* Deploy result */}
       {deployResult && (
         <div style={{ ...CARD, border: `1px solid ${deployResult.ok ? "rgba(52,211,153,0.3)" : "rgba(244,63,94,0.3)"}`, marginBottom: "1.5rem" }}>
           <p style={{ fontWeight: 700, color: deployResult.ok ? "#34d399" : "#f43f5e", marginBottom: "0.5rem" }}>
@@ -474,6 +506,7 @@ function ThemeDeployTab() {
         </div>
       )}
 
+      {/* Theme list */}
       {themes.length > 0 && (
         <div style={CARD}>
           <p style={{ fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, marginBottom: "1rem" }}>
@@ -481,49 +514,33 @@ function ThemeDeployTab() {
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
             {themes.map(t => (
-              <div key={t.id} style={{
+              <div key={t.id} onClick={() => setSelectedThemeId(t.id)} style={{
                 display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap",
-                padding: "0.75rem", background: "rgba(255,255,255,0.02)", borderRadius: 8,
-                border: t.role === "main" ? "1px solid rgba(52,211,153,0.2)" : "1px solid rgba(255,255,255,0.04)",
+                padding: "0.75rem", background: selectedThemeId === t.id ? "rgba(167,139,250,0.06)" : "rgba(255,255,255,0.02)",
+                borderRadius: 8, cursor: "pointer",
+                border: selectedThemeId === t.id ? "1px solid rgba(167,139,250,0.3)" : t.role === "main" ? "1px solid rgba(52,211,153,0.2)" : "1px solid rgba(255,255,255,0.04)",
+                transition: "all 0.15s",
               }}>
                 <div style={{ flex: 1 }}>
                   <p style={{ fontWeight: 700, color: "#e2e8f0", fontSize: 13, marginBottom: 2 }}>{t.name}</p>
                   <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: t.role === "main" ? "#34d399" : t.name.toLowerCase().includes("dynamic") ? "#a78bfa" : "#64748b",
-                      background: t.role === "main" ? "rgba(52,211,153,0.1)" : t.name.toLowerCase().includes("dynamic") ? "rgba(167,139,250,0.1)" : "rgba(100,116,139,0.1)",
-                      padding: "1px 7px", borderRadius: 10, textTransform: "uppercase" }}>
-                      {t.role === "main" ? "Live" : t.name.toLowerCase().includes("dynamic") ? "Sandbox" : "Unpublished"}
+                    <span style={{
+                      fontSize: 9, fontWeight: 700,
+                      color: t.role === "main" ? "#34d399" : "#64748b",
+                      background: t.role === "main" ? "rgba(52,211,153,0.1)" : "rgba(100,116,139,0.1)",
+                      padding: "1px 7px", borderRadius: 10, textTransform: "uppercase",
+                    }}>
+                      {t.role === "main" ? "Live" : "Unpublished"}
                     </span>
                     <span style={{ fontSize: 10, color: "#334155" }}>ID: {t.id}</span>
                   </div>
                 </div>
-                {t.role !== "main" && (
-                  <div>
-                    {!publishConfirm ? (
-                      <button onClick={() => setPublishConfirm(true)} className="button is-small is-ghost"
-                        style={{ fontSize: 11, color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 6, padding: "0.25rem 0.65rem" }}>
-                        Publish to Live
-                      </button>
-                    ) : (
-                      <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
-                        <span style={{ fontSize: 11, color: "#f59e0b" }}>Are you sure?</span>
-                        <button onClick={() => publish(t.id)} disabled={publishing} className="button is-small"
-                          style={{ fontSize: 11, background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", fontWeight: 700 }}>
-                          {publishing ? "Publishing..." : "Confirm"}
-                        </button>
-                        <button onClick={() => setPublishConfirm(false)} className="button is-small is-ghost" style={{ fontSize: 11, color: "#475569" }}>Cancel</button>
-                      </div>
-                    )}
-                  </div>
+                {selectedThemeId === t.id && (
+                  <Check size={14} color="#a78bfa" />
                 )}
               </div>
             ))}
           </div>
-          {sandboxTheme && liveTheme && sandboxTheme.id !== liveTheme.id && (
-            <p style={{ fontSize: 11, color: "#475569", marginTop: "0.75rem" }}>
-              Sandbox: <strong style={{ color: "#a78bfa" }}>{sandboxTheme.name}</strong> → Live: <strong style={{ color: "#34d399" }}>{liveTheme.name}</strong>
-            </p>
-          )}
         </div>
       )}
 
