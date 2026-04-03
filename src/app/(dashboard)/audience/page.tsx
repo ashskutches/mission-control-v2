@@ -396,15 +396,56 @@ function SectionLibraryTab({ sections, loading, onRefresh }: {
               <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>
                 Targeting Rules (JSON)
               </label>
+
+              {/* Reference panel */}
+              <div style={{ background: "rgba(30,41,59,0.6)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "0.75rem", marginBottom: "0.5rem", fontSize: 11 }}>
+                <p style={{ color: "#94a3b8", fontWeight: 700, marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>Available Keys</p>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <tbody>
+                    {[
+                      { key: "pain", type: "string[]", desc: "Pain points to match", eg: '"pain": ["knee", "back"]' },
+                      { key: "motivation", type: "string[]", desc: "Visitor motivation type", eg: '"motivation": ["pain_relief", "weight_loss"]' },
+                      { key: "life_stage", type: "string[]", desc: "Life stage / persona", eg: '"life_stage": ["senior", "post_injury"]' },
+                      { key: "decision_style", type: "string[]", desc: "How they make decisions", eg: '"decision_style": ["social_proof", "deal_seeker"]' },
+                      { key: "tags", type: "string[]", desc: "Custom segment tags", eg: '"tags": ["returning", "cart_abandoner"]' },
+                      { key: "identified", type: "bool", desc: "Known customer (has email/Shopify ID)", eg: '"identified": true' },
+                      { key: "min_confidence", type: "0–1", desc: "Minimum profile confidence score", eg: '"min_confidence": 0.6' },
+                      { key: "ad_signals.utm_campaign", type: "string", desc: "Match a specific UTM campaign", eg: '"ad_signals": {"utm_campaign": "knee_pain"}' },
+                      { key: "ad_signals.utm_source", type: "string", desc: "Match a UTM source", eg: '"ad_signals": {"utm_source": "facebook"}' },
+                    ].map(row => (
+                      <tr key={row.key} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                        <td style={{ padding: "0.3rem 0.5rem 0.3rem 0", color: "#38bdf8", fontFamily: "monospace", whiteSpace: "nowrap" }}>{row.key}</td>
+                        <td style={{ padding: "0.3rem 0.5rem", color: "#64748b", whiteSpace: "nowrap" }}>{row.type}</td>
+                        <td style={{ padding: "0.3rem 0", color: "#94a3b8" }}>{row.desc}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p style={{ color: "#64748b", fontWeight: 700, margin: "0.6rem 0 0.3rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>Quick Examples</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                  {[
+                    { label: "Knee pain", json: '{\n  "pain": ["knee", "joint"]\n}' },
+                    { label: "Athletic UTM", json: '{\n  "ad_signals": { "utm_campaign": "athletic_performance" }\n}' },
+                    { label: "Senior UTM", json: '{\n  "ad_signals": { "utm_campaign": "senior_fitness" }\n}' },
+                    { label: "Identified customer", json: '{\n  "identified": true,\n  "min_confidence": 0.5\n}' },
+                    { label: "Everyone (fallback)", json: '{}' },
+                  ].map(ex => (
+                    <button key={ex.label}
+                      onClick={() => setForm(f => ({ ...f, targeting_rules_raw: ex.json }))}
+                      style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.18)", color: "#38bdf8", borderRadius: 4, padding: "0.2rem 0.5rem", fontSize: 10, cursor: "pointer", fontWeight: 600 }}>
+                      {ex.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <textarea className="textarea is-small" rows={4}
                 value={form.targeting_rules_raw}
                 onChange={e => setForm(f => ({ ...f, targeting_rules_raw: e.target.value }))}
-                placeholder={'{"pain": ["knee"], "life_stage": ["post_injury"]}'}
+                placeholder={'{}'}
                 style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", fontFamily: "monospace", fontSize: 12 }} />
-              <p style={{ fontSize: 9, color: "#475569", marginTop: "0.25rem" }}>
-                Keys: pain (string[]), motivation (string[]), life_stage (string[]), decision_style (string[]), tags (string[]), identified (bool), min_confidence (0–1)
-              </p>
             </div>
+
             {formError && <p style={{ fontSize: 12, color: "#f43f5e", marginTop: "0.5rem" }}>⚠ {formError}</p>}
             <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
               <button onClick={save} disabled={saving} className="button is-small"
