@@ -261,6 +261,26 @@ function SectionCard({ section, onToggle, onEdit, dragControls }: {
   );
 }
 
+// Extracted so useDragControls is called at the top level of a component, not inside a .map()
+function ReorderableSection({ section, rank, onToggle, onEdit }: {
+  section: PSection; rank: number;
+  onToggle: (id: string, active: boolean) => void;
+  onEdit: (section: PSection) => void;
+}) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item value={section} dragControls={controls} dragListener={false} style={{ listStyle: "none" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <span style={{ fontSize: 10, color: "#334155", fontWeight: 700, minWidth: 16, textAlign: "right" }}>#{rank}</span>
+        <div style={{ flex: 1 }}>
+          <SectionCard section={section} onToggle={onToggle} onEdit={onEdit} dragControls={controls} />
+        </div>
+      </div>
+    </Reorder.Item>
+  );
+}
+
+
 interface SectionFormData {
   name: string; description: string; shopify_section_id: string;
   targeting_rules_raw: string; priority: string;
@@ -525,20 +545,9 @@ function SectionLibraryTab({ sections, loading, onRefresh }: {
             }}
             style={{ listStyle: "none", padding: 0, margin: 0 }}
           >
-            {orderedSections.map((s, i) => {
-              // eslint-disable-next-line react-hooks/rules-of-hooks
-              const controls = useDragControls();
-              return (
-                <Reorder.Item key={s.id} value={s} dragControls={controls} dragListener={false} style={{ listStyle: "none" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <span style={{ fontSize: 10, color: "#334155", fontWeight: 700, minWidth: 16, textAlign: "right" }}>#{i + 1}</span>
-                    <div style={{ flex: 1 }}>
-                      <SectionCard section={s} onToggle={toggle} onEdit={openEdit} dragControls={controls} />
-                    </div>
-                  </div>
-                </Reorder.Item>
-              );
-            })}
+            {orderedSections.map((s, i) => (
+              <ReorderableSection key={s.id} section={s} rank={i + 1} onToggle={toggle} onEdit={openEdit} />
+            ))}
           </Reorder.Group>
         </>
       )}
