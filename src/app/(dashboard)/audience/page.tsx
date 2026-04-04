@@ -157,106 +157,150 @@ function SectionCard({ section, onToggle, onEdit, dragControls }: {
 }) {
   const [expanded, setExpanded] = useState(false);
   const rules = section.targeting_rules;
+  const ruleEntries = Object.entries(rules);
+  const isUniversal = ruleEntries.length === 0;
+  const visibleRules = ruleEntries.slice(0, 3);
+  const hiddenCount = ruleEntries.length - visibleRules.length;
 
   return (
-    <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{
-      ...CARD,
+    <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{
+      background: "rgba(255,255,255,0.03)",
+      border: "1px solid rgba(255,255,255,0.07)",
       borderLeft: `3px solid ${section.active ? "#38bdf8" : "#334155"}`,
-      opacity: section.active ? 1 : 0.5,
-      marginBottom: "0.75rem",
-      display: "flex",
-      gap: "0.5rem",
-      alignItems: "flex-start",
+      borderRadius: 10,
+      padding: "0.45rem 0.75rem",
+      opacity: section.active ? 1 : 0.55,
+      marginBottom: "0.3rem",
     }}>
-      {/* Drag handle */}
-      {dragControls && (
-        <div
-          onPointerDown={e => dragControls.start(e)}
-          style={{ cursor: "grab", color: "#334155", paddingTop: 2, flexShrink: 0 }}
-          title="Drag to reorder"
-        >
-          <GripVertical size={16} />
-        </div>
-      )}
-      <div style={{ flex: 1 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.4rem" }}>
-            <span style={{ fontWeight: 800, color: "#e2e8f0", fontSize: 14 }}>{section.name}</span>
-            <code style={{ fontSize: 10, color: "#475569", background: "rgba(255,255,255,0.04)", padding: "1px 6px", borderRadius: 4 }}>
-              {section.shopify_section_id}
-            </code>
-            <span style={{ fontSize: 9, fontWeight: 700, color: section.active ? "#34d399" : "#64748b",
-              background: section.active ? "rgba(52,211,153,0.1)" : "rgba(100,116,139,0.1)",
-              padding: "1px 6px", borderRadius: 10, textTransform: "uppercase" }}>
-              {section.active ? "Active" : "Inactive"}
-            </span>
+      {/* ── Compact main row ─────────────────────────────────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", minWidth: 0 }}>
+
+        {/* Drag handle */}
+        {dragControls && (
+          <div onPointerDown={e => dragControls.start(e)}
+            style={{ cursor: "grab", color: "#334155", flexShrink: 0 }} title="Drag to reorder">
+            <GripVertical size={13} />
           </div>
-          {section.description && (
-            <p style={{ fontSize: 12, color: "#64748b", marginBottom: "0.5rem" }}>{section.description}</p>
+        )}
+
+        {/* Active glow dot */}
+        <div style={{
+          width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+          background: section.active ? "#34d399" : "#334155",
+          boxShadow: section.active ? "0 0 5px #34d39977" : "none",
+        }} />
+
+        {/* Name */}
+        <span style={{ fontWeight: 700, color: "#e2e8f0", fontSize: 12.5, flexShrink: 0, whiteSpace: "nowrap" }}>
+          {section.name}
+        </span>
+
+        {/* Snippet ID */}
+        <code style={{
+          fontSize: 9, color: "#334155", background: "rgba(255,255,255,0.04)",
+          padding: "1px 5px", borderRadius: 4, flexShrink: 0, whiteSpace: "nowrap",
+        }}>
+          {section.shopify_section_id}
+        </code>
+
+        {/* ── Inline targeting pills ───────────────────────────────────── */}
+        <div style={{ display: "flex", gap: "0.25rem", alignItems: "center", flex: 1, minWidth: 0, overflow: "hidden" }}>
+          {isUniversal ? (
+            <span style={{
+              fontSize: 9, color: "#64748b", background: "rgba(100,116,139,0.1)",
+              padding: "1px 6px", borderRadius: 4, fontWeight: 700,
+              border: "1px solid rgba(100,116,139,0.15)", flexShrink: 0,
+            }}>Everyone</span>
+          ) : (
+            <>
+              {visibleRules.map(([k, v]) => (
+                <span key={k} style={{
+                  fontSize: 9, background: "rgba(56,189,248,0.08)", color: "#7dd3fc",
+                  padding: "1px 6px", borderRadius: 4, fontWeight: 600,
+                  border: "1px solid rgba(56,189,248,0.15)", flexShrink: 0, whiteSpace: "nowrap",
+                }}>
+                  <span style={{ color: "#475569" }}>{k}:</span>{" "}
+                  {Array.isArray(v) ? (v as string[]).slice(0, 2).join(", ") + ((v as string[]).length > 2 ? "…" : "") : String(v)}
+                </span>
+              ))}
+              {hiddenCount > 0 && (
+                <span style={{ fontSize: 9, color: "#475569", flexShrink: 0 }}>+{hiddenCount}</span>
+              )}
+            </>
           )}
-          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-            {[
-              { label: "Impr.", value: section.stats?.impressions ?? 0, color: "#38bdf8" },
-              { label: "Clicks", value: section.stats?.clicks ?? 0, color: "#34d399" },
-              { label: "ATC", value: section.stats?.add_to_cart ?? 0, color: "#a78bfa" },
-              { label: "Dwell", value: section.stats?.avg_dwell_ms ? `${(section.stats.avg_dwell_ms / 1000).toFixed(1)}s` : "—", color: "#f59e0b" },
-            ].map(({ label, value, color }) => (
-              <div key={label}>
-                <span style={{ fontSize: 9, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label} </span>
-                <span style={{ fontSize: 13, fontWeight: 800, color }}>{value}</span>
-              </div>
-            ))}
-          </div>
         </div>
 
-        <div style={{ display: "flex", gap: "0.4rem", flexShrink: 0 }}>
-          <button onClick={() => setExpanded(!expanded)} className="button is-ghost is-small"
-            style={{ color: "#475569", padding: "0.25rem" }} aria-label="Expand targeting rules">
-            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-          <button onClick={() => onEdit(section)} className="button is-ghost is-small"
-            style={{ color: "#38bdf8", padding: "0.25rem" }} aria-label="Edit section">
-            <Edit2 size={13} />
-          </button>
-          <button onClick={() => onToggle(section.id, !section.active)} className="button is-ghost is-small"
-            style={{ color: section.active ? "#f43f5e" : "#34d399", padding: "0.25rem" }}
-            aria-label={section.active ? "Deactivate" : "Activate"}>
-            {section.active ? <X size={13} /> : <Check size={13} />}
-          </button>
+        {/* ── Compact stats ──────────────────────────────────────────────── */}
+        <div style={{ display: "flex", gap: "0.55rem", flexShrink: 0, alignItems: "center" }}>
+          {[
+            { label: "P", value: section.priority, color: "#f59e0b", title: "Priority" },
+            { label: "👁", value: section.stats?.impressions ?? 0, color: "#38bdf8", title: "Impressions" },
+            { label: "↗", value: section.stats?.clicks ?? 0, color: "#34d399", title: "Clicks" },
+          ].map(({ label, value, color, title: ttip }) => (
+            <div key={label} title={ttip} style={{ lineHeight: 1 }}>
+              <span style={{ fontSize: 9, color: "#334155" }}>{label} </span>
+              <span style={{ fontSize: 11, fontWeight: 800, color }}>{value}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Action buttons ────────────────────────────────────────────── */}
+        <div style={{ display: "flex", gap: "0.1rem", flexShrink: 0 }}>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            style={{ color: "#475569", padding: "0.2rem 0.2rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}
+            aria-label={expanded ? "Collapse" : "Expand details"}
+          >{expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}</button>
+          <button
+            onClick={() => onEdit(section)}
+            style={{ color: "#38bdf8", padding: "0.2rem 0.2rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}
+            aria-label="Edit section"
+          ><Edit2 size={12} /></button>
+          <button
+            onClick={() => onToggle(section.id, !section.active)}
+            style={{ color: section.active ? "#f43f5e" : "#34d399", padding: "0.2rem 0.2rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}
+            aria-label={section.active ? "Deactivate" : "Activate"}
+          >{section.active ? <X size={12} /> : <Check size={12} />}</button>
         </div>
       </div>
 
+      {/* ── Expand: description + full rules + extra stats ───────────────── */}
       <AnimatePresence>
         {expanded && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} style={{ overflow: "hidden" }}>
-            <div style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-              <p style={{ fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, marginBottom: "0.5rem" }}>
-                Targeting Rules
+          <motion.div
+            initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }}
+            style={{ overflow: "hidden" }}
+          >
+            <div style={{ marginTop: "0.55rem", paddingTop: "0.55rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+              {section.description && (
+                <p style={{ fontSize: 11, color: "#64748b", marginBottom: "0.4rem", lineHeight: 1.5 }}>{section.description}</p>
+              )}
+              <p style={{ fontSize: 9, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, marginBottom: "0.35rem" }}>
+                All Targeting Rules
               </p>
-              {Object.keys(rules).length === 0 ? (
-                <p style={{ fontSize: 12, color: "#475569" }}>No targeting rules — shown to everyone.</p>
+              {isUniversal ? (
+                <p style={{ fontSize: 11, color: "#475569" }}>No targeting rules — shown to everyone.</p>
               ) : (
-                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                  {Object.entries(rules).map(([k, v]) => (
+                <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
+                  {ruleEntries.map(([k, v]) => (
                     <span key={k} style={{
-                      fontSize: 10, background: "rgba(56,189,248,0.08)", color: "#38bdf8",
+                      fontSize: 10, background: "rgba(56,189,248,0.08)", color: "#7dd3fc",
                       padding: "2px 8px", borderRadius: 6, fontWeight: 600, border: "1px solid rgba(56,189,248,0.15)",
                     }}>
-                      {k}: {Array.isArray(v) ? v.join(", ") : String(v)}
+                      <span style={{ color: "#64748b" }}>{k}:</span>{" "}
+                      {Array.isArray(v) ? (v as string[]).join(", ") : String(v)}
                     </span>
                   ))}
                 </div>
               )}
-              <p style={{ fontSize: 9, color: "#334155", marginTop: "0.5rem" }}>
-                Priority: {section.priority} · Updated {new Date(section.updated_at).toLocaleDateString()}
+              <p style={{ fontSize: 9, color: "#334155", marginTop: "0.4rem" }}>
+                Priority: {section.priority} · ATC: {section.stats?.add_to_cart ?? 0} · Dwell: {section.stats?.avg_dwell_ms ? `${(section.stats.avg_dwell_ms / 1000).toFixed(1)}s` : "—"} · Updated {new Date(section.updated_at).toLocaleDateString()}
               </p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-      </div>
     </motion.div>
   );
 }
