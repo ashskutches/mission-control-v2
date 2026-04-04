@@ -287,43 +287,134 @@ interface SectionFormData {
 }
 
 const KNOWN_SNIPPETS = [
+  // ── Hero sections ──────────────────────────────────────────────────────────
   {
     id: "lrb-hero-pain-point",
-    name: "Knee Pain Hero",
+    name: "Hero — Knee Pain / Joint Relief",
     description: "Primary hero for joint/knee pain visitors",
     targeting: JSON.stringify({ pain: ["knee", "joint", "back"] }, null, 2),
     priority: "5",
   },
   {
     id: "lrb-hero-athletic",
-    name: "Athletic Performance Hero",
-    description: "Hero for fitness/athletic audience",
-    targeting: JSON.stringify({ ad_signals: { utm_campaign: "athletic_performance" } }, null, 2),
+    name: "Hero — Athletic Performance",
+    description: "Hero for fitness/athletic audience (18–40)",
+    targeting: JSON.stringify({ motivation: ["performance", "fitness"], life_stage: ["athlete"] }, null, 2),
     priority: "7",
   },
   {
     id: "lrb-hero-senior",
-    name: "Senior Fitness Hero",
-    description: "Hero for 50+ active adult audience",
-    targeting: JSON.stringify({ ad_signals: { utm_campaign: "senior_fitness" } }, null, 2),
+    name: "Hero — Senior Fitness (50+)",
+    description: "Hero for active adults 50+ prioritising longevity and mobility",
+    targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["joint", "balance"] }, null, 2),
     priority: "7",
   },
+  // ── Product showcases ──────────────────────────────────────────────────────
+  {
+    id: "lrb-product-showcase-performance",
+    name: "Product Showcase — Performance",
+    description: "Dark/amber product cards for athletes — features, specs, accessories",
+    targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2),
+    priority: "6",
+  },
+  {
+    id: "lrb-product-showcase-wellness",
+    name: "Product Showcase — Health & Wellness",
+    description: "Warm product layout for 40+ — safety, stability bar, beginner guides",
+    targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["knee", "joint"] }, null, 2),
+    priority: "6",
+  },
+  // ── Benefits / Education ───────────────────────────────────────────────────
   {
     id: "lrb-benefits-features",
-    name: "A Bounce That Feels Better",
-    description: "Tabbed benefits section — bounce experience, bungees, materials",
+    name: "Benefits — A Bounce That Feels Better",
+    description: "Antigravity benefits with 3 image rows — general audience",
     targeting: "{}",
     priority: "3",
   },
   {
     id: "lrb-benefit-callouts",
     name: "Benefit Callouts Grid",
-    description: "Four key product benefits — shows to everyone",
+    description: "Four key product benefits — shows to everyone as fallback",
     targeting: "{}",
     priority: "3",
   },
-
+  {
+    id: "lrb-education-performance",
+    name: "Education — Performance Training",
+    description: "HIIT protocols, science, and recovery content for athletes",
+    targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2),
+    priority: "4",
+  },
+  {
+    id: "lrb-education-health",
+    name: "Education — Health & Research",
+    description: "NASA research citations + gentle 4-week progression plan for health-focused users",
+    targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["knee", "joint"] }, null, 2),
+    priority: "4",
+  },
+  // ── Social proof ───────────────────────────────────────────────────────────
+  {
+    id: "lrb-social-proof-performance",
+    name: "Social Proof — Athletic",
+    description: "Stats bar and 3 athlete testimonials — dark/amber theme",
+    targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2),
+    priority: "5",
+  },
+  {
+    id: "lrb-social-proof-wellness",
+    name: "Social Proof — Health & Wellness",
+    description: "Featured testimonial + doctor endorsement — for health-focused visitors",
+    targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["knee", "joint"] }, null, 2),
+    priority: "5",
+  },
+  // ── Support ────────────────────────────────────────────────────────────────
+  {
+    id: "lrb-support-tech",
+    name: "Support — Tech / Digital Features",
+    description: "App integrations, video streaming, social challenges, tracking — for younger visitors",
+    targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2),
+    priority: "2",
+  },
+  {
+    id: "lrb-support-traditional",
+    name: "Support — Traditional / Phone-First",
+    description: "Phone CTA, DVD program, free consultation — for senior/traditional visitors",
+    targeting: JSON.stringify({ life_stage: ["senior"] }, null, 2),
+    priority: "2",
+  },
+  // ── Behavioral CTAs ────────────────────────────────────────────────────────
+  {
+    id: "lrb-cta-first-visit",
+    name: "CTA — First-Time Visitor",
+    description: "Rebounding explainer + email capture for education series",
+    targeting: JSON.stringify({ tags: ["first_visit"] }, null, 2),
+    priority: "8",
+  },
+  {
+    id: "lrb-cta-return-visitor",
+    name: "CTA — Return Visitor (Research Phase)",
+    description: "LRB vs spring vs basic comparison table + consultation CTA",
+    targeting: JSON.stringify({ tags: ["returning"] }, null, 2),
+    priority: "8",
+  },
+  {
+    id: "lrb-cta-cart-abandon",
+    name: "CTA — Cart Abandonment",
+    description: "4 objection-busters + call/chat/checkout buttons for high-intent visitors",
+    targeting: JSON.stringify({ tags: ["cart_abandoner"] }, null, 2),
+    priority: "10",
+  },
+  {
+    id: "lrb-cta-post-purchase",
+    name: "CTA — Post-Purchase Onboarding",
+    description: "Setup guide, 4-week program, community join + app download",
+    targeting: JSON.stringify({ identified: true, tags: ["purchased"] }, null, 2),
+    priority: "9",
+  },
 ];
+
+
 
 function SectionLibraryTab({ sections, loading, onRefresh }: {
   sections: PSection[]; loading: boolean; onRefresh: () => void;
