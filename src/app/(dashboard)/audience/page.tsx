@@ -346,6 +346,13 @@ const KNOWN_SNIPPETS = [
     targeting: "{}",
     priority: "3",
   },
+  {
+    id: "lrb-compare-models",
+    name: "Compare Our Models",
+    description: "Side-by-side product comparison table: 40\" ($220), 48\" ($280, Most Popular), 48\" American Tough ($650) — 13 feature rows, responsive horizontal scroll. Universal.",
+    targeting: "{}",
+    priority: "3",
+  },
   // ── Trust / Conversion ─────────────────────────────────────────────────────
   {
     id: "lrb-lifetime-warranty",
