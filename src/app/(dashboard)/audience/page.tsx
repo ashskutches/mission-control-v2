@@ -287,7 +287,16 @@ interface SectionFormData {
 }
 
 const KNOWN_SNIPPETS = [
+  // ── Trust / Conversion ─────────────────────────────────────────────────────
+  {
+    id: "lrb-lifetime-warranty",
+    name: "Lifetime Warranty",
+    description: "Shield icon, 4 guarantee pillars, trust bar — shows to everyone on product pages",
+    targeting: "{}",
+    priority: "4",
+  },
   // ── Hero sections ──────────────────────────────────────────────────────────
+
   {
     id: "lrb-hero-pain-point",
     name: "Hero — Knee Pain / Joint Relief",
