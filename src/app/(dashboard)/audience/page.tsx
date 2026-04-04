@@ -289,6 +289,13 @@ interface SectionFormData {
 const KNOWN_SNIPPETS = [
   // ── Universal ──────────────────────────────────────────────────────────────
   {
+    id: "lrb-customer-reviews",
+    name: "Customer Reviews — Full Section",
+    description: "Dark green rating hero (4.9★, bars, featured quote) + 3-column review grid using real LRB quotes + CTA footer. Universal — shows to all visitors.",
+    targeting: "{}",
+    priority: "3",
+  },
+  {
     id: "lrb-free-workouts",
     name: "Free Workouts — World Class Trainers",
     description: "Full-width dark-green section showcasing the free workout library — Boosts Immunity, Lymphatic Drainage, Burn Calories, etc. Shows to all visitors.",
