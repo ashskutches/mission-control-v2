@@ -353,6 +353,13 @@ const KNOWN_SNIPPETS = [
     targeting: "{}",
     priority: "3",
   },
+  {
+    id: "lrb-product-faq",
+    name: "Product FAQ",
+    description: "Accordion FAQ driven by product.metafields.custom.product_faq — brand-styled green/cream/orange, smooth CSS animation, accessible aria-expanded pattern. Universal on product pages.",
+    targeting: "{}",
+    priority: "4",
+  },
   // ── Trust / Conversion ─────────────────────────────────────────────────────
   {
     id: "lrb-lifetime-warranty",
