@@ -287,6 +287,14 @@ interface SectionFormData {
 }
 
 const KNOWN_SNIPPETS = [
+  // ── Universal ──────────────────────────────────────────────────────────────
+  {
+    id: "lrb-free-workouts",
+    name: "Free Workouts — World Class Trainers",
+    description: "Full-width dark-green section showcasing the free workout library — Boosts Immunity, Lymphatic Drainage, Burn Calories, etc. Shows to all visitors.",
+    targeting: "{}",
+    priority: "3",
+  },
   // ── Trust / Conversion ─────────────────────────────────────────────────────
   {
     id: "lrb-lifetime-warranty",
