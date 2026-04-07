@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, Suspense } from "react";
 import {
   ShieldAlert, RefreshCw, ChevronDown, ChevronUp,
   Clock, ExternalLink, Sparkles, Copy, CheckCheck,
-  Loader, AlertTriangle, UserPlus, Check, X, MessageSquare,
+  Loader, AlertTriangle, UserPlus, Check, X, MessageSquare, CheckCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -471,10 +471,27 @@ function BlockageCard({ item, agent, onPatch }: {
                 >
                   <ExternalLink size={11} style={{ marginRight: 4 }} /> Chat about this
                 </a>
+                {item.status !== "resolved" && (
+                  <motion.button
+                    onClick={() => onPatch(item.id, "resolved")}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    className="button is-small ml-2"
+                    style={{
+                      fontSize: "11px", fontWeight: 700,
+                      background: "rgba(34,197,94,0.1)",
+                      border: "1px solid rgba(34,197,94,0.3)",
+                      color: "#22c55e",
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                    }}
+                  >
+                    <CheckCircle size={11} /> Mark Resolved
+                  </motion.button>
+                )}
                 {item.status !== "dismissed" && (
                   <button
                     onClick={() => onPatch(item.id, "dismissed")}
-                    className="button is-small is-ghost ml-2"
+                    className="button is-small is-ghost ml-1"
                     style={{ fontSize: "11px", color: "#334155" }}
                   >
                     Dismiss
