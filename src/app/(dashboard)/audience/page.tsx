@@ -5,8 +5,9 @@ import {
   Users, Target, TrendingUp, Activity, Brain, Layers,
   RefreshCw, ChevronDown, ChevronUp, Zap, Eye, Mail,
   ShoppingBag, Plus, Edit2, Trash2, Check, X, BarChart3,
-  Rocket, AlertTriangle, CloudUpload, GripVertical,
+  Rocket, AlertTriangle, CloudUpload, GripVertical, Sliders,
 } from "lucide-react";
+import TargetingRulesTab, { type TargetingRule } from "@/components/TargetingRulesTab";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 
@@ -498,8 +499,9 @@ const KNOWN_SNIPPETS = [
 
 
 
-function SectionLibraryTab({ sections, loading, onRefresh }: {
+function SectionLibraryTab({ sections, loading, onRefresh, targetingRules }: {
   sections: PSection[]; loading: boolean; onRefresh: () => void;
+  targetingRules: TargetingRule[];
 }) {
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<PSection | null>(null);
@@ -507,11 +509,50 @@ function SectionLibraryTab({ sections, loading, onRefresh }: {
   const [formError, setFormError] = useState("");
   const [orderedSections, setOrderedSections] = useState<PSection[]>([]);
   const [savingOrder, setSavingOrder] = useState(false);
+  // Named rule toggle state
+  const [activeRuleSlugs, setActiveRuleSlugs] = useState<string[]>([]);
+  const [customOverridesJson, setCustomOverridesJson] = useState("{}");
+  const [showCustomJson, setShowCustomJson] = useState(false);
 
   // Sync orderedSections when sections prop changes
   useEffect(() => {
     setOrderedSections([...sections].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0)));
   }, [sections]);
+
+  // ── Rule merge helpers ──────────────────────────────────────────────────────
+  // Union arrays, take the last scalar, merge objects recursively.
+  function mergeRules(ruleObjects: Record<string, unknown>[]): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+    for (const obj of ruleObjects) {
+      for (const [k, v] of Object.entries(obj)) {
+        if (Array.isArray(v) && Array.isArray(result[k])) {
+          result[k] = [...new Set([...(result[k] as string[]), ...(v as string[])])];
+        } else {
+          result[k] = v;
+        }
+      }
+    }
+    return result;
+  }
+
+  // Remove keys from `full` that are covered by `named` (crude but safe for our schema)
+  function subtractRules(full: Record<string, unknown>, named: Record<string, unknown>): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(full)) {
+      if (!(k in named)) result[k] = v;
+    }
+    return result;
+  }
+
+  // Compute effective targeting_rules = merge(named rule JSONs) ∪ custom overrides
+  function buildEffectiveRules(): Record<string, unknown> {
+    const namedRules = targetingRules
+      .filter(r => activeRuleSlugs.includes(r.slug))
+      .map(r => r.rule);
+    let custom: Record<string, unknown> = {};
+    try { custom = JSON.parse(customOverridesJson); } catch { /* ignore */ }
+    return mergeRules([...namedRules, custom]);
+  }
 
   const saveOrder = async (reordered: PSection[]) => {
     setSavingOrder(true);
@@ -535,19 +576,41 @@ function SectionLibraryTab({ sections, loading, onRefresh }: {
   const empty: SectionFormData = { name: "", description: "", shopify_section_id: "", targeting_rules_raw: "{}", priority: "0" };
   const [form, setForm] = useState<SectionFormData>(empty);
 
-  const openCreate = () => { setEditTarget(null); setForm(empty); setFormError(""); setShowForm(true); };
+
+
   const openEdit = (s: PSection) => {
     setEditTarget(s);
-    setForm({ name: s.name, description: s.description ?? "", shopify_section_id: s.shopify_section_id, targeting_rules_raw: JSON.stringify(s.targeting_rules, null, 2), priority: String(s.priority) });
+    // Derive active rule slugs from section's rule_slugs field (or empty)
+    const activeRulesFromSection: string[] = (s as any).rule_slugs ?? [];
+    // Compute custom overrides = what's in targeting_rules that isn't covered by active named rules
+    const namedRuleJson = mergeRules(
+      targetingRules.filter(r => activeRulesFromSection.includes(r.slug)).map(r => r.rule)
+    );
+    const customOverrides = subtractRules(s.targeting_rules, namedRuleJson);
+    setActiveRuleSlugs(activeRulesFromSection);
+    setCustomOverridesJson(Object.keys(customOverrides).length ? JSON.stringify(customOverrides, null, 2) : "{}");
+    setForm({
+      name: s.name,
+      description: s.description ?? "",
+      shopify_section_id: s.shopify_section_id,
+      targeting_rules_raw: JSON.stringify(s.targeting_rules, null, 2),
+      priority: String(s.priority),
+    });
     setFormError(""); setShowForm(true);
   };
 
   const save = async () => {
     setSaving(true); setFormError("");
     try {
-      let targeting_rules: Record<string, unknown> = {};
-      try { targeting_rules = JSON.parse(form.targeting_rules_raw); } catch { throw new Error("Invalid JSON in targeting rules"); }
-      const payload = { name: form.name.trim(), description: form.description.trim() || null, shopify_section_id: form.shopify_section_id.trim(), targeting_rules, priority: parseInt(form.priority, 10) || 0 };
+      const effectiveRules = buildEffectiveRules();
+      const payload = {
+        name: form.name.trim(),
+        description: form.description.trim() || null,
+        shopify_section_id: form.shopify_section_id.trim(),
+        targeting_rules: effectiveRules,
+        rule_slugs: activeRuleSlugs,
+        priority: parseInt(form.priority, 10) || 0,
+      };
       if (!payload.name || !payload.shopify_section_id) throw new Error("Name and Shopify Section ID are required");
 
       const url = editTarget ? `${BOT_URL}/admin/intelligence/sections/${editTarget.id}` : `${BOT_URL}/admin/intelligence/sections`;
@@ -562,6 +625,16 @@ function SectionLibraryTab({ sections, loading, onRefresh }: {
   const toggle = async (id: string, active: boolean) => {
     await fetch(`${BOT_URL}/admin/intelligence/sections/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ active }) });
     onRefresh();
+  };
+
+  const openCreate = () => {
+    setEditTarget(null);
+    setActiveRuleSlugs([]);
+    setCustomOverridesJson("{}");
+    setShowCustomJson(false);
+    setForm(empty);
+    setFormError("");
+    setShowForm(true);
   };
 
   return (
@@ -635,58 +708,89 @@ function SectionLibraryTab({ sections, loading, onRefresh }: {
                 </div>
               ))}
             </div>
+            {/* Targeting Rules — toggle chips + custom JSON */}
             <div style={{ marginTop: "0.75rem" }}>
-              <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>
-                Targeting Rules (JSON)
+              <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem", fontWeight: 700 }}>
+                Targeting Rules
               </label>
 
-              {/* Reference panel */}
-              <div style={{ background: "rgba(30,41,59,0.6)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "0.75rem", marginBottom: "0.5rem", fontSize: 11 }}>
-                <p style={{ color: "#94a3b8", fontWeight: 700, marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>Available Keys</p>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <tbody>
-                    {[
-                      { key: "pain", type: "string[]", desc: "Pain points to match", eg: '"pain": ["knee", "back"]' },
-                      { key: "motivation", type: "string[]", desc: "Visitor motivation type", eg: '"motivation": ["pain_relief", "weight_loss"]' },
-                      { key: "life_stage", type: "string[]", desc: "Life stage / persona", eg: '"life_stage": ["senior", "post_injury"]' },
-                      { key: "decision_style", type: "string[]", desc: "How they make decisions", eg: '"decision_style": ["social_proof", "deal_seeker"]' },
-                      { key: "tags", type: "string[]", desc: "Custom segment tags", eg: '"tags": ["returning", "cart_abandoner"]' },
-                      { key: "identified", type: "bool", desc: "Known customer (has email/Shopify ID)", eg: '"identified": true' },
-                      { key: "min_confidence", type: "0–1", desc: "Minimum profile confidence score", eg: '"min_confidence": 0.6' },
-                      { key: "ad_signals.utm_campaign", type: "string", desc: "Match a specific UTM campaign", eg: '"ad_signals": {"utm_campaign": "knee_pain"}' },
-                      { key: "ad_signals.utm_source", type: "string", desc: "Match a UTM source", eg: '"ad_signals": {"utm_source": "facebook"}' },
-                    ].map(row => (
-                      <tr key={row.key} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                        <td style={{ padding: "0.3rem 0.5rem 0.3rem 0", color: "#38bdf8", fontFamily: "monospace", whiteSpace: "nowrap" }}>{row.key}</td>
-                        <td style={{ padding: "0.3rem 0.5rem", color: "#64748b", whiteSpace: "nowrap" }}>{row.type}</td>
-                        <td style={{ padding: "0.3rem 0", color: "#94a3b8" }}>{row.desc}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <p style={{ color: "#64748b", fontWeight: 700, margin: "0.6rem 0 0.3rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>Quick Examples</p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
-                  {[
-                    { label: "Knee pain", json: '{\n  "pain": ["knee", "joint"]\n}' },
-                    { label: "Athletic UTM", json: '{\n  "ad_signals": { "utm_campaign": "athletic_performance" }\n}' },
-                    { label: "Senior UTM", json: '{\n  "ad_signals": { "utm_campaign": "senior_fitness" }\n}' },
-                    { label: "Identified customer", json: '{\n  "identified": true,\n  "min_confidence": 0.5\n}' },
-                    { label: "Everyone (fallback)", json: '{}' },
-                  ].map(ex => (
-                    <button key={ex.label}
-                      onClick={() => setForm(f => ({ ...f, targeting_rules_raw: ex.json }))}
-                      style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.18)", color: "#38bdf8", borderRadius: 4, padding: "0.2rem 0.5rem", fontSize: 10, cursor: "pointer", fontWeight: 600 }}>
-                      {ex.label}
-                    </button>
-                  ))}
+              {/* Named rule chips */}
+              {targetingRules.length > 0 ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginBottom: "0.5rem" }}>
+                  {targetingRules.map(r => {
+                    const isOn = activeRuleSlugs.includes(r.slug);
+                    return (
+                      <button
+                        key={r.slug}
+                        type="button"
+                        onClick={() => {
+                          setActiveRuleSlugs(prev =>
+                            isOn ? prev.filter(s => s !== r.slug) : [...prev, r.slug]
+                          );
+                        }}
+                        style={{
+                          display: "flex", alignItems: "center", gap: "0.3rem",
+                          background: isOn ? `${r.color}18` : "rgba(255,255,255,0.04)",
+                          border: isOn ? `1px solid ${r.color}40` : "1px solid rgba(255,255,255,0.08)",
+                          color: isOn ? r.color : "#475569",
+                          borderRadius: 20, padding: "0.25rem 0.7rem",
+                          fontSize: 11, fontWeight: isOn ? 700 : 400,
+                          cursor: "pointer", transition: "all 0.15s",
+                        }}
+                        aria-pressed={isOn}
+                      >
+                        <span style={{ fontSize: 13, lineHeight: 1 }}>{r.icon}</span>
+                        {r.name}
+                        {isOn && <Check size={10} style={{ marginLeft: 2 }} />}
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
+              ) : (
+                <p style={{ fontSize: 11, color: "#475569", marginBottom: "0.5rem" }}>
+                  No named rules yet — <a href="#" onClick={e => { e.preventDefault(); /* handled by parent */ }} style={{ color: "#38bdf8" }}>create some in the Targeting Rules tab</a>.
+                </p>
+              )}
 
-              <textarea className="textarea is-small" rows={4}
-                value={form.targeting_rules_raw}
-                onChange={e => setForm(f => ({ ...f, targeting_rules_raw: e.target.value }))}
-                placeholder={'{}'}
-                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", fontFamily: "monospace", fontSize: 12 }} />
+              {/* Effective rules preview */}
+              {activeRuleSlugs.length > 0 && (
+                <div style={{
+                  background: "rgba(56,189,248,0.05)", border: "1px solid rgba(56,189,248,0.12)",
+                  borderRadius: 8, padding: "0.5rem 0.75rem", marginBottom: "0.5rem",
+                  display: "flex", alignItems: "flex-start", gap: "0.5rem",
+                }}>
+                  <span style={{ fontSize: 10, color: "#38bdf8", fontWeight: 700, flexShrink: 0 }}>Effective:</span>
+                  <code style={{ fontSize: 10, color: "#7dd3fc", wordBreak: "break-all", lineHeight: 1.5 }}>
+                    {JSON.stringify(buildEffectiveRules())}
+                  </code>
+                </div>
+              )}
+
+              {/* Universal / everyone shortcut */}
+              {activeRuleSlugs.length === 0 && customOverridesJson.trim() === "{}" && (
+                <p style={{ fontSize: 10, color: "#475569", marginBottom: "0.4rem" }}>No rules selected — section will show to everyone (universal fallback).</p>
+              )}
+
+              {/* Custom overrides (power user) — collapsed by default */}
+              <button
+                type="button"
+                onClick={() => setShowCustomJson(v => !v)}
+                style={{ fontSize: 10, color: "#38bdf8", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline", marginBottom: "0.3rem" }}
+              >
+                {showCustomJson ? "↑ Hide" : "↓ Custom JSON overrides"}
+              </button>
+              <AnimatePresence>
+                {showCustomJson && (
+                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: "hidden" }}>
+                    <textarea className="textarea is-small" rows={3}
+                      value={customOverridesJson}
+                      onChange={e => setCustomOverridesJson(e.target.value)}
+                      placeholder="Extra JSON merged on top of selected rules"
+                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", fontFamily: "monospace", fontSize: 11 }}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {formError && <p style={{ fontSize: 12, color: "#f43f5e", marginTop: "0.5rem" }}>⚠ {formError}</p>}
@@ -926,12 +1030,13 @@ function ThemeDeployTab() {
 
 // ── Main Page ──────────────────────────────────────────────────────
 
-type Tab = "overview" | "sections" | "deploy";
+type Tab = "overview" | "sections" | "rules" | "deploy";
 
 const TABS: { id: Tab; label: string; icon: React.ElementType; color: string }[] = [
-  { id: "overview",  label: "Overview",        icon: BarChart3,     color: "#38bdf8" },
-  { id: "sections",  label: "Section Library", icon: Layers,        color: "#a78bfa" },
-  { id: "deploy",    label: "Deploy",           icon: Rocket,        color: "#34d399" },
+  { id: "overview",  label: "Overview",         icon: BarChart3,  color: "#38bdf8" },
+  { id: "sections",  label: "Section Library",  icon: Layers,     color: "#a78bfa" },
+  { id: "rules",     label: "Targeting Rules",  icon: Sliders,    color: "#f59e0b" },
+  { id: "deploy",    label: "Deploy",            icon: Rocket,     color: "#34d399" },
 ];
 
 const CHANNEL_ICONS: Record<string, React.ElementType> = {
@@ -942,6 +1047,7 @@ export default function AudiencePage() {
   const [tab, setTab] = useState<Tab>("overview");
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [sections, setSections] = useState<PSection[]>([]);
+  const [targetingRules, setTargetingRules] = useState<TargetingRule[]>([]);
   const [loadingAnalytics, setLoadingAnalytics] = useState(true);
   const [loadingSections, setLoadingSections] = useState(true);
 
@@ -963,12 +1069,20 @@ export default function AudiencePage() {
     finally { setLoadingSections(false); }
   }, []);
 
+  const fetchTargetingRules = useCallback(async () => {
+    try {
+      const res = await fetch(`${BOT_URL}/admin/intelligence/targeting-rules`);
+      if (res.ok) { const data = await res.json(); setTargetingRules(data.rules ?? []); }
+    } catch { /* silent */ }
+  }, []);
+
   useEffect(() => {
     fetchAnalytics();
     fetchSections();
-  }, [fetchAnalytics, fetchSections]);
+    fetchTargetingRules();
+  }, [fetchAnalytics, fetchSections, fetchTargetingRules]);
 
-  const refresh = () => { fetchAnalytics(); fetchSections(); };
+  const refresh = () => { fetchAnalytics(); fetchSections(); fetchTargetingRules(); };
 
   return (
     <div className="px-5 py-5" style={{ maxWidth: 980, margin: "0 auto" }}>
@@ -1038,7 +1152,8 @@ export default function AudiencePage() {
       <AnimatePresence mode="wait">
         <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
           {tab === "overview"  && <OverviewTab analytics={analytics} loading={loadingAnalytics} />}
-          {tab === "sections"  && <SectionLibraryTab sections={sections} loading={loadingSections} onRefresh={fetchSections} />}
+          {tab === "sections"  && <SectionLibraryTab sections={sections} loading={loadingSections} onRefresh={fetchSections} targetingRules={targetingRules} />}
+          {tab === "rules"     && <TargetingRulesTab />}
           {tab === "deploy"    && <ThemeDeployTab />}
         </motion.div>
       </AnimatePresence>
