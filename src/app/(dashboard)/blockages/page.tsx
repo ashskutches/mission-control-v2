@@ -21,6 +21,7 @@ interface Insight {
   body: string | null;
   priority: number;
   status: string;
+  occurrences?: number | null;
   tool_name?: string | null;
   error_message?: string | null;
   integration_name?: string | null;
@@ -296,6 +297,17 @@ function BlockageCard({ item, agent, onPatch }: {
         }}>
           {cfg.label}
         </span>
+        {(item.occurrences ?? 1) > 1 && (
+          <span title={`Reported ${item.occurrences} times`} style={{
+            background: "rgba(245,158,11,0.15)",
+            color: "#f59e0b",
+            border: "1px solid rgba(245,158,11,0.35)",
+            borderRadius: 10, padding: "1px 7px",
+            fontSize: "10px", fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0,
+          }}>
+            ×{item.occurrences}
+          </span>
+        )}
         <span style={{ fontWeight: 700, color: "#e2e8f0", fontSize: "0.88rem", flex: 1 }}>{item.title}</span>
 
         {/* Generate Prompt button — only visible when agent is assigned */}
