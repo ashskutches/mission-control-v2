@@ -334,6 +334,13 @@ interface SectionFormData {
 const KNOWN_SNIPPETS = [
   // ── Universal ──────────────────────────────────────────────────────────────
   {
+    id: "lrb-wellness",
+    name: "Wellness — Gentle Path to Health",
+    description: "Two-column section: pain points (high-impact exercise frustrations) vs. rebounding solution. Below: mint-green benefits grid — Lymphatic Drainage, Weight Loss, Low-Impact Cardio, Mental Wellness, Joint-Friendly, Energy & Circulation.",
+    targeting: JSON.stringify({ motivation: ["wellness", "recovery"], life_stage: ["senior", "post_injury"] }, null, 2),
+    priority: "6",
+  },
+  {
     id: "lrb-customer-reviews",
     name: "Customer Reviews — Full Section",
     description: "Dark green rating hero (4.9★, bars, featured quote) + 3-column review grid using real LRB quotes + CTA footer. Universal — shows to all visitors.",
