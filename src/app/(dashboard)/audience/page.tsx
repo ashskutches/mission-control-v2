@@ -179,10 +179,9 @@ function OverviewTab({ analytics, loading }: { analytics: Analytics | null; load
 
 // ── Section Card ──────────────────────────────────────────────────────────────
 
-function SectionCard({ section, onToggle, onToggleGate, onEdit, dragControls }: {
+function SectionCard({ section, onToggle, onEdit, dragControls }: {
   section: PSection;
   onToggle: (id: string, active: boolean) => void;
-  onToggleGate: (id: string, hard_gate: boolean) => void;
   onEdit: (section: PSection) => void;
   dragControls?: ReturnType<typeof useDragControls>;
 }) {
@@ -255,26 +254,6 @@ function SectionCard({ section, onToggle, onToggleGate, onEdit, dragControls }: 
           )}
         </div>
 
-        {/* Hard gate toggle */}
-        <button
-          onClick={() => onToggleGate(section.id, !section.hard_gate)}
-          title={section.hard_gate ? "Hard gate ON — only shows if signals match" : "Soft match — signals add weight only"}
-          style={{
-            display: "flex", alignItems: "center", gap: "0.2rem", flexShrink: 0,
-            background: section.hard_gate ? "rgba(251,146,60,0.12)" : "rgba(255,255,255,0.03)",
-            border: section.hard_gate ? "1px solid rgba(251,146,60,0.3)" : "1px solid rgba(255,255,255,0.06)",
-            borderRadius: 6, padding: "0.15rem 0.4rem", cursor: "pointer",
-            transition: "all 0.15s",
-          }}
-          aria-label={section.hard_gate ? "Disable hard gate" : "Enable hard gate"}
-        >
-          {section.hard_gate
-            ? <Lock size={10} color="#fb923c" />
-            : <Unlock size={10} color="#475569" />}
-          <span style={{ fontSize: 9, fontWeight: 700, color: section.hard_gate ? "#fb923c" : "#475569" }}>
-            {section.hard_gate ? "Required" : "Weighted"}
-          </span>
-        </button>
 
         {/* Compact stats */}
         <div style={{ display: "flex", gap: "0.55rem", flexShrink: 0, alignItems: "center" }}>
@@ -347,10 +326,9 @@ function SectionCard({ section, onToggle, onToggleGate, onEdit, dragControls }: 
   );
 }
 
-function ReorderableSection({ section, rank, onToggle, onToggleGate, onEdit }: {
+function ReorderableSection({ section, rank, onToggle, onEdit }: {
   section: PSection; rank: number;
   onToggle: (id: string, active: boolean) => void;
-  onToggleGate: (id: string, hard_gate: boolean) => void;
   onEdit: (section: PSection) => void;
 }) {
   const controls = useDragControls();
@@ -359,7 +337,7 @@ function ReorderableSection({ section, rank, onToggle, onToggleGate, onEdit }: {
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
         <span style={{ fontSize: 10, color: "#334155", fontWeight: 700, minWidth: 16, textAlign: "right" }}>#{rank}</span>
         <div style={{ flex: 1 }}>
-          <SectionCard section={section} onToggle={onToggle} onToggleGate={onToggleGate} onEdit={onEdit} dragControls={controls} />
+          <SectionCard section={section} onToggle={onToggle} onEdit={onEdit} dragControls={controls} />
         </div>
       </div>
     </Reorder.Item>
@@ -395,7 +373,7 @@ const KNOWN_SNIPPETS = [
 
 interface SectionFormData {
   name: string; description: string; shopify_section_id: string;
-  targeting_rules_raw: string; priority: string;
+  targeting_rules_raw: string; priority: string; hard_gate: string;
 }
 
 function SectionLibraryTab({ sections, loading, onRefresh }: {
@@ -407,7 +385,7 @@ function SectionLibraryTab({ sections, loading, onRefresh }: {
   const [formError, setFormError] = useState("");
   const [orderedSections, setOrderedSections] = useState<PSection[]>([]);
   const [savingOrder, setSavingOrder] = useState(false);
-  const empty: SectionFormData = { name: "", description: "", shopify_section_id: "", targeting_rules_raw: "{}", priority: "0" };
+  const empty: SectionFormData = { name: "", description: "", shopify_section_id: "", targeting_rules_raw: "{}", priority: "0", hard_gate: "false" };
   const [form, setForm] = useState<SectionFormData>(empty);
 
   useEffect(() => {
@@ -437,18 +415,10 @@ function SectionLibraryTab({ sections, loading, onRefresh }: {
     onRefresh();
   };
 
-  const toggleGate = async (id: string, hard_gate: boolean) => {
-    await fetch(`${BOT_URL}/admin/intelligence/sections/${id}`, {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hard_gate }),
-    });
-    onRefresh();
-  };
-
   const openCreate = () => { setEditTarget(null); setForm(empty); setFormError(""); setShowForm(true); };
   const openEdit = (s: PSection) => {
     setEditTarget(s);
-    setForm({ name: s.name, description: s.description ?? "", shopify_section_id: s.shopify_section_id, targeting_rules_raw: JSON.stringify(s.targeting_rules, null, 2), priority: String(s.priority) });
+    setForm({ name: s.name, description: s.description ?? "", shopify_section_id: s.shopify_section_id, targeting_rules_raw: JSON.stringify(s.targeting_rules, null, 2), priority: String(s.priority), hard_gate: s.hard_gate ? "true" : "false" });
     setFormError(""); setShowForm(true);
   };
 
@@ -457,7 +427,7 @@ function SectionLibraryTab({ sections, loading, onRefresh }: {
     try {
       let targeting_rules: Record<string, unknown> = {};
       try { targeting_rules = JSON.parse(form.targeting_rules_raw); } catch { throw new Error("Invalid JSON in signals"); }
-      const payload = { name: form.name.trim(), description: form.description.trim() || null, shopify_section_id: form.shopify_section_id.trim(), targeting_rules, priority: parseInt(form.priority, 10) || 0 };
+      const payload = { name: form.name.trim(), description: form.description.trim() || null, shopify_section_id: form.shopify_section_id.trim(), targeting_rules, priority: parseInt(form.priority, 10) || 0, hard_gate: form.hard_gate === "true" };
       if (!payload.name || !payload.shopify_section_id) throw new Error("Name and Shopify Section ID are required");
       const url = editTarget ? `${BOT_URL}/admin/intelligence/sections/${editTarget.id}` : `${BOT_URL}/admin/intelligence/sections`;
       const method = editTarget ? "PUT" : "POST";
@@ -478,18 +448,6 @@ function SectionLibraryTab({ sections, loading, onRefresh }: {
         </button>
       </div>
 
-      {/* Legend */}
-      <div style={{ display: "flex", gap: "1rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
-        {[
-          { icon: <Unlock size={10} color="#64748b" />, label: "Weighted — signals boost score but section always eligible", color: "#64748b" },
-          { icon: <Lock size={10} color="#fb923c" />, label: "Required — only shows if signals match", color: "#fb923c" },
-        ].map((item, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: 10, color: "#475569" }}>
-            {item.icon}
-            <span>{item.label}</span>
-          </div>
-        ))}
-      </div>
 
       <AnimatePresence>
         {showForm && (
@@ -536,6 +494,15 @@ function SectionLibraryTab({ sections, loading, onRefresh }: {
                     style={INPUT_STYLE} />
                 </div>
               ))}
+              <div>
+                <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>Matching Mode</label>
+                <select className="input is-small" value={form.hard_gate}
+                  onChange={e => setForm(f => ({ ...f, hard_gate: e.target.value }))}
+                  style={INPUT_STYLE}>
+                  <option value="false">⚖️ Weighted — signals add priority, section always eligible</option>
+                  <option value="true">🔒 Required — only shows when signals match</option>
+                </select>
+              </div>
             </div>
 
             <div style={{ marginTop: "0.75rem" }}>
@@ -595,7 +562,7 @@ function SectionLibraryTab({ sections, loading, onRefresh }: {
             onReorder={reordered => { setOrderedSections(reordered); saveOrder(reordered); }}
             style={{ listStyle: "none", padding: 0, margin: 0 }}>
             {orderedSections.map((s, i) => (
-              <ReorderableSection key={s.id} section={s} rank={i + 1} onToggle={toggle} onToggleGate={toggleGate} onEdit={openEdit} />
+              <ReorderableSection key={s.id} section={s} rank={i + 1} onToggle={toggle} onEdit={openEdit} />
             ))}
           </Reorder.Group>
         </>
