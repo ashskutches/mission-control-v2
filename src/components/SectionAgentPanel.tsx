@@ -127,6 +127,7 @@ Your goal is to help grow this area of the business. Surface what's actually imp
           squad: squad ?? "",
           squadDescription: squadDescription ?? "",
           accentColor: accentColorProp ?? "#38bdf8",
+          sectionHint: sectionHint ?? "",
         }),
         signal: AbortSignal.timeout(60_000), // Claude can take ~15s
       });

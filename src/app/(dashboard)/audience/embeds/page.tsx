@@ -1,0 +1,317 @@
+"use client";
+import React, { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Link2, Plus, Edit2, Trash2, ChevronDown, ChevronUp,
+  Code, Copy, CheckCheck, Globe, Lock, X,
+} from "lucide-react";
+
+const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface PSection {
+  id: string; name: string; description: string | null;
+  shopify_section_id: string; targeting_rules: Record<string, unknown>;
+  priority: number; active: boolean; hard_gate: boolean;
+  stats: { impressions: number; clicks: number; avg_dwell_ms: number; add_to_cart: number };
+  created_at: string; updated_at: string;
+}
+
+interface Embed {
+  id: string; name: string; description: string | null;
+  url_patterns: string[]; active: boolean; max_sections: number | null;
+  sections: (PSection & { embed_priority: number })[];
+  created_at: string; updated_at: string;
+}
+
+const CARD = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "1.25rem" } as const;
+const INPUT_STYLE = { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0" } as const;
+
+// ── Embed Code Block ──────────────────────────────────────────────────────────
+
+function EmbedCodeBlock({ embed }: { embed: Embed }) {
+  const [copied, setCopied] = useState(false);
+  const code = `<script>
+  window.LRB_INTELLIGENCE_CONFIG = {
+    botUrl: '${BOT_URL.replace("localhost:3001", "gravity-claw-production-fb9e.up.railway.app")}',
+    embedId: '${embed.id}'
+  };
+</script>
+{{ 'lrb-personalization.js' | asset_url | script_tag }}`;
+
+  const copy = () => navigator.clipboard.writeText(code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+
+  return (
+    <div style={{ marginTop: "0.75rem" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
+        <p style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>
+          <Code size={10} style={{ display: "inline", marginRight: 4 }} />Embed Code — paste into Shopify theme
+        </p>
+        <button onClick={copy} style={{ display: "flex", alignItems: "center", gap: "0.3rem", fontSize: 10, fontWeight: 700, padding: "0.2rem 0.6rem", borderRadius: 6, cursor: "pointer", background: copied ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.04)", color: copied ? "#34d399" : "#64748b", border: copied ? "1px solid rgba(52,211,153,0.25)" : "1px solid rgba(255,255,255,0.08)", transition: "all 0.15s" }}>
+          {copied ? <CheckCheck size={11} /> : <Copy size={11} />}{copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+      <pre style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "0.75rem 1rem", fontSize: 11, color: "#94a3b8", fontFamily: "monospace", overflowX: "auto", lineHeight: 1.6, margin: 0 }}>{code}</pre>
+    </div>
+  );
+}
+
+// ── Embed Card ────────────────────────────────────────────────────────────────
+
+function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: PSection[]; onRefresh: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const [showCode, setShowCode] = useState(false);
+  const [addingSection, setAddingSection] = useState(false);
+  const [selectedSectionId, setSelectedSectionId] = useState("");
+
+  const attachedIds = new Set(embed.sections.map(s => s.id));
+  const available = sections.filter(s => !attachedIds.has(s.id));
+
+  const addSection = async () => {
+    if (!selectedSectionId) return;
+    setAddingSection(true);
+    try {
+      const sel = sections.find(s => s.id === selectedSectionId)!;
+      await fetch(`${BOT_URL}/admin/intelligence/embeds/${embed.id}/sections`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ section_id: selectedSectionId, priority: sel.priority }),
+      });
+      setSelectedSectionId(""); onRefresh();
+    } finally { setAddingSection(false); }
+  };
+
+  const removeSection = async (sectionId: string) => {
+    await fetch(`${BOT_URL}/admin/intelligence/embeds/${embed.id}/sections/${sectionId}`, { method: "DELETE" });
+    onRefresh();
+  };
+
+  return (
+    <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+      style={{ ...CARD, marginBottom: "0.75rem", borderLeft: `3px solid ${embed.active ? "#34d399" : "#334155"}`, opacity: embed.active ? 1 : 0.6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 800, color: "#e2e8f0", fontSize: 14 }}>{embed.name}</span>
+            <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 7px", borderRadius: 10, background: embed.active ? "rgba(52,211,153,0.1)" : "rgba(100,116,139,0.1)", color: embed.active ? "#34d399" : "#64748b", border: embed.active ? "1px solid rgba(52,211,153,0.2)" : "1px solid rgba(100,116,139,0.15)" }}>{embed.active ? "Active" : "Inactive"}</span>
+            <span style={{ fontSize: 10, color: "#475569" }}>{embed.sections.length} section{embed.sections.length !== 1 ? "s" : ""}</span>
+            {embed.max_sections && <span style={{ fontSize: 9, color: "#f59e0b", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>max {embed.max_sections}</span>}
+          </div>
+          {embed.description && <p style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{embed.description}</p>}
+          {embed.url_patterns.length > 0 && (
+            <div style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap", marginTop: "0.3rem" }}>
+              {embed.url_patterns.map(p => (
+                <span key={p} style={{ fontSize: 9, color: "#38bdf8", background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.15)", padding: "1px 6px", borderRadius: 4 }}>
+                  <Globe size={8} style={{ display: "inline", marginRight: 2 }} />{p}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: "0.25rem", flexShrink: 0 }}>
+          <button onClick={() => setShowCode(!showCode)} title="Show embed code" style={{ color: showCode ? "#a78bfa" : "#475569", padding: "0.25rem", background: showCode ? "rgba(167,139,250,0.08)" : "none", border: showCode ? "1px solid rgba(167,139,250,0.2)" : "none", borderRadius: 6, cursor: "pointer" }}>
+            <Code size={13} />
+          </button>
+          <button onClick={() => setExpanded(!expanded)} title="Expand sections" style={{ color: "#475569", padding: "0.25rem", background: "none", border: "none", cursor: "pointer" }}>
+            {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {showCode && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: "hidden" }}>
+            <EmbedCodeBlock embed={embed} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: "hidden" }}>
+            <div style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+              <p style={{ fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, marginBottom: "0.5rem" }}>Sections in this Embed</p>
+              {embed.sections.length === 0 ? (
+                <p style={{ fontSize: 12, color: "#334155", marginBottom: "0.75rem" }}>No sections assigned yet.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", marginBottom: "0.75rem" }}>
+                  {[...embed.sections].sort((a, b) => (b.embed_priority ?? 0) - (a.embed_priority ?? 0)).map(s => (
+                    <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.35rem 0.6rem", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)" }}>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: s.active ? "#34d399" : "#334155", flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontSize: 12, color: "#e2e8f0", fontWeight: 600 }}>{s.name}</span>
+                      <code style={{ fontSize: 9, color: "#475569" }}>{s.shopify_section_id}</code>
+                      {s.hard_gate && <span title="Hard gate"><Lock size={9} color="#fb923c" /></span>}
+                      <button onClick={() => removeSection(s.id)} style={{ color: "#f43f5e", background: "none", border: "none", cursor: "pointer", padding: "0.1rem" }}>
+                        <X size={11} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {available.length > 0 && (
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                  <select className="input is-small" value={selectedSectionId} onChange={e => setSelectedSectionId(e.target.value)} style={{ ...INPUT_STYLE, flex: 1 }}>
+                    <option value="">— add a section —</option>
+                    {available.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <button onClick={addSection} disabled={!selectedSectionId || addingSection} className="button is-small"
+                    style={{ background: "rgba(52,211,153,0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)", flexShrink: 0 }}>
+                    <Plus size={12} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default function EmbedsPage() {
+  const [embeds, setEmbeds] = useState<Embed[]>([]);
+  const [sections, setSections] = useState<PSection[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [editTarget, setEditTarget] = useState<Embed | null>(null);
+  const [urlPatternInput, setUrlPatternInput] = useState("");
+  const [form, setForm] = useState({ name: "", description: "", url_patterns: [] as string[], max_sections: "" });
+
+  const fetchEmbeds = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/intelligence/embeds`);
+      if (res.ok) { const data = await res.json(); setEmbeds(data.embeds ?? []); }
+    } catch { /* silent */ }
+    finally { if (!silent) setLoading(false); }
+  }, []);
+
+  const fetchSections = useCallback(async () => {
+    try {
+      const res = await fetch(`${BOT_URL}/admin/intelligence/sections`);
+      if (res.ok) { const data = await res.json(); setSections(data.sections ?? []); }
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => { fetchEmbeds(); fetchSections(); }, [fetchEmbeds, fetchSections]);
+
+  const refresh = () => { fetchEmbeds(true); };
+
+  const addPattern = () => { if (!urlPatternInput.trim()) return; setForm(f => ({ ...f, url_patterns: [...f.url_patterns, urlPatternInput.trim()] })); setUrlPatternInput(""); };
+  const removePattern = (p: string) => setForm(f => ({ ...f, url_patterns: f.url_patterns.filter(x => x !== p) }));
+
+  const openCreate = () => { setEditTarget(null); setForm({ name: "", description: "", url_patterns: [], max_sections: "" }); setUrlPatternInput(""); setFormError(""); setShowForm(true); };
+  const openEdit = (e: Embed) => { setEditTarget(e); setForm({ name: e.name, description: e.description ?? "", url_patterns: e.url_patterns, max_sections: e.max_sections ? String(e.max_sections) : "" }); setUrlPatternInput(""); setFormError(""); setShowForm(true); };
+
+  const save = async () => {
+    setSaving(true); setFormError("");
+    try {
+      if (!form.name.trim()) throw new Error("Name is required");
+      const payload: any = { name: form.name.trim(), description: form.description.trim() || null, url_patterns: form.url_patterns };
+      if (form.max_sections) payload.max_sections = parseInt(form.max_sections, 10) || null;
+      const url = editTarget ? `${BOT_URL}/admin/intelligence/embeds/${editTarget.id}` : `${BOT_URL}/admin/intelligence/embeds`;
+      const res = await fetch(url, { method: editTarget ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Save failed");
+      setShowForm(false); refresh();
+    } catch (e: any) { setFormError(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const del = async (id: string) => {
+    if (!confirm("Delete this embed?")) return;
+    await fetch(`${BOT_URL}/admin/intelligence/embeds/${id}`, { method: "DELETE" });
+    refresh();
+  };
+
+  return (
+    <div>
+      <div style={{ ...CARD, marginBottom: "1.25rem", border: "1px solid rgba(52,211,153,0.12)" }}>
+        <p style={{ fontSize: 11, color: "#64748b", lineHeight: 1.6 }}>
+          <strong style={{ color: "#e2e8f0" }}>Embeds</strong> are deployment targets — each embed has its own section list ranked by UCB1 + profile scoring. Set <strong style={{ color: "#f59e0b" }}>max sections</strong> to cap how many render per page load.
+        </p>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+        <p style={{ fontSize: 12, color: "#64748b" }}>{embeds.length} embed{embeds.length !== 1 ? "s" : ""}</p>
+        <button onClick={openCreate} className="button is-small" style={{ background: "rgba(52,211,153,0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)", gap: "0.4rem", display: "flex", alignItems: "center" }}>
+          <Plus size={13} /> New Embed
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {showForm && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            style={{ ...CARD, marginBottom: "1rem", border: "1px solid rgba(52,211,153,0.2)" }}>
+            <p style={{ fontSize: 12, fontWeight: 800, color: "#34d399", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
+              {editTarget ? "Edit Embed" : "New Embed"}
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "0.75rem" }}>
+              <div>
+                <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>Name</label>
+                <input className="input is-small" placeholder="Homepage Hero" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={INPUT_STYLE} />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>Description (optional)</label>
+                <input className="input is-small" placeholder="Above the fold on homepage" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} style={INPUT_STYLE} />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>Max Sections (blank = no limit)</label>
+                <input className="input is-small" type="number" min="1" placeholder="e.g. 2" value={form.max_sections}
+                  onChange={e => setForm(f => ({ ...f, max_sections: e.target.value }))} style={INPUT_STYLE} />
+                <p style={{ fontSize: 10, color: "#475569", marginTop: "0.25rem" }}>UCB1 + profile scoring selects which sections fill these slots.</p>
+              </div>
+            </div>
+            <div style={{ marginBottom: "0.75rem" }}>
+              <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>URL Patterns (informational)</label>
+              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.4rem" }}>
+                <input className="input is-small" placeholder="/  or  /products/*" value={urlPatternInput} onChange={e => setUrlPatternInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addPattern()} style={{ ...INPUT_STYLE, flex: 1 }} />
+                <button onClick={addPattern} className="button is-small" style={{ background: "rgba(52,211,153,0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)", flexShrink: 0 }}>
+                  <Plus size={12} />
+                </button>
+              </div>
+              {form.url_patterns.length > 0 && (
+                <div style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap" }}>
+                  {form.url_patterns.map(p => (
+                    <span key={p} style={{ fontSize: 10, color: "#38bdf8", background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.15)", padding: "2px 8px", borderRadius: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                      {p}<button onClick={() => removePattern(p)} style={{ background: "none", border: "none", cursor: "pointer", color: "#475569", lineHeight: 1, padding: 0 }}>×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            {formError && <p style={{ fontSize: 12, color: "#f43f5e", marginTop: "0.5rem" }}>⚠ {formError}</p>}
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button onClick={save} disabled={saving} className="button is-small" style={{ background: "rgba(52,211,153,0.15)", color: "#34d399", border: "1px solid rgba(52,211,153,0.25)", fontWeight: 700 }}>
+                {saving ? "Saving..." : editTarget ? "Save Changes" : "Create Embed"}
+              </button>
+              <button onClick={() => setShowForm(false)} className="button is-small is-ghost" style={{ color: "#475569" }}>Cancel</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {loading ? (
+        <p style={{ color: "#475569", textAlign: "center", padding: "2rem" }}>Loading embeds...</p>
+      ) : embeds.length === 0 ? (
+        <div style={{ ...CARD, textAlign: "center", padding: "3rem" }}>
+          <Link2 size={32} color="#334155" style={{ margin: "0 auto 1rem" }} />
+          <p style={{ color: "#475569" }}>No embeds yet. Create your first to get a deploy code.</p>
+        </div>
+      ) : (
+        embeds.map(e => (
+          <div key={e.id} style={{ position: "relative" }}>
+            <EmbedCard embed={e} sections={sections} onRefresh={refresh} />
+            <div style={{ position: "absolute", top: "0.75rem", right: "3.5rem", display: "flex", gap: "0.2rem" }}>
+              <button onClick={() => openEdit(e)} title="Edit embed" style={{ color: "#38bdf8", padding: "0.2rem", background: "none", border: "none", cursor: "pointer" }}><Edit2 size={11} /></button>
+              <button onClick={() => del(e.id)} title="Delete embed" style={{ color: "#f43f5e", padding: "0.2rem", background: "none", border: "none", cursor: "pointer" }}><Trash2 size={11} /></button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
