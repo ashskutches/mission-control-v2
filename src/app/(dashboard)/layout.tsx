@@ -1,18 +1,16 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const mainRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
 
-  // Reset scroll on every page navigation — prevents bleed from pages
-  // that use their own inner scroll containers (chats, commerce sections)
+  // Reset scroll to top on page navigation
   useEffect(() => {
-    mainRef.current?.scrollTo({ top: 0, behavior: "instant" });
+    window.scrollTo({ top: 0, behavior: "instant" });
   }, [pathname]);
 
   return (
@@ -26,7 +24,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
 
-      <section ref={mainRef} className="main-content custom-scrollbar" style={{ overflowY: "auto", height: "100vh", position: "relative" }}>
+      <section className="main-content custom-scrollbar">
         {/* Mobile nav */}
         <nav className="navbar is-hidden-tablet is-black" role="navigation" aria-label="main navigation">
           <div className="navbar-brand">
@@ -48,7 +46,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
-            style={{ minHeight: "calc(100vh - 60px)" }}
           >
             {children}
           </motion.div>
