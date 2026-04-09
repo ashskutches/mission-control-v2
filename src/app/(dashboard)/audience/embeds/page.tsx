@@ -3,25 +3,25 @@ import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Link2, Plus, Edit2, Trash2, ChevronDown, ChevronUp,
-  Code, Copy, CheckCheck, Globe, Lock, X,
+  Code, Copy, CheckCheck, Globe, X,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface PSection {
+interface EmbedSectionShape {
   id: string; name: string; description: string | null;
   shopify_section_id: string; targeting_rules: Record<string, unknown>;
-  priority: number; active: boolean; hard_gate: boolean;
-  stats: { impressions: number; clicks: number; avg_dwell_ms: number; add_to_cart: number };
-  created_at: string; updated_at: string;
+  active: boolean; hard_gate: boolean; is_required: boolean;
+  embed_impressions: number; embed_add_to_carts: number;
+  winning_variation?: { name: string; shopify_section_id: string; impressions: number; add_to_carts: number } | null;
 }
 
 interface Embed {
   id: string; name: string; description: string | null;
   url_patterns: string[]; active: boolean; max_sections: number | null;
-  sections: (PSection & { embed_priority: number })[];
+  sections: EmbedSectionShape[];
   created_at: string; updated_at: string;
 }
 
@@ -59,23 +59,47 @@ function EmbedCodeBlock({ embed }: { embed: Embed }) {
 
 // ── Embed Card ────────────────────────────────────────────────────────────────
 
-function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: PSection[]; onRefresh: () => void }) {
+interface EmbedSection {
+  id: string; name: string; description: string | null;
+  shopify_section_id: string; targeting_rules: Record<string, unknown>;
+  active: boolean; hard_gate: boolean; is_required: boolean;
+  embed_impressions: number; embed_add_to_carts: number;
+  winning_variation?: { name: string; shopify_section_id: string; impressions: number; add_to_carts: number } | null;
+}
+
+function ucb1Score(sectionImpressions: number, totalImpressions: number): number {
+  const C = 1.0;
+  return C * Math.sqrt((2 * Math.log(totalImpressions + 1)) / (sectionImpressions + 1));
+}
+
+function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any[]; onRefresh: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [showCode, setShowCode] = useState(false);
   const [addingSection, setAddingSection] = useState(false);
   const [selectedSectionId, setSelectedSectionId] = useState("");
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
-  const attachedIds = new Set(embed.sections.map(s => s.id));
+  const attachedIds = new Set(embed.sections.map((s: any) => s.id));
   const available = sections.filter(s => !attachedIds.has(s.id));
+
+  // Compute UCB1-based display score for sorting
+  const totalImpressions = embed.sections.reduce((sum: number, s: any) => sum + (s.embed_impressions ?? 0), 0);
+
+  const sortedSections = [...embed.sections].sort((a: any, b: any) => {
+    // Required always first within their group
+    if (a.is_required !== b.is_required) return (b.is_required ? 1 : 0) - (a.is_required ? 1 : 0);
+    const scoreA = ucb1Score(a.embed_impressions ?? 0, totalImpressions);
+    const scoreB = ucb1Score(b.embed_impressions ?? 0, totalImpressions);
+    return scoreB - scoreA;
+  });
 
   const addSection = async () => {
     if (!selectedSectionId) return;
     setAddingSection(true);
     try {
-      const sel = sections.find(s => s.id === selectedSectionId)!;
       await fetch(`${BOT_URL}/admin/intelligence/embeds/${embed.id}/sections`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ section_id: selectedSectionId, priority: sel.priority }),
+        body: JSON.stringify({ section_id: selectedSectionId }),
       });
       setSelectedSectionId(""); onRefresh();
     } finally { setAddingSection(false); }
@@ -86,6 +110,17 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: PSe
     onRefresh();
   };
 
+  const toggleRequired = async (sectionId: string, currentRequired: boolean) => {
+    setTogglingId(sectionId);
+    await fetch(`${BOT_URL}/admin/intelligence/embeds/${embed.id}/sections/${sectionId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_required: !currentRequired }),
+    });
+    setTogglingId(null); onRefresh();
+  };
+
+  const requiredCount = embed.sections.filter((s: any) => s.is_required).length;
+
   return (
     <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
       style={{ ...CARD, marginBottom: "0.75rem", borderLeft: `3px solid ${embed.active ? "#34d399" : "#334155"}`, opacity: embed.active ? 1 : 0.6 }}>
@@ -95,7 +130,8 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: PSe
             <span style={{ fontWeight: 800, color: "#e2e8f0", fontSize: 14 }}>{embed.name}</span>
             <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 7px", borderRadius: 10, background: embed.active ? "rgba(52,211,153,0.1)" : "rgba(100,116,139,0.1)", color: embed.active ? "#34d399" : "#64748b", border: embed.active ? "1px solid rgba(52,211,153,0.2)" : "1px solid rgba(100,116,139,0.15)" }}>{embed.active ? "Active" : "Inactive"}</span>
             <span style={{ fontSize: 10, color: "#475569" }}>{embed.sections.length} section{embed.sections.length !== 1 ? "s" : ""}</span>
-            {embed.max_sections && <span style={{ fontSize: 9, color: "#f59e0b", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>max {embed.max_sections}</span>}
+            {requiredCount > 0 && <span style={{ fontSize: 9, color: "#f59e0b", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.18)", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>★ {requiredCount} required</span>}
+            {embed.max_sections && <span style={{ fontSize: 9, color: "#a78bfa", background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.2)", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>max {embed.max_sections}</span>}
           </div>
           {embed.description && <p style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{embed.description}</p>}
           {embed.url_patterns.length > 0 && (
@@ -130,24 +166,88 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: PSe
         {expanded && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: "hidden" }}>
             <div style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-              <p style={{ fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, marginBottom: "0.5rem" }}>Sections in this Embed</p>
-              {embed.sections.length === 0 ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <p style={{ fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>
+                  Sections — sorted by performance
+                </p>
+                <span style={{ fontSize: 9, color: "#334155" }}>★ = always renders</span>
+              </div>
+
+              {sortedSections.length === 0 ? (
                 <p style={{ fontSize: 12, color: "#334155", marginBottom: "0.75rem" }}>No sections assigned yet.</p>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", marginBottom: "0.75rem" }}>
-                  {[...embed.sections].sort((a, b) => (b.embed_priority ?? 0) - (a.embed_priority ?? 0)).map(s => (
-                    <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.35rem 0.6rem", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)" }}>
-                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: s.active ? "#34d399" : "#334155", flexShrink: 0 }} />
-                      <span style={{ flex: 1, fontSize: 12, color: "#e2e8f0", fontWeight: 600 }}>{s.name}</span>
-                      <code style={{ fontSize: 9, color: "#475569" }}>{s.shopify_section_id}</code>
-                      {s.hard_gate && <span title="Hard gate"><Lock size={9} color="#fb923c" /></span>}
-                      <button onClick={() => removeSection(s.id)} style={{ color: "#f43f5e", background: "none", border: "none", cursor: "pointer", padding: "0.1rem" }}>
-                        <X size={11} />
-                      </button>
-                    </div>
-                  ))}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", marginBottom: "0.75rem" }}>
+                  {sortedSections.map((s: any, idx: number) => {
+                    const score = ucb1Score(s.embed_impressions ?? 0, totalImpressions);
+                    const atcRate = (s.embed_impressions ?? 0) > 0
+                      ? ((s.embed_add_to_carts ?? 0) / s.embed_impressions * 100).toFixed(1)
+                      : null;
+                    const isRequired = s.is_required;
+
+                    return (
+                      <div key={s.id} style={{
+                        display: "flex", alignItems: "center", gap: "0.5rem",
+                        padding: "0.4rem 0.6rem",
+                        background: isRequired ? "rgba(245,158,11,0.04)" : "rgba(255,255,255,0.02)",
+                        borderRadius: 8,
+                        border: isRequired ? "1px solid rgba(245,158,11,0.18)" : "1px solid rgba(255,255,255,0.05)",
+                      }}>
+                        {/* Rank / Required indicator */}
+                        <span style={{ fontSize: 9, fontWeight: 800, color: isRequired ? "#f59e0b" : "#334155", flexShrink: 0, width: 14, textAlign: "center" }}>
+                          {isRequired ? "★" : `#${idx + 1}`}
+                        </span>
+
+                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: s.active ? "#34d399" : "#334155", flexShrink: 0 }} />
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                            <span style={{ fontSize: 12, color: "#e2e8f0", fontWeight: 600 }}>{s.name}</span>
+                            {isRequired && (
+                              <span style={{ fontSize: 8, color: "#f59e0b", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", padding: "0px 4px", borderRadius: 3, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>Required</span>
+                            )}
+                          </div>
+                          {/* Winning variation sub-line */}
+                          {s.winning_variation && (
+                            <span style={{ fontSize: 9, color: "#475569" }}>
+                              winning: <code style={{ fontSize: 9, color: "#7dd3fc" }}>{s.winning_variation.name}</code>
+                              {" · "}{s.winning_variation.impressions ?? 0} imp
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Stats */}
+                        <span style={{ fontSize: 10, color: "#38bdf8", fontWeight: 600, flexShrink: 0 }}>{s.embed_impressions ?? 0} imp</span>
+                        {atcRate && (
+                          <span style={{ fontSize: 10, color: "#34d399", fontWeight: 700, flexShrink: 0 }}>{atcRate}% ATC</span>
+                        )}
+
+                        {/* UCB1 score bar */}
+                        <div title={`UCB1 score: ${score.toFixed(2)}`} style={{ width: 36, height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 2, flexShrink: 0, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${Math.min(100, score * 40)}%`, background: isRequired ? "#f59e0b" : "#38bdf8", borderRadius: 2 }} />
+                        </div>
+
+                        {/* Required toggle */}
+                        <button
+                          onClick={() => toggleRequired(s.id, isRequired)}
+                          disabled={togglingId === s.id}
+                          title={isRequired ? "Remove required — allow UCB1 to exclude" : "Mark required — always renders"}
+                          style={{
+                            padding: "0.15rem 0.4rem", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 9, fontWeight: 700, flexShrink: 0,
+                            background: isRequired ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.04)",
+                            color: isRequired ? "#f59e0b" : "#475569",
+                          }}>
+                          {togglingId === s.id ? "…" : isRequired ? "★ req" : "☆"}
+                        </button>
+
+                        <button onClick={() => removeSection(s.id)} style={{ color: "#f43f5e", background: "none", border: "none", cursor: "pointer", padding: "0.1rem" }} aria-label="Remove section">
+                          <X size={11} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
+
               {available.length > 0 && (
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                   <select className="input is-small" value={selectedSectionId} onChange={e => setSelectedSectionId(e.target.value)} style={{ ...INPUT_STYLE, flex: 1 }}>

@@ -1,25 +1,37 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Layers, Plus, Edit2, Check, X, ChevronDown, ChevronUp, GripVertical,
+  Layers, Plus, Edit2, Check, X, ChevronDown, ChevronUp,
+  GitBranch, Trash2, Zap,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface SectionVariation {
+  id: string;
+  section_id: string;
+  name: string;
+  shopify_section_id: string;
+  description: string | null;
+  active: boolean;
+  impressions: number;
+  add_to_carts: number;
+}
+
 interface PSection {
   id: string; name: string; description: string | null;
   shopify_section_id: string; targeting_rules: Record<string, unknown>;
-  priority: number; active: boolean; hard_gate: boolean;
-  stats: { impressions: number; clicks: number; avg_dwell_ms: number; add_to_cart: number };
+  active: boolean; hard_gate: boolean;
+  variations: SectionVariation[];
   created_at: string; updated_at: string;
 }
 
 interface SectionFormData {
   name: string; description: string; shopify_section_id: string;
-  targeting_rules_raw: string; priority: string; hard_gate: string;
+  targeting_rules_raw: string; hard_gate: string;
 }
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
@@ -39,37 +51,188 @@ const INPUT_STYLE = {
 // ── Known snippets ─────────────────────────────────────────────────────────────
 
 const KNOWN_SNIPPETS = [
-  { id: "lrb-customer-reviews", name: "Customer Reviews — Full Section", description: "Dark green rating hero + 3-column review grid. Universal.", targeting: "{}", priority: "3" },
-  { id: "lrb-free-workouts", name: "Free Workouts — World Class Trainers", description: "Full-width workout library section. Shows to all visitors.", targeting: "{}", priority: "3" },
-  { id: "lrb-compare-models", name: "Compare Our Models", description: "Side-by-side product comparison table. Universal.", targeting: "{}", priority: "3" },
-  { id: "lrb-product-faq", name: "Product FAQ", description: "Accordion FAQ — Universal on product pages.", targeting: "{}", priority: "4" },
-  { id: "lrb-lifetime-warranty", name: "Lifetime Warranty", description: "Shield icon, 4 guarantee pillars — everyone.", targeting: "{}", priority: "4" },
-  { id: "lrb-hero-pain-point", name: "Hero — Knee Pain / Joint Relief", targeting: JSON.stringify({ pain: ["knee", "joint"] }, null, 2), priority: "5", description: "Primary hero for joint/knee pain visitors" },
-  { id: "lrb-hero-athletic", name: "Hero — Athletic Performance", targeting: JSON.stringify({ motivation: ["performance", "fitness"], life_stage: ["athlete"] }, null, 2), priority: "7", description: "Hero for fitness/athletic audience (18–40)" },
-  { id: "lrb-hero-senior", name: "Hero — Senior Fitness (50+)", targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["joint", "balance"] }, null, 2), priority: "7", description: "Hero for active adults 50+" },
-  { id: "lrb-product-showcase-performance", name: "Product Showcase — Performance", targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2), priority: "6", description: "Dark/amber product cards for athletes" },
-  { id: "lrb-product-showcase-wellness", name: "Product Showcase — Wellness", targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["knee", "joint"] }, null, 2), priority: "6", description: "Warm layout for 40+" },
-  { id: "lrb-benefits-features", name: "Benefits — A Bounce That Feels Better", targeting: "{}", priority: "3", description: "Antigravity benefits — general audience" },
-  { id: "lrb-benefit-callouts", name: "Benefit Callouts Grid", targeting: "{}", priority: "3", description: "Four key product benefits — universal fallback" },
-  { id: "lrb-education-performance", name: "Education — Performance Training", targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2), priority: "4", description: "HIIT protocols for athletes" },
-  { id: "lrb-education-health", name: "Education — Health & Research", targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["knee", "joint"] }, null, 2), priority: "4", description: "NASA research citations + gentle progression plan" },
-  { id: "lrb-social-proof-performance", name: "Social Proof — Athletic", targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2), priority: "5", description: "Stats bar + 3 athlete testimonials" },
-  { id: "lrb-social-proof-wellness", name: "Social Proof — Health & Wellness", targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["knee", "joint"] }, null, 2), priority: "5", description: "Featured testimonial + doctor endorsement" },
-  { id: "lrb-support-tech", name: "Support — Tech / Digital Features", targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2), priority: "2", description: "App integrations for younger visitors" },
-  { id: "lrb-support-traditional", name: "Support — Traditional / Phone-First", targeting: JSON.stringify({ life_stage: ["senior"] }, null, 2), priority: "2", description: "Phone CTA + DVD program for seniors" },
-  { id: "lrb-cta-first-visit", name: "CTA — First-Time Visitor", targeting: JSON.stringify({ tags: ["first_time_user"] }, null, 2), priority: "8", description: "Rebounding explainer + email capture" },
-  { id: "lrb-cta-return-visitor", name: "CTA — Return Visitor", targeting: JSON.stringify({ tags: ["returning"] }, null, 2), priority: "8", description: "LRB vs spring vs basic comparison + consultation CTA" },
-  { id: "lrb-cta-cart-abandon", name: "CTA — Cart Abandonment", targeting: JSON.stringify({ tags: ["cart_abandoner"] }, null, 2), priority: "10", description: "4 objection-busters + checkout buttons" },
-  { id: "lrb-cta-post-purchase", name: "CTA — Post-Purchase Onboarding", targeting: JSON.stringify({ identified: true, tags: ["purchased"] }, null, 2), priority: "9", description: "Setup guide, 4-week program, community" },
+  { id: "lrb-customer-reviews", name: "Customer Reviews — Full Section", description: "Dark green rating hero + 3-column review grid. Universal.", targeting: "{}" },
+  { id: "lrb-free-workouts", name: "Free Workouts — World Class Trainers", description: "Full-width workout library section. Shows to all visitors.", targeting: "{}" },
+  { id: "lrb-compare-models", name: "Compare Our Models", description: "Side-by-side product comparison table. Universal.", targeting: "{}" },
+  { id: "lrb-product-faq", name: "Product FAQ", description: "Accordion FAQ — Universal on product pages.", targeting: "{}" },
+  { id: "lrb-lifetime-warranty", name: "Lifetime Warranty", description: "Shield icon, 4 guarantee pillars — everyone.", targeting: "{}" },
+  { id: "lrb-hero-pain-point", name: "Hero — Knee Pain / Joint Relief", targeting: JSON.stringify({ pain: ["knee", "joint"] }, null, 2), description: "Primary hero for joint/knee pain visitors" },
+  { id: "lrb-hero-athletic", name: "Hero — Athletic Performance", targeting: JSON.stringify({ motivation: ["performance", "fitness"], life_stage: ["athlete"] }, null, 2), description: "Hero for fitness/athletic audience (18–40)" },
+  { id: "lrb-hero-senior", name: "Hero — Senior Fitness (50+)", targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["joint", "balance"] }, null, 2), description: "Hero for active adults 50+" },
+  { id: "lrb-product-showcase-performance", name: "Product Showcase — Performance", targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2), description: "Dark/amber product cards for athletes" },
+  { id: "lrb-product-showcase-wellness", name: "Product Showcase — Wellness", targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["knee", "joint"] }, null, 2), description: "Warm layout for 40+" },
+  { id: "lrb-benefits-features", name: "Benefits — A Bounce That Feels Better", targeting: "{}", description: "Antigravity benefits — general audience" },
+  { id: "lrb-benefit-callouts", name: "Benefit Callouts Grid", targeting: "{}", description: "Four key product benefits — universal fallback" },
+  { id: "lrb-education-performance", name: "Education — Performance Training", targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2), description: "HIIT protocols for athletes" },
+  { id: "lrb-education-health", name: "Education — Health & Research", targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["knee", "joint"] }, null, 2), description: "NASA research citations + gentle progression plan" },
+  { id: "lrb-social-proof-performance", name: "Social Proof — Athletic", targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2), description: "Stats bar + 3 athlete testimonials" },
+  { id: "lrb-social-proof-wellness", name: "Social Proof — Health & Wellness", targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["knee", "joint"] }, null, 2), description: "Featured testimonial + doctor endorsement" },
+  { id: "lrb-support-tech", name: "Support — Tech / Digital Features", targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2), description: "App integrations for younger visitors" },
+  { id: "lrb-support-traditional", name: "Support — Traditional / Phone-First", targeting: JSON.stringify({ life_stage: ["senior"] }, null, 2), description: "Phone CTA + DVD program for seniors" },
+  { id: "lrb-cta-first-visit", name: "CTA — First-Time Visitor", targeting: JSON.stringify({ tags: ["first_time_user"] }, null, 2), description: "Rebounding explainer + email capture" },
+  { id: "lrb-cta-return-visitor", name: "CTA — Return Visitor", targeting: JSON.stringify({ tags: ["returning"] }, null, 2), description: "LRB vs spring vs basic comparison + consultation CTA" },
+  { id: "lrb-cta-cart-abandon", name: "CTA — Cart Abandonment", targeting: JSON.stringify({ tags: ["cart_abandoner"] }, null, 2), description: "4 objection-busters + checkout buttons" },
+  { id: "lrb-cta-post-purchase", name: "CTA — Post-Purchase Onboarding", targeting: JSON.stringify({ identified: true, tags: ["purchased"] }, null, 2), description: "Setup guide, 4-week program, community" },
 ];
+
+// ── Variation Row ──────────────────────────────────────────────────────────────
+
+function VariationRow({
+  variation, sectionId, canDelete, onDelete, onRefresh,
+}: {
+  variation: SectionVariation; sectionId: string; canDelete: boolean;
+  onDelete: () => void; onRefresh: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(variation.name);
+  const [editSnippetId, setEditSnippetId] = useState(variation.shopify_section_id);
+  const [saving, setSaving] = useState(false);
+  const atcRate = variation.impressions > 0
+    ? ((variation.add_to_carts / variation.impressions) * 100).toFixed(1)
+    : "—";
+
+  const save = async () => {
+    setSaving(true);
+    await fetch(`${BOT_URL}/admin/intelligence/sections/${sectionId}/variations/${variation.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: editName.trim(), shopify_section_id: editSnippetId.trim() }),
+    });
+    setSaving(false); setEditing(false); onRefresh();
+  };
+
+  const toggleActive = async () => {
+    await fetch(`${BOT_URL}/admin/intelligence/sections/${sectionId}/variations/${variation.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !variation.active }),
+    });
+    onRefresh();
+  };
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: "0.5rem",
+      padding: "0.4rem 0.6rem",
+      background: "rgba(255,255,255,0.02)",
+      border: "1px solid rgba(255,255,255,0.05)",
+      borderRadius: 7, marginBottom: "0.25rem",
+      opacity: variation.active ? 1 : 0.5,
+    }}>
+      <div style={{ width: 5, height: 5, borderRadius: "50%", flexShrink: 0,
+        background: variation.active ? "#34d399" : "#334155" }} />
+
+      {editing ? (
+        <>
+          <input value={editName} onChange={e => setEditName(e.target.value)}
+            style={{ ...INPUT_STYLE, fontSize: 11, padding: "2px 6px", borderRadius: 5, width: 120, flex: "0 0 auto" }} />
+          <input value={editSnippetId} onChange={e => setEditSnippetId(e.target.value)}
+            style={{ ...INPUT_STYLE, fontSize: 10, padding: "2px 6px", borderRadius: 5, fontFamily: "monospace", flex: 1, minWidth: 0 }}
+            placeholder="lrb-snippet-id" />
+          <button onClick={save} disabled={saving} style={{ color: "#34d399", background: "none", border: "none", cursor: "pointer", padding: "0.2rem" }} aria-label="Save">
+            <Check size={11} />
+          </button>
+          <button onClick={() => setEditing(false)} style={{ color: "#f43f5e", background: "none", border: "none", cursor: "pointer", padding: "0.2rem" }} aria-label="Cancel">
+            <X size={11} />
+          </button>
+        </>
+      ) : (
+        <>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "#cbd5e1", flexShrink: 0 }}>{variation.name}</span>
+          <code style={{ fontSize: 9, color: "#475569", background: "rgba(255,255,255,0.04)", padding: "1px 5px", borderRadius: 4, flexShrink: 0 }}>
+            {variation.shopify_section_id}
+          </code>
+          <div style={{ flex: 1 }} />
+          <span style={{ fontSize: 10, color: "#64748b", fontWeight: 600, flexShrink: 0 }}>
+            {variation.impressions} imp
+          </span>
+          <span style={{
+            fontSize: 10, fontWeight: 700, flexShrink: 0,
+            color: variation.impressions > 0 ? "#34d399" : "#334155",
+          }}>
+            {atcRate}{variation.impressions > 0 ? "%" : ""} ATC
+          </span>
+          <button onClick={() => setEditing(true)} style={{ color: "#38bdf8", background: "none", border: "none", cursor: "pointer", padding: "0.2rem" }} aria-label="Edit variation">
+            <Edit2 size={10} />
+          </button>
+          <button onClick={toggleActive} style={{ color: variation.active ? "#f59e0b" : "#34d399", background: "none", border: "none", cursor: "pointer", padding: "0.2rem" }}
+            aria-label={variation.active ? "Pause" : "Activate"} title={variation.active ? "Pause variation" : "Activate variation"}>
+            {variation.active ? <X size={10} /> : <Check size={10} />}
+          </button>
+          {canDelete && (
+            <button onClick={onDelete} style={{ color: "#f43f5e", background: "none", border: "none", cursor: "pointer", padding: "0.2rem" }} aria-label="Delete variation">
+              <Trash2 size={10} />
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Add Variation Form ─────────────────────────────────────────────────────────
+
+function AddVariationRow({ sectionId, onAdded }: { sectionId: string; onAdded: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [snippetId, setSnippetId] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  const save = async () => {
+    if (!name.trim() || !snippetId.trim()) { setErr("Name and Snippet ID required"); return; }
+    setSaving(true); setErr("");
+    const res = await fetch(`${BOT_URL}/admin/intelligence/sections/${sectionId}/variations`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim(), shopify_section_id: snippetId.trim() }),
+    });
+    setSaving(false);
+    if (res.ok) { setOpen(false); setName(""); setSnippetId(""); onAdded(); }
+    else { const d = await res.json(); setErr(d.error ?? "Failed"); }
+  };
+
+  if (!open) return (
+    <button onClick={() => setOpen(true)}
+      style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: 10, color: "#38bdf8",
+        background: "rgba(56,189,248,0.06)", border: "1px dashed rgba(56,189,248,0.2)",
+        borderRadius: 6, padding: "0.3rem 0.6rem", cursor: "pointer", fontWeight: 600, marginTop: "0.25rem" }}>
+      <Plus size={10} /> Add Variation
+    </button>
+  );
+
+  return (
+    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginTop: "0.4rem", flexWrap: "wrap" }}>
+      <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. With Video"
+        style={{ ...INPUT_STYLE, fontSize: 11, padding: "3px 8px", borderRadius: 6, width: 130 }} />
+      <select value={snippetId} onChange={e => setSnippetId(e.target.value)}
+        style={{ ...INPUT_STYLE, fontSize: 10, padding: "3px 8px", borderRadius: 6, flex: 1, minWidth: 160 }}>
+        <option value="">— pick snippet —</option>
+        {KNOWN_SNIPPETS.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
+        <option value="__custom__">Custom ID…</option>
+      </select>
+      {snippetId === "__custom__" && (
+        <input placeholder="lrb-custom-snippet" onChange={e => setSnippetId(e.target.value)}
+          style={{ ...INPUT_STYLE, fontSize: 10, padding: "3px 8px", borderRadius: 6, width: 160 }} />
+      )}
+      {err && <span style={{ fontSize: 10, color: "#f43f5e" }}>{err}</span>}
+      <button onClick={save} disabled={saving}
+        style={{ color: "#34d399", background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)",
+          borderRadius: 6, padding: "3px 10px", fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
+        {saving ? "…" : "Add"}
+      </button>
+      <button onClick={() => { setOpen(false); setErr(""); }}
+        style={{ color: "#475569", background: "none", border: "none", cursor: "pointer", padding: "0.2rem" }}>
+        <X size={12} />
+      </button>
+    </div>
+  );
+}
 
 // ── Section Card ──────────────────────────────────────────────────────────────
 
-function SectionCard({ section, onToggle, onEdit, dragControls }: {
+function SectionCard({ section, onToggle, onEdit, onRefresh }: {
   section: PSection;
   onToggle: (id: string, active: boolean) => void;
   onEdit: (section: PSection) => void;
-  dragControls?: ReturnType<typeof useDragControls>;
+  onRefresh: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const rules = section.targeting_rules;
@@ -77,25 +240,42 @@ function SectionCard({ section, onToggle, onEdit, dragControls }: {
   const isUniversal = ruleEntries.length === 0;
   const visibleRules = ruleEntries.slice(0, 3);
   const hiddenCount = ruleEntries.length - visibleRules.length;
+  const variations = section.variations ?? [];
+  const totalImpressions = variations.reduce((s, v) => s + v.impressions, 0);
+  const totalATC = variations.reduce((s, v) => s + v.add_to_carts, 0);
+  const atcRate = totalImpressions > 0 ? ((totalATC / totalImpressions) * 100).toFixed(1) : "—";
+
+  const deleteVariation = async (varId: string) => {
+    if (!confirm("Delete this variation?")) return;
+    await fetch(`${BOT_URL}/admin/intelligence/sections/${section.id}/variations/${varId}`, { method: "DELETE" });
+    onRefresh();
+  };
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{
       background: "rgba(255,255,255,0.03)",
       border: "1px solid rgba(255,255,255,0.07)",
       borderLeft: `3px solid ${section.active ? "#38bdf8" : "#334155"}`,
-      borderRadius: 10, padding: "0.45rem 0.75rem",
-      opacity: section.active ? 1 : 0.55, marginBottom: "0.3rem",
+      borderRadius: 10, padding: "0.55rem 0.75rem",
+      opacity: section.active ? 1 : 0.55, marginBottom: "0.4rem",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", minWidth: 0 }}>
-        {dragControls && (
-          <div onPointerDown={e => dragControls.start(e)}
-            style={{ cursor: "grab", color: "#334155", flexShrink: 0 }}>
-            <GripVertical size={13} />
-          </div>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0 }}>
+        <div style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+          background: section.active ? "#34d399" : "#334155",
+          boxShadow: section.active ? "0 0 5px #34d39977" : "none" }} />
+        <span style={{ fontWeight: 700, color: "#e2e8f0", fontSize: 12.5, flexShrink: 0 }}>{section.name}</span>
+
+        {/* Variations count badge */}
+        {variations.length > 0 && (
+          <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 9, color: "#a78bfa",
+            background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.2)",
+            padding: "1px 6px", borderRadius: 4, fontWeight: 700, flexShrink: 0 }}>
+            <GitBranch size={8} /> {variations.length} var{variations.length !== 1 ? "s" : ""}
+          </span>
         )}
-        <div style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: section.active ? "#34d399" : "#334155", boxShadow: section.active ? "0 0 5px #34d39977" : "none" }} />
-        <span style={{ fontWeight: 700, color: "#e2e8f0", fontSize: 12.5, flexShrink: 0, whiteSpace: "nowrap" }}>{section.name}</span>
-        <code style={{ fontSize: 9, color: "#334155", background: "rgba(255,255,255,0.04)", padding: "1px 5px", borderRadius: 4, flexShrink: 0, whiteSpace: "nowrap" }}>{section.shopify_section_id}</code>
+
+        {/* Targeting pills */}
         <div style={{ display: "flex", gap: "0.25rem", alignItems: "center", flex: 1, minWidth: 0, overflow: "hidden" }}>
           {isUniversal ? (
             <span style={{ fontSize: 9, color: "#64748b", background: "rgba(100,116,139,0.1)", padding: "1px 6px", borderRadius: 4, fontWeight: 700, border: "1px solid rgba(100,116,139,0.15)", flexShrink: 0 }}>Everyone</span>
@@ -111,68 +291,80 @@ function SectionCard({ section, onToggle, onEdit, dragControls }: {
             </>
           )}
         </div>
-        <div style={{ display: "flex", gap: "0.55rem", flexShrink: 0, alignItems: "center" }}>
-          {[
-            { label: "P", value: section.priority, color: "#f59e0b", title: "Priority" },
-            { label: "👁", value: section.stats?.impressions ?? 0, color: "#38bdf8", title: "Impressions" },
-            { label: "↗", value: section.stats?.clicks ?? 0, color: "#34d399", title: "Clicks" },
-          ].map(({ label, value, color, title: ttip }) => (
-            <div key={label} title={ttip} style={{ lineHeight: 1 }}>
-              <span style={{ fontSize: 9, color: "#334155" }}>{label} </span>
-              <span style={{ fontSize: 11, fontWeight: 800, color }}>{value}</span>
-            </div>
-          ))}
+
+        {/* Aggregate stats */}
+        <div style={{ display: "flex", gap: "0.6rem", flexShrink: 0, alignItems: "center" }}>
+          <span title="Total impressions across all variations" style={{ fontSize: 10, color: "#38bdf8", fontWeight: 700 }}>
+            {totalImpressions} <span style={{ color: "#334155", fontWeight: 400 }}>imp</span>
+          </span>
+          <span title="ATC rate across all variations" style={{ fontSize: 10, fontWeight: 700, color: totalImpressions > 0 ? "#34d399" : "#334155" }}>
+            {atcRate}{totalImpressions > 0 ? "%" : ""} <span style={{ color: "#334155", fontWeight: 400 }}>ATC</span>
+          </span>
         </div>
+
+        {/* Controls */}
         <div style={{ display: "flex", gap: "0.1rem", flexShrink: 0 }}>
           <button onClick={() => setExpanded(!expanded)} style={{ color: "#475569", padding: "0.2rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }} aria-label={expanded ? "Collapse" : "Expand"}>
             {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           </button>
           <button onClick={() => onEdit(section)} style={{ color: "#38bdf8", padding: "0.2rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }} aria-label="Edit section"><Edit2 size={12} /></button>
-          <button onClick={() => onToggle(section.id, !section.active)} style={{ color: section.active ? "#f43f5e" : "#34d399", padding: "0.2rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }} aria-label={section.active ? "Deactivate" : "Activate"}>
+          <button onClick={() => onToggle(section.id, !section.active)}
+            style={{ color: section.active ? "#f43f5e" : "#34d399", padding: "0.2rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}
+            aria-label={section.active ? "Deactivate" : "Activate"}>
             {section.active ? <X size={12} /> : <Check size={12} />}
           </button>
         </div>
       </div>
+
+      {/* Expanded — variations list */}
       <AnimatePresence>
         {expanded && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} style={{ overflow: "hidden" }}>
-            <div style={{ marginTop: "0.55rem", paddingTop: "0.55rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-              {section.description && <p style={{ fontSize: 11, color: "#64748b", marginBottom: "0.4rem", lineHeight: 1.5 }}>{section.description}</p>}
-              <p style={{ fontSize: 9, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, marginBottom: "0.35rem" }}>All Signals</p>
-              {isUniversal ? <p style={{ fontSize: 11, color: "#475569" }}>No signals — shown to everyone.</p> : (
-                <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
-                  {ruleEntries.map(([k, v]) => (
-                    <span key={k} style={{ fontSize: 10, background: "rgba(56,189,248,0.08)", color: "#7dd3fc", padding: "2px 8px", borderRadius: 6, fontWeight: 600, border: "1px solid rgba(56,189,248,0.15)" }}>
-                      <span style={{ color: "#64748b" }}>{k}:</span>{" "}
-                      {Array.isArray(v) ? (v as string[]).join(", ") : String(v)}
-                    </span>
-                  ))}
-                </div>
+            <div style={{ marginTop: "0.6rem", paddingTop: "0.6rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+              {section.description && (
+                <p style={{ fontSize: 11, color: "#64748b", marginBottom: "0.5rem", lineHeight: 1.5 }}>{section.description}</p>
+              )}
+
+              {/* Variations */}
+              <p style={{ fontSize: 9, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, marginBottom: "0.35rem", display: "flex", alignItems: "center", gap: 4 }}>
+                <GitBranch size={9} /> Variations — UCB1 picks the best performer
+              </p>
+              {variations.length === 0 ? (
+                <p style={{ fontSize: 11, color: "#334155" }}>No variations yet.</p>
+              ) : (
+                variations.map(v => (
+                  <VariationRow
+                    key={v.id} variation={v} sectionId={section.id}
+                    canDelete={variations.length > 1}
+                    onDelete={() => deleteVariation(v.id)}
+                    onRefresh={onRefresh}
+                  />
+                ))
+              )}
+              <AddVariationRow sectionId={section.id} onAdded={onRefresh} />
+
+              {/* Signals summary */}
+              {!isUniversal && (
+                <>
+                  <p style={{ fontSize: 9, color: "#334155", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, margin: "0.6rem 0 0.3rem" }}>Targeting Signals</p>
+                  <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
+                    {ruleEntries.map(([k, v]) => (
+                      <span key={k} style={{ fontSize: 10, background: "rgba(56,189,248,0.06)", color: "#7dd3fc", padding: "2px 8px", borderRadius: 6, fontWeight: 600, border: "1px solid rgba(56,189,248,0.12)" }}>
+                        <span style={{ color: "#64748b" }}>{k}:</span>{" "}
+                        {Array.isArray(v) ? (v as string[]).join(", ") : String(v)}
+                      </span>
+                    ))}
+                  </div>
+                </>
               )}
               <p style={{ fontSize: 9, color: "#334155", marginTop: "0.4rem" }}>
-                Priority: {section.priority} · ATC: {section.stats?.add_to_cart ?? 0} · Dwell: {section.stats?.avg_dwell_ms ? `${(section.stats.avg_dwell_ms / 1000).toFixed(1)}s` : "—"} · Mode: {section.hard_gate ? "🔒 Required" : "⚖️ Weighted"} · Updated {new Date(section.updated_at).toLocaleDateString()}
+                Mode: {section.hard_gate ? "🔒 Hard Gate" : "⚖️ Weighted"} · Updated {new Date(section.updated_at).toLocaleDateString()}
               </p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
-  );
-}
-
-function ReorderableSection({ section, rank, onToggle, onEdit }: {
-  section: PSection; rank: number;
-  onToggle: (id: string, active: boolean) => void;
-  onEdit: (section: PSection) => void;
-}) {
-  const controls = useDragControls();
-  return (
-    <Reorder.Item value={section} dragControls={controls} dragListener={false} style={{ listStyle: "none" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-        <span style={{ fontSize: 10, color: "#334155", fontWeight: 700, minWidth: 16, textAlign: "right" }}>#{rank}</span>
-        <div style={{ flex: 1 }}><SectionCard section={section} onToggle={onToggle} onEdit={onEdit} dragControls={controls} /></div>
-      </div>
-    </Reorder.Item>
   );
 }
 
@@ -185,9 +377,7 @@ export default function SectionsPage() {
   const [editTarget, setEditTarget] = useState<PSection | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
-  const [orderedSections, setOrderedSections] = useState<PSection[]>([]);
-  const [savingOrder, setSavingOrder] = useState(false);
-  const empty: SectionFormData = { name: "", description: "", shopify_section_id: "", targeting_rules_raw: "{}", priority: "0", hard_gate: "false" };
+  const empty: SectionFormData = { name: "", description: "", shopify_section_id: "", targeting_rules_raw: "{}", hard_gate: "false" };
   const [form, setForm] = useState<SectionFormData>(empty);
 
   const fetchSections = useCallback(async () => {
@@ -200,21 +390,6 @@ export default function SectionsPage() {
   }, []);
 
   useEffect(() => { fetchSections(); }, [fetchSections]);
-  useEffect(() => { setOrderedSections([...sections].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))); }, [sections]);
-
-  const saveOrder = async (reordered: PSection[]) => {
-    setSavingOrder(true);
-    try {
-      const total = reordered.length;
-      await Promise.all(reordered.map((s, i) =>
-        fetch(`${BOT_URL}/admin/intelligence/sections/${s.id}`, {
-          method: "PUT", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ priority: (total - i) * 10 }),
-        })
-      ));
-      fetchSections();
-    } finally { setSavingOrder(false); }
-  };
 
   const toggle = async (id: string, active: boolean) => {
     await fetch(`${BOT_URL}/admin/intelligence/sections/${id}`, {
@@ -226,7 +401,7 @@ export default function SectionsPage() {
   const openCreate = () => { setEditTarget(null); setForm(empty); setFormError(""); setShowForm(true); };
   const openEdit = (s: PSection) => {
     setEditTarget(s);
-    setForm({ name: s.name, description: s.description ?? "", shopify_section_id: s.shopify_section_id, targeting_rules_raw: JSON.stringify(s.targeting_rules, null, 2), priority: String(s.priority), hard_gate: s.hard_gate ? "true" : "false" });
+    setForm({ name: s.name, description: s.description ?? "", shopify_section_id: s.shopify_section_id, targeting_rules_raw: JSON.stringify(s.targeting_rules, null, 2), hard_gate: s.hard_gate ? "true" : "false" });
     setFormError(""); setShowForm(true);
   };
 
@@ -235,7 +410,7 @@ export default function SectionsPage() {
     try {
       let targeting_rules: Record<string, unknown> = {};
       try { targeting_rules = JSON.parse(form.targeting_rules_raw); } catch { throw new Error("Invalid JSON in signals"); }
-      const payload = { name: form.name.trim(), description: form.description.trim() || null, shopify_section_id: form.shopify_section_id.trim(), targeting_rules, priority: parseInt(form.priority, 10) || 0, hard_gate: form.hard_gate === "true" };
+      const payload = { name: form.name.trim(), description: form.description.trim() || null, shopify_section_id: form.shopify_section_id.trim(), targeting_rules, hard_gate: form.hard_gate === "true" };
       if (!payload.name || !payload.shopify_section_id) throw new Error("Name and Shopify Section ID are required");
       const url = editTarget ? `${BOT_URL}/admin/intelligence/sections/${editTarget.id}` : `${BOT_URL}/admin/intelligence/sections`;
       const res = await fetch(url, { method: editTarget ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -245,10 +420,20 @@ export default function SectionsPage() {
     finally { setSaving(false); }
   };
 
+  const totalVariations = sections.reduce((s, sec) => s + (sec.variations?.length ?? 0), 0);
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-        <p style={{ fontSize: 12, color: "#64748b" }}>{sections.length} section{sections.length !== 1 ? "s" : ""} registered</p>
+        <div>
+          <p style={{ fontSize: 12, color: "#64748b" }}>
+            {sections.length} section{sections.length !== 1 ? "s" : ""} · {totalVariations} variation{totalVariations !== 1 ? "s" : ""}
+          </p>
+          <p style={{ fontSize: 10, color: "#334155", marginTop: 2 }}>
+            <Zap size={9} style={{ display: "inline", marginRight: 3 }} />
+            UCB1 selects the best variation per section automatically
+          </p>
+        </div>
         <button onClick={openCreate} className="button is-small"
           style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.2)", gap: "0.4rem", display: "flex", alignItems: "center" }}>
           <Plus size={13} /> Register Section
@@ -264,11 +449,11 @@ export default function SectionsPage() {
             </p>
 
             <div style={{ marginBottom: "0.75rem" }}>
-              <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>Pick a Snippet</label>
+              <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>Primary Snippet (Default Variation)</label>
               <select className="input is-small" value={form.shopify_section_id}
                 onChange={e => {
                   const picked = KNOWN_SNIPPETS.find(s => s.id === e.target.value);
-                  if (picked) setForm(f => ({ ...f, shopify_section_id: picked.id, name: f.name || picked.name, description: f.description || (picked.description ?? ""), targeting_rules_raw: picked.targeting, priority: picked.priority }));
+                  if (picked) setForm(f => ({ ...f, shopify_section_id: picked.id, name: f.name || picked.name, description: f.description || (picked.description ?? ""), targeting_rules_raw: picked.targeting }));
                   else setForm(f => ({ ...f, shopify_section_id: e.target.value }));
                 }}
                 style={{ ...INPUT_STYLE, border: "1px solid rgba(56,189,248,0.25)" }}>
@@ -280,13 +465,13 @@ export default function SectionsPage() {
                 <input className="input is-small" placeholder="my-custom-snippet-id" style={{ ...INPUT_STYLE, marginTop: "0.5rem" }}
                   onChange={e => setForm(f => ({ ...f, shopify_section_id: e.target.value }))} />
               )}
+              <p style={{ fontSize: 9, color: "#475569", marginTop: "0.3rem" }}>This becomes the "Default" variation. Add more variations after creating the section.</p>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
               {[
-                { key: "name", label: "Display Name", placeholder: "Knee Pain Hero" },
-                { key: "description", label: "Description (optional)", placeholder: "Hero for knee pain visitors" },
-                { key: "priority", label: "Priority (0–10)", placeholder: "5" },
+                { key: "name", label: "Display Name", placeholder: "Hero — Knee Pain" },
+                { key: "description", label: "Description (optional)", placeholder: "Hero for joint/knee pain visitors" },
               ].map(({ key, label, placeholder }) => (
                 <div key={key}>
                   <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>{label}</label>
@@ -298,8 +483,8 @@ export default function SectionsPage() {
                 <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>Matching Mode</label>
                 <select className="input is-small" value={form.hard_gate}
                   onChange={e => setForm(f => ({ ...f, hard_gate: e.target.value }))} style={INPUT_STYLE}>
-                  <option value="false">⚖️ Weighted — signals add priority, section always eligible</option>
-                  <option value="true">🔒 Required — only shows when signals match</option>
+                  <option value="false">⚖️ Weighted — signals add score, always eligible</option>
+                  <option value="true">🔒 Hard Gate — only shows when signals match</option>
                 </select>
               </div>
             </div>
@@ -345,26 +530,17 @@ export default function SectionsPage() {
 
       {loading ? (
         <p style={{ color: "#475569", textAlign: "center", padding: "2rem" }}>Loading sections...</p>
-      ) : orderedSections.length === 0 ? (
+      ) : sections.length === 0 ? (
         <div style={{ ...CARD, textAlign: "center", padding: "3rem" }}>
           <Layers size={32} color="#334155" style={{ margin: "0 auto 1rem" }} />
           <p style={{ color: "#475569" }}>No sections registered yet. Click &quot;Register Section&quot; to add your first.</p>
         </div>
       ) : (
-        <>
-          {savingOrder && <p style={{ fontSize: 11, color: "#38bdf8", marginBottom: "0.5rem" }}>Saving order...</p>}
-          <p style={{ fontSize: 11, color: "#475569", marginBottom: "0.75rem" }}>
-            <GripVertical size={11} style={{ display: "inline", marginRight: 4 }} />
-            Drag to reorder — top = highest priority
-          </p>
-          <Reorder.Group axis="y" values={orderedSections}
-            onReorder={reordered => { setOrderedSections(reordered); saveOrder(reordered); }}
-            style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {orderedSections.map((s, i) => (
-              <ReorderableSection key={s.id} section={s} rank={i + 1} onToggle={toggle} onEdit={openEdit} />
-            ))}
-          </Reorder.Group>
-        </>
+        <div>
+          {sections.map(s => (
+            <SectionCard key={s.id} section={s} onToggle={toggle} onEdit={openEdit} onRefresh={fetchSections} />
+          ))}
+        </div>
       )}
     </div>
   );
