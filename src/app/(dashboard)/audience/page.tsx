@@ -1175,12 +1175,63 @@ function ThemeDeployTab() {
           </div>
           <div style={{ flex: 1 }}>
             <p style={{ fontWeight: 800, color: "#e2e8f0", marginBottom: "0.25rem" }}>Deploy Assets to Theme</p>
-            <p style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
-              Pushes <code style={{ color: "#a78bfa" }}>lrb-personalization.js</code> and all Liquid snippets to the selected theme.
-              To go live, publish from <strong style={{ color: "#e2e8f0" }}>Shopify Admin → Themes</strong>.
+            <p style={{ fontSize: 12, color: "#64748b", lineHeight: 1.6 }}>
+              Pushes <code style={{ color: "#a78bfa" }}>lrb-personalization.js</code>, all snippets, and two auto-generated sections to your theme.
             </p>
           </div>
         </div>
+
+        {/* Architecture steps */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", marginBottom: "1rem" }}>
+          {[
+            {
+              step: "1",
+              label: "Deploy All Assets",
+              detail: "Pushes the JS, all snippets, and generates snippets/lrb-template-pool.liquid + sections/lrb-embed.liquid",
+              color: "#a78bfa",
+            },
+            {
+              step: "2",
+              label: "Add pool to theme.liquid (once)",
+              detail: "In Shopify → Edit Code → layout/theme.liquid, paste {%- render 'lrb-template-pool' -%} just before </body>. Do this once — it makes all sections globally available.",
+              color: "#38bdf8",
+              code: "{%- render 'lrb-template-pool' -%}",
+            },
+            {
+              step: "3",
+              label: "Add lrb-embed section per page",
+              detail: "In Shopify's page editor, add the \"LRB Intelligence Embed\" section wherever you want sections to appear. Set its Embed ID field to the UUID from Audience → Embeds.",
+              color: "#34d399",
+            },
+          ].map(({ step, label, detail, color, code }) => (
+            <div key={step} style={{
+              display: "flex", gap: "0.75rem", alignItems: "flex-start",
+              padding: "0.6rem 0.75rem", background: "rgba(255,255,255,0.02)",
+              border: "1px solid rgba(255,255,255,0.05)", borderRadius: 8,
+            }}>
+              <div style={{
+                width: 20, height: 20, borderRadius: "50%", background: `${color}18`,
+                border: `1px solid ${color}30`, display: "flex", alignItems: "center",
+                justifyContent: "center", flexShrink: 0, marginTop: 1,
+              }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color }}>{step}</span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0", marginBottom: "0.2rem" }}>{label}</p>
+                <p style={{ fontSize: 11, color: "#64748b", lineHeight: 1.5 }}>{detail}</p>
+                {code && (
+                  <code style={{
+                    display: "inline-block", marginTop: "0.35rem", fontSize: 11,
+                    color: "#38bdf8", background: "rgba(56,189,248,0.07)",
+                    border: "1px solid rgba(56,189,248,0.15)", borderRadius: 5,
+                    padding: "2px 8px", fontFamily: "monospace",
+                  }}>{code}</code>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
 
         {themes.length > 0 && (
           <div style={{ marginBottom: "1rem" }}>
