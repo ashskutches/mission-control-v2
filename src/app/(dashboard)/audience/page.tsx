@@ -981,18 +981,18 @@ function EmbedsTab({ sections, onRefresh }: { sections: PSection[]; onRefresh: (
   const [urlPatternInput, setUrlPatternInput] = useState("");
   const [form, setForm] = useState({ name: "", description: "", url_patterns: [] as string[] });
 
-  const fetchEmbeds = useCallback(async () => {
-    setLoading(true);
+  const fetchEmbeds = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch(`${BOT_URL}/admin/intelligence/embeds`);
       if (res.ok) { const data = await res.json(); setEmbeds(data.embeds ?? []); }
     } catch { /* silent */ }
-    finally { setLoading(false); }
+    finally { if (!silent) setLoading(false); }
   }, []);
 
   useEffect(() => { fetchEmbeds(); }, [fetchEmbeds]);
 
-  const refresh = () => { fetchEmbeds(); onRefresh(); };
+  const refresh = () => { fetchEmbeds(true); onRefresh(); };
 
   const addPattern = () => {
     if (!urlPatternInput.trim()) return;
