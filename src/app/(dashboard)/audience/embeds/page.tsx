@@ -97,11 +97,15 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
     if (!selectedSectionId) return;
     setAddingSection(true);
     try {
-      await fetch(`${BOT_URL}/admin/intelligence/embeds/${embed.id}/sections`, {
+      const res = await fetch(`${BOT_URL}/admin/intelligence/embeds/${embed.id}/sections`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ section_id: selectedSectionId }),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to add section");
       setSelectedSectionId(""); onRefresh();
+    } catch (e: any) {
+      alert(`Could not add section: ${e.message}`);
     } finally { setAddingSection(false); }
   };
 
@@ -112,12 +116,22 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
 
   const toggleRequired = async (sectionId: string, currentRequired: boolean) => {
     setTogglingId(sectionId);
-    await fetch(`${BOT_URL}/admin/intelligence/embeds/${embed.id}/sections/${sectionId}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_required: !currentRequired }),
-    });
-    setTogglingId(null); onRefresh();
+    try {
+      const res = await fetch(`${BOT_URL}/admin/intelligence/embeds/${embed.id}/sections/${sectionId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_required: !currentRequired }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error ?? "Toggle failed");
+      }
+    } catch (e: any) {
+      alert(`Could not toggle required: ${e.message}`);
+    } finally {
+      setTogglingId(null); onRefresh();
+    }
   };
+
 
   const requiredCount = embed.sections.filter((s: any) => s.is_required).length;
 
