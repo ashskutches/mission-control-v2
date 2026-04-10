@@ -272,7 +272,7 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
 
 export default function EmbedsPage() {
   const [embeds, setEmbeds] = useState<Embed[]>([]);
-  const [sections, setSections] = useState<PSection[]>([]);
+  const [sections, setSections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
