@@ -254,13 +254,35 @@ function SectionCard({ section, onToggle, onEdit, onRefresh }: {
   return (
     <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{
       background: "rgba(255,255,255,0.03)",
-      border: "1px solid rgba(255,255,255,0.07)",
+      border: `1px solid ${expanded ? "rgba(56,189,248,0.18)" : "rgba(255,255,255,0.07)"}`,
       borderLeft: `3px solid ${section.active ? "#38bdf8" : "#334155"}`,
-      borderRadius: 10, padding: "0.55rem 0.75rem",
+      borderRadius: 10,
       opacity: section.active ? 1 : 0.55, marginBottom: "0.4rem",
+      overflow: "hidden",
     }}>
-      {/* Header row */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0 }}>
+      {/* ── Clickable header row ─────────────────────────────────────── */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        onClick={() => setExpanded(!expanded)}
+        onKeyDown={e => (e.key === "Enter" || e.key === " ") && setExpanded(!expanded)}
+        style={{
+          display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0,
+          cursor: "pointer",
+          padding: "0.55rem 0.75rem",
+          background: expanded ? "rgba(56,189,248,0.04)" : "transparent",
+          transition: "background 0.15s ease",
+          userSelect: "none",
+        }}
+        onMouseEnter={e => { if (!expanded) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
+        onMouseLeave={e => { if (!expanded) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+      >
+        {/* Chevron first — makes expand intent obvious */}
+        <span style={{ color: expanded ? "#38bdf8" : "#475569", flexShrink: 0, display: "flex", transition: "color 0.15s" }}>
+          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </span>
+
         <div style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
           background: section.active ? "#34d399" : "#334155",
           boxShadow: section.active ? "0 0 5px #34d39977" : "none" }} />
@@ -302,25 +324,22 @@ function SectionCard({ section, onToggle, onEdit, onRefresh }: {
           </span>
         </div>
 
-        {/* Controls */}
-        <div style={{ display: "flex", gap: "0.1rem", flexShrink: 0 }}>
-          <button onClick={() => setExpanded(!expanded)} style={{ color: "#475569", padding: "0.2rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }} aria-label={expanded ? "Collapse" : "Expand"}>
-            {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          </button>
-          <button onClick={() => onEdit(section)} style={{ color: "#38bdf8", padding: "0.2rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }} aria-label="Edit section"><Edit2 size={12} /></button>
+        {/* Edit / toggle — stop propagation so they don't trigger expand */}
+        <div style={{ display: "flex", gap: "0.1rem", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+          <button onClick={() => onEdit(section)} style={{ color: "#38bdf8", padding: "0.3rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }} aria-label="Edit section"><Edit2 size={12} /></button>
           <button onClick={() => onToggle(section.id, !section.active)}
-            style={{ color: section.active ? "#f43f5e" : "#34d399", padding: "0.2rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}
+            style={{ color: section.active ? "#f43f5e" : "#34d399", padding: "0.3rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}
             aria-label={section.active ? "Deactivate" : "Activate"}>
             {section.active ? <X size={12} /> : <Check size={12} />}
           </button>
         </div>
       </div>
 
-      {/* Expanded — variations list */}
+      {/* ── Expanded body ─────────────────────────────────────────── */}
       <AnimatePresence>
         {expanded && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} style={{ overflow: "hidden" }}>
-            <div style={{ marginTop: "0.6rem", paddingTop: "0.6rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} style={{ overflow: "hidden" }}>
+            <div style={{ padding: "0 0.75rem 0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.6rem" }}>
               {section.description && (
                 <p style={{ fontSize: 11, color: "#64748b", marginBottom: "0.5rem", lineHeight: 1.5 }}>{section.description}</p>
               )}
