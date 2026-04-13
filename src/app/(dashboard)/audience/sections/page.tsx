@@ -78,15 +78,18 @@ const KNOWN_SNIPPETS = [
 // ── Variation Row ──────────────────────────────────────────────────────────────
 
 function VariationRow({
-  variation, sectionId, canDelete, onDelete, onRefresh,
+  variation, sectionId, canDelete, onDelete, onToggleActive, onRefresh,
 }: {
   variation: SectionVariation; sectionId: string; canDelete: boolean;
-  onDelete: () => void; onRefresh: () => void;
+  onDelete: () => void;
+  onToggleActive: (varId: string, newActive: boolean) => void;
+  onRefresh: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(variation.name);
   const [editSnippetId, setEditSnippetId] = useState(variation.shopify_section_id);
   const [saving, setSaving] = useState(false);
+  const [toggling, setToggling] = useState(false);
   const atcRate = variation.impressions > 0
     ? ((variation.add_to_carts / variation.impressions) * 100).toFixed(1)
     : "—";
@@ -101,11 +104,25 @@ function VariationRow({
   };
 
   const toggleActive = async () => {
-    await fetch(`${BOT_URL}/admin/intelligence/sections/${sectionId}/variations/${variation.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: !variation.active }),
-    });
-    onRefresh();
+    if (toggling) return;
+    const newActive = !variation.active;
+    setToggling(true);
+    // Optimistic update — reflect new state immediately, no page reload
+    onToggleActive(variation.id, newActive);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/intelligence/sections/${sectionId}/variations/${variation.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: newActive }),
+      });
+      if (!res.ok) {
+        // Revert on failure
+        onToggleActive(variation.id, !newActive);
+      }
+    } catch {
+      onToggleActive(variation.id, !newActive);
+    } finally {
+      setToggling(false);
+    }
   };
 
   return (
@@ -174,19 +191,24 @@ function VariationRow({
           {/* Pause / Resume — clearly labelled, never confused with delete */}
           <button
             onClick={toggleActive}
+            disabled={toggling}
             title={variation.active ? "Pause this variation (keeps it saved, removes from rotation)" : "Resume this variation (adds back to UCB1 rotation)"}
             aria-label={variation.active ? "Pause variation" : "Resume variation"}
             style={{
               display: "flex", alignItems: "center", gap: 3,
               fontSize: 9, fontWeight: 700,
-              color: variation.active ? "#94a3b8" : "#34d399",
-              background: variation.active ? "rgba(148,163,184,0.08)" : "rgba(52,211,153,0.1)",
-              border: `1px solid ${variation.active ? "rgba(148,163,184,0.15)" : "rgba(52,211,153,0.2)"}`,
-              borderRadius: 5, padding: "2px 7px", cursor: "pointer",
+              color: toggling ? "#475569" : variation.active ? "#94a3b8" : "#34d399",
+              background: toggling ? "rgba(71,85,105,0.08)" : variation.active ? "rgba(148,163,184,0.08)" : "rgba(52,211,153,0.1)",
+              border: `1px solid ${toggling ? "rgba(71,85,105,0.15)" : variation.active ? "rgba(148,163,184,0.15)" : "rgba(52,211,153,0.2)"}`,
+              borderRadius: 5, padding: "2px 7px", cursor: toggling ? "default" : "pointer",
+              opacity: toggling ? 0.6 : 1,
+              transition: "all 0.15s ease",
             }}>
-            {variation.active
-              ? <><Pause size={9} /> Pause</>
-              : <><Play  size={9} /> Resume</>}
+            {toggling
+              ? <span style={{ fontFamily: "monospace", fontSize: 9 }}>…</span>
+              : variation.active
+                ? <><Pause size={9} /> Pause</>
+                : <><Play  size={9} /> Resume</>}
           </button>
 
           {/* Delete */}
@@ -263,11 +285,12 @@ function AddVariationRow({ sectionId, onAdded }: { sectionId: string; onAdded: (
 
 // ── Section Card ──────────────────────────────────────────────────────────────
 
-function SectionCard({ section, onToggle, onEdit, onRefresh }: {
+function SectionCard({ section, onToggle, onEdit, onRefresh, onVariationToggle }: {
   section: PSection;
   onToggle: (id: string, active: boolean) => void;
   onEdit: (section: PSection) => void;
   onRefresh: () => void;
+  onVariationToggle: (sectionId: string, varId: string, newActive: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const rules = section.targeting_rules;
@@ -391,6 +414,7 @@ function SectionCard({ section, onToggle, onEdit, onRefresh }: {
                     key={v.id} variation={v} sectionId={section.id}
                     canDelete={variations.length > 1}
                     onDelete={() => deleteVariation(v.id)}
+                    onToggleActive={(varId, newActive) => onVariationToggle(section.id, varId, newActive)}
                     onRefresh={onRefresh}
                   />
                 ))
@@ -446,10 +470,29 @@ export default function SectionsPage() {
   useEffect(() => { fetchSections(); }, [fetchSections]);
 
   const toggle = async (id: string, active: boolean) => {
-    await fetch(`${BOT_URL}/admin/intelligence/sections/${id}`, {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ active }),
-    });
-    fetchSections();
+    // Optimistic update for section active toggle
+    setSections(prev => prev.map(s => s.id === id ? { ...s, active } : s));
+    try {
+      const res = await fetch(`${BOT_URL}/admin/intelligence/sections/${id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ active }),
+      });
+      if (!res.ok) {
+        // Revert on failure
+        setSections(prev => prev.map(s => s.id === id ? { ...s, active: !active } : s));
+      }
+    } catch {
+      setSections(prev => prev.map(s => s.id === id ? { ...s, active: !active } : s));
+    }
+  };
+
+  const handleVariationToggle = (sectionId: string, varId: string, newActive: boolean) => {
+    setSections(prev => prev.map(s => {
+      if (s.id !== sectionId) return s;
+      return {
+        ...s,
+        variations: s.variations.map(v => v.id === varId ? { ...v, active: newActive } : v),
+      };
+    }));
   };
 
   const openCreate = () => { setEditTarget(null); setForm(empty); setFormError(""); setShowForm(true); };
@@ -592,7 +635,7 @@ export default function SectionsPage() {
       ) : (
         <div>
           {sections.map(s => (
-            <SectionCard key={s.id} section={s} onToggle={toggle} onEdit={openEdit} onRefresh={fetchSections} />
+            <SectionCard key={s.id} section={s} onToggle={toggle} onEdit={openEdit} onRefresh={fetchSections} onVariationToggle={handleVariationToggle} />
           ))}
         </div>
       )}
