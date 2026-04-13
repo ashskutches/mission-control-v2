@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Layers, Plus, Edit2, Check, X, ChevronDown, ChevronUp,
-  GitBranch, Trash2, Zap,
+  GitBranch, Trash2, Zap, Pause, Play,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -112,13 +112,15 @@ function VariationRow({
     <div style={{
       display: "flex", alignItems: "center", gap: "0.5rem",
       padding: "0.4rem 0.6rem",
-      background: "rgba(255,255,255,0.02)",
-      border: "1px solid rgba(255,255,255,0.05)",
+      background: variation.active ? "rgba(255,255,255,0.02)" : "rgba(251,191,36,0.03)",
+      border: `1px solid ${variation.active ? "rgba(255,255,255,0.05)" : "rgba(251,191,36,0.15)"}`,
       borderRadius: 7, marginBottom: "0.25rem",
-      opacity: variation.active ? 1 : 0.5,
+      opacity: variation.active ? 1 : 0.7,
     }}>
+      {/* Status dot */}
       <div style={{ width: 5, height: 5, borderRadius: "50%", flexShrink: 0,
-        background: variation.active ? "#34d399" : "#334155" }} />
+        background: variation.active ? "#34d399" : "#f59e0b",
+        boxShadow: variation.active ? "0 0 4px #34d39966" : "none" }} />
 
       {editing ? (
         <>
@@ -136,11 +138,22 @@ function VariationRow({
         </>
       ) : (
         <>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#cbd5e1", flexShrink: 0 }}>{variation.name}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: variation.active ? "#cbd5e1" : "#94a3b8", flexShrink: 0 }}>{variation.name}</span>
           <code style={{ fontSize: 9, color: "#475569", background: "rgba(255,255,255,0.04)", padding: "1px 5px", borderRadius: 4, flexShrink: 0 }}>
             {variation.shopify_section_id}
           </code>
+
+          {/* Paused badge — only shown when inactive */}
+          {!variation.active && (
+            <span style={{
+              fontSize: 9, fontWeight: 700, color: "#f59e0b",
+              background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.2)",
+              padding: "1px 7px", borderRadius: 4, flexShrink: 0, letterSpacing: "0.05em",
+            }}>PAUSED</span>
+          )}
+
           <div style={{ flex: 1 }} />
+
           <span style={{ fontSize: 10, color: "#64748b", fontWeight: 600, flexShrink: 0 }}>
             {variation.impressions} imp
           </span>
@@ -150,15 +163,37 @@ function VariationRow({
           }}>
             {atcRate}{variation.impressions > 0 ? "%" : ""} ATC
           </span>
-          <button onClick={() => setEditing(true)} style={{ color: "#38bdf8", background: "none", border: "none", cursor: "pointer", padding: "0.2rem" }} aria-label="Edit variation">
+
+          {/* Edit */}
+          <button onClick={() => setEditing(true)}
+            style={{ color: "#38bdf8", background: "none", border: "none", cursor: "pointer", padding: "0.25rem" }}
+            aria-label="Edit variation">
             <Edit2 size={10} />
           </button>
-          <button onClick={toggleActive} style={{ color: variation.active ? "#f59e0b" : "#34d399", background: "none", border: "none", cursor: "pointer", padding: "0.2rem" }}
-            aria-label={variation.active ? "Pause" : "Activate"} title={variation.active ? "Pause variation" : "Activate variation"}>
-            {variation.active ? <X size={10} /> : <Check size={10} />}
+
+          {/* Pause / Resume — clearly labelled, never confused with delete */}
+          <button
+            onClick={toggleActive}
+            title={variation.active ? "Pause this variation (keeps it saved, removes from rotation)" : "Resume this variation (adds back to UCB1 rotation)"}
+            aria-label={variation.active ? "Pause variation" : "Resume variation"}
+            style={{
+              display: "flex", alignItems: "center", gap: 3,
+              fontSize: 9, fontWeight: 700,
+              color: variation.active ? "#94a3b8" : "#34d399",
+              background: variation.active ? "rgba(148,163,184,0.08)" : "rgba(52,211,153,0.1)",
+              border: `1px solid ${variation.active ? "rgba(148,163,184,0.15)" : "rgba(52,211,153,0.2)"}`,
+              borderRadius: 5, padding: "2px 7px", cursor: "pointer",
+            }}>
+            {variation.active
+              ? <><Pause size={9} /> Pause</>
+              : <><Play  size={9} /> Resume</>}
           </button>
+
+          {/* Delete */}
           {canDelete && (
-            <button onClick={onDelete} style={{ color: "#f43f5e", background: "none", border: "none", cursor: "pointer", padding: "0.2rem" }} aria-label="Delete variation">
+            <button onClick={onDelete}
+              style={{ color: "#f43f5e", background: "none", border: "none", cursor: "pointer", padding: "0.25rem" }}
+              aria-label="Delete variation">
               <Trash2 size={10} />
             </button>
           )}
