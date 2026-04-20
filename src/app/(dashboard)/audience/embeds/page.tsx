@@ -20,7 +20,7 @@ interface EmbedSectionShape {
 
 interface Embed {
   id: string; name: string; description: string | null;
-  url_patterns: string[]; active: boolean; max_sections: number | null;
+  url_patterns: string[]; active: boolean; max_sections: number | null; is_live: boolean;
   sections: EmbedSectionShape[];
   created_at: string; updated_at: string;
 }
@@ -78,6 +78,9 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
   const [addingSection, setAddingSection] = useState(false);
   const [selectedSectionId, setSelectedSectionId] = useState("");
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [togglingLive, setTogglingLive] = useState(false);
+  const [purging, setPurging] = useState(false);
+  const [purgeMsg, setPurgeMsg] = useState("");
 
   const attachedIds = new Set(embed.sections.map((s: any) => s.id));
   const available = sections.filter(s => !attachedIds.has(s.id));
@@ -132,16 +135,52 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
     }
   };
 
+  const toggleLive = async () => {
+    setTogglingLive(true);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/intelligence/embeds/${embed.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_live: !embed.is_live }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Toggle failed");
+      onRefresh();
+    } catch (e: any) {
+      alert(`Could not toggle live: ${e.message}`);
+    } finally { setTogglingLive(false); }
+  };
+
+  const purgeStats = async () => {
+    if (!confirm(`Purge ALL stats for "${embed.name}"?\n\nThis will reset impressions, add-to-carts, and UCB1 scores to zero.\nOnly do this to clear test data before going live.`)) return;
+    setPurging(true); setPurgeMsg("");
+    try {
+      const res = await fetch(`${BOT_URL}/admin/intelligence/embeds/${embed.id}/purge-stats`, { method: "POST" });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? "Purge failed");
+      setPurgeMsg(`✓ Purged stats for ${d.sections_purged} section(s)`);
+      setTimeout(() => setPurgeMsg(""), 4000);
+      onRefresh();
+    } catch (e: any) {
+      alert(`Purge failed: ${e.message}`);
+    } finally { setPurging(false); }
+  };
 
   const requiredCount = embed.sections.filter((s: any) => s.is_required).length;
+  const isLive = embed.is_live ?? false;
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-      style={{ ...CARD, marginBottom: "0.75rem", borderLeft: `3px solid ${embed.active ? "#34d399" : "#334155"}`, opacity: embed.active ? 1 : 0.6 }}>
+      style={{ ...CARD, marginBottom: "0.75rem", borderLeft: `3px solid ${isLive ? "#f59e0b" : embed.active ? "#34d399" : "#334155"}`, opacity: embed.active ? 1 : 0.6 }}>
       <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
             <span style={{ fontWeight: 800, color: "#e2e8f0", fontSize: 14 }}>{embed.name}</span>
+            {/* Live / Test badge */}
+            <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 7px", borderRadius: 10,
+              background: isLive ? "rgba(245,158,11,0.15)" : "rgba(100,116,139,0.1)",
+              color: isLive ? "#f59e0b" : "#64748b",
+              border: isLive ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(100,116,139,0.15)" }}>
+              {isLive ? "🟡 LIVE" : "🔧 TEST"}
+            </span>
             <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 7px", borderRadius: 10, background: embed.active ? "rgba(52,211,153,0.1)" : "rgba(100,116,139,0.1)", color: embed.active ? "#34d399" : "#64748b", border: embed.active ? "1px solid rgba(52,211,153,0.2)" : "1px solid rgba(100,116,139,0.15)" }}>{embed.active ? "Active" : "Inactive"}</span>
             <span style={{ fontSize: 10, color: "#475569" }}>{embed.sections.length} section{embed.sections.length !== 1 ? "s" : ""}</span>
             {requiredCount > 0 && <span style={{ fontSize: 9, color: "#f59e0b", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.18)", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>★ {requiredCount} required</span>}
@@ -157,8 +196,33 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
               ))}
             </div>
           )}
+          {purgeMsg && <p style={{ fontSize: 10, color: "#34d399", marginTop: 4 }}>{purgeMsg}</p>}
         </div>
-        <div style={{ display: "flex", gap: "0.25rem", flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: "0.25rem", flexShrink: 0, alignItems: "center" }}>
+          {/* Live toggle */}
+          <button
+            id={`embed-live-toggle-${embed.id}`}
+            onClick={toggleLive}
+            disabled={togglingLive}
+            title={isLive ? "Switch to TEST mode — stops counting real impressions" : "Go LIVE — start counting real impressions"}
+            style={{
+              padding: "0.2rem 0.55rem", borderRadius: 6, cursor: "pointer", fontSize: 10, fontWeight: 700,
+              background: isLive ? "rgba(245,158,11,0.15)" : "rgba(52,211,153,0.08)",
+              color: isLive ? "#f59e0b" : "#34d399",
+              border: isLive ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(52,211,153,0.2)",
+              transition: "all 0.15s",
+            }}>
+            {togglingLive ? "…" : isLive ? "🟡 Live" : "🔧 Test"}
+          </button>
+          {/* Purge stats */}
+          <button
+            id={`embed-purge-${embed.id}`}
+            onClick={purgeStats}
+            disabled={purging}
+            title="Reset all impressions + ATC stats to zero (clears test data)"
+            style={{ color: purging ? "#475569" : "#f43f5e", padding: "0.25rem", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.15)", borderRadius: 6, cursor: "pointer", fontSize: 9, fontWeight: 700 }}>
+            {purging ? "…" : "Purge"}
+          </button>
           <button onClick={() => setShowCode(!showCode)} title="Show embed code" style={{ color: showCode ? "#a78bfa" : "#475569", padding: "0.25rem", background: showCode ? "rgba(167,139,250,0.08)" : "none", border: showCode ? "1px solid rgba(167,139,250,0.2)" : "none", borderRadius: 6, cursor: "pointer" }}>
             <Code size={13} />
           </button>
