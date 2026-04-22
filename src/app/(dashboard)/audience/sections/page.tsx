@@ -51,28 +51,14 @@ const INPUT_STYLE = {
 // ── Known snippets ─────────────────────────────────────────────────────────────
 
 const KNOWN_SNIPPETS = [
-  { id: "lrb-customer-reviews", name: "Customer Reviews — Full Section", description: "Dark green rating hero + 3-column review grid. Universal.", targeting: "{}" },
-  { id: "lrb-free-workouts", name: "Free Workouts — World Class Trainers", description: "Full-width workout library section. Shows to all visitors.", targeting: "{}" },
-  { id: "lrb-compare-models", name: "Compare Our Models", description: "Side-by-side product comparison table. Universal.", targeting: "{}" },
-  { id: "lrb-product-faq", name: "Product FAQ", description: "Accordion FAQ — Universal on product pages.", targeting: "{}" },
-  { id: "lrb-lifetime-warranty", name: "Lifetime Warranty", description: "Shield icon, 4 guarantee pillars — everyone.", targeting: "{}" },
-  { id: "lrb-hero-pain-point", name: "Hero — Knee Pain / Joint Relief", targeting: JSON.stringify({ pain: ["knee", "joint"] }, null, 2), description: "Primary hero for joint/knee pain visitors" },
-  { id: "lrb-hero-athletic", name: "Hero — Athletic Performance", targeting: JSON.stringify({ motivation: ["performance", "fitness"], life_stage: ["athlete"] }, null, 2), description: "Hero for fitness/athletic audience (18–40)" },
-  { id: "lrb-hero-senior", name: "Hero — Senior Fitness (50+)", targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["joint", "balance"] }, null, 2), description: "Hero for active adults 50+" },
-  { id: "lrb-product-showcase-performance", name: "Product Showcase — Performance", targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2), description: "Dark/amber product cards for athletes" },
-  { id: "lrb-product-showcase-wellness", name: "Product Showcase — Wellness", targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["knee", "joint"] }, null, 2), description: "Warm layout for 40+" },
-  { id: "lrb-benefits-features", name: "Benefits — A Bounce That Feels Better", targeting: "{}", description: "Antigravity benefits — general audience" },
-  { id: "lrb-benefit-callouts", name: "Benefit Callouts Grid", targeting: "{}", description: "Four key product benefits — universal fallback" },
-  { id: "lrb-education-performance", name: "Education — Performance Training", targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2), description: "HIIT protocols for athletes" },
-  { id: "lrb-education-health", name: "Education — Health & Research", targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["knee", "joint"] }, null, 2), description: "NASA research citations + gentle progression plan" },
-  { id: "lrb-social-proof-performance", name: "Social Proof — Athletic", targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2), description: "Stats bar + 3 athlete testimonials" },
-  { id: "lrb-social-proof-wellness", name: "Social Proof — Health & Wellness", targeting: JSON.stringify({ life_stage: ["senior", "post_injury"], pain: ["knee", "joint"] }, null, 2), description: "Featured testimonial + doctor endorsement" },
-  { id: "lrb-support-tech", name: "Support — Tech / Digital Features", targeting: JSON.stringify({ motivation: ["performance", "fitness"] }, null, 2), description: "App integrations for younger visitors" },
-  { id: "lrb-support-traditional", name: "Support — Traditional / Phone-First", targeting: JSON.stringify({ life_stage: ["senior"] }, null, 2), description: "Phone CTA + DVD program for seniors" },
-  { id: "lrb-cta-first-visit", name: "CTA — First-Time Visitor", targeting: JSON.stringify({ tags: ["first_time_user"] }, null, 2), description: "Rebounding explainer + email capture" },
-  { id: "lrb-cta-return-visitor", name: "CTA — Return Visitor", targeting: JSON.stringify({ tags: ["returning"] }, null, 2), description: "LRB vs spring vs basic comparison + consultation CTA" },
-  { id: "lrb-cta-cart-abandon", name: "CTA — Cart Abandonment", targeting: JSON.stringify({ tags: ["cart_abandoner"] }, null, 2), description: "4 objection-busters + checkout buttons" },
-  { id: "lrb-cta-post-purchase", name: "CTA — Post-Purchase Onboarding", targeting: JSON.stringify({ identified: true, tags: ["purchased"] }, null, 2), description: "Setup guide, 4-week program, community" },
+  { id: "lrb-benefits-features",      name: "Benefits — A Bounce That Feels Better", targeting: "{}",  description: "Radio-tab image switcher + We Got You Covered grid." },
+  { id: "lrb-compare-models",         name: "Compare Our Models",                     targeting: "{}",  description: "Side-by-side product comparison table." },
+  { id: "lrb-customer-reviews",       name: "Customer Reviews (Baseline)",            targeting: "{}",  description: "ALL CAPS heading, 3-up video carousel, Yotpo widget." },
+  { id: "lrb-customer-reviews-redesign", name: "Customer Reviews — Redesign",        targeting: "{}",  description: "Real Customers. Real Results. 3×3 video grid variant." },
+  { id: "lrb-customer-reviews-v3",    name: "Customer Reviews V3",                   targeting: "{}",  description: "Latest custom reviews build." },
+  { id: "lrb-free-workouts",          name: "Free Workouts — World Class Trainers",  targeting: "{}",  description: "Full-width workout library section." },
+  { id: "lrb-lifetime-warranty",      name: "Lifetime Warranty",                     targeting: "{}",  description: "4 value-prop trust icons strip." },
+  { id: "lrb-trust-bar",             name: "Trust Bar",                              targeting: "{}",  description: "Slim brand trust indicators." },
 ];
 
 // ── Variation Row ──────────────────────────────────────────────────────────────
