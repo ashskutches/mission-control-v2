@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Layers, Plus, Edit2, Check, X, ChevronDown, ChevronUp,
-  GitBranch, Trash2, Zap, Pause, Play,
+  GitBranch, Trash2, Zap, Pause, Play, Scissors,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -449,6 +449,8 @@ export default function SectionsPage() {
   const [editTarget, setEditTarget] = useState<PSection | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [pruning, setPruning] = useState(false);
+  const [pruneMsg, setPruneMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const empty: SectionFormData = { name: "", description: "", shopify_section_id: "", targeting_rules_raw: "{}", hard_gate: "false" };
   const [form, setForm] = useState<SectionFormData>(empty);
 
@@ -505,6 +507,28 @@ export default function SectionsPage() {
   };
 
   const openCreate = () => { setEditTarget(null); setForm(empty); setFormError(""); setShowForm(true); };
+
+  const pruneSnippets = async () => {
+    if (pruning) return;
+    setPruning(true); setPruneMsg(null);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/intelligence/theme/prune-snippets`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Prune failed");
+      if (data.rogue_count === 0) {
+        setPruneMsg({ text: "✓ No rogue snippets found", ok: true });
+      } else {
+        setPruneMsg({ text: `✓ Deleted ${data.deleted} rogue snippet${data.deleted !== 1 ? "s" : ""}${data.errors > 0 ? ` (${data.errors} errors)` : ""}`, ok: data.errors === 0 });
+      }
+    } catch (e: any) {
+      setPruneMsg({ text: `✗ ${e.message}`, ok: false });
+    } finally {
+      setPruning(false);
+      setTimeout(() => setPruneMsg(null), 5000);
+    }
+  };
   const openEdit = (s: PSection) => {
     setEditTarget(s);
     setForm({ name: s.name, description: s.description ?? "", shopify_section_id: s.shopify_section_id, targeting_rules_raw: JSON.stringify(s.targeting_rules, null, 2), hard_gate: s.hard_gate ? "true" : "false" });
@@ -540,10 +564,20 @@ export default function SectionsPage() {
             UCB1 selects the best variation per section automatically
           </p>
         </div>
-        <button onClick={openCreate} className="button is-small"
-          style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.2)", gap: "0.4rem", display: "flex", alignItems: "center" }}>
-          <Plus size={13} /> Register Section
-        </button>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+          {pruneMsg && (
+            <span style={{ fontSize: 10, fontWeight: 700, color: pruneMsg.ok ? "#34d399" : "#f43f5e" }}>{pruneMsg.text}</span>
+          )}
+          <button onClick={pruneSnippets} disabled={pruning} className="button is-small"
+            title="Deletes lrb-* snippets on Shopify that have no registered section or variation"
+            style={{ background: "rgba(244,63,94,0.08)", color: "#f43f5e", border: "1px solid rgba(244,63,94,0.2)", gap: "0.4rem", display: "flex", alignItems: "center" }}>
+            <Scissors size={12} /> {pruning ? "Pruning..." : "Delete Rogue Snippets"}
+          </button>
+          <button onClick={openCreate} className="button is-small"
+            style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.2)", gap: "0.4rem", display: "flex", alignItems: "center" }}>
+            <Plus size={13} /> Register Section
+          </button>
+        </div>
       </div>
 
       <AnimatePresence>
