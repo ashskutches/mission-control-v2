@@ -285,10 +285,11 @@ function AddVariationRow({ sectionId, onAdded }: { sectionId: string; onAdded: (
 
 // ── Section Card ──────────────────────────────────────────────────────────────
 
-function SectionCard({ section, onToggle, onEdit, onRefresh, onVariationToggle }: {
+function SectionCard({ section, onToggle, onEdit, onDelete, onRefresh, onVariationToggle }: {
   section: PSection;
   onToggle: (id: string, active: boolean) => void;
   onEdit: (section: PSection) => void;
+  onDelete: (id: string) => void;
   onRefresh: () => void;
   onVariationToggle: (sectionId: string, varId: string, newActive: boolean) => void;
 }) {
@@ -382,13 +383,20 @@ function SectionCard({ section, onToggle, onEdit, onRefresh, onVariationToggle }
           </span>
         </div>
 
-        {/* Edit / toggle — stop propagation so they don't trigger expand */}
+        {/* Edit / toggle / delete — stop propagation so they don't trigger expand */}
         <div style={{ display: "flex", gap: "0.1rem", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
           <button onClick={() => onEdit(section)} style={{ color: "#38bdf8", padding: "0.3rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }} aria-label="Edit section"><Edit2 size={12} /></button>
           <button onClick={() => onToggle(section.id, !section.active)}
-            style={{ color: section.active ? "#f43f5e" : "#34d399", padding: "0.3rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}
-            aria-label={section.active ? "Deactivate" : "Activate"}>
-            {section.active ? <X size={12} /> : <Check size={12} />}
+            title={section.active ? "Pause this section (keeps it in DB, removes from rotation)" : "Resume this section"}
+            style={{ color: section.active ? "#94a3b8" : "#34d399", padding: "0.3rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}
+            aria-label={section.active ? "Pause" : "Resume"}>
+            {section.active ? <Pause size={12} /> : <Play size={12} />}
+          </button>
+          <button onClick={() => onDelete(section.id)}
+            title="Permanently delete this section and all its variations"
+            style={{ color: "#f43f5e", padding: "0.3rem", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}
+            aria-label="Delete section">
+            <Trash2 size={12} />
           </button>
         </div>
       </div>
@@ -493,6 +501,21 @@ export default function SectionsPage() {
         variations: s.variations.map(v => v.id === varId ? { ...v, active: newActive } : v),
       };
     }));
+  };
+
+  const deleteSection = async (id: string) => {
+    const section = sections.find(s => s.id === id);
+    if (!confirm(`Permanently delete "${section?.name ?? id}" and all its variations?\n\nThis cannot be undone.`)) return;
+    try {
+      const res = await fetch(`${BOT_URL}/admin/intelligence/sections/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error ?? `Delete failed (${res.status})`);
+      }
+      setSections(prev => prev.filter(s => s.id !== id));
+    } catch (e: any) {
+      alert(`Could not delete section: ${e.message}`);
+    }
   };
 
   const openCreate = () => { setEditTarget(null); setForm(empty); setFormError(""); setShowForm(true); };
@@ -635,7 +658,7 @@ export default function SectionsPage() {
       ) : (
         <div>
           {sections.map(s => (
-            <SectionCard key={s.id} section={s} onToggle={toggle} onEdit={openEdit} onRefresh={fetchSections} onVariationToggle={handleVariationToggle} />
+            <SectionCard key={s.id} section={s} onToggle={toggle} onEdit={openEdit} onDelete={deleteSection} onRefresh={fetchSections} onVariationToggle={handleVariationToggle} />
           ))}
         </div>
       )}
