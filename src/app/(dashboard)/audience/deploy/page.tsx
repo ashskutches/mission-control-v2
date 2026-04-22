@@ -1,11 +1,12 @@
 "use client";
 import React, { useState } from "react";
-import { Rocket, RefreshCw, CloudUpload, AlertTriangle, Check } from "lucide-react";
+import { Rocket, RefreshCw, CloudUpload, AlertTriangle, Check, Trash2 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 
 interface ShopifyTheme { id: number; name: string; role: "main" | "unpublished" | "demo"; created_at: string; updated_at: string; }
 interface DeployResult { theme_id: number; deployed: string[]; failed: { key: string; error: string }[]; ok: boolean; }
+interface PruneResult { theme_id: number; dry_run: boolean; deleted: number; errors: number; rogue_count: number; results: { key: string; status: string; error?: string }[]; }
 
 const CARD = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "1.25rem" } as const;
 const INPUT_STYLE = { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0" } as const;
@@ -16,6 +17,8 @@ export default function DeployPage() {
   const [loadingThemes, setLoadingThemes] = useState(false);
   const [deploying, setDeploying] = useState(false);
   const [deployResult, setDeployResult] = useState<DeployResult | null>(null);
+  const [pruning, setPruning] = useState(false);
+  const [pruneResult, setPruneResult] = useState<PruneResult | null>(null);
   const [error, setError] = useState("");
 
   const loadThemes = async () => {
@@ -46,6 +49,21 @@ export default function DeployPage() {
       setDeployResult(data);
     } catch (e: any) { setError(e.message); }
     finally { setDeploying(false); }
+  };
+
+  const pruneRogues = async () => {
+    if (!selectedThemeId) return;
+    setPruning(true); setPruneResult(null); setError("");
+    try {
+      const res = await fetch(`${BOT_URL}/admin/intelligence/theme/prune-snippets`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme_id: selectedThemeId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Prune failed");
+      setPruneResult(data);
+    } catch (e: any) { setError(e.message); }
+    finally { setPruning(false); }
   };
 
   const selectedTheme = themes.find(t => t.id === selectedThemeId);
@@ -112,6 +130,11 @@ export default function DeployPage() {
             style={{ background: deploying ? "rgba(167,139,250,0.05)" : "rgba(167,139,250,0.15)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.25)", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.4rem" }}>
             <CloudUpload size={13} /> {deploying ? "Deploying..." : "Deploy All Assets"}
           </button>
+          <button onClick={pruneRogues} disabled={pruning || !selectedThemeId} className="button is-small"
+            title="Deletes lrb-* snippets on Shopify that are no longer in the canonical snippet list"
+            style={{ background: pruning ? "rgba(244,63,94,0.04)" : "rgba(244,63,94,0.08)", color: "#f43f5e", border: "1px solid rgba(244,63,94,0.2)", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <Trash2 size={12} /> {pruning ? "Pruning..." : "Delete Rogue Snippets"}
+          </button>
         </div>
       </div>
 
@@ -119,6 +142,22 @@ export default function DeployPage() {
         <div style={{ ...CARD, border: "1px solid rgba(244,63,94,0.3)", background: "rgba(244,63,94,0.05)", marginBottom: "1rem", display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
           <AlertTriangle size={16} color="#f43f5e" style={{ flexShrink: 0, marginTop: 1 }} />
           <p style={{ fontSize: 12, color: "#f43f5e" }}>{error}</p>
+        </div>
+      )}
+
+      {pruneResult && (
+        <div style={{ ...CARD, border: `1px solid ${pruneResult.errors > 0 ? "rgba(244,63,94,0.3)" : "rgba(52,211,153,0.3)"}`, marginBottom: "1rem" }}>
+          <p style={{ fontWeight: 700, color: pruneResult.errors > 0 ? "#f43f5e" : "#34d399", marginBottom: "0.5rem" }}>
+            {pruneResult.rogue_count === 0
+              ? "✓ No rogue snippets found"
+              : `✓ Deleted ${pruneResult.deleted} rogue snippet${pruneResult.deleted !== 1 ? "s" : ""}${pruneResult.errors > 0 ? ` (${pruneResult.errors} errors)` : ""}`}
+          </p>
+          {pruneResult.results.map(r => (
+            <div key={r.key} style={{ fontSize: 11, fontFamily: "monospace", marginBottom: 2,
+              color: r.status === "deleted" ? "#34d399" : r.status === "error" ? "#f43f5e" : "#64748b" }}>
+              {r.status === "deleted" ? "🗑 " : r.status === "error" ? "✗ " : "~ "}{r.key}{r.error ? `: ${r.error}` : ""}
+            </div>
+          ))}
         </div>
       )}
 
