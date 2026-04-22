@@ -38,7 +38,9 @@ function EmbedCodeBlock({ embed }: { embed: Embed }) {
     embedId: '${embed.id}'
   };
 </script>
-{{ 'lrb-personalization.js' | asset_url | script_tag }}`;
+{{ 'lrb-personalization.js' | asset_url | script_tag }}
+
+<div id="lrb-intelligence-inject"></div>`;
 
   const copy = () => navigator.clipboard.writeText(code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
 
