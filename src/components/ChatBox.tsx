@@ -241,8 +241,11 @@ function useChatEngine(agentId: string, agentName: string, context?: ChatContext
   }, [convoId, fetchMessages, sending]);
 
   // ── Auto-scroll ─────────────────────────────────────────────────────────────
+  // Scroll only the chat container — NOT the whole page.
+  // scrollIntoView would bubble up and snap the viewport; scrollTop stays local.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = scrollContainerRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages, sending]);
 
   // ── Build context primer ────────────────────────────────────────────────────
