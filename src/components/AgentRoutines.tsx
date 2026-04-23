@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Plus, Trash2, Play, Pause, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp, Terminal, Sparkles, Bot, Check, X, Square } from "lucide-react";
+import { Clock, Plus, Trash2, Play, Pause, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp, Terminal, Sparkles, Bot, Check, X, Square, Copy } from "lucide-react";
 import RoutineTemplates from "@/components/RoutineTemplates";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
@@ -99,6 +99,38 @@ function ResourceBadge({ level }: { level: Routine["resource_level"] }) {
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: cfg.color, flexShrink: 0 }} />
             {level}
         </span>
+    );
+}
+
+// ── Copy Button ───────────────────────────────────────────────────────────────
+function CopyButton({ text, style }: { text: string; style?: React.CSSProperties }) {
+    const [copied, setCopied] = useState(false);
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        });
+    };
+    return (
+        <button
+            onClick={handleCopy}
+            title={copied ? "Copied!" : "Copy to clipboard"}
+            aria-label="Copy to clipboard"
+            style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 5,
+                cursor: "pointer", border: "none", transition: "all 0.15s",
+                background: copied ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.07)",
+                color: copied ? "var(--accent-emerald)" : "#555",
+                ...style,
+            }}
+            onMouseEnter={e => { if (!copied) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = copied ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.07)"; }}
+        >
+            {copied ? <Check size={10} /> : <Copy size={10} />}
+            {copied ? "Copied!" : "Copy"}
+        </button>
     );
 }
 
@@ -222,7 +254,10 @@ function DebugPanel({ routineId, liveRun, onRunComplete }: {
                             {/* Output */}
                             {displayRun.agent_output && (
                                 <div>
-                                    <p style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Agent Output</p>
+                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                                        <p style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Agent Output</p>
+                                        <CopyButton text={displayRun.agent_output} />
+                                    </div>
                                     <div style={{ background: "#0a0a12", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "10px 12px", maxHeight: 220, overflowY: "auto", fontFamily: "monospace", fontSize: 11, color: "#ccc", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                                         {displayRun.agent_output}
                                     </div>
@@ -232,8 +267,11 @@ function DebugPanel({ routineId, liveRun, onRunComplete }: {
                             {/* Error */}
                             {displayRun.error && (
                                 <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8 }}>
-                                    <p style={{ fontSize: 10, color: "#ef4444", fontWeight: 700, marginBottom: 4 }}>ERROR</p>
-                                    <p style={{ fontSize: 11, color: "#fca5a5", fontFamily: "monospace" }}>{displayRun.error}</p>
+                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                                        <p style={{ fontSize: 10, color: "#ef4444", fontWeight: 700, margin: 0 }}>ERROR</p>
+                                        <CopyButton text={displayRun.error} />
+                                    </div>
+                                    <p style={{ fontSize: 11, color: "#fca5a5", fontFamily: "monospace", margin: 0 }}>{displayRun.error}</p>
                                 </div>
                             )}
 
@@ -283,15 +321,24 @@ function DebugPanel({ routineId, liveRun, onRunComplete }: {
                                         )}
                                         {/* Agent output */}
                                         {h.agent_output ? (
-                                            <pre style={{ fontSize: 10, color: "#ccc", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 200, overflowY: "auto", margin: 0, background: "#0a0a12", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "10px 12px" }}>
-                                                {h.agent_output}
-                                            </pre>
+                                            <div>
+                                                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+                                                    <CopyButton text={h.agent_output} />
+                                                </div>
+                                                <pre style={{ fontSize: 10, color: "#ccc", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 200, overflowY: "auto", margin: 0, background: "#0a0a12", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "10px 12px" }}>
+                                                    {h.agent_output}
+                                                </pre>
+                                            </div>
                                         ) : (
                                             <p style={{ fontSize: 10, color: "#555", fontStyle: "italic", margin: 0 }}>No output recorded.</p>
                                         )}
                                         {/* Error */}
                                         {h.error && (
                                             <div style={{ marginTop: 8, padding: "6px 8px", borderRadius: 4, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+                                                    <span style={{ fontSize: 9, color: "#ef4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Error</span>
+                                                    <CopyButton text={h.error} />
+                                                </div>
                                                 <p style={{ fontSize: 10, color: "#ef4444", margin: 0 }}>{h.error}</p>
                                             </div>
                                         )}
@@ -693,7 +740,10 @@ export function AgentRoutines({ agentId, agentName }: AgentRoutinesProps) {
 
                                 {/* Prompt preview */}
                                 <div style={{ background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 8, padding: "8px 10px" }}>
-                                    <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 4px", fontWeight: 700 }}>Prompt</p>
+                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                                        <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0, fontWeight: 700 }}>Prompt</p>
+                                        <CopyButton text={r.prompt} />
+                                    </div>
                                     <p style={{ fontSize: 11, color: "#777", lineHeight: 1.5, margin: 0, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
                                         {r.prompt}
                                     </p>
