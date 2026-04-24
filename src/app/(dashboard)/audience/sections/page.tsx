@@ -58,6 +58,7 @@ const KNOWN_SNIPPETS = [
   { id: "lrb-customer-reviews-v3",    name: "Customer Reviews V3",                   targeting: "{}",  description: "Latest custom reviews build." },
   { id: "lrb-free-workouts",          name: "Free Workouts — World Class Trainers",  targeting: "{}",  description: "Full-width workout library section." },
   { id: "lrb-lifetime-warranty",      name: "Lifetime Warranty",                     targeting: "{}",  description: "4 value-prop trust icons strip." },
+  { id: "lrb-product-features",       name: "Product Features — USP Grid",           targeting: "{}",  description: "Tonal-style 4-card USP grid: 70% less joint impact, lifetime warranty, bungee suspension, all-fitness." },
   { id: "lrb-trust-bar",             name: "Trust Bar",                              targeting: "{}",  description: "Slim brand trust indicators." },
 ];
 
