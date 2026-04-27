@@ -326,11 +326,28 @@ export default function AssetTaggerPage() {
     return s;
   });
 
-  const saveTagsMock = async () => {
+  const saveTags = async () => {
     setSaveState("saving");
-    await new Promise(r => setTimeout(r, 800));
-    setSaveState("saved");
-    setTimeout(() => setSaveState("idle"), 2000);
+    try {
+      // Build batch payload from tagMap
+      const filesToSave = Object.entries(tagMap).map(([id, tags]) => {
+        const file = pageData?.files.find(f => f.id === id);
+        return { id, name: file?.name ?? id, tags };
+      });
+      const res = await fetch(`${BOT_URL}/admin/drive/tags/batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: filesToSave }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Save failed");
+      setSaveState("saved");
+      setTagMap({}); // clear pending mutations — they're now persisted
+      setTimeout(() => setSaveState("idle"), 2000);
+    } catch (err: any) {
+      console.error("Failed to save tags:", err.message);
+      setSaveState("idle");
+      alert(`Tag save failed: ${err.message}`);
+    }
   };
 
   const hasUnsavedTags = Object.keys(tagMap).length > 0;
@@ -365,7 +382,7 @@ export default function AssetTaggerPage() {
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           {hasUnsavedTags && (
-            <button onClick={saveTagsMock} disabled={saveState === "saving"}
+            <button onClick={saveTags} disabled={saveState === "saving"}
               style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: saveState === "saved" ? "#10b98118" : `${ACCENT}15`, border: `1px solid ${saveState === "saved" ? "#10b981" : ACCENT}30`, borderRadius: 10, padding: "0.45rem 0.9rem", color: saveState === "saved" ? "#10b981" : ACCENT, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
               {saveState === "saving" ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Save size={13} />}
               {saveState === "saved" ? "Saved!" : saveState === "saving" ? "Saving…" : "Save Tags"}

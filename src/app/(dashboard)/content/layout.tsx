@@ -5,11 +5,12 @@ import { usePathname } from "next/navigation";
 import { BarChart3, Video, Tag, Layers, Copy, Film } from "lucide-react";
 
 const NAV = [
-  { href: "/content",          label: "Dashboard",       icon: BarChart3, color: "#f59e0b", exact: true },
-  { href: "/content/video",    label: "Video Agent",     icon: Video,     color: "#f59e0b" },
-  { href: "/content/assets",   label: "Asset Tagger",    icon: Tag,       color: "#38bdf8" },
-  { href: "/content/sections", label: "Section Builder", icon: Layers,    color: "#a78bfa" },
-  { href: "/content/copy",     label: "Copy Studio",     icon: Copy,      color: "#10b981" },
+  { href: "/content",          label: "Dashboard",       icon: BarChart3,  color: "#f59e0b", exact: true },
+  { href: "/content/video",    label: "Video Agent",     icon: Video,      color: "#f59e0b" },
+  { href: "/content/assets",   label: "Asset Tagger",   icon: Tag,        color: "#38bdf8" },
+  { href: "/content/tags",     label: "Tag Library",    icon: Layers,     color: "#a78bfa" },
+  { href: "/content/sections", label: "Section Builder", icon: Layers,     color: "#a78bfa" },
+  { href: "/content/copy",     label: "Copy Studio",     icon: Copy,       color: "#10b981" },
 ];
 
 export default function ContentLayout({ children }: { children: React.ReactNode }) {
