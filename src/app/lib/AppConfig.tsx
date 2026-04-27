@@ -29,6 +29,9 @@ import {
     Bug,
     Palette,
     Layers,
+    Film,
+    Video,
+    Copy,
 } from 'lucide-react';
 
 export const SQUADS = [
@@ -72,6 +75,13 @@ export const APP_CONFIG = {
         { id: 'north-star',   href: '/north-star',   icon: TrendingUp,      label: 'North Star',   color: '#a78bfa', group: 'core' },
         { id: 'insights',     href: '/intelligence', icon: BrainCircuit,    label: 'Insights',     color: '#f59e0b', group: 'core' },
         { id: 'audience',     href: '/audience',     icon: Layers,          label: 'Audience',     color: '#38bdf8', group: 'core' },
+
+        // ── Content ───────────────────────────────────────────────────────────
+        { id: 'content',          href: '/content',          icon: Film,    label: 'Content',          color: '#f59e0b', group: 'content' },
+        { id: 'content-video',    href: '/content/video',    icon: Video,   label: 'Video Agent',      color: '#f59e0b', group: 'content', squad: 'content' },
+        { id: 'content-assets',   href: '/content/assets',   icon: Tag,     label: 'Asset Tagger',     color: '#38bdf8', group: 'content', squad: 'content' },
+        { id: 'content-sections', href: '/content/sections', icon: Layers,  label: 'Section Builder',  color: '#a78bfa', group: 'content', squad: 'content' },
+        { id: 'content-copy',     href: '/content/copy',     icon: Copy,    label: 'Copy Studio',      color: '#10b981', group: 'content', squad: 'content' },
 
         // ── Commerce: Overview ────────────────────────────────────────────────
         { id: 'store', href: '/commerce', icon: ShoppingBag, label: 'Commerce', color: '#fb923c', group: 'commerce' },

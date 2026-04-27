@@ -13,6 +13,15 @@ A glassmorphic business intelligence dashboard built with **Next.js**. Real-time
 | **North Star** | `/north-star` | Growth Admin command layer — cross-dept synthesis, The Whale, commander chat |
 | Insights | `/intelligence` | Global insight inbox — all agent findings across all departments |
 
+### Content (new)
+| Page | Route | Purpose |
+|---|---|---|
+| **Content Hub** | `/content` | Dashboard: video job stats, quick-nav to all tools, agent panel |
+| Video Agent | `/content/video` | Universal video planner — prompt → storyboard (hermes3:8b + clip library) |
+| Asset Tagger | `/content/assets` | Google Drive file browser with per-file + batch tagging |
+| Section Builder | `/content/sections` | AI-generated Shopify Liquid snippets — deploy + register for UCB1 A/B testing |
+| Copy Studio | `/content/copy` | AI ad, email, product description, and SMS copy generation |
+
 ### Commerce (by squad)
 **Acquisition**: Media Buying, Creator Outreach, Social Presence, Search Visibility
 **Conversion**: Experimentation, Pricing & Intel, Catalog Architect, Revenue Max
