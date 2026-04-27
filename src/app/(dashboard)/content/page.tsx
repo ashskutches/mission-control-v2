@@ -31,6 +31,18 @@ interface ContentStats {
   assets_untagged: number;
 }
 
+interface DriveStats {
+  configured: boolean;
+  total: number;
+  videos: number;
+  images: number;
+  documents: number;
+  other: number;
+  tagged: number;
+  untagged: number;
+  tagCoverage: number;
+}
+
 interface AssignedAgent { id: string; name: string; emoji?: string; color?: string; }
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
@@ -56,6 +68,95 @@ function StatCard({ label, value, icon: Icon, color, sub, loading }: {
         </>
       )}
     </motion.div>
+  );
+}
+
+// ── Asset Library Stats Panel ─────────────────────────────────────────────────
+
+function AssetLibraryPanel({ stats, loading }: { stats: DriveStats | null; loading: boolean }) {
+  const FILE_TYPES = [
+    { key: "videos",    label: "Videos",    color: "#f59e0b", icon: Film },
+    { key: "images",    label: "Images",    color: "#38bdf8", icon: ImageIcon },
+    { key: "documents", label: "Documents", color: "#10b981", icon: FileText },
+    { key: "other",     label: "Other",     color: "#94a3b8", icon: Package },
+  ] as const;
+
+  const total   = stats?.total   ?? 0;
+  const tagged  = stats?.tagged  ?? 0;
+  const untagged = stats?.untagged ?? 0;
+  const coverage = stats?.tagCoverage ?? 0;
+
+  return (
+    <div style={{ ...CARD, marginBottom: "1.25rem" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+        <p style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
+          Asset Library
+        </p>
+        {!loading && !stats?.configured && (
+          <span style={{ fontSize: 10, color: "#f59e0b", fontWeight: 700, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 8, padding: "2px 8px" }}>
+            Drive not configured
+          </span>
+        )}
+        {!loading && stats?.configured && (
+          <a href="/content/assets" style={{ fontSize: 10, color: "#64748b", textDecoration: "none", fontWeight: 700 }}>Tag files →</a>
+        )}
+      </div>
+
+      {/* File type breakdown */}
+      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+        {/* Total */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "0.5rem 0.85rem", flex: 1 }}>
+          <FolderOpen size={14} color="#64748b" />
+          <div>
+            <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#f1f5f9", lineHeight: 1 }}>
+              {loading ? "–" : total}
+            </div>
+            <div style={{ fontSize: 9, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>Total Files</div>
+          </div>
+        </div>
+
+        {FILE_TYPES.map(({ key, label, color, icon: Icon }) => (
+          <div key={key} style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: `${color}08`, border: `1px solid ${color}20`, borderRadius: 10, padding: "0.5rem 0.85rem", flex: 1 }}>
+            <Icon size={14} color={color} />
+            <div>
+              <div style={{ fontSize: "1.4rem", fontWeight: 800, color, lineHeight: 1 }}>
+                {loading ? "–" : (stats?.[key] ?? 0)}
+              </div>
+              <div style={{ fontSize: 9, color, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, opacity: 0.8 }}>{label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tagging progress */}
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Tag size={11} color="#10b981" />
+            <span style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Tag Coverage</span>
+          </div>
+          <div style={{ display: "flex", gap: "1rem" }}>
+            <span style={{ fontSize: 11, color: "#10b981", fontWeight: 800 }}>{loading ? "–" : tagged} tagged</span>
+            <span style={{ fontSize: 11, color: untagged > 0 ? "#f43f5e" : "#64748b", fontWeight: 800 }}>{loading ? "–" : untagged} untagged</span>
+            <span style={{ fontSize: 11, color: "#f1f5f9", fontWeight: 800 }}>{loading ? "–" : coverage}%</span>
+          </div>
+        </div>
+        {/* Progress bar */}
+        <div style={{ height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden" }}>
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: loading ? "0%" : `${coverage}%` }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            style={{ height: "100%", background: `linear-gradient(90deg, #10b981, #34d399)`, borderRadius: 99 }}
+          />
+        </div>
+        {!loading && untagged > 0 && (
+          <p style={{ fontSize: 10, color: "#475569", marginTop: "0.4rem" }}>
+            {untagged} files need tagging — <a href="/content/assets" style={{ color: "#38bdf8", textDecoration: "none", fontWeight: 700 }}>open Asset Tagger →</a>
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -249,39 +350,37 @@ Always tie content recommendations to business outcomes (conversion, LTV, CAC re
 
 export default function ContentHubPage() {
   const [stats, setStats] = useState<ContentStats | null>(null);
+  const [driveStats, setDriveStats] = useState<DriveStats | null>(null);
   const [recentJobs, setRecentJobs] = useState<VideoJob[]>([]);
   const [loading, setLoading] = useState(true);
+  const [driveLoading, setDriveLoading] = useState(true);
   const [assignedAgent, setAssignedAgent] = useState<AssignedAgent | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setDriveLoading(true);
     try {
-      // Fetch recent video jobs (our main data source for now)
-      const [jobsRes] = await Promise.allSettled([
+      const [jobsRes, driveRes] = await Promise.allSettled([
         fetch(`${BOT_URL}/admin/video/jobs?limit=8`),
+        fetch(`${BOT_URL}/admin/drive/stats`),
       ]);
 
       if (jobsRes.status === "fulfilled" && jobsRes.value.ok) {
         const jobData = await jobsRes.value.json();
         const jobs: VideoJob[] = jobData.data ?? [];
         setRecentJobs(jobs);
-
-        // Synthesise stats from job data
         const jobCounts = { draft: 0, pending: 0, rendering: 0, done: 0, failed: 0 };
         for (const j of jobs) {
           if (j.status in jobCounts) jobCounts[j.status as keyof typeof jobCounts]++;
         }
-        setStats({
-          clips_total: 0,
-          clips_high_quality: 0,
-          video_jobs: jobCounts,
-          sections_total: 0,
-          assets_tagged: 0,
-          assets_untagged: 0,
-        });
+        setStats({ clips_total: 0, clips_high_quality: 0, video_jobs: jobCounts, sections_total: 0, assets_tagged: 0, assets_untagged: 0 });
+      }
+
+      if (driveRes.status === "fulfilled" && driveRes.value.ok) {
+        setDriveStats(await driveRes.value.json());
       }
     } catch { /* silent */ }
-    finally { setLoading(false); }
+    finally { setLoading(false); setDriveLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -292,7 +391,9 @@ export default function ContentHubPage() {
     { label: "Video Jobs (total)", value: String(recentJobs.length) },
     { label: "Draft Jobs", value: String(stats?.video_jobs.draft ?? 0) },
     { label: "Completed Videos", value: String(stats?.video_jobs.done ?? 0) },
-    { label: "Failed Jobs", value: String(stats?.video_jobs.failed ?? 0) },
+    { label: "Total Drive Files", value: String(driveStats?.total ?? 0) },
+    { label: "Tagged Files", value: String(driveStats?.tagged ?? 0) },
+    { label: "Tag Coverage", value: `${driveStats?.tagCoverage ?? 0}%` },
   ];
 
   return (
@@ -331,6 +432,9 @@ export default function ContentHubPage() {
           <StatCard label="In Queue" value={(stats?.video_jobs.pending ?? 0) + (stats?.video_jobs.rendering ?? 0)} icon={RefreshCw} color="#38bdf8" sub="Pending + rendering" loading={loading} />
           <StatCard label="Failed" value={stats?.video_jobs.failed ?? 0} icon={AlertCircle} color="#f43f5e" sub="Need attention" loading={loading} />
         </div>
+
+        {/* Asset Library Stats */}
+        <AssetLibraryPanel stats={driveStats} loading={driveLoading} />
 
         {/* Video pipeline status */}
         <VideoJobStatusBar jobs={stats?.video_jobs ?? null} loading={loading} />
