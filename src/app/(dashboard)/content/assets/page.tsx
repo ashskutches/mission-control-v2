@@ -203,10 +203,10 @@ export default function AssetTaggerPage() {
   const fetchFiles = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BOT_URL}/admin/library/files?limit=50`);
+      const res = await fetch(`${BOT_URL}/admin/drive/files?pageSize=100`);
       if (res.ok) {
         const d = await res.json();
-        const driveFiles: DriveFile[] = (d.files ?? d.data ?? []).map((f: any) => ({
+        const driveFiles: DriveFile[] = (d.files ?? []).map((f: any) => ({
           id: f.id, name: f.name, mimeType: f.mimeType ?? "application/octet-stream",
           modifiedTime: f.modifiedTime, size: f.size, webViewLink: f.webViewLink,
           thumbnailLink: f.thumbnailLink, tags: f.tags ?? [],
