@@ -285,29 +285,7 @@ export default function CopyStudioPage() {
 
   return (
     <div>
-      {/* Breadcrumb */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.5rem" }}>
-        <a href="/content" style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: 11, color: "#64748b", textDecoration: "none", fontWeight: 700 }}>
-          <ArrowLeft size={11} /> Content Hub
-        </a>
-        <span style={{ fontSize: 11, color: "#334155" }}>/</span>
-        <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700 }}>Copy Studio</span>
-      </div>
-
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: "1.5rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: `${ACCENT}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Copy size={18} color={ACCENT} />
-          </div>
-          <div>
-            <h1 style={{ fontSize: "1.4rem", fontWeight: 800, color: "#f1f5f9", margin: 0 }}>Copy Studio</h1>
-            <p style={{ fontSize: 11, color: "#64748b", margin: 0 }}>AI-powered copy generation for ads, emails, products, and SMS</p>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Main layout */}
+      {/* Type selector + generator layout */}
       <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: "1.25rem", alignItems: "start" }}>
 
         {/* Type selector */}

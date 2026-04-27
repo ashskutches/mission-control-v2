@@ -150,51 +150,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* Content group */}
       {(() => {
-        const contentHead = APP_CONFIG.navigation.find((i: any) => i.group === "content" && !i.squad);
-        const contentItems = APP_CONFIG.navigation.filter((i: any) => i.group === "content" && i.squad === "content");
-        const isContentCollapsed = collapsed["content"] ?? false;
-        const contentActive = [contentHead, ...contentItems].some((i: any) => i && activeId === i.id);
-        const contentAccent = "#f59e0b";
-        return (
+        const contentItem = APP_CONFIG.navigation.find((i: any) => i.group === "content" && !i.squad);
+        return contentItem ? (
           <div style={{ marginBottom: "0.5rem" }}>
             <p className="menu-label has-text-grey-light is-uppercase mt-4" style={{ letterSpacing: "0.1em", fontSize: "9px" }}>
               Content
             </p>
-            <ul className="menu-list">
-              {/* Overview item */}
-              {contentHead && renderNavItem(contentHead)}
-              {/* Collapsible sub-items */}
-              <li>
-                <a
-                  onClick={() => toggleSquad("content")}
-                  className="is-flex is-align-items-center"
-                  style={{
-                    gap: "0.6rem", cursor: "pointer", padding: "0.35rem 0.6rem",
-                    borderLeft: contentActive ? `2px solid ${contentAccent}60` : "2px solid transparent",
-                    background: contentActive ? `${contentAccent}08` : "transparent",
-                    transition: "all 0.15s", marginTop: "0.25rem",
-                  }}
-                >
-                  <div style={{ width: 18, height: 18, borderRadius: 5, flexShrink: 0, background: `${contentAccent}20`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Film size={10} style={{ color: contentAccent }} />
-                  </div>
-                  <span className="is-uppercase has-text-weight-black" style={{ fontSize: "9px", letterSpacing: "0.08em", color: contentAccent, flex: 1 }}>
-                    Tools
-                  </span>
-                  {isContentCollapsed
-                    ? <ChevronRight size={10} style={{ color: contentAccent, opacity: 0.6 }} />
-                    : <ChevronDown size={10} style={{ color: contentAccent, opacity: 0.6 }} />
-                  }
-                </a>
-                {!isContentCollapsed && (
-                  <ul className="menu-list" style={{ marginLeft: 0 }}>
-                    {contentItems.map((item: any) => renderNavItem(item, true))}
-                  </ul>
-                )}
-              </li>
-            </ul>
+            <ul className="menu-list">{renderNavItem(contentItem)}</ul>
           </div>
-        );
+        ) : null;
       })()}
 
       {/* Commerce group — squad structure */}

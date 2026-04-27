@@ -140,38 +140,16 @@ export default function SectionBuilderPage() {
 
   return (
     <div>
-      {/* Breadcrumb */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.5rem" }}>
-        <a href="/content" style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: 11, color: "#64748b", textDecoration: "none", fontWeight: 700 }}>
-          <ArrowLeft size={11} /> Content Hub
-        </a>
-        <span style={{ fontSize: 11, color: "#334155" }}>/</span>
-        <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700 }}>Section Builder</span>
+      {/* Info banner */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem", background: `${ACCENT}08`, border: `1px solid ${ACCENT}20`, borderRadius: 10, padding: "0.75rem 1rem", marginBottom: "1.5rem" }}>
+        <Info size={13} color={ACCENT} style={{ flexShrink: 0, marginTop: 2 }} />
+        <p style={{ fontSize: 11, color: "#94a3b8", margin: 0, lineHeight: 1.6 }}>
+          Generated snippets follow the <strong style={{ color: "#e2e8f0" }}>lrb-* design system</strong> conventions.
+          After generation: copy to <code style={{ color: ACCENT, fontSize: 10 }}>gravity-claw/src/shopify-assets/snippets/</code>,
+          deploy with <code style={{ color: ACCENT, fontSize: 10 }}>theme push</code>, then register in{" "}
+          <a href="/audience/sections" style={{ color: ACCENT }}>Audience → Section Library</a> as a PAUSED variation.
+        </p>
       </div>
-
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: "1.5rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: `${ACCENT}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Layers size={18} color={ACCENT} />
-          </div>
-          <div>
-            <h1 style={{ fontSize: "1.4rem", fontWeight: 800, color: "#f1f5f9", margin: 0 }}>Section Builder</h1>
-            <p style={{ fontSize: 11, color: "#64748b", margin: 0 }}>Generate Shopify Liquid snippets from a brief — then deploy + register for A/B testing</p>
-          </div>
-        </div>
-
-        {/* Info banner */}
-        <div style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem", background: `${ACCENT}08`, border: `1px solid ${ACCENT}20`, borderRadius: 10, padding: "0.75rem 1rem" }}>
-          <Info size={13} color={ACCENT} style={{ flexShrink: 0, marginTop: 2 }} />
-          <p style={{ fontSize: 11, color: "#94a3b8", margin: 0, lineHeight: 1.6 }}>
-            Generated snippets follow the <strong style={{ color: "#e2e8f0" }}>lrb-* design system</strong> conventions.
-            After generation: copy to <code style={{ color: ACCENT, fontSize: 10 }}>gravity-claw/src/shopify-assets/snippets/</code>,
-            deploy with <code style={{ color: ACCENT, fontSize: 10 }}>theme push</code>, then register in{" "}
-            <a href="/audience/sections" style={{ color: ACCENT }}>Audience → Section Library</a> as a PAUSED variation.
-          </p>
-        </div>
-      </motion.div>
 
       {/* Main layout */}
       <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: "1.25rem", alignItems: "start" }}>
