@@ -45,16 +45,12 @@ function JobRow({ run }: { run: TagRun }) {
       })()
     : null;
 
-  const topTags = Object.entries(run.tags_applied ?? {})
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 12);
+  const isAuto = run.run_type === "auto" || run.run_type === "routine";
 
   const label =
     run.trigger?.startsWith("batch:")  ? `Batch · ${run.trigger.replace("batch:", "")}` :
     run.trigger?.startsWith("manual:") ? `Tag · ${run.trigger.replace("manual:", "")}` :
     run.trigger ?? run.run_type;
-
-  const isAuto = run.run_type === "auto" || run.run_type === "routine";
 
   return (
     <motion.div
@@ -128,7 +124,7 @@ function JobRow({ run }: { run: TagRun }) {
           >
             <div style={{ padding: "0.875rem 1rem 1rem" }}>
               {run.error && (
-                <div style={{ fontSize: 11, color: "#f43f5e", background: "rgba(244,63,94,0.08)", borderRadius: 8, padding: "0.5rem 0.75rem", marginBottom: "0.75rem", fontFamily: "monospace" }}>
+                <div style={{ fontSize: 11, color: "#f43f5e", background: "rgba(244,63,94,0.08)", borderRadius: 8, padding: "0.5rem 0.75rem", marginBottom: "0.875rem", fontFamily: "monospace" }}>
                   {run.error}
                 </div>
               )}
@@ -138,29 +134,91 @@ function JobRow({ run }: { run: TagRun }) {
                   <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} />
                   Processing files… page will auto-refresh when done.
                 </div>
-              ) : topTags.length > 0 ? (
-                <div>
-                  <div style={{ fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem", fontWeight: 700 }}>
-                    Tags Applied
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
-                    {topTags.map(([tag, count]) => (
-                      <span key={tag} style={{
-                        fontSize: 11, fontWeight: 700,
-                        background: `${ACCENT}10`, border: `1px solid ${ACCENT}22`,
-                        borderRadius: 8, padding: "2px 10px", color: ACCENT,
-                      }}>
-                        {tag} <span style={{ opacity: 0.55 }}>({count})</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p style={{ fontSize: 11, color: "#475569", margin: 0 }}>
-                  No tag matches found — filenames may not contain any tag keywords.
-                </p>
-              )}
+              ) : (() => {
+                  // Extract _files log from tags_applied, filter out _ keys for summary
+                  const fileLogs: Array<{ n: string; t: string[]; ok: boolean }> =
+                    (run.tags_applied as any)?._files ?? [];
+                  const tagSummary = Object.entries(run.tags_applied ?? {})
+                    .filter(([k]) => !k.startsWith("_"))
+                    .sort(([, a], [, b]) => (b as number) - (a as number))
+                    .slice(0, 12);
 
+                  const tagged  = fileLogs.filter(f => f.ok && f.t.length > 0);
+                  const skipped = fileLogs.filter(f => !f.ok || f.t.length === 0);
+
+                  return (
+                    <>
+                      {/* Tag summary chips */}
+                      {tagSummary.length > 0 && (
+                        <div style={{ marginBottom: "0.875rem" }}>
+                          <div style={{ fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, marginBottom: "0.4rem" }}>
+                            Tags Applied
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
+                            {tagSummary.map(([tag, count]) => (
+                              <span key={tag} style={{
+                                fontSize: 11, fontWeight: 700,
+                                background: `${ACCENT}10`, border: `1px solid ${ACCENT}22`,
+                                borderRadius: 8, padding: "2px 10px", color: ACCENT,
+                              }}>
+                                {tag} <span style={{ opacity: 0.55 }}>({count as number})</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* File log */}
+                      {fileLogs.length > 0 ? (
+                        <div>
+                          <div style={{ fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, marginBottom: "0.4rem" }}>
+                            File Output ({fileLogs.length} entries)
+                          </div>
+                          <div style={{
+                            maxHeight: 320, overflowY: "auto",
+                            background: "rgba(0,0,0,0.25)", borderRadius: 8,
+                            padding: "0.6rem 0.75rem",
+                            fontFamily: "ui-monospace, 'Cascadia Code', monospace",
+                            fontSize: 11, lineHeight: 1.7,
+                            border: "1px solid rgba(255,255,255,0.06)",
+                          }}>
+                            {tagged.map((f, i) => (
+                              <div key={i} style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start" }}>
+                                <span style={{ color: "#10b981", flexShrink: 0 }}>✓</span>
+                                <span style={{ color: "#94a3b8", flex: 1, wordBreak: "break-all" }}>{f.n}</span>
+                                <span style={{ color: ACCENT, flexShrink: 0, fontSize: 10 }}>
+                                  [{f.t.join(", ")}]
+                                </span>
+                              </div>
+                            ))}
+                            {skipped.length > 0 && tagged.length > 0 && (
+                              <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", margin: "0.4rem 0" }} />
+                            )}
+                            {skipped.slice(0, 50).map((f, i) => (
+                              <div key={`s${i}`} style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start", opacity: 0.35 }}>
+                                <span style={{ color: "#64748b", flexShrink: 0 }}>—</span>
+                                <span style={{ color: "#64748b", flex: 1, wordBreak: "break-all" }}>{f.n}</span>
+                                <span style={{ color: "#475569", flexShrink: 0, fontSize: 10 }}>no match</span>
+                              </div>
+                            ))}
+                            {skipped.length > 50 && (
+                              <div style={{ color: "#475569", fontSize: 10, marginTop: "0.25rem" }}>
+                                … and {skipped.length - 50} more skipped files
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : run.status === "done" && (
+                        <p style={{ fontSize: 11, color: "#475569", margin: 0 }}>
+                          No matches found. Filenames may not contain any tag keywords — try running a retroactive tag from the Tag Library.
+                        </p>
+                      )}
+                    </>
+                  );
+                })()
+              }
+
+              {/* Footer stats */}
               <div style={{ display: "flex", gap: "1.5rem", marginTop: "0.875rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
                 <span style={{ fontSize: 11, color: "#64748b" }}>Scanned: <b style={{ color: "#94a3b8" }}>{run.files_scanned.toLocaleString()}</b></span>
                 <span style={{ fontSize: 11, color: "#64748b" }}>Tagged: <b style={{ color: "#10b981" }}>{run.files_tagged.toLocaleString()}</b></span>
