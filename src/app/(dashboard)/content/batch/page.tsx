@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Zap, Play, Loader2, CheckCircle2, AlertCircle, Clock,
-  ChevronDown, ChevronUp, RefreshCw, History,
+  ChevronDown, ChevronUp, RefreshCw, History, Trash2,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -32,8 +32,19 @@ interface TagRun {
 
 // ── Job Row ────────────────────────────────────────────────────────────────────
 
-function JobRow({ run }: { run: TagRun }) {
+function JobRow({ run, onDelete }: { run: TagRun; onDelete: (id: string) => void }) {
   const [expanded, setExpanded] = useState(run.status === "running");
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Delete this run from history?")) return;
+    setDeleting(true);
+    try {
+      await fetch(`${BOT_URL}/admin/tags/runs/${run.id}`, { method: "DELETE" });
+      onDelete(run.id);
+    } catch { setDeleting(false); }
+  };
   const isRunning = run.status === "running";
   const statusColor = run.status === "done" ? "#10b981" : run.status === "error" ? "#f43f5e" : "#f59e0b";
   const StatusIcon = run.status === "done" ? CheckCircle2 : run.status === "error" ? AlertCircle : Clock;
@@ -109,6 +120,18 @@ function JobRow({ run }: { run: TagRun }) {
             {new Date(run.started_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </div>
           {expanded ? <ChevronUp size={12} color="#475569" /> : <ChevronDown size={12} color="#475569" />}
+          {!run.status.includes("running") && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              title="Delete run"
+              style={{ display: "flex", alignItems: "center", padding: "4px", background: "none", border: "none", cursor: deleting ? "wait" : "pointer", color: "#334155", transition: "color 0.12s", borderRadius: 6 }}
+              onMouseEnter={e => (e.currentTarget.style.color = "#f43f5e")}
+              onMouseLeave={e => (e.currentTarget.style.color = "#334155")}
+            >
+              {deleting ? <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={12} />}
+            </button>
+          )}
         </div>
       </div>
 
@@ -242,6 +265,7 @@ export default function BatchTaggerPage() {
   const [limit,        setLimit]        = useState(100);
   const [showAll,      setShowAll]      = useState(false);
   const [lastRunId,    setLastRunId]    = useState<string | null>(null);
+  const [clearing,     setClearing]     = useState(false);
 
   const fetchRuns = useCallback(async () => {
     try {
@@ -283,9 +307,22 @@ export default function BatchTaggerPage() {
     }
   };
 
-  const activeRuns   = runs.filter(r => r.status === "running");
+  const handleDelete = (id: string) => setRuns(prev => prev.filter(r => r.id !== id));
+
+  const activeRuns    = runs.filter(r => r.status === "running");
   const completedRuns = runs.filter(r => r.status !== "running");
   const visibleCompleted = showAll ? completedRuns : completedRuns.slice(0, 8);
+
+  const handleClearAll = async () => {
+    if (!confirm(`Clear all ${completedRuns.length} completed run(s) from history?`)) return;
+    setClearing(true);
+    try {
+      await fetch(`${BOT_URL}/admin/tags/runs`, { method: "DELETE" });
+      setRuns(prev => prev.filter(r => r.status === "running"));
+    } catch (err: any) {
+      alert(`Failed: ${err.message}`);
+    } finally { setClearing(false); }
+  };
 
   return (
     <div>
@@ -397,12 +434,26 @@ export default function BatchTaggerPage() {
             <span style={{ fontSize: 12, fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Job History</span>
             {runs.length > 0 && <span style={{ fontSize: 11, color: "#475569" }}>{runs.length} runs total</span>}
           </div>
-          {activeRuns.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: 11, color: "#f59e0b" }}>
-              <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
-              {activeRuns.length} run{activeRuns.length > 1 ? "s" : ""} in progress — auto-refreshing
-            </div>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            {activeRuns.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: 11, color: "#f59e0b" }}>
+                <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
+                {activeRuns.length} run{activeRuns.length > 1 ? "s" : ""} in progress
+              </div>
+            )}
+            {completedRuns.length > 0 && (
+              <button
+                onClick={handleClearAll}
+                disabled={clearing}
+                style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: "none", border: "1px solid rgba(244,63,94,0.2)", borderRadius: 8, padding: "0.25rem 0.65rem", color: "#64748b", fontSize: 11, cursor: clearing ? "wait" : "pointer", transition: "all 0.12s" }}
+                onMouseEnter={e => { e.currentTarget.style.color = "#f43f5e"; e.currentTarget.style.borderColor = "rgba(244,63,94,0.4)"; }}
+                onMouseLeave={e => { e.currentTarget.style.color = "#64748b"; e.currentTarget.style.borderColor = "rgba(244,63,94,0.2)"; }}
+              >
+                {clearing ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={11} />}
+                Clear All
+              </button>
+            )}
+          </div>
         </div>
 
         {loading && runs.length === 0 ? (
@@ -421,13 +472,13 @@ export default function BatchTaggerPage() {
             {/* Active runs always shown at top */}
             {activeRuns.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginBottom: "0.75rem" }}>
-                {activeRuns.map(run => <JobRow key={run.id} run={run} />)}
+                {activeRuns.map(run => <JobRow key={run.id} run={run} onDelete={handleDelete} />)}
               </div>
             )}
 
             {/* Completed runs */}
             <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-              {visibleCompleted.map(run => <JobRow key={run.id} run={run} />)}
+              {visibleCompleted.map(run => <JobRow key={run.id} run={run} onDelete={handleDelete} />)}
             </div>
 
             {completedRuns.length > 8 && (
