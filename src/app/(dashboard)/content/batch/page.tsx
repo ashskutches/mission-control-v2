@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Zap, Play, Loader2, CheckCircle2, AlertCircle, Clock,
   ChevronDown, ChevronUp, RefreshCw, History, Trash2,
+  Tag, Database,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -28,6 +29,13 @@ interface TagRun {
   started_at: string;
   finished_at?: string;
   error?: string;
+}
+
+interface FileLogEntry {
+  n: string;
+  t: string[];
+  ok: boolean;
+  src?: "vision" | "filename" | "none";
 }
 
 // ── Job Row ────────────────────────────────────────────────────────────────────
@@ -159,7 +167,7 @@ function JobRow({ run, onDelete }: { run: TagRun; onDelete: (id: string) => void
                 </div>
               ) : (() => {
                   // Extract _files log from tags_applied, filter out _ keys for summary
-                  const fileLogs: Array<{ n: string; t: string[]; ok: boolean }> =
+                  const fileLogs: FileLogEntry[] =
                     (run.tags_applied as any)?._files ?? [];
                   const tagSummary = Object.entries(run.tags_applied ?? {})
                     .filter(([k]) => !k.startsWith("_"))
@@ -209,6 +217,9 @@ function JobRow({ run, onDelete }: { run: TagRun; onDelete: (id: string) => void
                               <div key={i} style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start" }}>
                                 <span style={{ color: "#10b981", flexShrink: 0 }}>✓</span>
                                 <span style={{ color: "#94a3b8", flex: 1, wordBreak: "break-all" }}>{f.n}</span>
+                                {f.src === "vision" && (
+                                  <span style={{ fontSize: 9, background: "#818cf820", color: "#818cf8", borderRadius: 4, padding: "1px 5px", fontWeight: 700, flexShrink: 0, textTransform: "uppercase" }}>AI</span>
+                                )}
                                 <span style={{ color: ACCENT, flexShrink: 0, fontSize: 10 }}>
                                   [{f.t.join(", ")}]
                                 </span>
@@ -266,6 +277,19 @@ export default function BatchTaggerPage() {
   const [showAll,      setShowAll]      = useState(false);
   const [lastRunId,    setLastRunId]    = useState<string | null>(null);
   const [clearing,     setClearing]     = useState(false);
+  const [driveStats,   setDriveStats]   = useState<{
+    total: number; tagged: number; untagged: number; taggedPct: number; status: string;
+  } | null>(null);
+
+  const fetchDriveStats = useCallback(async () => {
+    try {
+      const res = await fetch(`${BOT_URL}/admin/drive/status`);
+      if (res.ok) {
+        const d = await res.json();
+        setDriveStats({ total: d.total ?? 0, tagged: d.tagged ?? 0, untagged: d.untagged ?? 0, taggedPct: d.taggedPct ?? 0, status: d.status });
+      }
+    } catch { /* silent */ }
+  }, []);
 
   const fetchRuns = useCallback(async () => {
     try {
@@ -278,7 +302,19 @@ export default function BatchTaggerPage() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchRuns(); }, [fetchRuns]);
+  useEffect(() => { fetchRuns(); fetchDriveStats(); }, [fetchRuns, fetchDriveStats]);
+
+  // Refresh drive stats every 60s
+  useEffect(() => {
+    const t = setInterval(fetchDriveStats, 60_000);
+    return () => clearInterval(t);
+  }, [fetchDriveStats]);
+
+  // Re-fetch stats after a batch run completes
+  useEffect(() => {
+    const hasRunning = runs.some(r => r.status === "running");
+    if (!hasRunning && runs.some(r => r.status === "done")) fetchDriveStats();
+  }, [runs, fetchDriveStats]);
 
   // Auto-refresh while a run is in progress
   useEffect(() => {
@@ -331,16 +367,69 @@ export default function BatchTaggerPage() {
         <div>
           <h2 style={{ fontWeight: 800, color: "#f1f5f9", fontSize: "1.15rem", margin: 0 }}>Batch Tagger</h2>
           <p style={{ fontSize: 11, color: "#64748b", margin: 0 }}>
-            Auto-tag Drive files by matching filenames against your Tag Library
+            Auto-tag Drive files using Gemini vision + folder-path rules
           </p>
         </div>
-        <button onClick={fetchRuns}
+        <button onClick={() => { fetchRuns(); fetchDriveStats(); }}
           style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "0.45rem 0.75rem", color: "#64748b", fontSize: 11, cursor: "pointer" }}>
           <RefreshCw size={12} className={loading ? "spin" : ""} /> Refresh
         </button>
       </div>
 
-      {/* ── Run Panel ── */}
+      {/* ── Tagging Progress Card ── */}
+      {driveStats && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{ ...CARD, marginBottom: "1.25rem", background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.15)" }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.9rem" }}>
+            <Database size={14} color="#818cf8" />
+            <span style={{ fontSize: 13, fontWeight: 800, color: "#e2e8f0" }}>Drive Index</span>
+            {driveStats.status === "indexing" && (
+              <span style={{ fontSize: 9, background: "#f59e0b20", color: "#f59e0b", borderRadius: 6, padding: "1px 6px", fontWeight: 700, textTransform: "uppercase" }}>Indexing…</span>
+            )}
+            {driveStats.status === "ready" && (
+              <span style={{ fontSize: 9, background: "#10b98120", color: "#10b981", borderRadius: 6, padding: "1px 6px", fontWeight: 700, textTransform: "uppercase" }}>Ready</span>
+            )}
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display: "flex", gap: "1.5rem", marginBottom: "0.9rem", flexWrap: "wrap" }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#f1f5f9", lineHeight: 1 }}>{driveStats.total.toLocaleString()}</div>
+              <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>Total Files</div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#10b981", lineHeight: 1 }}>{driveStats.tagged.toLocaleString()}</div>
+              <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>Tagged</div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#f43f5e", lineHeight: 1 }}>{driveStats.untagged.toLocaleString()}</div>
+              <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>Untagged</div>
+            </div>
+            <div style={{ marginLeft: "auto", textAlign: "right" }}>
+              <div style={{ fontSize: 28, fontWeight: 900, color: "#818cf8", lineHeight: 1 }}>{driveStats.taggedPct}%</div>
+              <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>Tagged</div>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ position: "relative", height: 8, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden" }}>
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${driveStats.taggedPct}%` }}
+              transition={{ duration: 1.2, ease: "easeOut" }}
+              style={{
+                position: "absolute", left: 0, top: 0, height: "100%",
+                background: "linear-gradient(90deg, #6366f1, #10b981)",
+                borderRadius: 99,
+              }}
+            />
+          </div>
+        </motion.div>
+      )}
+
       <div style={{ ...CARD, marginBottom: "1.75rem", background: "rgba(16,185,129,0.04)", border: "1px solid rgba(16,185,129,0.15)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.1rem" }}>
           <Zap size={14} color={ACCENT} />
