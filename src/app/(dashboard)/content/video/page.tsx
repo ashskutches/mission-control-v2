@@ -39,6 +39,27 @@ interface PlanResult {
   attempts: number;
 }
 
+interface VideoStatus {
+  worker: {
+    id: string | null;
+    online: boolean;
+    endpoint: string;
+    model: string;
+    last_heartbeat: string | null;
+  };
+  library: {
+    total_clips: number;
+  };
+  jobs: {
+    total: number;
+    draft?: number;
+    pending?: number;
+    rendering?: number;
+    done?: number;
+    failed?: number;
+  };
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const STATUS_COLOR: Record<string, string> = {
@@ -298,6 +319,66 @@ function PlannerPanel({ onJobCreated }: { onJobCreated: () => void }) {
   );
 }
 
+// ── Worker Status Card ───────────────────────────────────────────────────────
+
+function WorkerStatusCard({ status, loading, onRefresh }: { status: VideoStatus | null; loading: boolean; onRefresh: () => void }) {
+  return (
+    <div style={CARD}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+        <Cpu size={14} color="#a78bfa" />
+        <p style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, flex: 1, margin: 0 }}>
+          Worker Node
+        </p>
+        <button onClick={onRefresh} className="button is-ghost is-small" style={{ color: "#475569", padding: 4 }} aria-label="Refresh status">
+          <RefreshCw size={12} className={loading && !status ? "spin" : ""} />
+        </button>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        {/* Connectivity */}
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+            <span style={{ fontSize: 11, color: "#475569" }}>{status?.worker?.id || "Worker Status"}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: status?.worker?.online ? "#10b981" : "#f43f5e" }}>
+              {status?.worker?.online ? "ONLINE" : "OFFLINE"}
+            </span>
+          </div>
+          <p style={{ fontSize: 9, color: "#334155", margin: 0, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {status?.worker?.endpoint || "Discovery pending..."}
+          </p>
+        </div>
+
+        {/* Heartbeat & Model */}
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.4rem" }}>
+            <span style={{ fontSize: 11, color: "#475569" }}>Heartbeat</span>
+            <span style={{ fontSize: 11, color: "#94a3b8" }}>
+              {status?.worker?.last_heartbeat 
+                ? `${Math.round((Date.now() - new Date(status.worker.last_heartbeat).getTime()) / 1000)}s ago`
+                : "-"}
+            </span>
+          </div>
+          <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 6, padding: "0.4rem 0.6rem", border: "1px solid rgba(255,255,255,0.04)" }}>
+            <p style={{ fontSize: 11, color: "#e2e8f0", margin: 0, fontWeight: 600 }}>{status?.worker?.model || "hermes3:8b"}</p>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+          <div style={{ background: "rgba(56, 189, 248, 0.05)", borderRadius: 8, padding: "0.75rem", border: "1px solid rgba(56, 189, 248, 0.1)" }}>
+            <p style={{ fontSize: 9, color: "#38bdf8", fontWeight: 700, margin: 0, textTransform: "uppercase" }}>Clips</p>
+            <p style={{ fontSize: 16, color: "#e2e8f0", fontWeight: 700, margin: 0 }}>{status?.library?.total_clips ?? 0}</p>
+          </div>
+          <div style={{ background: "rgba(167, 139, 250, 0.05)", borderRadius: 8, padding: "0.75rem", border: "1px solid rgba(167, 139, 250, 0.1)" }}>
+            <p style={{ fontSize: 9, color: "#a78bfa", fontWeight: 700, margin: 0, textTransform: "uppercase" }}>Jobs</p>
+            <p style={{ fontSize: 16, color: "#e2e8f0", fontWeight: 700, margin: 0 }}>{status?.jobs?.total ?? 0}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Job List Panel ─────────────────────────────────────────────────────────────
 
 function JobListPanel({ jobs, loading, onRefresh }: { jobs: VideoJob[]; loading: boolean; onRefresh: () => void }) {
@@ -359,8 +440,27 @@ function JobListPanel({ jobs, loading, onRefresh }: { jobs: VideoJob[]; loading:
                         {job.storyboard && (
                           <StoryboardViewer storyboard={job.storyboard} />
                         )}
-                        {!job.storyboard && !job.output_url && !job.error_message && (
-                          <p style={{ fontSize: 11, color: "#475569" }}>No additional details available.</p>
+                        {job.status === "draft" && (
+                          <div style={{ marginTop: "1rem", borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: "0.75rem" }}>
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!confirm("Approve this storyboard for rendering?")) return;
+                                try {
+                                  const res = await fetch(`${BOT_URL}/admin/video/jobs/${job.id}/approve`, { method: "POST" });
+                                  const data = await res.json();
+                                  if (data.success) onRefresh();
+                                  else alert(data.error);
+                                } catch (err) {
+                                  alert("Failed to approve job");
+                                }
+                              }}
+                              className="button is-small"
+                              style={{ width: "100%", background: "#10b981", color: "white", border: "none", borderRadius: 6, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                            >
+                              <CheckCircle2 size={12} /> Approve for Rendering
+                            </button>
+                          </div>
                         )}
                       </div>
                     </motion.div>
@@ -379,21 +479,50 @@ function JobListPanel({ jobs, loading, onRefresh }: { jobs: VideoJob[]; loading:
 
 export default function VideoAgentPage() {
   const [jobs, setJobs] = useState<VideoJob[]>([]);
+  const [status, setStatus] = useState<VideoStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchJobs = useCallback(async () => {
-    setLoading(true);
     try {
-      const res = await fetch(`${BOT_URL}/admin/video/jobs?limit=20`);
-      if (res.ok) {
-        const d = await res.json();
-        setJobs(d.data ?? []);
-      }
-    } catch { /* silent */ }
-    finally { setLoading(false); }
+      const res = await fetch(`${BOT_URL}/admin/video/jobs`);
+      const data = await res.json();
+      if (data.success) setJobs(data.data);
+    } catch (err) {
+      console.error("Failed to fetch video jobs:", err);
+    }
   }, []);
 
-  useEffect(() => { fetchJobs(); }, [fetchJobs]);
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`${BOT_URL}/admin/video/status`);
+      const data = await res.json();
+      if (data.success) setStatus(data.data);
+    } catch (err) {
+      console.error("Failed to fetch video status:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true);
+      await Promise.all([fetchJobs(), fetchStatus()]);
+      setLoading(false);
+    };
+    init();
+
+    // Auto-refresh status and jobs while in active state
+    const interval = setInterval(() => {
+      fetchJobs();
+      fetchStatus();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [fetchJobs, fetchStatus]);
+
+  const handlePlanDone = () => {
+    fetchJobs();
+    fetchStatus();
+  };
 
   return (
     <div>
@@ -421,9 +550,17 @@ export default function VideoAgentPage() {
         </div>
       </motion.div>
 
-      {/* Main layout: planner left, jobs right */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", alignItems: "start" }}>
-        <PlannerPanel onJobCreated={fetchJobs} />
+      {/* Main layout */}
+      <div className="columns is-multiline">
+        <div className="column is-4">
+          <WorkerStatusCard status={status} loading={loading} onRefresh={fetchStatus} />
+        </div>
+        <div className="column is-8">
+          <PlannerPanel onJobCreated={handlePlanDone} />
+        </div>
+      </div>
+
+      <div className="mt-5">
         <JobListPanel jobs={jobs} loading={loading} onRefresh={fetchJobs} />
       </div>
     </div>
