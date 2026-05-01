@@ -103,7 +103,7 @@ export default function SmsTestPage() {
               <input
                 id="sms-test-phone"
                 type="tel"
-                placeholder="+1 (555) 000-0000"
+                placeholder="4848372899 or +14848372899"
                 value={to}
                 onChange={e => setTo(e.target.value)}
                 style={{
@@ -116,7 +116,7 @@ export default function SmsTestPage() {
               />
             </div>
             <p style={{ fontSize: 11, color: "#475569", marginTop: "0.25rem" }}>
-              Enter with or without +1 — auto-normalised to E.164
+              US: enter 10 digits (<code style={{color:"#94a3b8"}}>4848372899</code>) or full E.164 (<code style={{color:"#94a3b8"}}>+14848372899</code>). Do <strong>not</strong> use <code style={{color:"#f87171"}}>+4848372899</code> — that routes to Poland 🇵🇱
             </p>
           </div>
 
