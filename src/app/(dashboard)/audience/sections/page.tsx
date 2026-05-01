@@ -165,7 +165,7 @@ function VariationRow({
             fontSize: 10, fontWeight: 700, flexShrink: 0,
             color: variation.impressions > 0 ? "#34d399" : "#334155",
           }}>
-            {atcRate}{variation.impressions > 0 ? "%" : ""} ATC
+            {atcRate}{variation.impressions > 0 ? "%" : ""} Assisted ATC
           </span>
 
           {/* Edit */}
@@ -365,8 +365,8 @@ function SectionCard({ section, onToggle, onEdit, onDelete, onRefresh, onVariati
           <span title="Total impressions across all variations" style={{ fontSize: 10, color: "#38bdf8", fontWeight: 700 }}>
             {totalImpressions} <span style={{ color: "#334155", fontWeight: 400 }}>imp</span>
           </span>
-          <span title="ATC rate across all variations" style={{ fontSize: 10, fontWeight: 700, color: totalImpressions > 0 ? "#34d399" : "#334155" }}>
-            {atcRate}{totalImpressions > 0 ? "%" : ""} <span style={{ color: "#334155", fontWeight: 400 }}>ATC</span>
+          <span title="Assisted ATC% — exposure credit: any section seen during a session with an ATC gets credit" style={{ fontSize: 10, fontWeight: 700, color: totalImpressions > 0 ? "#34d399" : "#334155" }}>
+            {atcRate}{totalImpressions > 0 ? "%" : ""} <span style={{ color: "#334155", fontWeight: 400 }}>Assisted ATC</span>
           </span>
         </div>
 

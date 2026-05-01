@@ -298,7 +298,7 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
                         {/* Stats */}
                         <span style={{ fontSize: 10, color: "#38bdf8", fontWeight: 600, flexShrink: 0 }}>{s.embed_impressions ?? 0} imp</span>
                         {atcRate && (
-                          <span style={{ fontSize: 10, color: "#34d399", fontWeight: 700, flexShrink: 0 }}>{atcRate}% ATC</span>
+                          <span title="Assisted ATC% — exposure credit attribution" style={{ fontSize: 10, color: "#34d399", fontWeight: 700, flexShrink: 0 }}>{atcRate}% Assisted ATC</span>
                         )}
 
                         {/* UCB1 score bar */}

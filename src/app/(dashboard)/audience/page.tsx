@@ -48,7 +48,9 @@ Your domain covers:
 - Signal definitions — UTM, page-view, time-based, and webhook triggers that automatically tag visitors
 - Conversion metrics — impressions, clicks, add-to-cart rates per section and per embed
 
-Data you have access to: total profiles, identity rate, 7-day event counts by channel, top-performing section stats (impressions, ATC%, CTR).
+Data you have access to: total profiles, identity rate, 7-day event counts by channel, top-performing section stats (impressions, Assisted ATC%, CTR).
+
+Note: Assisted ATC% uses exposure-credit attribution — any section the visitor SAW during a session where they added to cart receives credit. This intentionally inflates the raw rate vs. direct attribution; use it for relative comparison between sections, not absolute conversion benchmarking.
 
 Your job is to surface actionable insights:
 - Which sections are underperforming relative to their impression volume?
@@ -104,7 +106,7 @@ function TopSectionsTable({ sections }: { sections: Analytics["top_sections"] })
               {[
                 { label: "Impressions", value: s.impressions.toLocaleString(), color: "#38bdf8" },
                 { label: "ATC", value: s.add_to_cart, color: "#a78bfa" },
-                { label: "ATC%", value: `${atcRate}%`, color: "#34d399" },
+                { label: "Assisted ATC%", value: `${atcRate}%`, color: "#34d399" },
                 { label: "CTR", value: s.ctr, color: "#f59e0b" },
               ].map(({ label, value, color }) => (
                 <div key={label} style={{ textAlign: "center", minWidth: 60 }}>
