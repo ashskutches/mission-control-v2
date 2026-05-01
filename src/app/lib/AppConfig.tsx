@@ -32,6 +32,7 @@ import {
     Film,
     Video,
     Copy,
+    UserCheck,
 } from 'lucide-react';
 
 export const SQUADS = [
@@ -82,6 +83,9 @@ export const APP_CONFIG = {
         { id: 'content-assets',   href: '/content/assets',   icon: Tag,     label: 'Asset Tagger',     color: '#38bdf8', group: 'content', squad: 'content' },
         { id: 'content-sections', href: '/content/sections', icon: Layers,  label: 'Section Builder',  color: '#a78bfa', group: 'content', squad: 'content' },
         { id: 'content-copy',     href: '/content/copy',     icon: Copy,    label: 'Copy Studio',      color: '#10b981', group: 'content', squad: 'content' },
+
+        // ── Customer ──────────────────────────────────────────────────────────
+        { id: 'customer', href: '/customer', icon: UserCheck, label: 'Customer', color: '#06b6d4', group: 'customer' },
 
         // ── Commerce: Overview ────────────────────────────────────────────────
         { id: 'store', href: '/commerce', icon: ShoppingBag, label: 'Commerce', color: '#fb923c', group: 'commerce' },

@@ -161,6 +161,19 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         ) : null;
       })()}
 
+      {/* Customer group */}
+      {(() => {
+        const customerItem = APP_CONFIG.navigation.find((i: any) => i.group === "customer");
+        return customerItem ? (
+          <div style={{ marginBottom: "0.5rem" }}>
+            <p className="menu-label has-text-grey-light is-uppercase mt-4" style={{ letterSpacing: "0.1em", fontSize: "9px" }}>
+              Customer
+            </p>
+            <ul className="menu-list">{renderNavItem(customerItem)}</ul>
+          </div>
+        ) : null;
+      })()}
+
       {/* Commerce group — squad structure */}
       {(() => {
         const storeItem = APP_CONFIG.navigation.find((i: any) => i.group === "commerce" && !i.squad);
