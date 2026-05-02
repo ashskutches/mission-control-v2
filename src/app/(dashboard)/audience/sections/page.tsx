@@ -51,15 +51,29 @@ const INPUT_STYLE = {
 // ── Known snippets ─────────────────────────────────────────────────────────────
 
 const KNOWN_SNIPPETS = [
-  { id: "lrb-benefits-features",      name: "Benefits — A Bounce That Feels Better", targeting: "{}",  description: "Radio-tab image switcher + We Got You Covered grid." },
-  { id: "lrb-compare-models",         name: "Compare Our Models",                     targeting: "{}",  description: "Side-by-side product comparison table." },
-  { id: "lrb-customer-reviews",       name: "Customer Reviews (Baseline)",            targeting: "{}",  description: "ALL CAPS heading, 3-up video carousel, Yotpo widget." },
-  { id: "lrb-customer-reviews-redesign", name: "Customer Reviews — Redesign",        targeting: "{}",  description: "Real Customers. Real Results. 3×3 video grid variant." },
-  { id: "lrb-customer-reviews-v3",    name: "Customer Reviews V3",                   targeting: "{}",  description: "Latest custom reviews build." },
-  { id: "lrb-free-workouts",          name: "Free Workouts — World Class Trainers",  targeting: "{}",  description: "Full-width workout library section." },
-  { id: "lrb-lifetime-warranty",      name: "Lifetime Warranty",                     targeting: "{}",  description: "4 value-prop trust icons strip." },
-  { id: "lrb-product-features",       name: "Product Features — USP Grid",           targeting: "{}",  description: "Tonal-style 4-card USP grid: 70% less joint impact, lifetime warranty, bungee suspension, all-fitness." },
-  { id: "lrb-trust-bar",             name: "Trust Bar",                              targeting: "{}",  description: "Slim brand trust indicators." },
+  // ── Benefits / Features ─────────────────────────────────────────────────────
+  { id: "lrb-benefits-features",      name: "Benefits — A Bounce That Feels Better", targeting: "{}",  description: "Radio-tab image switcher. Original baseline." },
+  { id: "lrb-benefits-deep-dive",     name: "Benefits Deep Dive",                    targeting: "{}",  description: "Animated stat counters + 3-col bento cards: Health / Lifestyle / Mental." },
+  // ── Guarantee / Trust ───────────────────────────────────────────────────────
+  { id: "lrb-guarantee-strip",        name: "Guarantee Strip",                       targeting: "{}",  description: "4-col trust icons: 30 Day Money Back, Free Return Shipping, Lifetime Warranty, Contact." },
+  { id: "lrb-lifetime-warranty",      name: "Lifetime Warranty — We Got You Covered", targeting: "{}",  description: "3-up icon grid: Safest Mat, Sturdy Legs, Strong Frame." },
+  { id: "lrb-trust-bar",             name: "Trust Bar",                              targeting: "{}",  description: "Slim brand trust indicators strip." },
+  // ── Problem / Solution ──────────────────────────────────────────────────────
+  { id: "lrb-problem-solution",       name: "Problem Solution Bridge",               targeting: "{}",  description: "Dark dual-card section: problem vs solution + 4 benefit icons." },
+  // ── Product ─────────────────────────────────────────────────────────────────
+  { id: "lrb-product-showcase",       name: "Product Showcase",                      targeting: "{}",  description: "Two-col: product image/video + feature list + CSS size/color selectors." },
+  { id: "lrb-product-features",       name: "Product Features — USP Grid",           targeting: "{}",  description: "Tonal-style 4-card USP grid: joint impact, warranty, bungee, all-fitness." },
+  { id: "lrb-compare-models",         name: "Compare Our Models",                    targeting: "{}",  description: "Side-by-side product comparison table." },
+  { id: "lrb-size-color",            name: "Size and Color Selection",               targeting: "{}",  description: "Size comparison cards, color swatches with live preview, mini quiz, low-stock badges." },
+  // ── How It Works ────────────────────────────────────────────────────────────
+  { id: "lrb-how-it-works",          name: "How It Works",                           targeting: "{}",  description: "3-step process: Unbox, Start Bouncing, Feel the Difference." },
+  // ── Social Proof / Reviews ──────────────────────────────────────────────────
+  { id: "lrb-customer-success",       name: "Customer Success Stories",              targeting: "{}",  description: "Dark stats header + CSS snap-scroll testimonial carousel." },
+  { id: "lrb-customer-reviews",       name: "Customer Reviews (Baseline)",           targeting: "{}",  description: "ALL CAPS heading, 3-up video carousel, Yotpo widget." },
+  { id: "lrb-customer-reviews-redesign", name: "Customer Reviews — Redesign",       targeting: "{}",  description: "Real Customers. Real Results. 3x3 video grid variant." },
+  { id: "lrb-customer-reviews-v3",    name: "Customer Reviews V3",                  targeting: "{}",  description: "Latest custom reviews build." },
+  // ── Other ───────────────────────────────────────────────────────────────────
+  { id: "lrb-free-workouts",          name: "Free Workouts — World Class Trainers", targeting: "{}",  description: "Full-width workout library section." },
 ];
 
 // ── Variation Row ──────────────────────────────────────────────────────────────
