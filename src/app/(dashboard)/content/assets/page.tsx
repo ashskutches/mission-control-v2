@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Tag, FolderOpen, Search, RefreshCw, CheckSquare,
   Image as ImageIcon, Film, FileText, Package, X, Plus,
-  Save, ChevronDown, ChevronLeft, ChevronRight, Database,
+  ChevronDown, ChevronLeft, ChevronRight, Database,
   AlertCircle, Loader2,
 } from "lucide-react";
 
@@ -91,9 +91,9 @@ function TagBadge({ tag, onRemove }: { tag: string; onRemove?: () => void }) {
 
 // ── File Card ──────────────────────────────────────────────────────────────────
 
-function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove }: {
+function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove, saving }: {
   file: DriveFile; selected: boolean; onToggle: () => void;
-  onTagAdd: (tag: string) => void; onTagRemove: (tag: string) => void;
+  onTagAdd: (tag: string) => void; onTagRemove: (tag: string) => void; saving?: boolean;
 }) {
   const [tagInput, setTagInput] = useState("");
   const [showTagInput, setShowTagInput] = useState(false);
@@ -130,7 +130,7 @@ function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove }: {
       </div>
 
       {/* Tags */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem", minHeight: 20 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem", minHeight: 20, alignItems: "center" }}>
         {tags.map(tag => <TagBadge key={tag} tag={tag} onRemove={() => onTagRemove(tag)} />)}
         {showTagInput ? (
           <input autoFocus value={tagInput} onChange={e => setTagInput(e.target.value)}
@@ -143,6 +143,11 @@ function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove }: {
             style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 9, color: "#475569", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "1px 6px", cursor: "pointer" }}>
             <Plus size={9} /> tag
           </button>
+        )}
+        {saving && (
+          <span title="Saving…" style={{ display: "inline-flex", alignItems: "center", color: ACCENT, opacity: 0.7 }}>
+            <Loader2 size={9} style={{ animation: "spin 1s linear infinite" }} />
+          </span>
         )}
       </div>
 
@@ -240,10 +245,10 @@ export default function AssetTaggerPage() {
   const [pageData, setPageData] = useState<PageResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Tag mutations stored client-side until saved
+  // Tag mutations — optimistic local state, auto-saved immediately
   const [tagMap, setTagMap] = useState<Record<string, string[]>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
 
   // Polling interval when indexing is in progress
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -303,54 +308,88 @@ export default function AssetTaggerPage() {
     ...f, tags: tagMap[f.id] ?? f.tags ?? [],
   }));
 
-  const addTag = (fileId: string, tag: string) => setTagMap(prev => {
-    const current = prev[fileId] ?? pageData?.files.find(f => f.id === fileId)?.tags ?? [];
-    if (current.includes(tag)) return prev;
-    return { ...prev, [fileId]: [...current, tag] };
-  });
-  const removeTag = (fileId: string, tag: string) => setTagMap(prev => {
-    const current = prev[fileId] ?? pageData?.files.find(f => f.id === fileId)?.tags ?? [];
-    return { ...prev, [fileId]: current.filter(t => t !== tag) };
-  });
-  const batchTag = (tag: string) => setTagMap(prev => {
-    const next = { ...prev };
+  const addTag = async (fileId: string, tag: string) => {
+    const file = pageData?.files.find(f => f.id === fileId);
+    const current = tagMap[fileId] ?? file?.tags ?? [];
+    if (current.includes(tag)) return;
+    const newTags = [...current, tag];
+    setTagMap(prev => ({ ...prev, [fileId]: newTags }));
+    setSavingIds(prev => new Set([...prev, fileId]));
+    try {
+      const res = await fetch(`${BOT_URL}/admin/drive/tags/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileId, fileName: file?.name ?? fileId, tags: newTags }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Save failed");
+      setPageData(prev => prev ? { ...prev, files: prev.files.map(f => f.id === fileId ? { ...f, tags: newTags } : f) } : prev);
+      setTagMap(prev => { const n = { ...prev }; delete n[fileId]; return n; });
+    } catch (err: any) {
+      console.error("[asset-tagger] addTag failed:", err.message);
+      setTagMap(prev => { const n = { ...prev }; delete n[fileId]; return n; });
+    } finally {
+      setSavingIds(prev => { const s = new Set(prev); s.delete(fileId); return s; });
+    }
+  };
+
+  const removeTag = async (fileId: string, tag: string) => {
+    const file = pageData?.files.find(f => f.id === fileId);
+    const current = tagMap[fileId] ?? file?.tags ?? [];
+    const newTags = current.filter(t => t !== tag);
+    setTagMap(prev => ({ ...prev, [fileId]: newTags }));
+    setSavingIds(prev => new Set([...prev, fileId]));
+    try {
+      const res = await fetch(`${BOT_URL}/admin/drive/tags/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileId, fileName: file?.name ?? fileId, tags: newTags }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Save failed");
+      setPageData(prev => prev ? { ...prev, files: prev.files.map(f => f.id === fileId ? { ...f, tags: newTags } : f) } : prev);
+      setTagMap(prev => { const n = { ...prev }; delete n[fileId]; return n; });
+    } catch (err: any) {
+      console.error("[asset-tagger] removeTag failed:", err.message);
+      setTagMap(prev => { const n = { ...prev }; delete n[fileId]; return n; });
+    } finally {
+      setSavingIds(prev => { const s = new Set(prev); s.delete(fileId); return s; });
+    }
+  };
+
+  const batchTag = async (tag: string) => {
+    const updates: Record<string, string[]> = {};
     selectedIds.forEach(id => {
-      const current = prev[id] ?? pageData?.files.find(f => f.id === id)?.tags ?? [];
-      if (!current.includes(tag)) next[id] = [...current, tag];
+      const current = tagMap[id] ?? pageData?.files.find(f => f.id === id)?.tags ?? [];
+      if (!current.includes(tag)) updates[id] = [...current, tag];
     });
-    return next;
-  });
+    if (Object.keys(updates).length === 0) return;
+    setTagMap(prev => ({ ...prev, ...updates }));
+    const filesToSave = Object.entries(updates).map(([id, tags]) => ({
+      id, name: pageData?.files.find(f => f.id === id)?.name ?? id, tags,
+    }));
+    try {
+      const res = await fetch(`${BOT_URL}/admin/drive/tags/batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: filesToSave }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Batch save failed");
+      setPageData(prev => prev ? { ...prev, files: prev.files.map(f => updates[f.id] ? { ...f, tags: updates[f.id] } : f) } : prev);
+      setTagMap(prev => { const n = { ...prev }; Object.keys(updates).forEach(id => delete n[id]); return n; });
+    } catch (err: any) {
+      console.error("[asset-tagger] batchTag failed:", err.message);
+      setTagMap(prev => { const n = { ...prev }; Object.keys(updates).forEach(id => delete n[id]); return n; });
+      alert(`Batch tag failed: ${err.message}`);
+    }
+  };
   const toggleSelect = (id: string) => setSelectedIds(prev => {
     const s = new Set(prev);
     if (s.has(id)) s.delete(id); else s.add(id);
     return s;
   });
 
-  const saveTags = async () => {
-    setSaveState("saving");
-    try {
-      // Build batch payload from tagMap
-      const filesToSave = Object.entries(tagMap).map(([id, tags]) => {
-        const file = pageData?.files.find(f => f.id === id);
-        return { id, name: file?.name ?? id, tags };
-      });
-      const res = await fetch(`${BOT_URL}/admin/drive/tags/batch`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files: filesToSave }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error ?? "Save failed");
-      setSaveState("saved");
-      setTagMap({}); // clear pending mutations — they're now persisted
-      setTimeout(() => setSaveState("idle"), 2000);
-    } catch (err: any) {
-      console.error("Failed to save tags:", err.message);
-      setSaveState("idle");
-      alert(`Tag save failed: ${err.message}`);
-    }
-  };
 
-  const hasUnsavedTags = Object.keys(tagMap).length > 0;
+
+
   const untaggedOnPage = files.filter(f => (f.tags ?? []).length === 0).length;
   const indexStatus = pageData?.indexStatus ?? "idle";
   const indexTotal  = pageData?.indexTotal ?? 0;
@@ -381,13 +420,7 @@ export default function AssetTaggerPage() {
           ))}
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
-          {hasUnsavedTags && (
-            <button onClick={saveTags} disabled={saveState === "saving"}
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: saveState === "saved" ? "#10b98118" : `${ACCENT}15`, border: `1px solid ${saveState === "saved" ? "#10b981" : ACCENT}30`, borderRadius: 10, padding: "0.45rem 0.9rem", color: saveState === "saved" ? "#10b981" : ACCENT, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-              {saveState === "saving" ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Save size={13} />}
-              {saveState === "saved" ? "Saved!" : saveState === "saving" ? "Saving…" : "Save Tags"}
-            </button>
-          )}
+
           <button onClick={triggerReindex} title="Re-scan Drive"
             style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "0.45rem 0.75rem", color: "#64748b", fontSize: 11, cursor: "pointer" }}>
             <Database size={12} /> Re-scan
@@ -399,8 +432,9 @@ export default function AssetTaggerPage() {
       <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1rem" }}>
         <div style={{ flex: 1, minWidth: 200, position: "relative" }}>
           <Search size={13} color="#475569" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or tag…"
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or tag — use commas for multiple (e.g. woman, outside, 2025)"
             style={{ width: "100%", paddingLeft: 32, paddingRight: 12, paddingTop: "0.5rem", paddingBottom: "0.5rem", background: "rgba(255,255,255,0.04)", border: `1px solid ${search ? ACCENT + "40" : "rgba(255,255,255,0.08)"}`, borderRadius: 10, color: "#e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", transition: "border-color 0.15s" }} />
+          {search && <p style={{ margin: "0.25rem 0 0", fontSize: 9, color: "#475569" }}>Tip: separate multiple tags with commas — e.g. <em style={{ color: ACCENT }}>woman, outside, 2025</em></p>}
         </div>
         <div style={{ display: "flex", gap: "0.4rem" }}>
           {MIME_FILTERS.map(({ id, label, icon: Icon, color }) => (
@@ -469,7 +503,7 @@ export default function AssetTaggerPage() {
             {indexStatus === "idle"
               ? "Drive not yet scanned — click Re-scan to start."
               : debouncedSearch
-              ? `No files match "${debouncedSearch}".`
+              ? (() => { const terms = debouncedSearch.split(/[\s,]+/).filter(Boolean); return terms.length > 1 ? `No files match all of: ${terms.map(t => `"${t}"`).join(" + ")}.` : `No files match "${debouncedSearch}".`; })()
               : "No files found in this view."}
           </p>
         </div>
@@ -482,7 +516,8 @@ export default function AssetTaggerPage() {
             <FileCard key={file.id} file={file} selected={selectedIds.has(file.id)}
               onToggle={() => toggleSelect(file.id)}
               onTagAdd={tag => addTag(file.id, tag)}
-              onTagRemove={tag => removeTag(file.id, tag)} />
+              onTagRemove={tag => removeTag(file.id, tag)}
+              saving={savingIds.has(file.id)} />
           ))}
         </motion.div>
       )}
