@@ -465,7 +465,8 @@ function SectionCard({ section, onToggle, onEdit, onDelete, onRefresh, onVariati
 
 export default function SectionsPage() {
   const [sections, setSections] = useState<PSection[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);       // true only on first paint
+  const [refreshing, setRefreshing] = useState(false); // silent background refresh
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<PSection | null>(null);
   const [saving, setSaving] = useState(false);
@@ -475,14 +476,17 @@ export default function SectionsPage() {
   const empty: SectionFormData = { name: "", description: "", shopify_section_id: "", targeting_rules_raw: "{}", hard_gate: "false" };
   const [form, setForm] = useState<SectionFormData>(empty);
 
-  const fetchSections = useCallback(async () => {
-    setLoading(true);
+  const fetchSections = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const res = await fetch(`${BOT_URL}/admin/intelligence/sections`);
+      const res = await fetch(`${BOT_URL}/admin/intelligence/sections`, { cache: "no-store" });
       if (res.ok) { const data = await res.json(); setSections(data.sections ?? []); }
     } catch { /* silent */ }
-    finally { setLoading(false); }
+    finally { if (isRefresh) setRefreshing(false); else setLoading(false); }
   }, []);
+
+  // Expose a silent refresh (no spinner) for child callbacks
+  const refreshSilent = useCallback(() => fetchSections(true), [fetchSections]);
 
   useEffect(() => { fetchSections(); }, [fetchSections]);
 
@@ -690,8 +694,8 @@ export default function SectionsPage() {
       </AnimatePresence>
 
       {loading ? (
-        <p style={{ color: "#475569", textAlign: "center", padding: "2rem" }}>Loading sections...</p>
-      ) : sections.length === 0 ? (
+        <p style={{ color: "#475569", textAlign: "center", padding: "2rem" }}>Loading sections…</p>
+      ) : sections.length === 0 && !refreshing ? (
         <div style={{ ...CARD, textAlign: "center", padding: "3rem" }}>
           <Layers size={32} color="#334155" style={{ margin: "0 auto 1rem" }} />
           <p style={{ color: "#475569" }}>No sections registered yet. Click &quot;Register Section&quot; to add your first.</p>
@@ -699,7 +703,7 @@ export default function SectionsPage() {
       ) : (
         <div>
           {sections.map(s => (
-            <SectionCard key={s.id} section={s} onToggle={toggle} onEdit={openEdit} onDelete={deleteSection} onRefresh={fetchSections} onVariationToggle={handleVariationToggle} />
+            <SectionCard key={s.id} section={s} onToggle={toggle} onEdit={openEdit} onDelete={deleteSection} onRefresh={refreshSilent} onVariationToggle={handleVariationToggle} />
           ))}
         </div>
       )}
