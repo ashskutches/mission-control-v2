@@ -66,7 +66,7 @@ const KNOWN_SNIPPETS = [
   { id: "lrb-compare-models",         name: "Compare Our Models",                    targeting: "{}",  description: "Side-by-side product comparison table." },
   { id: "lrb-size-color",            name: "Size and Color Selection",               targeting: "{}",  description: "Size comparison cards, color swatches with live preview, mini quiz, low-stock badges." },
   // ── How It Works ────────────────────────────────────────────────────────────
-  { id: "lrb-how-it-works",          name: "How It Works",                           targeting: "{}",  description: "3-step process: Unbox, Start Bouncing, Feel the Difference." },
+  { id: "lrb-how-it-works-v2",       name: "How It Works — Landing Page Two-Column", targeting: "{}",  description: "1:1 replica of landing-page-1: image+badge left, 4 numbered assembly steps right. Uses landing-v2.css tokens (Inter, JetBrains Mono)." },
   // ── Social Proof / Reviews ──────────────────────────────────────────────────
   { id: "lrb-customer-success",       name: "Customer Success Stories",              targeting: "{}",  description: "Dark stats header + CSS snap-scroll testimonial carousel." },
   { id: "lrb-customer-reviews",       name: "Customer Reviews (Baseline)",           targeting: "{}",  description: "ALL CAPS heading, 3-up video carousel, Yotpo widget." },
