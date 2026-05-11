@@ -234,19 +234,22 @@ function VariationRow({
 function AddVariationRow({ sectionId, onAdded }: { sectionId: string; onAdded: () => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [snippetId, setSnippetId] = useState("");
+  const [snippetId, setSnippetId] = useState(KNOWN_SNIPPETS[0]?.id ?? "");
+  const [customId, setCustomId] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
+  const resolvedSnippetId = snippetId === "__custom__" ? customId : snippetId;
+
   const save = async () => {
-    if (!name.trim() || !snippetId.trim()) { setErr("Name and Snippet ID required"); return; }
+    if (!name.trim() || !resolvedSnippetId.trim()) { setErr("Enter a variation name and select a snippet."); return; }
     setSaving(true); setErr("");
     const res = await fetch(`${BOT_URL}/admin/intelligence/sections/${sectionId}/variations`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), shopify_section_id: snippetId.trim() }),
+      body: JSON.stringify({ name: name.trim(), shopify_section_id: resolvedSnippetId.trim() }),
     });
     setSaving(false);
-    if (res.ok) { setOpen(false); setName(""); setSnippetId(""); onAdded(); }
+    if (res.ok) { setOpen(false); setName(""); setSnippetId(KNOWN_SNIPPETS[0]?.id ?? ""); setCustomId(""); onAdded(); }
     else { const d = await res.json(); setErr(d.error ?? "Failed"); }
   };
 
@@ -270,7 +273,7 @@ function AddVariationRow({ sectionId, onAdded }: { sectionId: string; onAdded: (
         <option value="__custom__">Custom ID…</option>
       </select>
       {snippetId === "__custom__" && (
-        <input placeholder="lrb-custom-snippet" onChange={e => setSnippetId(e.target.value)}
+        <input placeholder="lrb-custom-snippet" value={customId} onChange={e => setCustomId(e.target.value)}
           style={{ ...INPUT_STYLE, fontSize: 10, padding: "3px 8px", borderRadius: 6, width: 160 }} />
       )}
       {err && <span style={{ fontSize: 10, color: "#f43f5e" }}>{err}</span>}
