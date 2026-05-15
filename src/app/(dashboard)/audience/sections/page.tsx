@@ -78,7 +78,7 @@ const KNOWN_SNIPPETS = [
   // ── Other ───────────────────────────────────────────────────────────────────
   { id: "lrb-free-workouts",          name: "Free Workouts — World Class Trainers", targeting: "{}",  description: "Full-width workout library section." },
   // ── Funnel Sections (date-gated / campaign) ─────────────────────────────────
-  { id: "funnel-memorial-promo",      name: "🇺🇸 Memorial Day Promo (Date-Gated)", targeting: "{}",  description: "Navy + red sale banner with live countdown. Only renders between date_start and date_end (set in Customizer). Default window: May 23–26." },
+  { id: "lrb-memorial-promo",         name: "🇺🇸 Memorial Day Promo (Date-Gated)", targeting: "{}",  description: "Navy + red sale banner with live countdown. Date-gated May 23–26. Set mp_preview = 'true' in the snippet to force-show for testing." },
 ];
 
 // ── Variation Row ──────────────────────────────────────────────────────────────
