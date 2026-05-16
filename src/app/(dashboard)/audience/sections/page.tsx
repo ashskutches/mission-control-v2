@@ -25,6 +25,7 @@ interface PSection {
   id: string; name: string; description: string | null;
   shopify_section_id: string; targeting_rules: Record<string, unknown>;
   active: boolean; hard_gate: boolean;
+  date_gate_enabled: boolean; date_gate_start: string | null; date_gate_end: string | null;
   variations: SectionVariation[];
   created_at: string; updated_at: string;
 }
@@ -32,6 +33,7 @@ interface PSection {
 interface SectionFormData {
   name: string; description: string; shopify_section_id: string;
   targeting_rules_raw: string; hard_gate: string;
+  date_gate_enabled: boolean; date_gate_start: string; date_gate_end: string;
 }
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
@@ -365,6 +367,25 @@ function SectionCard({ section, onToggle, onEdit, onDelete, onRefresh, onVariati
           </span>
         )}
 
+        {/* Date gate badge */}
+        {section.date_gate_enabled && (() => {
+          const now = new Date();
+          const start = section.date_gate_start ? new Date(section.date_gate_start) : null;
+          const end = section.date_gate_end ? new Date(section.date_gate_end + "T23:59:59Z") : null;
+          const inWindow = (!start || now >= start) && (!end || now <= end);
+          return (
+            <span title={`Date gate: ${section.date_gate_start ?? "any"} → ${section.date_gate_end ?? "any"}`} style={{
+              fontSize: 9, fontWeight: 700,
+              color: inWindow ? "#34d399" : "#f59e0b",
+              background: inWindow ? "rgba(52,211,153,0.08)" : "rgba(245,158,11,0.08)",
+              border: `1px solid ${inWindow ? "rgba(52,211,153,0.2)" : "rgba(245,158,11,0.2)"}`,
+              padding: "1px 6px", borderRadius: 4, flexShrink: 0,
+            }}>
+              🗓 {inWindow ? "Live" : "Gated"}
+            </span>
+          );
+        })()}
+
         {/* Targeting pills */}
         <div style={{ display: "flex", gap: "0.25rem", alignItems: "center", flex: 1, minWidth: 0, overflow: "hidden" }}>
           {isUniversal ? (
@@ -475,7 +496,7 @@ export default function SectionsPage() {
   const [formError, setFormError] = useState("");
   const [pruning, setPruning] = useState(false);
   const [pruneMsg, setPruneMsg] = useState<{ text: string; ok: boolean } | null>(null);
-  const empty: SectionFormData = { name: "", description: "", shopify_section_id: "", targeting_rules_raw: "{}", hard_gate: "false" };
+  const empty: SectionFormData = { name: "", description: "", shopify_section_id: "", targeting_rules_raw: "{}", hard_gate: "false", date_gate_enabled: false, date_gate_start: "", date_gate_end: "" };
   const [form, setForm] = useState<SectionFormData>(empty);
 
   const fetchSections = useCallback(async (isRefresh = false) => {
@@ -558,7 +579,13 @@ export default function SectionsPage() {
   };
   const openEdit = (s: PSection) => {
     setEditTarget(s);
-    setForm({ name: s.name, description: s.description ?? "", shopify_section_id: s.shopify_section_id, targeting_rules_raw: JSON.stringify(s.targeting_rules, null, 2), hard_gate: s.hard_gate ? "true" : "false" });
+    setForm({
+      name: s.name, description: s.description ?? "", shopify_section_id: s.shopify_section_id,
+      targeting_rules_raw: JSON.stringify(s.targeting_rules, null, 2), hard_gate: s.hard_gate ? "true" : "false",
+      date_gate_enabled: s.date_gate_enabled ?? false,
+      date_gate_start: s.date_gate_start ?? "",
+      date_gate_end: s.date_gate_end ?? "",
+    });
     setFormError(""); setShowForm(true);
   };
 
@@ -567,7 +594,16 @@ export default function SectionsPage() {
     try {
       let targeting_rules: Record<string, unknown> = {};
       try { targeting_rules = JSON.parse(form.targeting_rules_raw); } catch { throw new Error("Invalid JSON in signals"); }
-      const payload = { name: form.name.trim(), description: form.description.trim() || null, shopify_section_id: form.shopify_section_id.trim(), targeting_rules, hard_gate: form.hard_gate === "true" };
+      const payload = {
+        name: form.name.trim(),
+        description: form.description.trim() || null,
+        shopify_section_id: form.shopify_section_id.trim(),
+        targeting_rules,
+        hard_gate: form.hard_gate === "true",
+        date_gate_enabled: form.date_gate_enabled,
+        date_gate_start: form.date_gate_enabled && form.date_gate_start ? form.date_gate_start : null,
+        date_gate_end: form.date_gate_enabled && form.date_gate_end ? form.date_gate_end : null,
+      };
       if (!payload.name || !payload.shopify_section_id) throw new Error("Name and Shopify Section ID are required");
       const url = editTarget ? `${BOT_URL}/admin/intelligence/sections/${editTarget.id}` : `${BOT_URL}/admin/intelligence/sections`;
       const res = await fetch(url, { method: editTarget ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -656,7 +692,43 @@ export default function SectionsPage() {
               </div>
             </div>
 
-            <div style={{ marginTop: "0.75rem" }}>
+              <div style={{ marginTop: "0.75rem" }}>
+                <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", userSelect: "none" }}>
+                  <input
+                    type="checkbox"
+                    checked={form.date_gate_enabled}
+                    onChange={e => setForm(f => ({ ...f, date_gate_enabled: e.target.checked }))}
+                    style={{ accentColor: "#f59e0b", width: 14, height: 14 }}
+                  />
+                  <span>🗓 Enable Date Gate — hide this section outside a set date range</span>
+                </label>
+
+                {form.date_gate_enabled && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
+                    <div>
+                      <label style={{ fontSize: 9, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.25rem" }}>Show from (UTC)</label>
+                      <input
+                        type="date"
+                        value={form.date_gate_start}
+                        onChange={e => setForm(f => ({ ...f, date_gate_start: e.target.value }))}
+                        style={{ ...INPUT_STYLE, fontSize: 12, padding: "4px 8px", borderRadius: 6, width: "100%", colorScheme: "dark" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 9, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.25rem" }}>Hide after (UTC)</label>
+                      <input
+                        type="date"
+                        value={form.date_gate_end}
+                        onChange={e => setForm(f => ({ ...f, date_gate_end: e.target.value }))}
+                        style={{ ...INPUT_STYLE, fontSize: 12, padding: "4px 8px", borderRadius: 6, width: "100%", colorScheme: "dark" }}
+                      />
+                    </div>
+                  </div>
+                )}
+                <p style={{ fontSize: 9, color: "#475569", marginTop: "0.3rem" }}>
+                  When enabled, this section is invisible to all visitors before the start date and after end-of-day on the end date (UTC). Dates are inclusive.
+                </p>
+              </div>
               <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>Signals (JSON)</label>
               <div style={{ background: "rgba(30,41,59,0.6)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "0.75rem", marginBottom: "0.5rem", fontSize: 11 }}>
                 <p style={{ color: "#94a3b8", fontWeight: 700, marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>Quick Examples</p>
