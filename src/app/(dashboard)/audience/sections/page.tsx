@@ -1,10 +1,13 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Layers, Plus, Edit2, Check, X, ChevronDown, ChevronUp,
-  GitBranch, Trash2, Zap, Pause, Play, Scissors,
+  GitBranch, Trash2, Zap, Pause, Play, Scissors, ArrowUpDown,
 } from "lucide-react";
+
+type SortKey = "name" | "impressions" | "atc" | "assisted_atc" | "ctr";
+type SortDir = "desc" | "asc";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 
@@ -403,13 +406,39 @@ function SectionCard({ section, onToggle, onEdit, onDelete, onRefresh, onVariati
           )}
         </div>
 
-        {/* Aggregate stats */}
-        <div style={{ display: "flex", gap: "0.6rem", flexShrink: 0, alignItems: "center" }}>
-          <span title="Total impressions across all variations" style={{ fontSize: 10, color: "#38bdf8", fontWeight: 700 }}>
-            {totalImpressions} <span style={{ color: "#334155", fontWeight: 400 }}>imp</span>
+        {/* Aggregate stats — 4 metrics */}
+        <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0, alignItems: "center" }}>
+          <span title="Total impressions" style={{
+            fontSize: 10, fontWeight: 700,
+            color: totalImpressions > 0 ? "#38bdf8" : "#334155",
+            background: totalImpressions > 0 ? "rgba(56,189,248,0.08)" : "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(56,189,248,0.12)", borderRadius: 5, padding: "1px 7px",
+          }}>
+            {totalImpressions.toLocaleString()} <span style={{ color: "#475569", fontWeight: 400 }}>imp</span>
           </span>
-          <span title="Assisted ATC% — exposure credit: any section seen during a session with an ATC gets credit" style={{ fontSize: 10, fontWeight: 700, color: totalImpressions > 0 ? "#34d399" : "#334155" }}>
-            {atcRate}{totalImpressions > 0 ? "%" : ""} <span style={{ color: "#334155", fontWeight: 400 }}>Assisted ATC</span>
+          <span title="Total Add-to-Carts" style={{
+            fontSize: 10, fontWeight: 700,
+            color: totalATC > 0 ? "#a78bfa" : "#334155",
+            background: totalATC > 0 ? "rgba(167,139,250,0.08)" : "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(167,139,250,0.12)", borderRadius: 5, padding: "1px 7px",
+          }}>
+            {totalATC} <span style={{ color: "#475569", fontWeight: 400 }}>ATC</span>
+          </span>
+          <span title="Assisted ATC% — any session that saw this section and added to cart" style={{
+            fontSize: 10, fontWeight: 700,
+            color: totalImpressions > 0 ? "#34d399" : "#334155",
+            background: totalImpressions > 0 ? "rgba(52,211,153,0.08)" : "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(52,211,153,0.12)", borderRadius: 5, padding: "1px 7px",
+          }}>
+            {atcRate}{totalImpressions > 0 ? "%" : ""} <span style={{ color: "#475569", fontWeight: 400 }}>AATC%</span>
+          </span>
+          <span title="CTR — add_to_carts ÷ impressions" style={{
+            fontSize: 10, fontWeight: 700,
+            color: totalImpressions > 0 ? "#e98d20" : "#334155",
+            background: totalImpressions > 0 ? "rgba(233,141,32,0.08)" : "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(233,141,32,0.12)", borderRadius: 5, padding: "1px 7px",
+          }}>
+            {totalImpressions > 0 ? ((totalATC / totalImpressions) * 100).toFixed(2) : "—"}{totalImpressions > 0 ? "%" : ""} <span style={{ color: "#475569", fontWeight: 400 }}>CTR</span>
           </span>
         </div>
 
@@ -488,16 +517,23 @@ function SectionCard({ section, onToggle, onEdit, onDelete, onRefresh, onVariati
 
 export default function SectionsPage() {
   const [sections, setSections] = useState<PSection[]>([]);
-  const [loading, setLoading] = useState(true);       // true only on first paint
-  const [refreshing, setRefreshing] = useState(false); // silent background refresh
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<PSection | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [pruning, setPruning] = useState(false);
   const [pruneMsg, setPruneMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("impressions");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const empty: SectionFormData = { name: "", description: "", shopify_section_id: "", targeting_rules_raw: "{}", hard_gate: "false", date_gate_enabled: false, date_gate_start: "", date_gate_end: "" };
   const [form, setForm] = useState<SectionFormData>(empty);
+
+  const cycleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === "desc" ? "asc" : "desc");
+    else { setSortKey(key); setSortDir("desc"); }
+  };
 
   const fetchSections = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -615,31 +651,88 @@ export default function SectionsPage() {
 
   const totalVariations = sections.reduce((s, sec) => s + (sec.variations?.length ?? 0), 0);
 
+  const sortedSections = useMemo(() => {
+    const getVal = (s: PSection) => {
+      const vars = s.variations ?? [];
+      const imp = vars.reduce((a, v) => a + v.impressions, 0);
+      const atc = vars.reduce((a, v) => a + v.add_to_carts, 0);
+      switch (sortKey) {
+        case "name":        return s.name.toLowerCase();
+        case "impressions": return imp;
+        case "atc":         return atc;
+        case "assisted_atc": return imp > 0 ? atc / imp : 0;
+        case "ctr":         return imp > 0 ? atc / imp : 0;
+        default:            return imp;
+      }
+    };
+    return [...sections].sort((a, b) => {
+      const av = getVal(a); const bv = getVal(b);
+      if (av < bv) return sortDir === "desc" ? 1 : -1;
+      if (av > bv) return sortDir === "desc" ? -1 : 1;
+      return 0;
+    });
+  }, [sections, sortKey, sortDir]);
+
+  const SORT_BTNS: { key: SortKey; label: string }[] = [
+    { key: "impressions", label: "Impressions" },
+    { key: "atc",         label: "ATC" },
+    { key: "assisted_atc",label: "Assisted ATC%" },
+    { key: "ctr",         label: "CTR" },
+    { key: "name",        label: "Name" },
+  ];
+
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-        <div>
-          <p style={{ fontSize: 12, color: "#64748b" }}>
-            {sections.length} section{sections.length !== 1 ? "s" : ""} · {totalVariations} variation{totalVariations !== 1 ? "s" : ""}
-          </p>
-          <p style={{ fontSize: 10, color: "#334155", marginTop: 2 }}>
-            <Zap size={9} style={{ display: "inline", marginRight: 3 }} />
-            UCB1 selects the best variation per section automatically
-          </p>
+      <div style={{ marginBottom: "1rem" }}>
+        {/* Top bar */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.65rem", flexWrap: "wrap", gap: "0.5rem" }}>
+          <div>
+            <p style={{ fontSize: 12, color: "#64748b" }}>
+              {sections.length} section{sections.length !== 1 ? "s" : ""} · {totalVariations} variation{totalVariations !== 1 ? "s" : ""}
+            </p>
+            <p style={{ fontSize: 10, color: "#334155", marginTop: 2 }}>
+              <Zap size={9} style={{ display: "inline", marginRight: 3 }} />
+              UCB1 selects the best variation per section automatically
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+            {pruneMsg && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: pruneMsg.ok ? "#34d399" : "#f43f5e" }}>{pruneMsg.text}</span>
+            )}
+            <button onClick={pruneSnippets} disabled={pruning} className="button is-small"
+              title="Deletes lrb-* snippets on Shopify that have no registered section or variation"
+              style={{ background: "rgba(244,63,94,0.08)", color: "#f43f5e", border: "1px solid rgba(244,63,94,0.2)", gap: "0.4rem", display: "flex", alignItems: "center" }}>
+              <Scissors size={12} /> {pruning ? "Pruning..." : "Delete Rogue Snippets"}
+            </button>
+            <button onClick={openCreate} className="button is-small"
+              style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.2)", gap: "0.4rem", display: "flex", alignItems: "center" }}>
+              <Plus size={13} /> Register Section
+            </button>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-          {pruneMsg && (
-            <span style={{ fontSize: 10, fontWeight: 700, color: pruneMsg.ok ? "#34d399" : "#f43f5e" }}>{pruneMsg.text}</span>
-          )}
-          <button onClick={pruneSnippets} disabled={pruning} className="button is-small"
-            title="Deletes lrb-* snippets on Shopify that have no registered section or variation"
-            style={{ background: "rgba(244,63,94,0.08)", color: "#f43f5e", border: "1px solid rgba(244,63,94,0.2)", gap: "0.4rem", display: "flex", alignItems: "center" }}>
-            <Scissors size={12} /> {pruning ? "Pruning..." : "Delete Rogue Snippets"}
-          </button>
-          <button onClick={openCreate} className="button is-small"
-            style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.2)", gap: "0.4rem", display: "flex", alignItems: "center" }}>
-            <Plus size={13} /> Register Section
-          </button>
+
+        {/* Sort controls */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", color: "#334155", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", flexShrink: 0 }}>
+            <ArrowUpDown size={10} /> Sort
+          </div>
+          {SORT_BTNS.map(({ key, label }) => {
+            const active = sortKey === key;
+            return (
+              <button key={key} onClick={() => cycleSort(key)}
+                style={{
+                  fontSize: 10, fontWeight: active ? 800 : 600,
+                  color: active ? "#e98d20" : "#475569",
+                  background: active ? "rgba(233,141,32,0.1)" : "rgba(255,255,255,0.03)",
+                  border: active ? "1px solid rgba(233,141,32,0.3)" : "1px solid rgba(255,255,255,0.07)",
+                  borderRadius: 6, padding: "2px 10px", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 4, transition: "all 0.12s",
+                }}>
+                {label}
+                {active && <span style={{ fontSize: 9 }}>{sortDir === "desc" ? "↓" : "↑"}</span>}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -780,7 +873,7 @@ export default function SectionsPage() {
         </div>
       ) : (
         <div>
-          {sections.map(s => (
+          {sortedSections.map(s => (
             <SectionCard key={s.id} section={s} onToggle={toggle} onEdit={openEdit} onDelete={deleteSection} onRefresh={refreshSilent} onVariationToggle={handleVariationToggle} />
           ))}
         </div>

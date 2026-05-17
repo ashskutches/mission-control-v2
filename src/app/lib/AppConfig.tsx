@@ -29,6 +29,7 @@ import {
     Bug,
     Palette,
     Layers,
+    Code2,
     Film,
     Video,
     Copy,
@@ -81,7 +82,7 @@ export const APP_CONFIG = {
         { id: 'content',          href: '/content',          icon: Film,    label: 'Content',          color: '#e98d20', group: 'content' },
         { id: 'content-video',    href: '/content/video',    icon: Video,   label: 'Video Agent',      color: '#e98d20', group: 'content', squad: 'content' },
         { id: 'content-assets',   href: '/content/assets',   icon: Tag,     label: 'Asset Tagger',     color: '#4a9eff', group: 'content', squad: 'content' },
-        { id: 'content-sections', href: '/content/sections', icon: Layers,  label: 'Section Builder',  color: '#a78bfa', group: 'content', squad: 'content' },
+        { id: 'content-sections', href: '/content/sections', icon: Code2,   label: 'Snippets',         color: '#a78bfa', group: 'content', squad: 'content' },
         { id: 'content-copy',     href: '/content/copy',     icon: Copy,    label: 'Copy Studio',      color: '#22c55e', group: 'content', squad: 'content' },
 
         // ── Customer ──────────────────────────────────────────────────────────

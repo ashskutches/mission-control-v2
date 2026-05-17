@@ -2,7 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Video, Tag, Layers, Copy, Film } from "lucide-react";
+import { BarChart3, Video, Tag, Layers, Copy, Film, Code2 } from "lucide-react";
 
 const NAV = [
   { href: "/content",          label: "Dashboard",       icon: BarChart3,  color: "#f59e0b", exact: true },
@@ -10,7 +10,7 @@ const NAV = [
   { href: "/content/assets",   label: "Content",         icon: Film,       color: "#38bdf8" },
   { href: "/content/tags",     label: "Tag Library",     icon: Tag,        color: "#a78bfa" },
   { href: "/content/batch",    label: "Batch Tagger",    icon: Layers,     color: "#10b981" },
-  { href: "/content/sections", label: "Section Builder", icon: Layers,     color: "#a78bfa" },
+  { href: "/content/sections", label: "Snippets",        icon: Code2,      color: "#a78bfa" },
   { href: "/content/copy",     label: "Copy Studio",     icon: Copy,       color: "#10b981" },
 ];
 
