@@ -61,7 +61,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const renderNavItem = (item: any, indented = false) => {
     const isActive = activeId === item.id;
     const Icon = item.icon;
-    const accent = item.color ?? "var(--accent-orange)";
+    const accent = item.color ?? "var(--accent-orange)"; // L&R orange as default
 
     // Badge for the Requests nav item
     const showBadge = item.id === "system" && openRequests && openRequests.open > 0;
@@ -115,23 +115,26 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         onClick={() => navigate("/")}
       >
         <div
-          className="is-flex is-justify-content-center is-align-items-center has-text-weight-black is-size-4"
+          className="is-flex is-justify-content-center is-align-items-center has-text-weight-black"
           style={{
             width: "48px", height: "48px", borderRadius: "12px",
-            backgroundColor: "var(--accent-orange)", boxShadow: "0 0 20px rgba(255,140,0,0.3)",
+            background: "linear-gradient(135deg, #e98d20 0%, #c97818 100%)",
+            boxShadow: "0 4px 16px rgba(233,141,32,0.4), 0 1px 0 rgba(255,255,255,0.15) inset",
+            fontSize: "15px", letterSpacing: "0.05em", color: "#fff",
+            fontFamily: "'Montserrat', sans-serif",
           }}
         >
-          GC
+          L&R
         </div>
         <div>
-          <h2 className="is-size-5 has-text-weight-bold has-text-white is-marginless">
+          <h2 className="is-size-5 has-text-weight-bold has-text-white is-marginless" style={{ fontFamily: "'Montserrat', sans-serif", letterSpacing: "-0.01em" }}>
             {APP_CONFIG.name}
           </h2>
           <div className="is-flex is-align-items-center" style={{ gap: "0.5rem" }}>
             <span className="is-size-7 has-text-weight-bold has-text-grey-light is-uppercase" style={{ fontSize: "9px" }}>
               V{APP_CONFIG.version}
             </span>
-            <span className="tag is-rounded has-text-weight-bold" style={{ fontSize: "8px", height: "1.5em", backgroundColor: "rgba(255,140,0,0.1)", color: "var(--accent-orange)" }}>
+            <span className="tag is-rounded has-text-weight-bold" style={{ fontSize: "8px", height: "1.5em", backgroundColor: "rgba(233,141,32,0.12)", color: "var(--accent-orange)", border: "1px solid rgba(233,141,32,0.25)" }}>
               STABLE
             </span>
           </div>
@@ -259,22 +262,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* Footer */}
       <div style={{ marginTop: "auto", paddingTop: "2rem" }}>
-        <div className="box p-4 mb-5" style={{ backgroundColor: "rgba(255,255,255,0.02) !important" }}>
+        <div className="box p-4 mb-5" style={{ backgroundColor: "rgba(233,141,32,0.04) !important", border: "1px solid rgba(233,141,32,0.14) !important" }}>
           <div className="is-flex is-justify-content-between is-align-items-center mb-3">
-            <span className="is-size-7 has-text-weight-black is-uppercase has-text-grey" style={{ fontSize: "9px", letterSpacing: "0.1em" }}>Status Monitor</span>
+            <span className="is-size-7 has-text-weight-black is-uppercase" style={{ fontSize: "9px", letterSpacing: "0.1em", color: "var(--text-secondary)" }}>Status Monitor</span>
             <div className="is-flex is-align-items-center" style={{ gap: "0.5rem" }}>
-              <span className="is-block" style={{ width: "6px", height: "6px", background: "var(--accent-emerald)", borderRadius: "50%" }} />
+              <span className="is-block" style={{ width: "6px", height: "6px", background: "var(--accent-emerald)", borderRadius: "50%", animation: "pulse-orange 2.5s ease-in-out infinite" }} />
               <span className="is-size-7 has-text-weight-black has-text-success is-uppercase" style={{ fontSize: "9px" }}>Active</span>
             </div>
           </div>
           <div className="is-flex is-align-items-center" style={{ gap: "0.75rem" }}>
             <div className="is-flex is-justify-content-center is-align-items-center"
-              style={{ width: "32px", height: "32px", background: "rgba(0,255,136,0.05)", borderRadius: "8px", border: "1px solid rgba(0,255,136,0.1)", color: "var(--accent-emerald)" }}>
+              style={{ width: "32px", height: "32px", background: "rgba(233,141,32,0.08)", borderRadius: "8px", border: "1px solid rgba(233,141,32,0.2)", color: "var(--accent-orange)" }}>
               <ShieldCheck size={16} />
             </div>
             <div>
-              <div className="is-size-7 has-text-weight-bold has-text-white is-uppercase" style={{ fontSize: "10px" }}>Units: 2 Deploy</div>
-              <div className="is-size-7 has-text-grey" style={{ fontSize: "9px" }}>Gravity Claw · Antigravity</div>
+              <div className="is-size-7 has-text-weight-bold has-text-white is-uppercase" style={{ fontSize: "10px", fontFamily: "'Montserrat', sans-serif" }}>Units: 2 Deploy</div>
+              <div style={{ fontSize: "9px", color: "var(--text-muted)" }}>Leaps &amp; Rebounds Ops</div>
             </div>
           </div>
         </div>

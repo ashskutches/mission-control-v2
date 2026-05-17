@@ -1,76 +1,99 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "bulma/css/bulma.css";
 
 :root {
-  /* Core Palette - Midnight Foundation */
-  --bg-deep: #0a0a0c;
-  --bg-darker: #121214;
-  --bg-card: rgba(18, 18, 20, 0.7);
-  --bg-elevated: rgba(255, 255, 255, 0.03);
+  /* ── Leaps & Rebounds Brand Foundation ── */
+  --lrb-orange:     #e98d20;
+  --lrb-orange-dim: rgba(233, 141, 32, 0.15);
+  --lrb-orange-glow: rgba(233, 141, 32, 0.35);
+  --lrb-charcoal:   #2e2e30;
+  --lrb-gray:       #D1D1D1;
+  --lrb-white:      #ffffff;
 
-  /* Brand Accents - Vibrant & Premium */
-  --accent-orange: #ff8c00;
-  --accent-amber: #ffb700;
-  --accent-blue: #00aaff;
-  --accent-cyan: #00e5ff;
-  --accent-purple: #bf00ff;
-  --accent-emerald: #00ff88;
-  --accent-rose: #ff3c5c;
-  --accent-gold: #ffd700;
+  /* ── Background Palette (dark base, warm undertones) ── */
+  --bg-deep:    #1a1a1c;          /* slightly warmer than pure black */
+  --bg-darker:  #222224;
+  --bg-sidebar: #1e1e20;
+  --bg-card:    rgba(30, 30, 32, 0.8);
+  --bg-elevated: rgba(255, 255, 255, 0.04);
+  --bg-base:    #1a1a1c;
 
-  /* Text - High Contrast Legibility */
-  --text-primary: #f8f9fa;
-  --text-secondary: #adb5bd;
-  --text-muted: rgba(173, 181, 189, 0.6);
-  --text-dim: rgba(173, 181, 189, 0.3);
+  /* ── Brand Accents — L&R-aligned ── */
+  --accent-orange:  #e98d20;      /* L&R primary orange — CTAs, active states */
+  --accent-amber:   #f5a840;      /* warm amber highlight */
+  --accent-warm:    #c97818;      /* deeper orange for depth */
 
-  /* Glass & Borders - Translucent Precision */
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-blur: blur(20px);
+  /* ── Functional Colors (kept for system status indicators) ── */
+  --accent-blue:    #4a9eff;      /* info / audience */
+  --accent-cyan:    #00c9d7;      /* data / metrics */
+  --accent-emerald: #22c55e;      /* success / active */
+  --accent-purple:  #a78bfa;      /* strategy */
+  --accent-rose:    #f43f5e;      /* error / critical */
+  --accent-gold:    #f59e0b;      /* acquisition / insights */
+
+  /* ── Text — Warm High-Contrast ── */
+  --text-primary:   #f0ede8;      /* warm white */
+  --text-secondary: #b8b4ae;      /* warm gray */
+  --text-muted:     rgba(184, 180, 174, 0.65);
+  --text-dim:       rgba(184, 180, 174, 0.3);
+  --text-dark:      var(--lrb-charcoal);
+
+  /* ── Borders & Glass ── */
+  --glass-border:   rgba(233, 141, 32, 0.12);   /* warm orange-tinted border */
+  --border:         rgba(233, 141, 32, 0.12);
+  --glass-blur:     blur(20px);
   --border-radius-sm: 8px;
   --border-radius-md: 16px;
   --border-radius-lg: 24px;
 
-  /* Animation - High Motion Curve */
+  /* ── Animations ── */
   --transition-fast: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   --transition-slow: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  /* ── Legacy aliases (login page + misc refs) ── */
+  --brand-orange: var(--accent-orange);
+  --brand-red:    var(--accent-rose);
 }
 
 /* ── Bulma Overrides ── */
 body {
   background: var(--bg-deep);
   color: var(--text-primary);
-  font-family: 'Outfit', -apple-system, blinkmacsystemfont, "Segoe UI", roboto, oxygen, ubuntu, cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  font-family: 'Montserrat', -apple-system, blinkmacsystemfont, "Segoe UI", roboto, "Helvetica Neue", sans-serif;
   min-height: 100vh;
 }
 
 .title,
 .subtitle {
   color: var(--text-primary) !important;
+  font-family: 'Montserrat', sans-serif !important;
 }
 
 .box {
   background-color: var(--bg-darker) !important;
   color: var(--text-primary) !important;
   border: 1px solid var(--glass-border);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(233, 141, 32, 0.06);
 }
 
 .button.is-primary {
   background-color: var(--accent-orange) !important;
   border-color: transparent !important;
+  font-family: 'Montserrat', sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
   transition: var(--transition-fast);
 }
 
 .button.is-primary:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 0 20px rgba(255, 140, 0, 0.3);
+  filter: brightness(1.08);
+  box-shadow: 0 0 24px var(--lrb-orange-glow);
 }
 
 .navbar,
 .hero.is-primary {
-  background-color: #000 !important;
+  background-color: var(--bg-sidebar) !important;
 }
 
 /* ── Layout Fixes ── */
@@ -81,7 +104,7 @@ body {
 
 .sidebar-bulma {
   width: 280px;
-  background: #000;
+  background: var(--bg-sidebar);
   border-right: 1px solid var(--glass-border);
   padding: 30px 20px;
   flex-shrink: 0;
@@ -94,7 +117,6 @@ body {
 
 @media screen and (max-width: 1023px) {
   .sidebar-bulma {
-    /* Hidden off-screen to the left by default */
     display: flex !important;
     flex-direction: column;
     position: fixed;
@@ -109,19 +131,17 @@ body {
     overflow-y: auto;
   }
 
-  /* Slide in when active */
   .sidebar-bulma.is-active {
     transform: translateX(0);
-    box-shadow: 4px 0 40px rgba(0, 0, 0, 0.8);
+    box-shadow: 4px 0 40px rgba(0, 0, 0, 0.7), 2px 0 0 rgba(233, 141, 32, 0.15);
   }
 
-  /* Backdrop overlay — sits behind the sidebar */
   .sidebar-backdrop {
     display: none;
     position: fixed;
     inset: 0;
     z-index: 9998;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.65);
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
   }
@@ -141,7 +161,7 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
+  width: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -149,18 +169,24 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--glass-border);
+  background: rgba(233, 141, 32, 0.25);
   border-radius: 99px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--text-dim);
+  background: rgba(233, 141, 32, 0.5);
 }
 
 /* ── Sidebar badge pulse ── */
 @keyframes pulse-badge {
   0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.5); }
   50%       { opacity: 0.85; box-shadow: 0 0 0 4px rgba(244, 63, 94, 0); }
+}
+
+/* ── Orange accent pulse (for active indicators) ── */
+@keyframes pulse-orange {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--lrb-orange-glow); }
+  50%       { opacity: 0.9; box-shadow: 0 0 0 4px transparent; }
 }
 
 /* ── Spinning loader ── */
@@ -171,3 +197,8 @@ body {
 .spin {
   animation: spin 0.8s linear infinite;
 }
+
+/* ── L&R Brand Helper Classes ── */
+.lrb-orange { color: var(--accent-orange); }
+.lrb-orange-bg { background: var(--accent-orange); }
+.lrb-orange-border { border-color: var(--accent-orange); }

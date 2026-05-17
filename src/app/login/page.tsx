@@ -51,19 +51,22 @@ function LoginContent() {
             <div style={{
                 width: 48,
                 height: 48,
-                background: "var(--brand-orange)",
+                background: "linear-gradient(135deg, #e98d20 0%, #c97818 100%)",
                 borderRadius: 12,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 fontWeight: 900,
-                fontSize: 18,
+                fontSize: 14,
+                letterSpacing: "0.05em",
                 color: "white",
-                margin: "0 auto 20px"
-            }}>GC</div>
+                margin: "0 auto 20px",
+                boxShadow: "0 4px 16px rgba(233,141,32,0.4)",
+                fontFamily: "'Montserrat', sans-serif",
+            }}>L&R</div>
 
-            <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: "var(--text-primary)" }}>Mission Control</h1>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 32 }}>Enter your password to access Gravity Claw</p>
+            <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: "var(--text-primary)", fontFamily: "'Montserrat', sans-serif" }}>Mission Control</h1>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 32, fontFamily: "'Montserrat', sans-serif" }}>Leaps &amp; Rebounds · Gravity Claw</p>
 
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <input
@@ -120,7 +123,7 @@ export default function LoginPage() {
             justifyContent: "center",
             minHeight: "100vh",
             background: "var(--bg-base)",
-            fontFamily: "system-ui, sans-serif"
+            fontFamily: "'Montserrat', -apple-system, sans-serif"
         }}>
             <Suspense fallback={<div>Loading...</div>}>
                 <LoginContent />
