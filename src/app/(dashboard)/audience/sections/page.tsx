@@ -29,6 +29,7 @@ interface PSection {
   shopify_section_id: string; targeting_rules: Record<string, unknown>;
   active: boolean; hard_gate: boolean;
   date_gate_enabled: boolean; date_gate_start: string | null; date_gate_end: string | null;
+  stats: { impressions: number; add_to_cart: number; clicks: number; avg_dwell_ms: number } | null;
   variations: SectionVariation[];
   created_at: string; updated_at: string;
 }
@@ -315,7 +316,10 @@ function SectionCard({ section, onToggle, onEdit, onDelete, onRefresh, onVariati
   const hiddenCount = ruleEntries.length - visibleRules.length;
   const variations = section.variations ?? [];
   const totalImpressions = variations.reduce((s, v) => s + v.impressions, 0);
-  const totalATC = variations.reduce((s, v) => s + v.add_to_carts, 0);
+  // ATC is written to personalization_sections.stats.add_to_cart (JSONB) by the event routes.
+  // section_variations.add_to_carts is the UCB1 embed-level counter which is only updated
+  // via /embeds/:id/stats — it is NOT updated by page/event or page/events/batch.
+  const totalATC = section.stats?.add_to_cart ?? 0;
   const atcRate = totalImpressions > 0 ? ((totalATC / totalImpressions) * 100).toFixed(1) : "—";
 
   const deleteVariation = async (varId: string) => {
@@ -655,7 +659,7 @@ export default function SectionsPage() {
     const getVal = (s: PSection) => {
       const vars = s.variations ?? [];
       const imp = vars.reduce((a, v) => a + v.impressions, 0);
-      const atc = vars.reduce((a, v) => a + v.add_to_carts, 0);
+      const atc = s.stats?.add_to_cart ?? 0;
       switch (sortKey) {
         case "name":        return s.name.toLowerCase();
         case "impressions": return imp;
