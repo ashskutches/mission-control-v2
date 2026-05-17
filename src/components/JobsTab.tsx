@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Send, Bot, RefreshCw, CheckCircle2, XCircle,
   Loader2, ChevronDown, ChevronUp, Clock, Zap, Search,
-  Palette, Mail, BarChart2, Users, Copy, Check, X,
+  Palette, Mail, BarChart2, Users, Copy, Check, X, Bell,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
@@ -47,6 +47,13 @@ interface ParseResult {
 interface AgentDef {
   id: string; name: string; emoji?: string;
   specialization?: string; mission?: string; category?: string;
+}
+
+interface DiscordMember {
+  id: string;
+  username: string;
+  displayName: string;
+  avatar: string;
 }
 
 // ── Category config ───────────────────────────────────────────────────────────
@@ -127,7 +134,17 @@ function JobComposer({ agents, onJobCreated }: { agents: AgentDef[]; onJobCreate
   const [overrideAgentId, setOverrideAgentId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [discordMembers, setDiscordMembers] = useState<DiscordMember[]>([]);
+  const [notifyUserId, setNotifyUserId] = useState<string>("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Load Discord members once on mount
+  useEffect(() => {
+    fetch(`${BOT_URL}/admin/agents/discord-members`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: DiscordMember[]) => setDiscordMembers(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
 
   const handleAnalyze = async (req?: string) => {
     const text = (req ?? request).trim();
@@ -160,16 +177,19 @@ function JobComposer({ agents, onJobCreated }: { agents: AgentDef[]; onJobCreate
       const agentName = overrideAgentId
         ? agents.find(a => a.id === overrideAgentId)?.name ?? null
         : parsed.selected_agent_name;
+      const notifyMember = discordMembers.find(m => m.id === notifyUserId);
       const res = await fetch(`${BOT_URL}/admin/jobs`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: parsed.title, request, prompt: parsed.prompt,
           agent_id: agentId, agent_name: agentName, category: parsed.category,
+          notify_discord_user_id:  notifyMember?.id ?? null,
+          notify_discord_username: notifyMember?.displayName ?? null,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      setRequest(""); setParsed(null); setAnswers([]); setOverrideAgentId(null);
+      setRequest(""); setParsed(null); setAnswers([]); setOverrideAgentId(null); setNotifyUserId("");
       onJobCreated();
     } catch (e: any) { setCreateError(e.message); }
     finally { setCreating(false); }
@@ -201,6 +221,25 @@ function JobComposer({ agents, onJobCreated }: { agents: AgentDef[]; onJobCreate
             <span>{p.icon}</span> {p.text.slice(0, 36)}…
           </button>
         ))}
+      </div>
+
+      {/* Discord notify dropdown */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "0.75rem" }}>
+        <Bell size={12} color="#475569" />
+        <span style={{ fontSize: 11, color: "#475569", whiteSpace: "nowrap" }}>Notify when done:</span>
+        <select value={notifyUserId} onChange={e => setNotifyUserId(e.target.value)}
+          style={{ flex: 1, maxWidth: 220, background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7,
+            color: notifyUserId ? "#e2e8f0" : "#475569",
+            padding: "4px 8px", fontSize: 11, fontFamily: "inherit", outline: "none", cursor: "pointer" }}>
+          <option value="">No notification</option>
+          {discordMembers.map(m => (
+            <option key={m.id} value={m.id}>{m.displayName}</option>
+          ))}
+        </select>
+        {notifyUserId && (
+          <span style={{ fontSize: 10, color: "#34d399" }}>✓ DM on complete</span>
+        )}
       </div>
 
       {/* Textarea */}
