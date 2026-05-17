@@ -678,7 +678,7 @@ export default function SectionsPage() {
               ].map(({ key, label, placeholder }) => (
                 <div key={key}>
                   <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>{label}</label>
-                  <input className="input is-small" placeholder={placeholder} value={form[key as keyof SectionFormData]}
+                  <input className="input is-small" placeholder={placeholder} value={form[key as keyof SectionFormData] as string}
                     onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} style={INPUT_STYLE} />
                 </div>
               ))}
