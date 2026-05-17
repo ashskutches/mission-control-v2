@@ -5,7 +5,7 @@
  */
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Check, X, Plug, ExternalLink } from "lucide-react";
+import { RefreshCw, Check, X, Plug, ExternalLink, BarChart2, Lightbulb, MessageSquare } from "lucide-react";
 import SectionAgentPanel from "@/components/SectionAgentPanel";
 import SectionMetricsPanel from "@/components/SectionMetricsPanel";
 import SectionLiveKPIs from "@/components/SectionLiveKPIs";
@@ -213,6 +213,13 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
   const [metrics, setMetrics] = useState<any[]>([]);
   const [assignedAgent, setAssignedAgent] = useState<{ id: string; name: string; emoji?: string } | null>(null);
   const [reviewInsight, setReviewInsight] = useState<Insight | null>(null);
+  const [activeTab, setActiveTab] = useState<"analytics" | "insights" | "chat">("analytics");
+
+  const TABS: { id: "analytics" | "insights" | "chat"; label: string; icon: React.ElementType }[] = [
+    { id: "analytics", label: "Analytics",                  icon: BarChart2 },
+    { id: "insights",  label: "Insights & Recommendations", icon: Lightbulb },
+    { id: "chat",      label: "Chat",                       icon: MessageSquare },
+  ];
 
   const fetchInsights = useCallback(async () => {
     try {
@@ -288,157 +295,181 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
         <SectionAgentPanel sectionId={sectionId} sectionName={sectionName} sectionHint={config.sectionHint} onAgentAssigned={a => setAssignedAgent(a)} onAnalysisDone={handleAnalysisDone} />
       </div>
 
-      {/* ── Row 1: Analytics — full width ────────────────────────────── */}
-      <div style={{ flexShrink: 0, marginBottom: "1.25rem" }}>
-
-        {/* Live KPI auto-refresh bar */}
-        <SectionLiveKPIs
-          sectionId={sectionId}
-          accentColor={accentColor}
-          onRefreshed={() => {
-            setRefreshTrigger(t => t + 1);
-            fetchMetrics();
-          }}
-        />
-
-        {/* Metrics */}
-        <SectionMetricsPanel sectionId={sectionId} agentName={assignedAgent?.name} refreshTrigger={refreshTrigger} />
-
-        {/* Integration Requests — only show if any */}
-        <AnimatePresence>
-          {integrationRequests.length > 0 && (
-            <motion.div key="integrations" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ marginBottom: "1rem" }}>
-              <div className="is-flex is-align-items-center mb-2" style={{ gap: 5 }}>
-                <Plug size={11} color="#fb923c" />
-                <p style={{ fontSize: "10px", color: "#fb923c", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, margin: 0 }}>
-                  Data Sources Requested
-                </p>
-                <span style={{ fontSize: "9px", background: "rgba(251,146,60,0.15)", color: "#fb923c", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>
-                  {integrationRequests.length}
-                </span>
-              </div>
-              {integrationRequests.map(ir => (
-                <IntegrationCard key={ir.id} insight={ir} onFeedback={handleFeedback} />
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* ── Row 2: Full-width Insights & Recommendations ─────────── */}
+      {/* ── Tab Bar ─────────────────────────────────────────────────────── */}
       <div style={{
+        display: "flex", gap: 0,
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
+        marginBottom: "1.25rem",
         flexShrink: 0,
-        marginTop: "1.25rem",
-        minHeight: 360,
-        display: "flex",
-        flexDirection: "column",
-        background: "rgba(0,0,0,0.2)",
-        borderRadius: 14,
-        border: "1px solid rgba(255,255,255,0.07)",
-        overflow: "hidden",
-        marginBottom: "1.5rem",
       }}>
-        {/* Section header */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "0.85rem 1.25rem",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-          flexShrink: 0,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 26, height: 26, borderRadius: 8, background: `${accentColor}18`, border: `1px solid ${accentColor}30`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ fontSize: 13 }}>💡</span>
-            </div>
-            <div>
-              <p style={{ fontSize: "12px", fontWeight: 800, color: "#e2e8f0", margin: 0, lineHeight: 1 }}>Insights & Recommendations</p>
-              <p style={{ fontSize: "10px", color: "#475569", margin: 0, marginTop: 2 }}>Agent-generated findings for this department</p>
-            </div>
-            {counts["new"] > 0 && (
-              <span style={{ fontSize: "10px", fontWeight: 700, background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 6, padding: "2px 8px" }}>
-                {counts["new"]} new
-              </span>
-            )}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {/* Status filter tabs */}
-            <div style={{ display: "flex", gap: "0.35rem" }}>
-              {STATUS_FILTERS.map(s => (
-                <button key={s} onClick={() => setStatusFilter(s)} className="button is-small" style={{
-                  background: statusFilter === s ? "rgba(255,255,255,0.08)" : "transparent",
-                  color: statusFilter === s ? "#e2e8f0" : "#475569",
-                  border: statusFilter === s ? "1px solid rgba(255,255,255,0.12)" : "1px solid transparent",
-                  fontWeight: statusFilter === s ? 700 : 400, fontSize: "10px", textTransform: "capitalize",
-                }}>
-                  {s.replace("_", " ")}
-                  {counts[s] > 0 && <span className="ml-1" style={{ fontSize: "9px", color: s === "new" && counts[s] > 0 ? "#f59e0b" : "#475569" }}>{counts[s]}</span>}
-                </button>
-              ))}
-            </div>
-            <a href={`/intelligence?section=${sectionId}`} style={{ fontSize: "10px", color: "#334155", whiteSpace: "nowrap" }}>View all →</a>
-          </div>
-        </div>
-
-        {/* Insight cards — natural flow, no inner scroll */}
-        <div style={{ padding: "1rem 1.25rem" }}>
-          {filtered.length === 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 120, gap: 8, opacity: 0.5 }}>
-              <p style={{ fontSize: "12px", color: "#475569", textAlign: "center" }}>
-                No {statusFilter.replace("_", " ")} insights.{statusFilter === "new" ? " Run an analysis to generate findings." : ""}
-              </p>
-            </div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "0.75rem" }}>
-              {filtered.map(insight => (
-                <InsightCard key={insight.id} insight={insight} onFeedback={handleFeedback} onOpenPanel={setReviewInsight} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Row 2b: Agent Task Queue (actions awaiting approval) ──── */}
-      <SectionTaskQueue sectionId={sectionId} accentColor={accentColor} />
-
-      {/* ── Row 3: Chat — fixed 520px height, scrolls inside ─────────── */}
-      <div style={{ marginTop: "1.5rem", marginBottom: "2rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "0.65rem" }}>
-          <div style={{ width: 26, height: 26, borderRadius: 8, background: `${accentColor}18`, border: `1px solid ${accentColor}30`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ fontSize: 13 }}>💬</span>
-          </div>
-          <div>
-            <p style={{ fontSize: "12px", fontWeight: 800, color: "#e2e8f0", margin: 0, lineHeight: 1 }}>
-              {assignedAgent ? `Chat with ${assignedAgent.name}` : "Department Chat"}
-            </p>
-            <p style={{ fontSize: "10px", color: "#475569", margin: 0, marginTop: 2 }}>Ask your agent anything about this department</p>
-          </div>
-        </div>
-        {/* Fixed-height container — ChatBox fills it, messages scroll inside */}
-        <div style={{ height: 520 }}>
-          {assignedAgent ? (
-            <ChatBox
-              agentId={assignedAgent.id}
-              agentName={assignedAgent.name}
-              agentEmoji={(assignedAgent as any).emoji}
-              agentColor={accentColor}
-              mode="fill"
-              showHeader
-              showChatLink
-              conversationKey={`${assignedAgent.id}-${sectionId}`}
-              context={{
-                sectionId,
-                sectionName,
-                metrics,
-                insights: regularInsights,
+        {TABS.map(tab => {
+          const isActive = activeTab === tab.id;
+          const Icon = tab.icon;
+          // Badge: show new insight count on the Insights tab
+          const badge = tab.id === "insights" && counts["new"] > 0 ? counts["new"] : null;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                display: "flex", alignItems: "center", gap: "0.45rem",
+                padding: "0.6rem 1rem",
+                background: "none", border: "none",
+                borderBottom: isActive ? `2px solid ${accentColor}` : "2px solid transparent",
+                marginBottom: -1,
+                color: isActive ? accentColor : "#475569",
+                fontWeight: isActive ? 800 : 500,
+                fontSize: 12, textTransform: "uppercase", letterSpacing: "0.06em",
+                cursor: "pointer", transition: "color 0.15s",
+                fontFamily: "inherit",
               }}
-            />
-          ) : (
-            <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.15)", borderRadius: 14, border: "1px dashed rgba(255,255,255,0.06)", opacity: 0.4, gap: 8 }}>
-              <p style={{ fontSize: "13px", color: "#475569", textAlign: "center" }}>Assign a lead agent above<br />to enable the chat panel.</p>
-            </div>
-          )}
-        </div>
+            >
+              <Icon size={13} />
+              {tab.label}
+              {badge && (
+                <span style={{
+                  fontSize: 9, fontWeight: 900,
+                  background: "rgba(245,158,11,0.2)", color: "#f59e0b",
+                  border: "1px solid rgba(245,158,11,0.3)",
+                  borderRadius: 8, padding: "1px 5px", lineHeight: 1,
+                }}>{badge}</span>
+              )}
+            </button>
+          );
+        })}
+
       </div>
+
+      {/* ── Tab Panels ─────────────────────────────────────────────────── */}
+      <AnimatePresence mode="wait">
+        {activeTab === "analytics" && (
+          <motion.div key="analytics" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+
+            {/* Live KPI bar */}
+            <SectionLiveKPIs
+              sectionId={sectionId}
+              accentColor={accentColor}
+              onRefreshed={() => { setRefreshTrigger(t => t + 1); fetchMetrics(); }}
+            />
+
+            {/* Metrics */}
+            <SectionMetricsPanel sectionId={sectionId} agentName={assignedAgent?.name} refreshTrigger={refreshTrigger} />
+
+            {/* Integration Requests */}
+            <AnimatePresence>
+              {integrationRequests.length > 0 && (
+                <motion.div key="integrations" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ marginTop: "1rem" }}>
+                  <div className="is-flex is-align-items-center mb-2" style={{ gap: 5 }}>
+                    <Plug size={11} color="#fb923c" />
+                    <p style={{ fontSize: "10px", color: "#fb923c", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, margin: 0 }}>Data Sources Requested</p>
+                    <span style={{ fontSize: "9px", background: "rgba(251,146,60,0.15)", color: "#fb923c", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>{integrationRequests.length}</span>
+                  </div>
+                  {integrationRequests.map(ir => <IntegrationCard key={ir.id} insight={ir} onFeedback={handleFeedback} />)}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+
+        {activeTab === "insights" && (
+          <motion.div key="insights" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+            {/* Insights & Recommendations panel */}
+            <div style={{
+              background: "rgba(0,0,0,0.2)", borderRadius: 14,
+              border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden",
+            }}>
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "0.85rem 1.25rem", borderBottom: "1px solid rgba(255,255,255,0.06)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 26, height: 26, borderRadius: 8, background: `${accentColor}18`, border: `1px solid ${accentColor}30`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontSize: 13 }}>💡</span>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: "12px", fontWeight: 800, color: "#e2e8f0", margin: 0, lineHeight: 1 }}>Insights &amp; Recommendations</p>
+                    <p style={{ fontSize: "10px", color: "#475569", margin: 0, marginTop: 2 }}>Agent-generated findings for this department</p>
+                  </div>
+                  {counts["new"] > 0 && (
+                    <span style={{ fontSize: "10px", fontWeight: 700, background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 6, padding: "2px 8px" }}>
+                      {counts["new"]} new
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ display: "flex", gap: "0.35rem" }}>
+                    {STATUS_FILTERS.map(s => (
+                      <button key={s} onClick={() => setStatusFilter(s)} className="button is-small" style={{
+                        background: statusFilter === s ? "rgba(255,255,255,0.08)" : "transparent",
+                        color: statusFilter === s ? "#e2e8f0" : "#475569",
+                        border: statusFilter === s ? "1px solid rgba(255,255,255,0.12)" : "1px solid transparent",
+                        fontWeight: statusFilter === s ? 700 : 400, fontSize: "10px", textTransform: "capitalize",
+                      }}>
+                        {s.replace("_", " ")}
+                        {counts[s] > 0 && <span className="ml-1" style={{ fontSize: "9px", color: s === "new" && counts[s] > 0 ? "#f59e0b" : "#475569" }}>{counts[s]}</span>}
+                      </button>
+                    ))}
+                  </div>
+                  <a href={`/intelligence?section=${sectionId}`} style={{ fontSize: "10px", color: "#334155", whiteSpace: "nowrap" }}>View all →</a>
+                </div>
+              </div>
+              <div style={{ padding: "1rem 1.25rem" }}>
+                {filtered.length === 0 ? (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 120, gap: 8, opacity: 0.5 }}>
+                    <p style={{ fontSize: "12px", color: "#475569", textAlign: "center" }}>
+                      No {statusFilter.replace("_", " ")} insights.{statusFilter === "new" ? " Run an analysis to generate findings." : ""}
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "0.75rem" }}>
+                    {filtered.map(insight => (
+                      <InsightCard key={insight.id} insight={insight} onFeedback={handleFeedback} onOpenPanel={setReviewInsight} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Task Queue */}
+            <div style={{ marginTop: "1rem" }}>
+              <SectionTaskQueue sectionId={sectionId} accentColor={accentColor} />
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === "chat" && (
+          <motion.div key="chat" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+            <div style={{ marginBottom: "0.65rem" }}>
+              <p style={{ fontSize: "12px", fontWeight: 800, color: "#e2e8f0", margin: 0 }}>
+                {assignedAgent ? `Chat with ${assignedAgent.name}` : "Department Chat"}
+              </p>
+              <p style={{ fontSize: "10px", color: "#475569", margin: "2px 0 0" }}>Ask your agent anything about this department</p>
+            </div>
+            <div style={{ height: 560 }}>
+              {assignedAgent ? (
+                <ChatBox
+                  agentId={assignedAgent.id}
+                  agentName={assignedAgent.name}
+                  agentEmoji={(assignedAgent as any).emoji}
+                  agentColor={accentColor}
+                  mode="fill"
+                  showHeader
+                  showChatLink
+                  conversationKey={`${assignedAgent.id}-${sectionId}`}
+                  context={{ sectionId, sectionName, metrics, insights: regularInsights }}
+                />
+              ) : (
+                <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.15)", borderRadius: 14, border: "1px dashed rgba(255,255,255,0.06)", opacity: 0.4, gap: 8 }}>
+                  <p style={{ fontSize: "13px", color: "#475569", textAlign: "center" }}>Assign a lead agent above<br />to enable the chat panel.</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+
+
 
       {/* Approval Review Panel — slide-out overlay */}
       <InsightReviewPanel
