@@ -659,7 +659,7 @@ function AgentRosterCard({
 }
 
 // ── Main Component ─────────────────────────────────────────────────────
-export const AgentCRUD = () => {
+export const AgentCRUD = ({ hideLeads }: { hideLeads?: boolean } = {}) => {
     const [agents, setAgents] = useState<AgentDef[]>([]);
     const [templates, setTemplates] = useState<AgentTemplate[]>([]);
     const [templatesGrouped, setTemplatesGrouped] = useState<Record<string, AgentTemplate[]>>({});
@@ -842,9 +842,12 @@ export const AgentCRUD = () => {
                     )}
                     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
                         {(() => {
-                            // Group agents by derived department
+                            // Group agents by derived department (optionally hide Squad Leads)
+                            const visibleAgents = hideLeads
+                                ? agents.filter(a => deriveCategory(a) !== "Squad Lead")
+                                : agents;
                             const grouped: Record<string, typeof agents> = {};
-                            for (const agent of agents) {
+                            for (const agent of visibleAgents) {
                                 const dept = deriveCategory(agent);
                                 if (!grouped[dept]) grouped[dept] = [];
                                 grouped[dept]!.push(agent);
