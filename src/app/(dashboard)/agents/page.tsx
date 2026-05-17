@@ -3,6 +3,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { AgentCRUD } from "@/components/AgentCRUD";
+import JobsTab from "@/components/JobsTab";
+
 import {
   LayoutDashboard, Users, Bot, ListTodo,
   Zap, MessageSquare, BarChart2, Clock,
@@ -235,16 +237,6 @@ function LeadsTab({ agents }: { agents: AgentDef[]; allAgents?: AgentDef[] }) {
 }
 
 
-// ── Tasks placeholder ─────────────────────────────────────────────────────────
-function TasksTab() {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "6rem 2rem", gap: 16, opacity: 0.5 }}>
-      <ListTodo size={40} color="#475569" />
-      <p style={{ fontSize: 14, color: "#475569", textAlign: "center", fontWeight: 700 }}>Tasks coming soon</p>
-      <p style={{ fontSize: 12, color: "#334155", textAlign: "center", margin: 0 }}>We&apos;ll build this together.</p>
-    </div>
-  );
-}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function AgentsPage() {
@@ -316,7 +308,7 @@ export default function AgentsPage() {
           {tab === "overview" && <OverviewTab agents={agents} metrics={metricsWithRoutines} />}
           {tab === "leads"    && <LeadsTab agents={agents} allAgents={agents} />}
           {tab === "agents"   && <AgentCRUD hideLeads />}
-          {tab === "tasks"    && <TasksTab />}
+          {tab === "tasks"    && <JobsTab agents={agents} />}
         </motion.div>
       </AnimatePresence>
     </div>
