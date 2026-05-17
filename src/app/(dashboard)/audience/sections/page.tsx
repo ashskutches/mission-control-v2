@@ -692,7 +692,9 @@ export default function SectionsPage() {
               </div>
             </div>
 
-              <div style={{ marginTop: "0.75rem" }}>
+            <div style={{ marginTop: "0.75rem" }}>
+              {/* Date gate */}
+              <div style={{ marginBottom: "0.75rem" }}>
                 <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", userSelect: "none" }}>
                   <input
                     type="checkbox"
@@ -726,9 +728,11 @@ export default function SectionsPage() {
                   </div>
                 )}
                 <p style={{ fontSize: 9, color: "#475569", marginTop: "0.3rem" }}>
-                  When enabled, this section is invisible to all visitors before the start date and after end-of-day on the end date (UTC). Dates are inclusive.
+                  When enabled, this section is invisible before the start date and after end-of-day on the end date (UTC). Dates are inclusive.
                 </p>
               </div>
+
+              {/* Signals */}
               <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>Signals (JSON)</label>
               <div style={{ background: "rgba(30,41,59,0.6)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "0.75rem", marginBottom: "0.5rem", fontSize: 11 }}>
                 <p style={{ color: "#94a3b8", fontWeight: 700, marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>Quick Examples</p>
