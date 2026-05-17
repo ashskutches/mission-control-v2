@@ -152,7 +152,7 @@ function MasterBotChat({ masterAgentId }: { masterAgentId: string | null }) {
       hasMounted.current = true;
       setMessages([{
         role: "assistant",
-        text: "**Mission Control Online.** I'm monitoring all departments. What strategic question can I help you with?",
+        text: "**L&R Ops Online.** All departments are being monitored. What do you want to dig into?",
         ts: Date.now(),
       }]);
     }
@@ -238,7 +238,7 @@ function MasterBotChat({ masterAgentId }: { masterAgentId: string | null }) {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={onKey}
-          placeholder="Ask the Master Bot anything…"
+          placeholder="Ask the intelligence anything…"
           rows={2}
           style={{
             flex: 1, resize: "none", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
@@ -298,8 +298,8 @@ export default function OverviewPage() {
       <section style={{ background: "linear-gradient(135deg, rgba(255,140,0,0.06), rgba(0,0,0,0))", border: "1px solid rgba(255,140,0,0.1)", borderRadius: 16, padding: "20px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <p style={{ fontSize: 10, color: "#555", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", margin: 0 }}>Mission Control · Master Bot HQ</p>
-            <h1 style={{ fontSize: "clamp(24px,4vw,40px)", fontWeight: 900, color: "#fff", margin: "4px 0 0", lineHeight: 1 }}>Situation Room</h1>
+            <p style={{ fontSize: 10, color: "#555", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", margin: 0 }}>Leaps &amp; Rebounds · Operations Hub</p>
+            <h1 style={{ fontSize: "clamp(24px,4vw,40px)", fontWeight: 900, color: "#fff", margin: "4px 0 0", lineHeight: 1 }}>Overview</h1>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <motion.button
@@ -399,7 +399,7 @@ export default function OverviewPage() {
                 <Brain size={13} color="var(--accent-orange)" />
               </div>
               <div>
-                <p style={{ fontSize: 12, fontWeight: 800, color: "#fff", margin: 0, textTransform: "uppercase", letterSpacing: "0.06em" }}>Master Bot</p>
+                <p style={{ fontSize: 12, fontWeight: 800, color: "#fff", margin: 0, textTransform: "uppercase", letterSpacing: "0.06em" }}>Intelligence</p>
                 <p style={{ fontSize: 9, color: "#555", margin: 0 }}>
                   {masterAgentId ? `Agent: ${masterAgentId.slice(0, 8)}… · Online` : "General intelligence mode"}
                 </p>

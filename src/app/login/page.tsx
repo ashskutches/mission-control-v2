@@ -65,8 +65,8 @@ function LoginContent() {
                 fontFamily: "'Montserrat', sans-serif",
             }}>L&R</div>
 
-            <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: "var(--text-primary)", fontFamily: "'Montserrat', sans-serif" }}>Mission Control</h1>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 32, fontFamily: "'Montserrat', sans-serif" }}>Leaps &amp; Rebounds · Gravity Claw</p>
+            <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: "var(--text-primary)", fontFamily: "'Montserrat', sans-serif" }}>Operations Hub</h1>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 32, fontFamily: "'Montserrat', sans-serif" }}>Leaps &amp; Rebounds · Internal Intelligence</p>
 
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <input

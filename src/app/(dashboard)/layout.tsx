@@ -28,7 +28,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Mobile nav */}
         <nav className="navbar is-hidden-tablet is-black" role="navigation" aria-label="main navigation">
           <div className="navbar-brand">
-            <a className="navbar-item has-text-weight-black has-text-white" href="/">GC COMMAND</a>
+            <a className="navbar-item has-text-weight-black has-text-white" href="/">L&R OPS</a>
             <button
               role="button"
               className={`navbar-burger${isMobileMenuOpen ? " is-active" : ""}`}
@@ -52,7 +52,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </AnimatePresence>
 
         <footer className="py-6 mt-2 has-text-centered has-text-grey-light is-size-7 is-uppercase has-text-weight-bold px-4" style={{ letterSpacing: "0.1em" }}>
-          Mission Control · Strategic Intelligence Asset © {new Date().getFullYear()}
+          Leaps & Rebounds · Operations Intelligence © {new Date().getFullYear()}
         </footer>
       </section>
     </main>

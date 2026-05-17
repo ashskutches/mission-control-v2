@@ -68,9 +68,9 @@ export const SQUADS = [
 ];
 
 export const APP_CONFIG = {
-    name: 'Mission Control',
+    name: 'Leaps & Rebounds',
     version: '3.0.0',
-    author: 'Gravity Claw',
+    author: 'L&R Intelligence',
     navigation: [
         // ── Core ──────────────────────────────────────────────────────────────
         { id: 'overview',     href: '/',             icon: LayoutDashboard, label: 'Overview',     group: 'core' },
