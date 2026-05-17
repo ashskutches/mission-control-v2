@@ -76,9 +76,9 @@ export const APP_CONFIG = {
         { id: 'overview',   href: '/',             icon: LayoutDashboard, label: 'Overview'                   },
         { id: 'north-star', href: '/north-star',   icon: TrendingUp,      label: 'North Star', color: '#a78bfa' },
         { id: 'insights',   href: '/intelligence', icon: BrainCircuit,    label: 'Insights',   color: '#e98d20' },
-        { id: 'audience',   href: '/audience',     icon: Layers,          label: 'Audience',   color: '#4a9eff' },
+        { id: 'audience',   href: '/audience',     icon: Layers,          label: 'Website',    color: '#4a9eff' },
         { id: 'content',    href: '/content',      icon: Film,            label: 'Content',    color: '#e98d20' },
-        { id: 'customer',   href: '/customer',     icon: UserCheck,       label: 'Customer',   color: '#4a9eff' },
+        { id: 'customer',   href: '/customer',     icon: UserCheck,       label: 'Orders',     color: '#4a9eff' },
         { id: 'store',      href: '/commerce',     icon: ShoppingBag,     label: 'Commerce',   color: '#e98d20' },
 
         // ── Command ────────────────────────────────────────────────────────────
