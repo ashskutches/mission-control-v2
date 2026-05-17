@@ -127,19 +127,7 @@ function OverviewTab({ agents, metrics }: { agents: AgentDef[]; metrics: any }) 
         })}
       </div>
 
-      {/* Lead roster */}
-      {leads.length > 0 && (
-        <div>
-          <p style={{ fontSize: 9, fontWeight: 800, color: "#444", textTransform: "uppercase", letterSpacing: "0.12em", margin: "0 0 10px" }}>
-            Lead Agents
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "0.6rem" }}>
-            {leads.map(a => (
-              <LeadMiniCard key={a.id} agent={a} />
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* Dept breakdown */}
       <div>
@@ -220,82 +208,32 @@ function LeadMiniCard({ agent }: { agent: AgentDef }) {
 }
 
 // ── Leads tab ─────────────────────────────────────────────────────────────────
-function LeadsTab({ agents, allAgents }: { agents: AgentDef[]; allAgents: AgentDef[] }) {
-  const router = useRouter();
+function LeadsTab({ agents }: { agents: AgentDef[]; allAgents?: AgentDef[] }) {
   const leads = agents.filter(a => deriveCategory(a) === "Squad Lead");
 
   if (leads.length === 0) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "4rem", gap: 12, opacity: 0.5 }}>
         <Users size={32} color="#475569" />
-        <p style={{ fontSize: 13, color: "#475569", textAlign: "center" }}>No lead agents found.<br />Create an agent with the "Squad Lead" category to see them here.</p>
+        <p style={{ fontSize: 13, color: "#475569", textAlign: "center" }}>No lead agents found.<br />Create an agent with the &quot;Squad Lead&quot; category to see them here.</p>
       </div>
     );
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-      <p style={{ fontSize: 10, color: "#475569", margin: 0 }}>
-        {leads.length} lead agent{leads.length !== 1 ? "s" : ""} · Each lead oversees a squad of specialist agents.
+    <div>
+      <p style={{ fontSize: 9, fontWeight: 800, color: "#444", textTransform: "uppercase", letterSpacing: "0.12em", margin: "0 0 10px" }}>
+        Lead Agents
       </p>
-      {leads.map(lead => {
-        // Find agents that might report to this lead (same squad/section, non-leads)
-        // — heuristic: match specialization keywords
-        const color = "#a78bfa";
-        return (
-          <div key={lead.id} style={{
-            background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.14)",
-            borderRadius: 14, overflow: "hidden",
-          }}>
-            {/* Lead header */}
-            <div
-              onClick={() => router.push(`/agents/${lead.id}`)}
-              style={{
-                display: "flex", alignItems: "center", gap: "0.85rem",
-                padding: "1rem 1.25rem", cursor: "pointer",
-                borderBottom: "1px solid rgba(167,139,250,0.1)",
-              }}
-            >
-              <div style={{
-                width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-                background: "rgba(167,139,250,0.15)", border: "1px solid rgba(167,139,250,0.3)",
-                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22,
-              }}>
-                {lead.emoji ?? "🧠"}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <p style={{ color: "#fff", fontWeight: 900, fontSize: 14, margin: 0 }}>{lead.name}</p>
-                  <span style={{ fontSize: 9, fontWeight: 800, color: "#a78bfa", background: "rgba(167,139,250,0.15)", border: "1px solid rgba(167,139,250,0.3)", borderRadius: 5, padding: "1px 6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    Lead
-                  </span>
-                </div>
-                <p style={{ color: "#475569", fontSize: 11, margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.specialization}</p>
-              </div>
-              {/* Action perms */}
-              <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
-                {lead.action_perms?.email  && <span title="Email"  style={{ width: 7, height: 7, borderRadius: "50%", background: "#ef4444" }} />}
-                {lead.action_perms?.sms    && <span title="SMS"    style={{ width: 7, height: 7, borderRadius: "50%", background: "#f59e0b" }} />}
-                {lead.action_perms?.social && <span title="Social" style={{ width: 7, height: 7, borderRadius: "50%", background: "#a855f7" }} />}
-                {lead.action_perms?.calls  && <span title="Calls"  style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e" }} />}
-              </div>
-              <ArrowRight size={13} color="#334155" style={{ flexShrink: 0 }} />
-            </div>
-
-            {/* Mission snippet */}
-            {lead.mission && (
-              <div style={{ padding: "0.65rem 1.25rem", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                <p style={{ fontSize: 11, color: "#475569", margin: 0, lineHeight: 1.5 }}>
-                  {lead.mission.slice(0, 180)}{lead.mission.length > 180 ? "…" : ""}
-                </p>
-              </div>
-            )}
-          </div>
-        );
-      })}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "0.6rem" }}>
+        {leads.map(a => (
+          <LeadMiniCard key={a.id} agent={a} />
+        ))}
+      </div>
     </div>
   );
 }
+
 
 // ── Tasks placeholder ─────────────────────────────────────────────────────────
 function TasksTab() {
