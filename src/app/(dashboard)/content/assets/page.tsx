@@ -118,22 +118,17 @@ function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove, saving }: {
         <a href={file.webViewLink ?? "#"} target="_blank" rel="noopener noreferrer"
           style={{ display: "block", position: "relative", width: "100%", height: 160, overflow: "hidden",
             background: "rgba(0,0,0,0.5)", textDecoration: "none" }}>
-          {isImage && file.thumbnailLink ? (
+          {isImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={file.thumbnailLink.replace("=s220", "=s400")}
+              src={`${BOT_URL}/admin/drive/thumbnail/${file.id}`}
               alt={file.name}
               style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
                 transition: "transform 0.25s", filter: "brightness(0.92)" }}
               onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.04)")}
               onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
+              onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
             />
-          ) : isImage ? (
-            <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(56,189,248,0.05)" }}>
-              <ImageIcon size={28} color="#38bdf8" style={{ opacity: 0.4 }} />
-              <span style={{ fontSize: 9, color: "#334155" }}>No preview</span>
-            </div>
           ) : (
             <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column",
               alignItems: "center", justifyContent: "center", gap: 8,
