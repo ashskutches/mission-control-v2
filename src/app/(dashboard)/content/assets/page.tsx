@@ -5,7 +5,7 @@ import {
   Tag, FolderOpen, Search, RefreshCw, CheckSquare,
   Image as ImageIcon, Film, FileText, Package, X, Plus,
   ChevronDown, ChevronLeft, ChevronRight, Database,
-  AlertCircle, Loader2,
+  AlertCircle, Loader2, BookmarkPlus, Check,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -101,6 +101,13 @@ function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove, saving }: {
   const color = fileColor(file.mimeType);
   const tags = file.tags ?? [];
 
+  // ── Add to Library ──
+  const [showLibForm, setShowLibForm] = useState(false);
+  const [libName, setLibName] = useState("");
+  const [libTags, setLibTags] = useState("");
+  const [libSaving, setLibSaving] = useState(false);
+  const [libDone, setLibDone] = useState(false);
+
   const handleAddTag = (tag: string) => {
     const t = tag.trim().toLowerCase();
     if (t && !tags.includes(t)) onTagAdd(t);
@@ -109,6 +116,34 @@ function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove, saving }: {
 
   const isImage = file.mimeType.startsWith("image/") || file.mimeType.includes("photoshop") || file.mimeType === "application/psd";
   const isVideo = file.mimeType.startsWith("video/") || file.mimeType.includes("mp4") || file.mimeType.includes("video");
+
+  const addToLibrary = async () => {
+    setLibSaving(true);
+    try {
+      const assetType = isVideo ? "video" : "image";
+      const name = libName.trim() || file.name.replace(/\.[^.]+$/, "");
+      const tagList = libTags.split(",").map(t => t.trim()).filter(Boolean);
+      const res = await fetch(`${BOT_URL}/admin/landing-pages/assets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: assetType,
+          name,
+          tags: tagList,
+          url: `${BOT_URL}/admin/drive/thumbnail/${file.id}`,
+          source: "drive",
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      setLibDone(true);
+      setShowLibForm(false);
+      setTimeout(() => setLibDone(false), 3000);
+    } catch (e: any) {
+      alert(`Failed: ${e.message}`);
+    } finally {
+      setLibSaving(false);
+    }
+  };
 
   return (
     <div style={{ ...CARD, padding: 0, border: selected ? `1px solid ${ACCENT}40` : "1px solid rgba(255,255,255,0.07)", background: selected ? `${ACCENT}06` : "rgba(255,255,255,0.03)", transition: "all 0.12s", overflow: "hidden" }}>
@@ -220,6 +255,60 @@ function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove, saving }: {
               +{tag}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* ── Add to Library button ── */}
+      {(isImage || isVideo) && (
+        <div style={{ marginTop: "0.6rem", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.6rem" }}>
+          {!showLibForm ? (
+            <button
+              onClick={() => { setShowLibForm(true); setLibName(file.name.replace(/\.[^.]+$/, "")); setLibTags(tags.join(", ")); }}
+              style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 700,
+                color: libDone ? "#34d399" : "#818cf8",
+                background: libDone ? "rgba(52,211,153,0.08)" : "rgba(129,140,248,0.08)",
+                border: `1px solid ${libDone ? "rgba(52,211,153,0.2)" : "rgba(129,140,248,0.2)"}`,
+                borderRadius: 7, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit",
+                transition: "all 0.2s" }}>
+              {libDone ? <Check size={11} /> : <BookmarkPlus size={11} />}
+              {libDone ? "Added to Library ✓" : "+ Content Library"}
+            </button>
+          ) : (
+            <div style={{ background: "rgba(129,140,248,0.05)", border: "1px solid rgba(129,140,248,0.15)",
+              borderRadius: 9, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 7 }}>
+              <p style={{ fontSize: 9, fontWeight: 800, color: "#818cf8", margin: 0, textTransform: "uppercase",
+                letterSpacing: "0.08em" }}>Add to Content Library</p>
+              <div>
+                <label style={{ fontSize: 9, color: "#475569", display: "block", marginBottom: 2 }}>Name</label>
+                <input value={libName} onChange={e => setLibName(e.target.value)}
+                  style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)",
+                    borderRadius: 6, color: "#e2e8f0", padding: "4px 7px", fontSize: 11, fontFamily: "inherit",
+                    outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 9, color: "#475569", display: "block", marginBottom: 2 }}>Tags (comma-separated)</label>
+                <input value={libTags} onChange={e => setLibTags(e.target.value)}
+                  placeholder="hero, lifestyle, product"
+                  style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)",
+                    borderRadius: 6, color: "#e2e8f0", padding: "4px 7px", fontSize: 11, fontFamily: "inherit",
+                    outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={addToLibrary} disabled={libSaving}
+                  style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 700,
+                    color: "#818cf8", background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)",
+                    borderRadius: 6, padding: "4px 12px", cursor: libSaving ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
+                  {libSaving ? <Loader2 size={10} style={{ animation: "spin 1s linear infinite" }} /> : <BookmarkPlus size={10} />}
+                  {libSaving ? "Saving…" : "Save"}
+                </button>
+                <button onClick={() => setShowLibForm(false)}
+                  style={{ fontSize: 10, color: "#475569", background: "none", border: "1px solid rgba(255,255,255,0.07)",
+                    borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
       </div>
