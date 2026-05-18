@@ -107,25 +107,84 @@ function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove, saving }: {
     setTagInput(""); setShowTagInput(false);
   };
 
+  const isImage = file.mimeType.startsWith("image/");
+  const isVideo = file.mimeType.startsWith("video/") || file.mimeType.includes("mp4") || file.mimeType.includes("video");
+
   return (
-    <div style={{ ...CARD, padding: "0.875rem", border: selected ? `1px solid ${ACCENT}40` : "1px solid rgba(255,255,255,0.07)", background: selected ? `${ACCENT}06` : "rgba(255,255,255,0.03)", transition: "all 0.12s" }}>
+    <div style={{ ...CARD, padding: 0, border: selected ? `1px solid ${ACCENT}40` : "1px solid rgba(255,255,255,0.07)", background: selected ? `${ACCENT}06` : "rgba(255,255,255,0.03)", transition: "all 0.12s", overflow: "hidden" }}>
+
+      {/* ── Media Preview ── */}
+      {(isImage || isVideo) && (
+        <a href={file.webViewLink ?? "#"} target="_blank" rel="noopener noreferrer"
+          style={{ display: "block", position: "relative", width: "100%", height: 160, overflow: "hidden",
+            background: "rgba(0,0,0,0.5)", textDecoration: "none" }}>
+          {isImage && file.thumbnailLink ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={file.thumbnailLink.replace("=s220", "=s400")}
+              alt={file.name}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
+                transition: "transform 0.25s", filter: "brightness(0.92)" }}
+              onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.04)")}
+              onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
+            />
+          ) : isImage ? (
+            <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(56,189,248,0.05)" }}>
+              <ImageIcon size={28} color="#38bdf8" style={{ opacity: 0.4 }} />
+              <span style={{ fontSize: 9, color: "#334155" }}>No preview</span>
+            </div>
+          ) : (
+            <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center", gap: 8,
+              background: "linear-gradient(135deg, rgba(245,158,11,0.07), rgba(0,0,0,0.55))" }}>
+              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(245,158,11,0.15)",
+                border: "1.5px solid rgba(245,158,11,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <polygon points="4,2 14,8 4,14" fill="#f59e0b" />
+                </svg>
+              </div>
+              <span style={{ fontSize: 9, color: "#78716c", textTransform: "uppercase", letterSpacing: "0.08em" }}>Video</span>
+            </div>
+          )}
+          {/* File type badge */}
+          <span style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.65)",
+            backdropFilter: "blur(6px)", borderRadius: 5, padding: "2px 6px", border: `1px solid ${color}30`,
+            fontSize: 9, color, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            {file.mimeType.split("/").pop()?.slice(0, 6).toUpperCase()}
+          </span>
+          {file.size && (
+            <span style={{ position: "absolute", top: 6, left: 6, background: "rgba(0,0,0,0.55)",
+              backdropFilter: "blur(6px)", borderRadius: 5, padding: "2px 6px", fontSize: 9, color: "#64748b" }}>
+              {(Number(file.size) / 1_000_000).toFixed(1)} MB
+            </span>
+          )}
+        </a>
+      )}
+
+      {/* ── Card body ── */}
+      <div style={{ padding: "0.75rem" }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem", marginBottom: "0.6rem" }}>
         <button onClick={onToggle} style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 4, border: `1.5px solid ${selected ? ACCENT : "rgba(255,255,255,0.15)"}`, background: selected ? ACCENT : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 2 }} aria-label={selected ? "Deselect file" : "Select file"}>
           {selected && <CheckSquare size={10} color="#0f172a" />}
         </button>
-        <div style={{ width: 28, height: 28, borderRadius: 7, background: `${color}15`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <Icon size={14} color={color} />
-        </div>
+        {!isImage && !isVideo && (
+          <div style={{ width: 28, height: 28, borderRadius: 7, background: `${color}15`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Icon size={14} color={color} />
+          </div>
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <a href={file.webViewLink ?? "#"} target="_blank" rel="noopener noreferrer"
             title={file.name}
             style={{ fontWeight: 700, color: "#e2e8f0", fontSize: 12, textDecoration: "none", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {file.name}
           </a>
+          {!isImage && !isVideo && (
           <p style={{ fontSize: 9, color: "#475569", margin: 0, textTransform: "uppercase", letterSpacing: "0.06em" }}>
             {file.mimeType.split("/").pop()?.toUpperCase().slice(0, 12)}
             {file.size && ` · ${(Number(file.size) / 1_000_000).toFixed(1)} MB`}
           </p>
+          )}
         </div>
       </div>
 
@@ -164,6 +223,7 @@ function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove, saving }: {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
