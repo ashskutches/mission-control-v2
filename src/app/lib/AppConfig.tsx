@@ -33,6 +33,7 @@ import {
     Film,
     Video,
     Copy,
+    Layout,
     UserCheck,
 } from 'lucide-react';
 
@@ -79,7 +80,8 @@ export const APP_CONFIG = {
         { id: 'audience',   href: '/audience',     icon: Layers,          label: 'Website',    color: '#4a9eff' },
         { id: 'content',    href: '/content',      icon: Film,            label: 'Content',    color: '#e98d20' },
         { id: 'customer',   href: '/customer',     icon: UserCheck,       label: 'Orders',     color: '#4a9eff' },
-        { id: 'store',      href: '/commerce',     icon: ShoppingBag,     label: 'Commerce',   color: '#e98d20' },
+        { id: 'store',          href: '/commerce',              icon: ShoppingBag, label: 'Commerce',       color: '#e98d20' },
+        { id: 'landing-pages',  href: '/commerce/landing-pages', icon: Layout,      label: 'Landing Pages',  color: '#818cf8' },
 
         // ── Command ────────────────────────────────────────────────────────────
         { id: 'agents',   href: '/agents',    icon: Bot,           label: 'Agents',    color: '#6b7280' },
