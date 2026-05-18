@@ -50,13 +50,13 @@ interface PageResponse {
 
 function fileIcon(mimeType: string): React.ElementType {
   if (mimeType.startsWith("video/") || mimeType.includes("mp4")) return Film;
-  if (mimeType.startsWith("image/")) return ImageIcon;
+  if (mimeType.startsWith("image/") || mimeType.includes("photoshop") || mimeType === "application/psd") return ImageIcon;
   if (mimeType.startsWith("text/") || mimeType.includes("document") || mimeType.includes("pdf")) return FileText;
   return Package;
 }
 function fileColor(mimeType: string): string {
   if (mimeType.startsWith("video/") || mimeType.includes("mp4")) return "#f59e0b";
-  if (mimeType.startsWith("image/")) return "#38bdf8";
+  if (mimeType.startsWith("image/") || mimeType.includes("photoshop") || mimeType === "application/psd") return "#38bdf8";
   if (mimeType.startsWith("text/") || mimeType.includes("document") || mimeType.includes("pdf")) return "#10b981";
   return "#94a3b8";
 }
@@ -70,7 +70,7 @@ const PRESET_TAGS = [
 const MIME_FILTERS = [
   { id: "",         label: "All",       icon: FolderOpen, color: "#64748b" },
   { id: "video",    label: "Videos",    icon: Film,       color: "#f59e0b" },
-  { id: "image",    label: "Images",    icon: ImageIcon,  color: "#38bdf8" },
+  { id: "image",    label: "Images",    icon: ImageIcon,  color: "#38bdf8" }, // includes PSDs
   { id: "document", label: "Documents", icon: FileText,   color: "#10b981" },
 ];
 
@@ -107,7 +107,7 @@ function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove, saving }: {
     setTagInput(""); setShowTagInput(false);
   };
 
-  const isImage = file.mimeType.startsWith("image/");
+  const isImage = file.mimeType.startsWith("image/") || file.mimeType.includes("photoshop") || file.mimeType === "application/psd";
   const isVideo = file.mimeType.startsWith("video/") || file.mimeType.includes("mp4") || file.mimeType.includes("video");
 
   return (
@@ -146,7 +146,11 @@ function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove, saving }: {
           <span style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.65)",
             backdropFilter: "blur(6px)", borderRadius: 5, padding: "2px 6px", border: `1px solid ${color}30`,
             fontSize: 9, color, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-            {file.mimeType.split("/").pop()?.slice(0, 6).toUpperCase()}
+            {(() => {
+              const raw = file.mimeType.split("/").pop() ?? "";
+              if (raw.includes("photoshop") || raw.includes("psd")) return "PSD";
+              return raw.slice(0, 6).toUpperCase();
+            })()}
           </span>
           {file.size && (
             <span style={{ position: "absolute", top: 6, left: 6, background: "rgba(0,0,0,0.55)",
