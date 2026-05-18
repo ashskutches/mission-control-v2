@@ -221,7 +221,7 @@ export default function DocumentLibrary() {
 
       {/* ── Document Grid ───────────────────────────────────────────────────── */}
       {!loading && docs.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12, overflowY: "auto" }} className="custom-scrollbar">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12, overflowY: "auto" }} className="custom-scrollbar">
           <AnimatePresence initial={false}>
             {docs.map((doc, i) => {
               const agent = agentFor(doc.agent_id);
@@ -239,13 +239,13 @@ export default function DocumentLibrary() {
                     borderRadius: 14,
                     padding: "1rem",
                     cursor: "pointer",
-                    transition: "border-color 0.15s, background 0.15s",
+                    transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",
                     display: "flex",
                     flexDirection: "column",
                     gap: 10,
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${color}40`; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.035)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)"; }}
+                  onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = `${color}45`; el.style.background = "rgba(255,255,255,0.035)"; el.style.boxShadow = `0 4px 24px ${color}14`; }}
+                  onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(255,255,255,0.07)"; el.style.background = "rgba(255,255,255,0.02)"; el.style.boxShadow = "none"; }}
                 >
                   {/* Card header */}
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
@@ -268,13 +268,46 @@ export default function DocumentLibrary() {
                     <ChevronRight size={14} style={{ color: "#444", flexShrink: 0, marginTop: 2 }} />
                   </div>
 
-                  {/* Excerpt */}
-                  <p style={{ color: "#777", fontSize: 12, lineHeight: 1.55, margin: 0, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                    {doc.excerpt}
-                  </p>
+                  {/* ── Inline Content Preview ─────────────────────────── */}
+                  <div style={{ position: "relative", borderRadius: 8, overflow: "hidden",
+                    background: "rgba(0,0,0,0.38)", border: `1px solid ${color}18` }}>
+                    {/* Accent bar */}
+                    <div style={{ position: "absolute", top: 0, left: 0, width: 3, height: "100%",
+                      background: `linear-gradient(to bottom, ${color}80, ${color}20)` }} />
+                    <pre style={{
+                      color: "#8b9ab0",
+                      fontSize: 11.5,
+                      lineHeight: 1.7,
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      fontFamily: "'Inter', system-ui, sans-serif",
+                      margin: 0,
+                      padding: "10px 12px 10px 16px",
+                      maxHeight: 148,
+                      overflow: "hidden",
+                    }}>
+                      {doc.content.slice(0, 700)}
+                    </pre>
+                    {/* Gradient fade */}
+                    <div style={{
+                      position: "absolute", bottom: 0, left: 0, right: 0, height: 56,
+                      background: "linear-gradient(to bottom, transparent, rgba(5,5,9,0.95))",
+                      display: "flex", alignItems: "flex-end", justifyContent: "space-between",
+                      padding: "0 12px 7px 16px",
+                      pointerEvents: "none",
+                    }}>
+                      <span style={{ fontSize: 9, color: "#334155" }}>
+                        {wordCount(doc.content)} words
+                      </span>
+                      <span style={{ fontSize: 9, color, fontWeight: 800, opacity: 0.75,
+                        letterSpacing: "0.07em", textTransform: "uppercase" }}>
+                        Read full ↗
+                      </span>
+                    </div>
+                  </div>
 
                   {/* Footer */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: "auto" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 10, color: "#555", display: "flex", alignItems: "center", gap: 3 }}>
                       <Clock size={9} /> {timeAgo(doc.created_at)}
                     </span>
@@ -286,9 +319,9 @@ export default function DocumentLibrary() {
                     {doc.triggered_by === "manual" && (
                       <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 4, background: "rgba(56,189,248,0.1)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.18)", fontWeight: 700 }}>⚡</span>
                     )}
-                    <span style={{ fontSize: 10, color: "#444", marginLeft: "auto" }}>
-                      {wordCount(doc.content)}w
-                    </span>
+                    {doc.duration_ms && (
+                      <span style={{ fontSize: 10, color: "#444", marginLeft: "auto" }}>⏱ {(doc.duration_ms / 1000).toFixed(1)}s</span>
+                    )}
                   </div>
                 </motion.div>
               );
