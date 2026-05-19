@@ -54,38 +54,33 @@ const INPUT_STYLE = {
   color: "#e2e8f0",
 } as const;
 
-// ── Known snippets ─────────────────────────────────────────────────────────────
+// ── Live snippet list hook ────────────────────────────────────────────────────
+// Fetches the real file list from /admin/snippets so the dropdowns always
+// reflect whatever .liquid files are actually in the repo — no manual updates needed.
 
-const KNOWN_SNIPPETS = [
-  // ── Benefits / Features ─────────────────────────────────────────────────────
-  { id: "lrb-benefits-features",      name: "Benefits — A Bounce That Feels Better", targeting: "{}",  description: "Radio-tab image switcher. Original baseline." },
-  { id: "lrb-benefits-deep-dive",     name: "Benefits Deep Dive",                    targeting: "{}",  description: "Animated stat counters + 3-col bento cards: Health / Lifestyle / Mental." },
-  // ── Guarantee / Trust ───────────────────────────────────────────────────────
-  { id: "lrb-guarantee-strip",        name: "Guarantee Strip",                       targeting: "{}",  description: "4-col trust icons: 30 Day Money Back, Free Return Shipping, Lifetime Warranty, Contact." },
-  { id: "lrb-lifetime-warranty",      name: "Lifetime Warranty — We Got You Covered", targeting: "{}",  description: "3-up icon grid: Safest Mat, Sturdy Legs, Strong Frame." },
-  { id: "lrb-trust-bar",             name: "Trust Bar",                              targeting: "{}",  description: "Slim brand trust indicators strip." },
-  // ── Problem / Solution ──────────────────────────────────────────────────────
-  { id: "lrb-problem-solution",       name: "Problem Solution Bridge",               targeting: "{}",  description: "Dark dual-card section: problem vs solution + 4 benefit icons." },
-  // ── Product ─────────────────────────────────────────────────────────────────
-  { id: "lrb-product-showcase",       name: "Product Showcase",                      targeting: "{}",  description: "Two-col: product image/video + feature list + CSS size/color selectors." },
-  { id: "lrb-product-features",       name: "Product Features — USP Grid",           targeting: "{}",  description: "Tonal-style 4-card USP grid: joint impact, warranty, bungee, all-fitness." },
-  { id: "lrb-compare-models",         name: "Compare Our Models",                    targeting: "{}",  description: "Side-by-side product comparison table." },
-  { id: "lrb-size-color",            name: "Size and Color Selection",               targeting: "{}",  description: "Size comparison cards, color swatches with live preview, mini quiz, low-stock badges." },
-  // ── How It Works ────────────────────────────────────────────────────────────
-  { id: "lrb-how-it-works-v2",       name: "How It Works — Landing Page Two-Column", targeting: "{}",  description: "1:1 replica of landing-page-1: video+badge left, 4 numbered assembly steps right. Uses landing-v2.css tokens (Inter, JetBrains Mono)." },
-  // ── Problem / Solution ───────────────────────────────────────────────
-  { id: "lrb-problem-solution-v2",    name: "Problem ∕ Fix — Dark Two-Column V2",    targeting: "{}",  description: "1:1 replica of promo-landing-page-2: dark bg, orange pill eyebrow, ✕ problems left, ✓ fixes right." },
-  // ── Social Proof / Reviews ──────────────────────────────────────────────
-  { id: "lrb-what-buyers-say",        name: "What Buyers Say — Cycling Photo + Testimonials", targeting: "{}",  description: "1:1 replica of promo-landing-page-2: UGC photo carousel left, stacked star-rated testimonials right." },
-  { id: "lrb-customer-success",       name: "Customer Success Stories",              targeting: "{}",  description: "Dark stats header + CSS snap-scroll testimonial carousel." },
-  { id: "lrb-customer-reviews",       name: "Customer Reviews (Baseline)",           targeting: "{}",  description: "ALL CAPS heading, 3-up video carousel, Yotpo widget." },
-  { id: "lrb-customer-reviews-redesign", name: "Customer Reviews — Redesign",       targeting: "{}",  description: "Real Customers. Real Results. 3x3 video grid variant." },
-  { id: "lrb-customer-reviews-v3",    name: "Customer Reviews V3",                  targeting: "{}",  description: "Latest custom reviews build." },
-  // ── Other ───────────────────────────────────────────────────────────────────
-  { id: "lrb-free-workouts",          name: "Free Workouts — World Class Trainers", targeting: "{}",  description: "Full-width workout library section." },
-  // ── Funnel Sections (date-gated / campaign) ─────────────────────────────────
-  { id: "lrb-memorial-promo",         name: "🇺🇸 Memorial Day Promo (Date-Gated)", targeting: "{}",  description: "Navy + red sale banner with live countdown. Date-gated May 23–26. Set mp_preview = 'true' in the snippet to force-show for testing." },
-];
+interface LiveSnippet { id: string; filename: string; description: string | null; }
+
+function useSnippetList(): { snippets: LiveSnippet[]; loading: boolean } {
+  const [snippets, setSnippets] = useState<LiveSnippet[]>([]);
+  const [loading, setLoading]   = useState(true);
+  useEffect(() => {
+    fetch(`${BOT_URL}/admin/snippets`)
+      .then(r => r.json())
+      .then(d => {
+        const raw: Array<{ id: string; filename: string; description: string | null }> =
+          d.snippets ?? [];
+        // Strip the .liquid extension for display; sort alphabetically
+        setSnippets(
+          raw
+            .map(s => ({ id: s.filename.replace(/\.liquid$/, ""), filename: s.filename, description: s.description }))
+            .sort((a, b) => a.id.localeCompare(b.id))
+        );
+      })
+      .catch(() => { /* silently fall back to empty — UI shows "Custom ID" fallback */ })
+      .finally(() => setLoading(false));
+  }, []);
+  return { snippets, loading };
+}
 
 // ── Variation Row ──────────────────────────────────────────────────────────────
 
@@ -242,10 +237,11 @@ function VariationRow({
 function AddVariationRow({ sectionId, onAdded }: { sectionId: string; onAdded: () => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [snippetId, setSnippetId] = useState(KNOWN_SNIPPETS[0]?.id ?? "");
+  const [snippetId, setSnippetId] = useState("");
   const [customId, setCustomId] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const { snippets: liveSnippets, loading: snippetsLoading } = useSnippetList();
 
   const resolvedSnippetId = snippetId === "__custom__" ? customId : snippetId;
 
@@ -257,7 +253,7 @@ function AddVariationRow({ sectionId, onAdded }: { sectionId: string; onAdded: (
       body: JSON.stringify({ name: name.trim(), shopify_section_id: resolvedSnippetId.trim() }),
     });
     setSaving(false);
-    if (res.ok) { setOpen(false); setName(""); setSnippetId(KNOWN_SNIPPETS[0]?.id ?? ""); setCustomId(""); onAdded(); }
+    if (res.ok) { setOpen(false); setName(""); setSnippetId(""); setCustomId(""); onAdded(); }
     else { const d = await res.json(); setErr(d.error ?? "Failed"); }
   };
 
@@ -276,8 +272,12 @@ function AddVariationRow({ sectionId, onAdded }: { sectionId: string; onAdded: (
         style={{ ...INPUT_STYLE, fontSize: 11, padding: "3px 8px", borderRadius: 6, width: 130 }} />
       <select value={snippetId} onChange={e => setSnippetId(e.target.value)}
         style={{ ...INPUT_STYLE, fontSize: 10, padding: "3px 8px", borderRadius: 6, flex: 1, minWidth: 160 }}>
-        <option value="">— pick snippet —</option>
-        {KNOWN_SNIPPETS.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
+        <option value="">{snippetsLoading ? "Loading snippets…" : "— pick snippet —"}</option>
+        {liveSnippets.map(s => (
+          <option key={s.id} value={s.id}>
+            {s.id}{s.description ? ` — ${s.description.slice(0, 48)}` : ""}
+          </option>
+        ))}
         <option value="__custom__">Custom ID…</option>
       </select>
       {snippetId === "__custom__" && (
@@ -533,6 +533,7 @@ export default function SectionsPage() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const empty: SectionFormData = { name: "", description: "", shopify_section_id: "", targeting_rules_raw: "{}", hard_gate: "false", date_gate_enabled: false, date_gate_start: "", date_gate_end: "" };
   const [form, setForm] = useState<SectionFormData>(empty);
+  const { snippets: liveSnippets, loading: snippetsLoading } = useSnippetList();
 
   const cycleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === "desc" ? "asc" : "desc");
@@ -752,14 +753,24 @@ export default function SectionsPage() {
               <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>Primary Snippet (Default Variation)</label>
               <select className="input is-small" value={form.shopify_section_id}
                 onChange={e => {
-                  const picked = KNOWN_SNIPPETS.find(s => s.id === e.target.value);
-                  if (picked) setForm(f => ({ ...f, shopify_section_id: picked.id, name: f.name || picked.name, description: f.description || (picked.description ?? ""), targeting_rules_raw: picked.targeting }));
-                  else setForm(f => ({ ...f, shopify_section_id: e.target.value }));
+                  const val = e.target.value;
+                  const picked = liveSnippets.find(s => s.id === val);
+                  setForm(f => ({
+                    ...f,
+                    shopify_section_id: val,
+                    // Auto-fill name + description from snippet metadata if not already set
+                    name: f.name || (picked ? picked.id : f.name),
+                    description: f.description || (picked?.description ?? ""),
+                  }));
                 }}
                 style={{ ...INPUT_STYLE, border: "1px solid rgba(56,189,248,0.25)" }}>
-                <option value="">— select a snippet —</option>
-                {KNOWN_SNIPPETS.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
-                <option value="__custom__">Other (custom ID)</option>
+                <option value="">{snippetsLoading ? "Loading snippets…" : "— select a snippet —"}</option>
+                {liveSnippets.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.id}{s.description ? ` — ${s.description.slice(0, 60)}` : ""}
+                  </option>
+                ))}
+                <option value="__custom__">Other (custom ID…)</option>
               </select>
               {form.shopify_section_id === "__custom__" && (
                 <input className="input is-small" placeholder="my-custom-snippet-id" style={{ ...INPUT_STYLE, marginTop: "0.5rem" }}
