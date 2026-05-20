@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Code2, Plus, Pencil, Trash2, RefreshCw, CheckCircle2,
   AlertCircle, ClipboardCopy, Check, X, FileCode, Rocket,
-  ChevronRight, Search, Sparkles, ArrowDownToLine, ArrowUpFromLine, ChevronDown,
+  ChevronRight, Search, Sparkles, ArrowDownToLine, ArrowUpFromLine, ChevronDown, Globe,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -74,6 +74,12 @@ interface SyncResult {
   updated: string[];
   skipped: string[];
   errors: { key: string; error: string }[];
+}
+
+interface ShopifyTheme {
+  id: number;
+  name: string;
+  role: "main" | "unpublished" | "demo";
 }
 
 // ── Sync Result Banner ───────────────────────────────────────────────────────────
@@ -378,6 +384,10 @@ export default function SnippetsCRUD() {
   const [pulling, setPulling] = useState(false);
   const [pushing, setPushing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ result: SyncResult; label: string } | null>(null);
+  const [themes, setThemes] = useState<ShopifyTheme[]>([]);
+  const [selectedThemeId, setSelectedThemeId] = useState<number | null>(null);
+  const [loadingThemes, setLoadingThemes] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
 
   const fetchSnippets = useCallback(async () => {
     setLoading(true);
@@ -460,15 +470,17 @@ export default function SnippetsCRUD() {
     setPulling(true);
     setSyncResult(null);
     try {
+      const body: Record<string, unknown> = {};
+      if (selectedThemeId) body.theme_id = selectedThemeId;
       const res = await fetch(`${BOT_URL}/admin/snippets/pull-from-shopify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: "{}",
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
       setSyncResult({ result: json as SyncResult, label: "Pull from Shopify" });
-      await fetchSnippets(); // refresh list with any newly created files
+      await fetchSnippets();
     } catch (e: any) {
       setSyncResult({
         result: { ok: false, summary: e.message, created: [], updated: [], skipped: [], errors: [{ key: "request", error: e.message }] },
@@ -483,10 +495,12 @@ export default function SnippetsCRUD() {
     setPushing(true);
     setSyncResult(null);
     try {
+      const body: Record<string, unknown> = {};
+      if (selectedThemeId) body.theme_id = selectedThemeId;
       const res = await fetch(`${BOT_URL}/admin/snippets/push-to-shopify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: "{}",
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
@@ -498,6 +512,29 @@ export default function SnippetsCRUD() {
       });
     } finally {
       setPushing(false);
+    }
+  };
+
+  const loadThemes = async () => {
+    setLoadingThemes(true);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/intelligence/theme/list`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      const list: ShopifyTheme[] = json.themes ?? [];
+      setThemes(list);
+      // Auto-select dev/sandbox theme
+      const sandbox = list.find(t => t.name.toLowerCase().includes("dynamic sections") || t.name.toLowerCase().includes("intelligence"));
+      const fallback = list.find(t => t.role !== "main") ?? list[0];
+      setSelectedThemeId((sandbox ?? fallback)?.id ?? null);
+      setShowThemePicker(true);
+    } catch (e: any) {
+      setSyncResult({
+        result: { ok: false, summary: e.message, created: [], updated: [], skipped: [], errors: [{ key: "theme/list", error: e.message }] },
+        label: "List Themes",
+      });
+    } finally {
+      setLoadingThemes(false);
     }
   };
 
@@ -531,6 +568,13 @@ export default function SnippetsCRUD() {
                 {pulling ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <ArrowDownToLine size={12} />}
                 {pulling ? "Pulling…" : "Pull from Shopify"}
               </button>
+              {/* List Themes — sets target theme for pull/push */}
+              <button onClick={loadThemes} disabled={loadingThemes}
+                title="Choose which Shopify theme to pull/push snippets from"
+                style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: showThemePicker ? "rgba(129,140,248,0.15)" : "rgba(129,140,248,0.06)", border: `1px solid ${showThemePicker ? "rgba(129,140,248,0.4)" : "rgba(129,140,248,0.2)"}`, borderRadius: 8, padding: "0.5rem 0.9rem", color: "#818cf8", fontSize: 12, fontWeight: 700, cursor: loadingThemes ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
+                {loadingThemes ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <Globe size={12} />}
+                {themes.length ? (selectedThemeId ? themes.find(t => t.id === selectedThemeId)?.name ?? "Theme" : "Pick Theme") : "List Themes"}
+              </button>
               {/* Push to Shopify */}
               <button onClick={handlePush} disabled={pulling || pushing}
                 title="Push local snippets → create/update on Shopify (smart diff, skips unchanged)"
@@ -549,6 +593,40 @@ export default function SnippetsCRUD() {
                 <Plus size={12} /> New Snippet
               </button>
             </div>
+
+            {/* Theme picker — shown after clicking List Themes */}
+            <AnimatePresence>
+              {showThemePicker && themes.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                  style={{ overflow: "hidden", marginBottom: "1rem" }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.6rem 0.85rem", background: "rgba(129,140,248,0.06)", border: "1px solid rgba(129,140,248,0.2)", borderRadius: 10 }}>
+                    <Globe size={12} color="#818cf8" style={{ flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, color: "#818cf8", fontWeight: 700, whiteSpace: "nowrap" }}>Target theme:</span>
+                    <select
+                      value={selectedThemeId ?? ""}
+                      onChange={e => setSelectedThemeId(Number(e.target.value))}
+                      style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(129,140,248,0.3)", borderRadius: 7, padding: "0.35rem 0.65rem", color: "#e2e8f0", fontSize: 12, outline: "none", cursor: "pointer" }}
+                    >
+                      {themes.map(t => (
+                        <option key={t.id} value={t.id} style={{ background: "#0f172a" }}>
+                          {t.name} {t.role === "main" ? "🟢 LIVE" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedThemeId && (
+                      <span style={{ fontSize: 10, color: themes.find(t => t.id === selectedThemeId)?.role === "main" ? "#f43f5e" : "#34d399", fontWeight: 700, whiteSpace: "nowrap" }}>
+                        {themes.find(t => t.id === selectedThemeId)?.role === "main" ? "⚠ LIVE" : "✓ Safe"}
+                      </span>
+                    )}
+                    <button onClick={() => setShowThemePicker(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#475569", flexShrink: 0 }}>
+                      <X size={11} />
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Sync result banner */}
             <AnimatePresence>

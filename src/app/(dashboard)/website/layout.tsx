@@ -5,12 +5,12 @@ import { usePathname } from "next/navigation";
 import { BarChart3, Layers, Radio, Link2, Rocket, Activity, Code2 } from "lucide-react";
 
 const NAV = [
-  { href: "/audience",          label: "Dashboard", icon: BarChart3, color: "#38bdf8", exact: true },
-  { href: "/audience/sections",  label: "Sections",  icon: Layers,   color: "#a78bfa" },
-  { href: "/audience/signals",   label: "Signals",   icon: Radio,    color: "#f59e0b" },
-  { href: "/audience/embeds",    label: "Embeds",    icon: Link2,    color: "#34d399" },
-  { href: "/audience/deploy",    label: "Deploy",    icon: Rocket,   color: "#64748b" },
-  { href: "/content/sections",   label: "Snippets",  icon: Code2,    color: "#818cf8" },
+  { href: "/website",           label: "Dashboard", icon: BarChart3, color: "#38bdf8", exact: true },
+  { href: "/website/sections",  label: "Sections",  icon: Layers,   color: "#a78bfa" },
+  { href: "/website/signals",   label: "Signals",   icon: Radio,    color: "#f59e0b" },
+  { href: "/website/embeds",    label: "Embeds",    icon: Link2,    color: "#34d399" },
+  { href: "/website/deploy",    label: "Deploy",    icon: Rocket,   color: "#64748b" },
+  { href: "/website/snippets",  label: "Snippets",  icon: Code2,    color: "#818cf8" },
 ];
 
 export default function AudienceLayout({ children }: { children: React.ReactNode }) {
@@ -46,7 +46,7 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
             <Link
               key={href}
               href={href}
-              id={`audience-nav-${label.toLowerCase()}`}
+              id={`website-nav-${label.toLowerCase()}`}
               style={{
                 display: "inline-flex", alignItems: "center", gap: "0.4rem",
                 background: active ? `${color}18` : "rgba(255,255,255,0.04)",

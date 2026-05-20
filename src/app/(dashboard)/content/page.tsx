@@ -211,7 +211,7 @@ const NAV_TILES = [
     badge: null,
   },
   {
-    href: "/content/sections",
+    href: "/website/snippets",
     label: "Section Builder",
     icon: Layers,
     color: "#a78bfa",

@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import {
   Users, Target, Activity, Brain,
   Eye, Mail, ShoppingBag, Zap, Layers,
-  Link2, Radio, RefreshCw,
+  Link2, Radio, RefreshCw, Code2,
 } from "lucide-react";
 import SectionAgentPanel from "@/components/SectionAgentPanel";
 import ChatBox from "@/components/ChatBox";
@@ -229,9 +229,10 @@ export default function AudienceDashboardPage() {
         {/* Quick navigation cards */}
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginTop: "1.25rem" }}>
           {[
-            { href: "/audience/sections", label: "Section Library", icon: Layers, color: "#a78bfa", sub: "Register & reorder sections" },
-            { href: "/audience/signals", label: "Signal Definitions", icon: Radio, color: "#f59e0b", sub: "UTM, page-view, time-based" },
-            { href: "/audience/embeds", label: "Embeds", icon: Link2, color: "#34d399", sub: "Deploy targets + UCB ranking" },
+            { href: "/website/sections", label: "Section Library", icon: Layers, color: "#a78bfa", sub: "Register & reorder sections" },
+            { href: "/website/signals", label: "Signal Definitions", icon: Radio, color: "#f59e0b", sub: "UTM, page-view, time-based" },
+            { href: "/website/embeds", label: "Embeds", icon: Link2, color: "#34d399", sub: "Deploy targets + UCB ranking" },
+            { href: "/website/snippets", label: "Snippets", icon: Code2, color: "#818cf8", sub: "Pull, push & edit Liquid snippets" },
           ].map(({ href, label, icon: Icon, color, sub }) => (
             <a key={href} href={href} style={{ ...CARD, flex: 1, minWidth: 160, textDecoration: "none", display: "block", border: `1px solid ${color}18`, transition: "border-color 0.15s" }}
               onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = `${color}40`}
