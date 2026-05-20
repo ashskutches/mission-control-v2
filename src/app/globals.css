@@ -198,6 +198,12 @@ body {
   animation: spin 0.8s linear infinite;
 }
 
+/* ── Thumbnail shimmer skeleton ── */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 /* ── L&R Brand Helper Classes ── */
 .lrb-orange { color: var(--accent-orange); }
 .lrb-orange-bg { background: var(--accent-orange); }

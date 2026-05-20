@@ -10,7 +10,7 @@ import {
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 const ACCENT = "#38bdf8";
-const PER_PAGE = 100; // files per page — sweet spot for rendering performance
+const PER_PAGE = 40; // Reduced from 100 — fewer thumbnail requests on initial load
 
 const CARD: React.CSSProperties = {
   background: "rgba(255,255,255,0.03)",
@@ -89,6 +89,45 @@ function TagBadge({ tag, onRemove }: { tag: string; onRemove?: () => void }) {
   );
 }
 
+// ── Image Thumbnail — lazy-loaded with shimmer skeleton ───────────────────────
+
+function ImageThumb({ src, alt }: { src: string; alt: string }) {
+  const [loaded, setLoaded] = React.useState(false);
+  const [failed, setFailed] = React.useState(false);
+  return (
+    <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden",
+      background: "rgba(0,0,0,0.3)" }}>
+      {/* Shimmer skeleton shown until image loads */}
+      {!loaded && !failed && (
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%)",
+          backgroundSize: "200% 100%",
+          animation: "shimmer 1.4s infinite",
+        }} />
+      )}
+      {!failed && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          style={{
+            width: "100%", height: "100%", objectFit: "cover", display: "block",
+            transition: "opacity 0.2s, transform 0.25s",
+            opacity: loaded ? 1 : 0,
+            filter: "brightness(0.92)",
+          }}
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+          onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.04)")}
+          onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── Video Thumbnail ───────────────────────────────────────────────────────────
 // Loads the Drive thumbnail through the auth proxy. Shows a play-button overlay
 // so it’s still visually identifiable as video. Falls back to amber placeholder.
@@ -103,6 +142,7 @@ function VideoThumb({ fileId, botUrl }: { fileId: string; botUrl: string }) {
         <img
           src={`${botUrl}/admin/drive/thumbnail/${fileId}`}
           alt="video thumbnail"
+          loading="lazy"
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
             filter: "brightness(0.82)" }}
           onError={() => setFailed(true)}
@@ -198,16 +238,7 @@ function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove, saving }: {
           style={{ display: "block", position: "relative", width: "100%", height: 160, overflow: "hidden",
             background: "rgba(0,0,0,0.5)", textDecoration: "none" }}>
           {isImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`${BOT_URL}/admin/drive/img/${file.id}`}
-              alt={file.name}
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
-                transition: "transform 0.25s", filter: "brightness(0.92)" }}
-              onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.04)")}
-              onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
-              onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-            />
+            <ImageThumb src={`${BOT_URL}/admin/drive/thumbnail/${file.id}`} alt={file.name} />
           ) : (
             <VideoThumb fileId={file.id} botUrl={BOT_URL} />
           )}
