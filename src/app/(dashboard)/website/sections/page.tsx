@@ -125,17 +125,35 @@ function useSnippetList(): { snippets: LiveSnippet[]; loading: boolean } {
       .then(d => {
         const raw: Array<{ id: string; filename: string; description: string | null }> =
           d.snippets ?? [];
-        // Strip the .liquid extension for display; sort alphabetically
         setSnippets(
           raw
             .map(s => ({ id: s.filename.replace(/\.liquid$/, ""), filename: s.filename, description: s.description }))
             .sort((a, b) => a.id.localeCompare(b.id))
         );
       })
-      .catch(() => { /* silently fall back to empty — UI shows "Custom ID" fallback */ })
+      .catch(() => { /* silently fall back to empty */ })
       .finally(() => setLoading(false));
   }, []);
   return { snippets, loading };
+}
+
+/** Build the options list, marking already-used snippets as dimmed (but still selectable when editing). */
+function buildSnippetOptions(
+  liveSnippets: LiveSnippet[],
+  usedIds: Set<string>,
+  currentValue?: string,
+): { value: string; label: string; dimmed?: boolean }[] {
+  return [
+    ...liveSnippets.map(s => {
+      const inUse = usedIds.has(s.id) && s.id !== currentValue;
+      return {
+        value: s.id,
+        label: (inUse ? "✓ " : "") + s.id + (s.description ? ` — ${s.description.slice(0, 48)}` : "") + (inUse ? " (in use)" : ""),
+        dimmed: inUse,
+      };
+    }),
+    { value: "__custom__", label: "Custom ID…", dimmed: true },
+  ];
 }
 
 // ── Variation Row ──────────────────────────────────────────────────────────────
@@ -290,7 +308,11 @@ function VariationRow({
 
 // ── Add Variation Form ─────────────────────────────────────────────────────────
 
-function AddVariationRow({ sectionId, onAdded }: { sectionId: string; onAdded: () => void }) {
+function AddVariationRow({ sectionId, usedSnippetIds, onAdded }: {
+  sectionId: string;
+  usedSnippetIds: Set<string>;
+  onAdded: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [snippetId, setSnippetId] = useState("");
@@ -331,10 +353,7 @@ function AddVariationRow({ sectionId, onAdded }: { sectionId: string; onAdded: (
         onChange={setSnippetId}
         placeholder={snippetsLoading ? "Loading snippets…" : "— pick snippet —"}
         style={{ flex: 1, minWidth: 160 }}
-        options={[
-          ...liveSnippets.map(s => ({ value: s.id, label: s.id + (s.description ? ` — ${s.description.slice(0, 48)}` : "") })),
-          { value: "__custom__", label: "Custom ID…", dimmed: true },
-        ]}
+        options={buildSnippetOptions(liveSnippets, usedSnippetIds)}
       />
       {snippetId === "__custom__" && (
         <input placeholder="lrb-custom-snippet" value={customId} onChange={e => setCustomId(e.target.value)}
@@ -546,7 +565,11 @@ function SectionCard({ section, onToggle, onEdit, onDelete, onRefresh, onVariati
                   />
                 ))
               )}
-              <AddVariationRow sectionId={section.id} onAdded={onRefresh} />
+              <AddVariationRow
+                sectionId={section.id}
+                usedSnippetIds={usedSnippetIds}
+                onAdded={onRefresh}
+              />
 
               {/* Signals summary */}
               {!isUniversal && (
@@ -587,6 +610,17 @@ export default function SectionsPage() {
   const [pruneMsg, setPruneMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("impressions");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  // Compute the set of snippet IDs already registered across all sections/variations
+  const usedSnippetIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const s of sections) {
+      for (const v of s.variations ?? []) {
+        if (v.shopify_section_id) ids.add(v.shopify_section_id);
+      }
+    }
+    return ids;
+  }, [sections]);
+
   const empty: SectionFormData = { name: "", description: "", shopify_section_id: "", targeting_rules_raw: "{}", hard_gate: "false", date_gate_enabled: false, date_gate_start: "", date_gate_end: "" };
   const [form, setForm] = useState<SectionFormData>(empty);
   const { snippets: liveSnippets, loading: snippetsLoading } = useSnippetList();
@@ -819,10 +853,11 @@ export default function SectionsPage() {
                   }));
                 }}
                 placeholder={snippetsLoading ? "Loading snippets…" : "— select a snippet —"}
-                options={[
-                  ...liveSnippets.map(s => ({ value: s.id, label: s.id + (s.description ? ` — ${s.description.slice(0, 60)}` : "") })),
-                  { value: "__custom__", label: "Other (custom ID…)", dimmed: true },
-                ]}
+                options={buildSnippetOptions(
+                  liveSnippets,
+                  usedSnippetIds,
+                  editTarget?.shopify_section_id,
+                )}
               />
               {form.shopify_section_id === "__custom__" && (
                 <input className="input is-small" placeholder="my-custom-snippet-id" style={{ ...INPUT_STYLE, marginTop: "0.5rem" }}
