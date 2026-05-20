@@ -28,7 +28,7 @@ interface PersonalizationSection {
 
 interface ImportResult {
   ok: boolean;
-  snippet?: { id: string; filename: string; lines: number; already_existed: boolean; schema_stripped: boolean };
+  snippet?: { id: string; filename: string; lines: number; already_existed: boolean; schema_stripped: boolean; block_settings_refs?: number };
   variation?: { id: string; name: string; shopify_section_id: string };
   section?: { id: string; name: string };
   variation_error?: string;
@@ -358,6 +358,22 @@ export default function ShopifyImportPanel({ themeId, onImported, onClose }: {
                         ⚠ Variation not created: {result.variation_error}
                       </p>
                     )}
+                  </motion.div>
+                )}
+
+                {/* Block settings warning — shown when block.settings.* refs exist */}
+                {result?.ok && (result.snippet?.block_settings_refs ?? 0) > 0 && (
+                  <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                    style={{ background: "rgba(251,146,60,0.08)", border: "1px solid rgba(251,146,60,0.3)", borderRadius: 10, padding: "0.85rem 1rem" }}>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: "#fb923c", margin: "0 0 0.4rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                      ⚠ Block variables detected — snippet will render empty!
+                    </p>
+                    <p style={{ fontSize: 11, color: "#94a3b8", margin: 0, lineHeight: 1.6 }}>
+                      This block uses <code style={{ color: "#fb923c" }}>block.settings.*</code> ({result.snippet!.block_settings_refs} reference{result.snippet!.block_settings_refs !== 1 ? "s" : ""})
+                      which only work inside a Shopify block loop — not as a standalone snippet.
+                      <br /><br />
+                      <strong style={{ color: "#e2e8f0" }}>Fix:</strong> Go to Website → Snippets, edit <code style={{ color: "#818cf8" }}>{result.snippet?.filename}</code>, and replace each <code style={{ color: "#fb923c" }}>block.settings.X</code> with the actual hardcoded value from your Shopify theme editor.
+                    </p>
                   </motion.div>
                 )}
 
