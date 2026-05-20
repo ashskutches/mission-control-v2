@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, RefreshCw, ArrowDownToLine, CheckCircle2, AlertCircle,
-  Layers, Puzzle, ChevronRight, Globe, Link2, Plus,
+  Layers, Puzzle, ChevronRight, Globe, Link2, Plus, Sparkles,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -28,7 +28,7 @@ interface PersonalizationSection {
 
 interface ImportResult {
   ok: boolean;
-  snippet?: { id: string; filename: string; lines: number; already_existed: boolean; schema_stripped: boolean; block_settings_refs?: number };
+  snippet?: { id: string; filename: string; lines: number; already_existed: boolean; schema_stripped: boolean; block_settings_refs?: number; ai_converted?: boolean };
   variation?: { id: string; name: string; shopify_section_id: string };
   section?: { id: string; name: string };
   variation_error?: string;
@@ -119,6 +119,7 @@ export default function ShopifyImportPanel({ themeId, onImported, onClose }: {
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [aiConvert, setAiConvert] = useState(true); // default ON for blocks
 
   const loadAssets = useCallback(async () => {
     setLoadingAssets(true);
@@ -168,6 +169,7 @@ export default function ShopifyImportPanel({ themeId, onImported, onClose }: {
       const body: Record<string, unknown> = {
         asset_key: selected.key,
         snippet_name: snippetName.trim(),
+        ai_convert: aiConvert,
       };
       if (themeId) body.theme_id = themeId;
       if (sectionId) body.section_id = sectionId;
@@ -282,6 +284,35 @@ export default function ShopifyImportPanel({ themeId, onImported, onClose }: {
                   </p>
                 </div>
 
+                {/* AI Convert toggle */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "0.65rem 0.85rem", borderRadius: 9,
+                  background: aiConvert ? "rgba(167,139,250,0.08)" : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${aiConvert ? "rgba(167,139,250,0.3)" : "rgba(255,255,255,0.07)"}`,
+                  cursor: "pointer", transition: "all 0.15s" }}
+                  onClick={() => setAiConvert(v => !v)}
+                  role="button" tabIndex={0}
+                  onKeyDown={e => (e.key === "Enter" || e.key === " ") && setAiConvert(v => !v)}
+                  aria-label="Toggle AI block conversion"
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                    <Sparkles size={14} color={aiConvert ? "#a78bfa" : "#475569"} />
+                    <div>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: aiConvert ? "#a78bfa" : "#64748b", margin: 0 }}>AI Block Conversion</p>
+                      <p style={{ fontSize: 10, color: "#475569", margin: 0, lineHeight: 1.4 }}>
+                        {aiConvert ? "GPT-4o will replace block.settings.* with hardcoded values" : "Basic schema strip only"}
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{ width: 34, height: 18, borderRadius: 9, flexShrink: 0,
+                    background: aiConvert ? "#a78bfa" : "rgba(255,255,255,0.1)",
+                    position: "relative", transition: "background 0.2s" }}>
+                    <div style={{ position: "absolute", top: 2, left: aiConvert ? 18 : 2,
+                      width: 14, height: 14, borderRadius: "50%", background: "#fff",
+                      transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
+                  </div>
+                </div>
+
                 {/* Snippet name */}
                 <div>
                   <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, display: "block", marginBottom: "0.4rem" }}>
@@ -346,6 +377,9 @@ export default function ShopifyImportPanel({ themeId, onImported, onClose }: {
                       <code style={{ color: "#818cf8" }}>{result.snippet?.filename}</code>
                       {" · "}{result.snippet?.lines} lines
                       {result.snippet?.schema_stripped && " · schema stripped"}
+                      {result.snippet?.ai_converted && (
+                        <span style={{ marginLeft: 6, color: "#a78bfa", fontWeight: 700 }}>✦ AI converted</span>
+                      )}
                     </p>
                     {result.variation && (
                       <p style={{ fontSize: 11, color: "#64748b", margin: "0.3rem 0 0", display: "flex", alignItems: "center", gap: "0.3rem" }}>
