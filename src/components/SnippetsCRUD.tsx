@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Code2, Plus, Pencil, Trash2, RefreshCw, CheckCircle2,
   AlertCircle, ClipboardCopy, Check, X, FileCode, Rocket,
-  ChevronRight, Search, Sparkles,
+  ChevronRight, Search, Sparkles, ArrowDownToLine, ArrowUpFromLine, ChevronDown,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -66,6 +66,91 @@ interface SnippetFull extends Snippet {
 
 type Mode = "list" | "edit" | "new";
 type SaveState = "idle" | "saving" | "ok" | "error";
+
+interface SyncResult {
+  ok: boolean;
+  summary: string;
+  created: string[];
+  updated: string[];
+  skipped: string[];
+  errors: { key: string; error: string }[];
+}
+
+// ── Sync Result Banner ───────────────────────────────────────────────────────────
+
+function SyncResultBanner({ result, label, onClose }: {
+  result: SyncResult;
+  label: string;
+  onClose: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasErrors = result.errors.length > 0;
+  const accent = result.ok ? "34,197,94" : "234,179,8";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+      style={{
+        marginBottom: "1rem",
+        background: `rgba(${accent},0.07)`,
+        border: `1px solid rgba(${accent},0.25)`,
+        borderRadius: 10, overflow: "hidden",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.6rem 0.9rem" }}>
+        {result.ok
+          ? <CheckCircle2 size={13} color={`rgb(${accent})`} />
+          : <AlertCircle size={13} color={`rgb(${accent})`} />}
+        <span style={{ fontSize: 12, color: `rgb(${accent})`, fontWeight: 700, flex: 1 }}>
+          {label}: {result.summary}
+        </span>
+        {/* Pill badges */}
+        {result.created.length > 0 && (
+          <span style={{ fontSize: 10, background: "rgba(34,197,94,0.12)", color: "#22c55e", borderRadius: 99, padding: "0.15rem 0.5rem", fontWeight: 700 }}>
+            +{result.created.length} new
+          </span>
+        )}
+        {result.updated.length > 0 && (
+          <span style={{ fontSize: 10, background: "rgba(59,130,246,0.12)", color: "#60a5fa", borderRadius: 99, padding: "0.15rem 0.5rem", fontWeight: 700 }}>
+            ~{result.updated.length} changed
+          </span>
+        )}
+        {result.skipped.length > 0 && (
+          <span style={{ fontSize: 10, background: "rgba(100,116,139,0.12)", color: "#64748b", borderRadius: 99, padding: "0.15rem 0.5rem" }}>
+            {result.skipped.length} same
+          </span>
+        )}
+        {hasErrors && (
+          <button
+            onClick={() => setExpanded(v => !v)}
+            style={{ display: "flex", alignItems: "center", gap: "0.2rem", fontSize: 10, color: "#f59e0b", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}
+          >
+            {result.errors.length} warn <ChevronDown size={10} style={{ transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+          </button>
+        )}
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#475569" }}>
+          <X size={11} />
+        </button>
+      </div>
+      <AnimatePresence>
+        {expanded && hasErrors && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            style={{ overflow: "hidden" }}
+          >
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "0.5rem 0.9rem", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+              {result.errors.map((e, i) => (
+                <div key={i} style={{ fontSize: 11, color: "#94a3b8" }}>
+                  <span style={{ color: "#f59e0b", fontWeight: 700 }}>{e.key}</span>: {e.error}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
 
 // ── Code Editor ───────────────────────────────────────────────────────────────
 
@@ -290,6 +375,9 @@ export default function SnippetsCRUD() {
   const [search, setSearch] = useState("");
   const [deploying, setDeploying] = useState(false);
   const [deployMsg, setDeployMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pulling, setPulling] = useState(false);
+  const [pushing, setPushing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ result: SyncResult; label: string } | null>(null);
 
   const fetchSnippets = useCallback(async () => {
     setLoading(true);
@@ -368,6 +456,51 @@ export default function SnippetsCRUD() {
     }
   };
 
+  const handlePull = async () => {
+    setPulling(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/snippets/pull-from-shopify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      setSyncResult({ result: json as SyncResult, label: "Pull from Shopify" });
+      await fetchSnippets(); // refresh list with any newly created files
+    } catch (e: any) {
+      setSyncResult({
+        result: { ok: false, summary: e.message, created: [], updated: [], skipped: [], errors: [{ key: "request", error: e.message }] },
+        label: "Pull from Shopify",
+      });
+    } finally {
+      setPulling(false);
+    }
+  };
+
+  const handlePush = async () => {
+    setPushing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/snippets/push-to-shopify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      setSyncResult({ result: json as SyncResult, label: "Push to Shopify" });
+    } catch (e: any) {
+      setSyncResult({
+        result: { ok: false, summary: e.message, created: [], updated: [], skipped: [], errors: [{ key: "request", error: e.message }] },
+        label: "Push to Shopify",
+      });
+    } finally {
+      setPushing(false);
+    }
+  };
+
   const filtered = snippets.filter(s =>
     !search || s.filename.toLowerCase().includes(search.toLowerCase()) ||
     (s.description ?? "").toLowerCase().includes(search.toLowerCase())
@@ -391,6 +524,21 @@ export default function SnippetsCRUD() {
                 <RefreshCw size={12} style={loading ? { animation: "spin 1s linear infinite" } : undefined} />
                 Refresh
               </button>
+              {/* Pull from Shopify */}
+              <button onClick={handlePull} disabled={pulling || pushing}
+                title="Fetch snippets from Shopify → create/update local files"
+                style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.25)", borderRadius: 8, padding: "0.5rem 0.9rem", color: "#38bdf8", fontSize: 12, fontWeight: 700, cursor: (pulling || pushing) ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
+                {pulling ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <ArrowDownToLine size={12} />}
+                {pulling ? "Pulling…" : "Pull from Shopify"}
+              </button>
+              {/* Push to Shopify */}
+              <button onClick={handlePush} disabled={pulling || pushing}
+                title="Push local snippets → create/update on Shopify (smart diff, skips unchanged)"
+                style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(233,141,32,0.1)", border: "1px solid rgba(233,141,32,0.25)", borderRadius: 8, padding: "0.5rem 0.9rem", color: ORANGE, fontSize: 12, fontWeight: 700, cursor: (pulling || pushing) ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
+                {pushing ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <ArrowUpFromLine size={12} />}
+                {pushing ? "Pushing…" : "Push to Shopify"}
+              </button>
+              {/* Deploy All — nuclear option for entire shopify-assets dir */}
               <button onClick={handleDeploy} disabled={deploying}
                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 8, padding: "0.5rem 0.9rem", color: "#22c55e", fontSize: 12, fontWeight: 700, cursor: deploying ? "not-allowed" : "pointer" }}>
                 {deploying ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <Rocket size={12} />}
@@ -401,6 +549,17 @@ export default function SnippetsCRUD() {
                 <Plus size={12} /> New Snippet
               </button>
             </div>
+
+            {/* Sync result banner */}
+            <AnimatePresence>
+              {syncResult && (
+                <SyncResultBanner
+                  result={syncResult.result}
+                  label={syncResult.label}
+                  onClose={() => setSyncResult(null)}
+                />
+              )}
+            </AnimatePresence>
 
             {/* Deploy status */}
             <AnimatePresence>
