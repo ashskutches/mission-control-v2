@@ -54,6 +54,13 @@ const INPUT_STYLE = {
   color: "#e2e8f0",
 } as const;
 
+// Selects need a solid opaque dark background so native OS option list is readable
+const SELECT_STYLE = {
+  background: "#0f172a",
+  border: "1px solid rgba(255,255,255,0.15)",
+  color: "#e2e8f0",
+} as const;
+
 // ── Live snippet list hook ────────────────────────────────────────────────────
 // Fetches the real file list from /admin/snippets so the dropdowns always
 // reflect whatever .liquid files are actually in the repo — no manual updates needed.
@@ -271,7 +278,7 @@ function AddVariationRow({ sectionId, onAdded }: { sectionId: string; onAdded: (
       <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. With Video"
         style={{ ...INPUT_STYLE, fontSize: 11, padding: "3px 8px", borderRadius: 6, width: 130 }} />
       <select value={snippetId} onChange={e => setSnippetId(e.target.value)}
-        style={{ ...INPUT_STYLE, fontSize: 10, padding: "3px 8px", borderRadius: 6, flex: 1, minWidth: 160 }}>
+        style={{ ...SELECT_STYLE, fontSize: 10, padding: "3px 8px", borderRadius: 6, flex: 1, minWidth: 160 }}>
         <option value="">{snippetsLoading ? "Loading snippets…" : "— pick snippet —"}</option>
         {liveSnippets.map(s => (
           <option key={s.id} value={s.id}>
@@ -758,12 +765,11 @@ export default function SectionsPage() {
                   setForm(f => ({
                     ...f,
                     shopify_section_id: val,
-                    // Auto-fill name + description from snippet metadata if not already set
                     name: f.name || (picked ? picked.id : f.name),
                     description: f.description || (picked?.description ?? ""),
                   }));
                 }}
-                style={{ ...INPUT_STYLE, border: "1px solid rgba(56,189,248,0.25)" }}>
+                style={{ ...SELECT_STYLE, border: "1px solid rgba(56,189,248,0.25)" }}>
                 <option value="">{snippetsLoading ? "Loading snippets…" : "— select a snippet —"}</option>
                 {liveSnippets.map(s => (
                   <option key={s.id} value={s.id}>
@@ -793,7 +799,7 @@ export default function SectionsPage() {
               <div>
                 <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>Matching Mode</label>
                 <select className="input is-small" value={form.hard_gate}
-                  onChange={e => setForm(f => ({ ...f, hard_gate: e.target.value }))} style={INPUT_STYLE}>
+                  onChange={e => setForm(f => ({ ...f, hard_gate: e.target.value }))} style={SELECT_STYLE}>
                   <option value="false">⚖️ Weighted — signals add score, always eligible</option>
                   <option value="true">🔒 Hard Gate — only shows when signals match</option>
                 </select>
