@@ -375,13 +375,14 @@ function AddVariationRow({ sectionId, usedSnippetIds, onAdded }: {
 
 // ── Section Card ──────────────────────────────────────────────────────────────
 
-function SectionCard({ section, onToggle, onEdit, onDelete, onRefresh, onVariationToggle }: {
+function SectionCard({ section, onToggle, onEdit, onDelete, onRefresh, onVariationToggle, usedSnippetIds }: {
   section: PSection;
   onToggle: (id: string, active: boolean) => void;
   onEdit: (section: PSection) => void;
   onDelete: (id: string) => void;
   onRefresh: () => void;
   onVariationToggle: (sectionId: string, varId: string, newActive: boolean) => void;
+  usedSnippetIds: Set<string>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const rules = section.targeting_rules;
@@ -976,7 +977,7 @@ export default function SectionsPage() {
       ) : (
         <div>
           {sortedSections.map(s => (
-            <SectionCard key={s.id} section={s} onToggle={toggle} onEdit={openEdit} onDelete={deleteSection} onRefresh={refreshSilent} onVariationToggle={handleVariationToggle} />
+            <SectionCard key={s.id} section={s} usedSnippetIds={usedSnippetIds} onToggle={toggle} onEdit={openEdit} onDelete={deleteSection} onRefresh={refreshSilent} onVariationToggle={handleVariationToggle} />
           ))}
         </div>
       )}
