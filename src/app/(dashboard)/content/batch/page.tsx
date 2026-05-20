@@ -303,6 +303,7 @@ export default function BatchTaggerPage() {
   const [clearing,     setClearing]     = useState(false);
   const [driveStats,   setDriveStats]   = useState<{
     total: number; tagged: number; untagged: number; taggedPct: number; status: string;
+    tagDepth?: { 0: number; 1: number; 2: number; 3: number; 4: number; "5+": number };
   } | null>(null);
 
   // ── Batch run mode ──
@@ -333,7 +334,14 @@ export default function BatchTaggerPage() {
       const res = await fetch(`${BOT_URL}/admin/drive/status`);
       if (res.ok) {
         const d = await res.json();
-        setDriveStats({ total: d.total ?? 0, tagged: d.tagged ?? 0, untagged: d.untagged ?? 0, taggedPct: d.taggedPct ?? 0, status: d.status });
+        setDriveStats({
+          total: d.total ?? 0,
+          tagged: d.tagged ?? 0,
+          untagged: d.untagged ?? 0,
+          taggedPct: d.taggedPct ?? 0,
+          status: d.status,
+          tagDepth: d.tagDepth,
+        });
       }
     } catch { /* silent */ }
   }, []);
@@ -487,8 +495,8 @@ export default function BatchTaggerPage() {
             )}
           </div>
 
-          {/* Stats row */}
-          <div style={{ display: "flex", gap: "1.5rem", marginBottom: "0.9rem", flexWrap: "wrap" }}>
+          {/* Top stats row */}
+          <div style={{ display: "flex", gap: "1.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
             <div style={{ textAlign: "center" }}>
               <div style={{ fontSize: 22, fontWeight: 900, color: "#f1f5f9", lineHeight: 1 }}>{driveStats.total.toLocaleString()}</div>
               <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>Total Files</div>
@@ -507,8 +515,8 @@ export default function BatchTaggerPage() {
             </div>
           </div>
 
-          {/* Progress bar */}
-          <div style={{ position: "relative", height: 8, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden" }}>
+          {/* Overall progress bar */}
+          <div style={{ position: "relative", height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden", marginBottom: "1.25rem" }}>
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${driveStats.taggedPct}%` }}
@@ -520,6 +528,88 @@ export default function BatchTaggerPage() {
               }}
             />
           </div>
+
+          {/* ── Tag Depth Distribution ── */}
+          {driveStats.tagDepth && (() => {
+            const depth = driveStats.tagDepth!;
+            const buckets: { label: string; key: keyof typeof depth; count: number; color: string; enrichMax: number | null }[] = [
+              { label: "0 tags",  key: 0,    count: depth[0],    color: "#f43f5e", enrichMax: null },
+              { label: "1 tag",   key: 1,    count: depth[1],    color: "#f59e0b", enrichMax: 1   },
+              { label: "2 tags",  key: 2,    count: depth[2],    color: "#eab308", enrichMax: 2   },
+              { label: "3 tags",  key: 3,    count: depth[3],    color: "#84cc16", enrichMax: 3   },
+              { label: "4 tags",  key: 4,    count: depth[4],    color: "#22d3ee", enrichMax: 4   },
+              { label: "5+ tags", key: "5+", count: depth["5+"], color: "#10b981", enrichMax: null },
+            ];
+            const maxCount = Math.max(...buckets.map(b => b.count), 1);
+
+            return (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.6rem" }}>
+                  <Tag size={11} color="#64748b" />
+                  <span style={{ fontSize: 10, fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em" }}>Tag Depth Distribution</span>
+                  <span style={{ fontSize: 9, color: "#334155" }}>— click a row to launch an Enrich run for that tier</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                  {buckets.map(b => {
+                    const pct = maxCount > 0 ? (b.count / maxCount) * 100 : 0;
+                    const isTarget = b.enrichMax !== null && runMode === "enrich" && enrichMaxTags === b.enrichMax;
+                    const canEnrich = b.enrichMax !== null && b.count > 0;
+                    return (
+                      <motion.div
+                        key={String(b.key)}
+                        whileHover={canEnrich ? { scale: 1.01 } : {}}
+                        onClick={() => {
+                          if (!canEnrich) return;
+                          setRunMode("enrich");
+                          setEnrichMaxTags(b.enrichMax!);
+                          // scroll down to the Batch Tag Run card
+                          document.getElementById("batch-run-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }}
+                        style={{
+                          display: "flex", alignItems: "center", gap: "0.6rem",
+                          cursor: canEnrich ? "pointer" : "default",
+                          background: isTarget ? `${b.color}12` : "transparent",
+                          border: `1px solid ${isTarget ? b.color + "30" : "transparent"}`,
+                          borderRadius: 8, padding: "0.2rem 0.4rem",
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        {/* Label */}
+                        <span style={{ fontSize: 10, fontWeight: 700, color: b.color, width: 50, flexShrink: 0, textAlign: "right" }}>
+                          {b.label}
+                        </span>
+                        {/* Bar */}
+                        <div style={{ flex: 1, height: 14, background: "rgba(255,255,255,0.04)", borderRadius: 6, overflow: "hidden", position: "relative" }}>
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ duration: 0.8, ease: "easeOut", delay: 0.05 * buckets.indexOf(b) }}
+                            style={{
+                              position: "absolute", left: 0, top: 0, height: "100%",
+                              background: `linear-gradient(90deg, ${b.color}50, ${b.color}90)`,
+                              borderRadius: 6,
+                            }}
+                          />
+                        </div>
+                        {/* Count */}
+                        <span style={{ fontSize: 11, fontWeight: 800, color: b.count > 0 ? b.color : "#334155", width: 52, flexShrink: 0, textAlign: "right" }}>
+                          {b.count.toLocaleString()}
+                        </span>
+                        {/* Enrich CTA */}
+                        {canEnrich ? (
+                          <span style={{ fontSize: 9, color: isTarget ? b.color : "#334155", width: 60, flexShrink: 0, textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>
+                            {isTarget ? "▶ selected" : "enrich →"}
+                          </span>
+                        ) : (
+                          <span style={{ width: 60, flexShrink: 0 }} />
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </motion.div>
       )}
 
@@ -650,7 +740,7 @@ export default function BatchTaggerPage() {
         </div>
       </div>
 
-      <div style={{ ...CARD, marginBottom: "1.75rem", background: "rgba(16,185,129,0.04)", border: "1px solid rgba(16,185,129,0.15)" }}>
+      <div id="batch-run-card" style={{ ...CARD, marginBottom: "1.75rem", background: "rgba(16,185,129,0.04)", border: "1px solid rgba(16,185,129,0.15)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1rem" }}>
           <Zap size={14} color={ACCENT} />
           <span style={{ fontSize: 13, fontWeight: 800, color: "#e2e8f0" }}>Batch Tag Run</span>
