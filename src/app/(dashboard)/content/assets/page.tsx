@@ -89,6 +89,50 @@ function TagBadge({ tag, onRemove }: { tag: string; onRemove?: () => void }) {
   );
 }
 
+// ── Video Thumbnail ───────────────────────────────────────────────────────────
+// Loads the Drive thumbnail through the auth proxy. Shows a play-button overlay
+// so it’s still visually identifiable as video. Falls back to amber placeholder.
+
+function VideoThumb({ fileId, botUrl }: { fileId: string; botUrl: string }) {
+  const [failed, setFailed] = React.useState(false);
+  return (
+    <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden",
+      background: "linear-gradient(135deg, rgba(245,158,11,0.07), rgba(0,0,0,0.55))" }}>
+      {!failed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`${botUrl}/admin/drive/thumbnail/${fileId}`}
+          alt="video thumbnail"
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
+            filter: "brightness(0.82)" }}
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        /* Fallback: no thumbnail available on Drive */
+        <div style={{ width: "100%", height: "100%",
+          background: "linear-gradient(135deg, rgba(245,158,11,0.07), rgba(0,0,0,0.55))" }} />
+      )}
+      {/* Play-button overlay — always visible */}
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", gap: 6, pointerEvents: "none" }}>
+        <div style={{ width: 44, height: 44, borderRadius: "50%",
+          background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)",
+          border: "1.5px solid rgba(245,158,11,0.55)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.45)" }}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <polygon points="4,2 14,8 4,14" fill="#f59e0b" />
+          </svg>
+        </div>
+        {failed && (
+          <span style={{ fontSize: 9, color: "#78716c", textTransform: "uppercase",
+            letterSpacing: "0.08em" }}>No Preview</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── File Card ──────────────────────────────────────────────────────────────────
 
 function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove, saving }: {
@@ -156,7 +200,7 @@ function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove, saving }: {
           {isImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={`${BOT_URL}/admin/drive/thumbnail/${file.id}`}
+              src={`${BOT_URL}/admin/drive/img/${file.id}`}
               alt={file.name}
               style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
                 transition: "transform 0.25s", filter: "brightness(0.92)" }}
@@ -165,17 +209,7 @@ function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove, saving }: {
               onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
             />
           ) : (
-            <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center", gap: 8,
-              background: "linear-gradient(135deg, rgba(245,158,11,0.07), rgba(0,0,0,0.55))" }}>
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(245,158,11,0.15)",
-                border: "1.5px solid rgba(245,158,11,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <polygon points="4,2 14,8 4,14" fill="#f59e0b" />
-                </svg>
-              </div>
-              <span style={{ fontSize: 9, color: "#78716c", textTransform: "uppercase", letterSpacing: "0.08em" }}>Video</span>
-            </div>
+            <VideoThumb fileId={file.id} botUrl={BOT_URL} />
           )}
           {/* File type badge */}
           <span style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.65)",

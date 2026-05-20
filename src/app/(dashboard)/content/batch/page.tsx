@@ -40,9 +40,13 @@ interface FileLogEntry {
 
 // ── Job Row ────────────────────────────────────────────────────────────────────
 
-function JobRow({ run, onDelete }: { run: TagRun; onDelete: (id: string) => void }) {
+function JobRow({ run, onDelete, onCancel }: { run: TagRun; onDelete: (id: string) => void; onCancel?: (id: string) => void }) {
   const [expanded, setExpanded] = useState(run.status === "running");
   const [deleting, setDeleting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  const STALE_THRESHOLD_MS = 2 * 60 * 60 * 1000;
+  const isStale = run.status === "running" && Date.now() - new Date(run.started_at).getTime() > STALE_THRESHOLD_MS;
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -52,6 +56,13 @@ function JobRow({ run, onDelete }: { run: TagRun; onDelete: (id: string) => void
       await fetch(`${BOT_URL}/admin/tags/runs/${run.id}`, { method: "DELETE" });
       onDelete(run.id);
     } catch { setDeleting(false); }
+  };
+
+  const handleCancel = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCancelling(true);
+    await onCancel?.(run.id);
+    setCancelling(false);
   };
   const isRunning = run.status === "running";
   const statusColor = run.status === "done" ? "#10b981" : run.status === "error" ? "#f43f5e" : "#f59e0b";
@@ -68,6 +79,7 @@ function JobRow({ run, onDelete }: { run: TagRun; onDelete: (id: string) => void
 
   const label =
     run.trigger?.startsWith("batch:")    ? `Batch · ${run.trigger.replace("batch:", "")}` :
+    run.trigger?.startsWith("enrich:")   ? `Enrich · ${run.trigger.replace("enrich:", "")}` :
     run.trigger?.startsWith("manual:")  ? `Tag · ${run.trigger.replace("manual:", "")}` :
     run.trigger?.startsWith("targeted:") ? `Targeted · ${run.trigger.replace("targeted:", "")}` :
     run.trigger ?? run.run_type;
@@ -139,6 +151,17 @@ function JobRow({ run, onDelete }: { run: TagRun; onDelete: (id: string) => void
               onMouseLeave={e => (e.currentTarget.style.color = "#334155")}
             >
               {deleting ? <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={12} />}
+            </button>
+          )}
+          {isStale && (
+            <button
+              onClick={handleCancel}
+              disabled={cancelling}
+              title="Force-cancel this stuck run"
+              style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 6, cursor: cancelling ? "wait" : "pointer", color: "#f59e0b", fontSize: 10, fontWeight: 700, transition: "all 0.12s" }}
+            >
+              {cancelling ? <Loader2 size={10} style={{ animation: "spin 1s linear infinite" }} /> : <X size={10} />}
+              Cancel
             </button>
           )}
         </div>
@@ -282,6 +305,10 @@ export default function BatchTaggerPage() {
     total: number; tagged: number; untagged: number; taggedPct: number; status: string;
   } | null>(null);
 
+  // ── Batch run mode ──
+  const [runMode,      setRunMode]      = useState<"untagged" | "enrich">("untagged");
+  const [enrichMaxTags, setEnrichMaxTags] = useState(3);
+
   // ── Targeted run state ──
   const [tFileType,    setTFileType]    = useState<string>("all");
   const [tTagStatus,   setTTagStatus]   = useState<string>("all");
@@ -349,11 +376,27 @@ export default function BatchTaggerPage() {
 
   // Auto-refresh while a run is in progress
   useEffect(() => {
-    const hasRunning = runs.some(r => r.status === "running");
-    if (!hasRunning) { setRunning(false); return; }
+    // Treat runs stuck in 'running' for >2h as stale (server likely crashed)
+    const STALE_THRESHOLD_MS = 2 * 60 * 60 * 1000;
+    const isStale = (r: TagRun) =>
+      r.status === "running" &&
+      Date.now() - new Date(r.started_at).getTime() > STALE_THRESHOLD_MS;
+
+    const hasActive = runs.some(r => r.status === "running" && !isStale(r));
+    if (!hasActive) { setRunning(false); return; }
     const t = setInterval(fetchRuns, 3500);
     return () => clearInterval(t);
   }, [runs, fetchRuns]);
+
+  const forceCompleteRun = async (id: string) => {
+    try {
+      await fetch(`${BOT_URL}/admin/tags/runs/${id}/cancel`, { method: "POST" });
+    } catch { /* ignore — fall through to optimistic update */ }
+    // Optimistic: mark it error in local state
+    setRuns(prev => prev.map(r =>
+      r.id === id ? { ...r, status: "error" as const, error: "Manually cancelled (was stuck)" } : r
+    ));
+  };
 
   const handleTargetedRun = async () => {
     if (tTargetTags.length === 0) return;
@@ -380,7 +423,7 @@ export default function BatchTaggerPage() {
       const res = await fetch(`${BOT_URL}/admin/drive/run-batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ limit }),
+        body: JSON.stringify({ limit, mode: runMode, maxTags: enrichMaxTags }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to start run");
@@ -608,10 +651,58 @@ export default function BatchTaggerPage() {
       </div>
 
       <div style={{ ...CARD, marginBottom: "1.75rem", background: "rgba(16,185,129,0.04)", border: "1px solid rgba(16,185,129,0.15)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1rem" }}>
           <Zap size={14} color={ACCENT} />
           <span style={{ fontSize: 13, fontWeight: 800, color: "#e2e8f0" }}>Batch Tag Run</span>
-          <span style={{ fontSize: 11, color: "#475569" }}>— scans untagged files and applies matching tags by filename</span>
+          <span style={{ fontSize: 11, color: "#475569" }}>
+            {runMode === "enrich" ? "— re-analyze under-tagged files and add missing tags" : "— scans untagged files and applies matching tags by filename"}
+          </span>
+        </div>
+
+        {/* Mode toggle */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+          <span style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, whiteSpace: "nowrap" }}>Mode</span>
+          <div style={{ display: "flex", gap: "0.3rem" }}>
+            {([
+              { id: "untagged" as const, label: "Untagged Only",       icon: "○" },
+              { id: "enrich"   as const, label: "Enrich Under-Tagged", icon: "◑" },
+            ] as const).map(({ id, label }) => (
+              <button key={id} onClick={() => setRunMode(id)}
+                style={{
+                  padding: "0.3rem 0.75rem", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                  background: runMode === id ? `${ACCENT}20` : "rgba(255,255,255,0.04)",
+                  border: `1px solid ${runMode === id ? ACCENT + "50" : "rgba(255,255,255,0.08)"}`,
+                  color: runMode === id ? ACCENT : "#64748b",
+                  transition: "all 0.12s",
+                }}
+              >{label}</button>
+            ))}
+          </div>
+
+          {/* Max-tags threshold — only visible in enrich mode */}
+          {runMode === "enrich" && (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginLeft: "0.5rem" }}>
+              <span style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, whiteSpace: "nowrap" }}>Up to</span>
+              <div style={{ display: "flex", gap: "0.25rem" }}>
+                {[1, 2, 3, 4, 5].map(n => (
+                  <button key={n} onClick={() => setEnrichMaxTags(n)}
+                    title={`Enrich files that have ${n} tag${n > 1 ? "s" : ""} or fewer`}
+                    style={{
+                      width: 28, height: 24, borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer",
+                      background: enrichMaxTags === n ? "rgba(129,140,248,0.18)" : "rgba(255,255,255,0.04)",
+                      border: `1px solid ${enrichMaxTags === n ? "#818cf840" : "rgba(255,255,255,0.08)"}`,
+                      color: enrichMaxTags === n ? "#818cf8" : "#64748b",
+                      transition: "all 0.12s",
+                    }}
+                  >{n}</button>
+                ))}
+              </div>
+              <span style={{ fontSize: 10, color: "#475569" }}>tag{enrichMaxTags > 1 ? "s" : ""}</span>
+              <span style={{ fontSize: 10, color: "#334155", marginLeft: 4 }}>
+                (1-tag files first, then 2s, 3s…)
+              </span>
+            </div>
+          )}
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
@@ -658,19 +749,21 @@ export default function BatchTaggerPage() {
               display: "flex", alignItems: "center", gap: "0.5rem",
               background: running
                 ? "rgba(255,255,255,0.05)"
-                : `linear-gradient(135deg, ${ACCENT}, #059669)`,
+                : runMode === "enrich"
+                  ? "linear-gradient(135deg, #6366f1, #818cf8)"
+                  : `linear-gradient(135deg, ${ACCENT}, #059669)`,
               border: "none", borderRadius: 10,
               padding: "0.6rem 1.75rem",
               color: running ? "#64748b" : "#fff",
               fontSize: 13, fontWeight: 800,
               cursor: running ? "wait" : "pointer",
-              boxShadow: running ? "none" : `0 4px 20px ${ACCENT}35`,
+              boxShadow: running ? "none" : runMode === "enrich" ? "0 4px 20px rgba(99,102,241,0.35)" : `0 4px 20px ${ACCENT}35`,
               transition: "all 0.2s",
             }}
           >
             {running
               ? <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Running…</>
-              : <><Play size={13} fill="#fff" /> Run Now</>
+              : <><Play size={13} fill="#fff" /> {runMode === "enrich" ? "Enrich Now" : "Run Now"}</>
             }
           </button>
 
@@ -678,7 +771,7 @@ export default function BatchTaggerPage() {
             <motion.span
               initial={{ opacity: 0, x: -6 }}
               animate={{ opacity: 1, x: 0 }}
-              style={{ fontSize: 11, color: "#10b981", display: "flex", alignItems: "center", gap: "0.35rem" }}
+              style={{ fontSize: 11, color: runMode === "enrich" ? "#818cf8" : "#10b981", display: "flex", alignItems: "center", gap: "0.35rem" }}
             >
               <CheckCircle2 size={12} /> Run started — see history below
             </motion.span>
@@ -687,8 +780,10 @@ export default function BatchTaggerPage() {
 
         {/* Description */}
         <p style={{ fontSize: 11, color: "#475569", margin: "0.875rem 0 0" }}>
-          Files are matched against every tag in your Tag Library by filename keyword. Only untagged files are processed.
-          The agent routine "Batch and Tag Files" also runs this automatically on weekday nights.
+          {runMode === "enrich"
+            ? `Targets files with 1–${enrichMaxTags} tag${enrichMaxTags > 1 ? "s" : ""}, processing the most under-tagged first. Vision re-runs on each file and new tags are merged (existing ones are never removed).`
+            : "Files are matched against every tag in your Tag Library by filename keyword. Only untagged files are processed. The agent routine \"Batch and Tag Files\" also runs this automatically on weekday nights."
+          }
         </p>
       </div>
 
@@ -738,7 +833,7 @@ export default function BatchTaggerPage() {
             {/* Active runs always shown at top */}
             {activeRuns.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginBottom: "0.75rem" }}>
-                {activeRuns.map(run => <JobRow key={run.id} run={run} onDelete={handleDelete} />)}
+                {activeRuns.map(run => <JobRow key={run.id} run={run} onDelete={handleDelete} onCancel={forceCompleteRun} />)}
               </div>
             )}
 
