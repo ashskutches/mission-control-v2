@@ -4,8 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Code2, Plus, Pencil, Trash2, RefreshCw, CheckCircle2,
   AlertCircle, ClipboardCopy, Check, X, FileCode, Rocket,
-  ChevronRight, Search, Sparkles, ArrowDownToLine, ArrowUpFromLine, ChevronDown, Globe,
+  ChevronRight, Search, Sparkles, ArrowDownToLine, ArrowUpFromLine, ChevronDown, Globe, PackagePlus,
 } from "lucide-react";
+import ShopifyImportPanel from "./ShopifyImportPanel";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 const ORANGE = "#e98d20";
@@ -64,7 +65,7 @@ interface SnippetFull extends Snippet {
   content: string;
 }
 
-type Mode = "list" | "edit" | "new";
+type Mode = "list" | "edit" | "new" | "import";
 type SaveState = "idle" | "saving" | "ok" | "error";
 
 interface SyncResult {
@@ -592,6 +593,13 @@ export default function SnippetsCRUD() {
                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: ORANGE, border: "none", borderRadius: 8, padding: "0.5rem 1rem", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                 <Plus size={12} /> New Snippet
               </button>
+              {/* Import from Shopify — blocks & sections */}
+              <button onClick={() => setMode("import")}
+                id="snippet-import-btn"
+                title="Import a Shopify block or section as a local snippet and register it in an embed"
+                style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.3)", borderRadius: 8, padding: "0.5rem 1rem", color: "#a78bfa", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                <PackagePlus size={12} /> Import Block
+              </button>
             </div>
 
             {/* Theme picker — shown after clicking List Themes */}
@@ -689,6 +697,14 @@ export default function SnippetsCRUD() {
                 {snippets.length} snippets · {(snippets.reduce((a, s) => a + s.size_bytes, 0) / 1024).toFixed(1)} KB total
               </p>
             )}
+          </motion.div>
+        ) : mode === "import" ? (
+          <motion.div key="import" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <ShopifyImportPanel
+              themeId={selectedThemeId}
+              onImported={async () => { await fetchSnippets(); }}
+              onClose={() => setMode("list")}
+            />
           </motion.div>
         ) : (
           <motion.div key="edit" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
