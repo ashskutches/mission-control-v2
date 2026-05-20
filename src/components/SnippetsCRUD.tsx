@@ -74,6 +74,7 @@ interface SyncResult {
   created: string[];
   updated: string[];
   skipped: string[];
+  protected?: string[]; // local-wins files not overwritten
   errors: { key: string; error: string }[];
 }
 
@@ -125,6 +126,12 @@ function SyncResultBanner({ result, label, onClose }: {
         {result.skipped.length > 0 && (
           <span style={{ fontSize: 10, background: "rgba(100,116,139,0.12)", color: "#64748b", borderRadius: 99, padding: "0.15rem 0.5rem" }}>
             {result.skipped.length} same
+          </span>
+        )}
+        {(result.protected?.length ?? 0) > 0 && (
+          <span title="Local file differs from Shopify — local version kept. Use Force Pull to overwrite."
+            style={{ fontSize: 10, background: "rgba(251,146,60,0.12)", color: "#fb923c", borderRadius: 99, padding: "0.15rem 0.5rem", fontWeight: 700 }}>
+            🔒 {result.protected!.length} protected
           </span>
         )}
         {hasErrors && (
@@ -467,11 +474,11 @@ export default function SnippetsCRUD() {
     }
   };
 
-  const handlePull = async () => {
+  const handlePull = async (force = false) => {
     setPulling(true);
     setSyncResult(null);
     try {
-      const body: Record<string, unknown> = {};
+      const body: Record<string, unknown> = { force };
       if (selectedThemeId) body.theme_id = selectedThemeId;
       const res = await fetch(`${BOT_URL}/admin/snippets/pull-from-shopify`, {
         method: "POST",
@@ -480,11 +487,11 @@ export default function SnippetsCRUD() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
-      setSyncResult({ result: json as SyncResult, label: "Pull from Shopify" });
+      setSyncResult({ result: json as SyncResult, label: force ? "Force Pull (overwrote locals)" : "Pull from Shopify" });
       await fetchSnippets();
     } catch (e: any) {
       setSyncResult({
-        result: { ok: false, summary: e.message, created: [], updated: [], skipped: [], errors: [{ key: "request", error: e.message }] },
+        result: { ok: false, summary: e.message, created: [], updated: [], skipped: [], protected: [], errors: [{ key: "request", error: e.message }] },
         label: "Pull from Shopify",
       });
     } finally {
@@ -562,12 +569,24 @@ export default function SnippetsCRUD() {
                 <RefreshCw size={12} style={loading ? { animation: "spin 1s linear infinite" } : undefined} />
                 Refresh
               </button>
-              {/* Pull from Shopify */}
-              <button onClick={handlePull} disabled={pulling || pushing}
-                title="Fetch snippets from Shopify → create/update local files"
+              {/* Pull from Shopify — local files are always protected */}
+              <button onClick={() => handlePull(false)} disabled={pulling || pushing}
+                title="Fetch NEW snippets from Shopify → local files are never overwritten (local wins)"
                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.25)", borderRadius: 8, padding: "0.5rem 0.9rem", color: "#38bdf8", fontSize: 12, fontWeight: 700, cursor: (pulling || pushing) ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
                 {pulling ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <ArrowDownToLine size={12} />}
                 {pulling ? "Pulling…" : "Pull from Shopify"}
+              </button>
+              {/* Force Pull — overwrites local files with Shopify version */}
+              <button
+                onClick={() => {
+                  if (!confirm("⚠ Force Pull will overwrite local snippet files with Shopify's versions.\n\nThis will undo any local edits that differ from Shopify.\n\nContinue?")) return;
+                  handlePull(true);
+                }}
+                disabled={pulling || pushing}
+                title="Force pull: overwrite local files with Shopify's version (use with caution)"
+                style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "0.5rem 0.75rem", color: "#f87171", fontSize: 11, fontWeight: 700, cursor: (pulling || pushing) ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
+                <ArrowDownToLine size={11} />
+                Force ↓
               </button>
               {/* List Themes — sets target theme for pull/push */}
               <button onClick={loadThemes} disabled={loadingThemes}
