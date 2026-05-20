@@ -2,14 +2,15 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Layers, Radio, Link2, Rocket, Activity } from "lucide-react";
+import { BarChart3, Layers, Radio, Link2, Rocket, Activity, Code2 } from "lucide-react";
 
 const NAV = [
-  { href: "/audience",         label: "Dashboard", icon: BarChart3, color: "#38bdf8", exact: true },
-  { href: "/audience/sections", label: "Sections",  icon: Layers,    color: "#a78bfa" },
-  { href: "/audience/signals",  label: "Signals",   icon: Radio,     color: "#f59e0b" },
-  { href: "/audience/embeds",   label: "Embeds",    icon: Link2,     color: "#34d399" },
-  { href: "/audience/deploy",   label: "Deploy",    icon: Rocket,    color: "#64748b" },
+  { href: "/audience",          label: "Dashboard", icon: BarChart3, color: "#38bdf8", exact: true },
+  { href: "/audience/sections",  label: "Sections",  icon: Layers,   color: "#a78bfa" },
+  { href: "/audience/signals",   label: "Signals",   icon: Radio,    color: "#f59e0b" },
+  { href: "/audience/embeds",    label: "Embeds",    icon: Link2,    color: "#34d399" },
+  { href: "/audience/deploy",    label: "Deploy",    icon: Rocket,   color: "#64748b" },
+  { href: "/content/sections",   label: "Snippets",  icon: Code2,    color: "#818cf8" },
 ];
 
 export default function AudienceLayout({ children }: { children: React.ReactNode }) {
@@ -27,10 +28,10 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
         }}>
           <Activity size={18} color="#38bdf8" />
         </div>
-        <h1 className="has-text-white" style={{ fontWeight: 800, fontSize: "1.5rem" }}>Audience</h1>
+        <h1 className="has-text-white" style={{ fontWeight: 800, fontSize: "1.5rem" }}>Website</h1>
       </div>
       <p style={{ color: "#64748b", fontSize: 13, marginBottom: "1.25rem" }}>
-        Customer intelligence — psychological profiles powering page, email &amp; ad personalization.
+        Customer intelligence — personalization, A/B sections, embeds, and Shopify snippets.
       </p>
 
       {/* Sub-nav */}
