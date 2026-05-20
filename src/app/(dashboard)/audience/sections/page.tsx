@@ -69,6 +69,47 @@ const SELECT_STYLE: React.CSSProperties = {
   cursor: "pointer",
 };
 
+// ── CustomSelect — fully CSS-controlled dropdown (native <select> ignores dark-mode CSS on macOS)
+interface SelectOption { value: string; label: string; dimmed?: boolean; }
+function CustomSelect({ value, onChange, options, placeholder, style }: {
+  value: string;
+  onChange: (v: string) => void;
+  options: SelectOption[];
+  placeholder?: string;
+  style?: React.CSSProperties;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find(o => o.value === value);
+  const label = selected ? selected.label : (placeholder ?? "— select —");
+  return (
+    <div style={{ position: "relative", ...style }} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false); }} tabIndex={-1}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6,
+          width: "100%", background: "#0f172a", border: "1px solid rgba(255,255,255,0.18)",
+          color: selected ? "#e2e8f0" : "#64748b", borderRadius: 6, padding: "5px 10px",
+          fontSize: 12, cursor: "pointer", textAlign: "left" }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+        <ChevronDown size={12} style={{ flexShrink: 0, opacity: 0.5, transform: open ? "rotate(180deg)" : undefined, transition: "transform 150ms" }} />
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 9999,
+          background: "#0f172a", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 8,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.7)", maxHeight: 240, overflowY: "auto" }}>
+          {options.map(o => (
+            <button key={o.value} type="button" onClick={() => { onChange(o.value); setOpen(false); }}
+              style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 12px",
+                background: o.value === value ? "rgba(56,189,248,0.12)" : "transparent",
+                color: o.dimmed ? "#64748b" : "#e2e8f0", fontSize: 12, cursor: "pointer",
+                border: "none", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Live snippet list hook ────────────────────────────────────────────────────
 // Fetches the real file list from /admin/snippets so the dropdowns always
 // reflect whatever .liquid files are actually in the repo — no manual updates needed.
@@ -285,16 +326,16 @@ function AddVariationRow({ sectionId, onAdded }: { sectionId: string; onAdded: (
     <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginTop: "0.4rem", flexWrap: "wrap" }}>
       <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. With Video"
         style={{ ...INPUT_STYLE, fontSize: 11, padding: "3px 8px", borderRadius: 6, width: 130 }} />
-      <select value={snippetId} onChange={e => setSnippetId(e.target.value)}
-        style={{ ...SELECT_STYLE, fontSize: 10, padding: "3px 8px", flex: 1, minWidth: 160 }}>
-        <option value="">{snippetsLoading ? "Loading snippets…" : "— pick snippet —"}</option>
-        {liveSnippets.map(s => (
-          <option key={s.id} value={s.id}>
-            {s.id}{s.description ? ` — ${s.description.slice(0, 48)}` : ""}
-          </option>
-        ))}
-        <option value="__custom__">Custom ID…</option>
-      </select>
+      <CustomSelect
+        value={snippetId}
+        onChange={setSnippetId}
+        placeholder={snippetsLoading ? "Loading snippets…" : "— pick snippet —"}
+        style={{ flex: 1, minWidth: 160 }}
+        options={[
+          ...liveSnippets.map(s => ({ value: s.id, label: s.id + (s.description ? ` — ${s.description.slice(0, 48)}` : "") })),
+          { value: "__custom__", label: "Custom ID…", dimmed: true },
+        ]}
+      />
       {snippetId === "__custom__" && (
         <input placeholder="lrb-custom-snippet" value={customId} onChange={e => setCustomId(e.target.value)}
           style={{ ...INPUT_STYLE, fontSize: 10, padding: "3px 8px", borderRadius: 6, width: 160 }} />
@@ -766,9 +807,9 @@ export default function SectionsPage() {
 
             <div style={{ marginBottom: "0.75rem" }}>
               <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>Primary Snippet (Default Variation)</label>
-              <select value={form.shopify_section_id}
-                onChange={e => {
-                  const val = e.target.value;
+              <CustomSelect
+                value={form.shopify_section_id}
+                onChange={val => {
                   const picked = liveSnippets.find(s => s.id === val);
                   setForm(f => ({
                     ...f,
@@ -777,15 +818,12 @@ export default function SectionsPage() {
                     description: f.description || (picked?.description ?? ""),
                   }));
                 }}
-                style={{ ...SELECT_STYLE, border: "1px solid rgba(56,189,248,0.35)" }}>
-                <option value="" style={{ background: "#0f172a", color: "#94a3b8" }}>{snippetsLoading ? "Loading snippets…" : "— select a snippet —"}</option>
-                {liveSnippets.map(s => (
-                  <option key={s.id} value={s.id} style={{ background: "#0f172a", color: "#e2e8f0" }}>
-                    {s.id}{s.description ? ` — ${s.description.slice(0, 60)}` : ""}
-                  </option>
-                ))}
-                <option value="__custom__" style={{ background: "#0f172a", color: "#94a3b8" }}>Other (custom ID…)</option>
-              </select>
+                placeholder={snippetsLoading ? "Loading snippets…" : "— select a snippet —"}
+                options={[
+                  ...liveSnippets.map(s => ({ value: s.id, label: s.id + (s.description ? ` — ${s.description.slice(0, 60)}` : "") })),
+                  { value: "__custom__", label: "Other (custom ID…)", dimmed: true },
+                ]}
+              />
               {form.shopify_section_id === "__custom__" && (
                 <input className="input is-small" placeholder="my-custom-snippet-id" style={{ ...INPUT_STYLE, marginTop: "0.5rem" }}
                   onChange={e => setForm(f => ({ ...f, shopify_section_id: e.target.value }))} />
