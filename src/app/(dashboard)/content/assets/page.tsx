@@ -5,7 +5,7 @@ import {
   Tag, FolderOpen, Search, RefreshCw, CheckSquare,
   Image as ImageIcon, Film, FileText, Package, X, Plus,
   ChevronDown, ChevronLeft, ChevronRight, Database,
-  AlertCircle, Loader2, BookmarkPlus, Check,
+  AlertCircle, Loader2, BookmarkPlus, Check, UploadCloud,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -381,6 +381,157 @@ function FileCard({ file, selected, onToggle, onTagAdd, onTagRemove, saving }: {
   );
 }
 
+// ── DropZone ──────────────────────────────────────────────────────────────────
+
+interface UploadItem { name: string; status: "uploading" | "done" | "error"; error?: string; }
+
+function DropZone({ botUrl, onUploaded }: { botUrl: string; onUploaded: () => void }) {
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploads, setUploads] = useState<UploadItem[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const uploadFiles = async (files: FileList | File[]) => {
+    const list = Array.from(files);
+    if (list.length === 0) return;
+
+    setUploads(prev => [
+      ...prev,
+      ...list.map(f => ({ name: f.name, status: "uploading" as const })),
+    ]);
+
+    const startIdx = uploads.length;
+    const results = await Promise.allSettled(
+      list.map(async (file) => {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch(`${botUrl}/admin/drive/upload`, { method: "POST", body: form });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+          throw new Error(body.error ?? `HTTP ${res.status}`);
+        }
+        return file.name;
+      })
+    );
+
+    setUploads(prev => {
+      const updated = [...prev];
+      results.forEach((r, i) => {
+        const idx = startIdx + i;
+        if (idx >= updated.length) return;
+        if (r.status === "fulfilled") {
+          updated[idx] = { name: list[i].name, status: "done" };
+        } else {
+          updated[idx] = { name: list[i].name, status: "error", error: (r.reason as Error).message };
+        }
+      });
+      return updated;
+    });
+
+    const anyOk = results.some(r => r.status === "fulfilled");
+    if (anyOk) onUploaded();
+    setTimeout(() => setUploads(prev => prev.filter(u => u.status !== "done")), 4000);
+  };
+
+  const onDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragOver(true); };
+  const onDragLeave = () => setIsDragOver(false);
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
+  };
+  const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length) uploadFiles(e.target.files);
+  };
+
+  return (
+    <div style={{ marginBottom: "1.25rem" }}>
+      <motion.div
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        onClick={() => inputRef.current?.click()}
+        animate={{
+          borderColor: isDragOver ? `${ACCENT}80` : "rgba(255,255,255,0.09)",
+          background: isDragOver ? `${ACCENT}08` : "rgba(255,255,255,0.02)",
+        }}
+        transition={{ duration: 0.15 }}
+        style={{
+          border: "2px dashed rgba(255,255,255,0.09)",
+          borderRadius: 14,
+          padding: "1.5rem 1.25rem",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "0.5rem",
+          cursor: "pointer",
+          userSelect: "none",
+        }}
+      >
+        <motion.div
+          animate={{ scale: isDragOver ? 1.12 : 1, color: isDragOver ? ACCENT : "#475569" }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        >
+          <UploadCloud size={28} />
+        </motion.div>
+        <p style={{ fontSize: 13, fontWeight: 700, color: isDragOver ? ACCENT : "#94a3b8", margin: 0, transition: "color 0.15s" }}>
+          {isDragOver ? "Drop to upload to Drive" : "Drag & drop files here"}
+        </p>
+        <p style={{ fontSize: 10, color: "#475569", margin: 0 }}>or click to browse — images, videos, docs up to 500 MB</p>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          style={{ display: "none" }}
+          onChange={onInputChange}
+          aria-label="Upload files to Drive"
+        />
+      </motion.div>
+
+      <AnimatePresence>
+        {uploads.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            style={{ marginTop: "0.6rem", display: "flex", flexDirection: "column", gap: "0.35rem", overflow: "hidden" }}
+          >
+            {uploads.map((u, i) => (
+              <motion.div
+                key={`${u.name}-${i}`}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 8 }}
+                style={{
+                  display: "flex", alignItems: "center", gap: "0.5rem",
+                  background: u.status === "error" ? "rgba(244,63,94,0.07)" : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${u.status === "error" ? "rgba(244,63,94,0.2)" : u.status === "done" ? "rgba(16,185,129,0.2)" : "rgba(255,255,255,0.06)"}`,
+                  borderRadius: 8, padding: "0.4rem 0.75rem",
+                }}
+              >
+                {u.status === "uploading" && <Loader2 size={11} color={ACCENT} style={{ animation: "spin 1s linear infinite", flexShrink: 0 }} />}
+                {u.status === "done"      && <Check size={11} color="#10b981" style={{ flexShrink: 0 }} />}
+                {u.status === "error"     && <AlertCircle size={11} color="#f43f5e" style={{ flexShrink: 0 }} />}
+                <span style={{ fontSize: 11, color: u.status === "error" ? "#f43f5e" : "#94a3b8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {u.name}
+                  {u.status === "error" && ` — ${u.error}`}
+                  {u.status === "done"  && " — uploaded"}
+                </span>
+                <button
+                  onClick={e => { e.stopPropagation(); setUploads(prev => prev.filter((_, j) => j !== i)); }}
+                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "#475569", display: "flex" }}
+                  aria-label="Dismiss upload notification"
+                >
+                  <X size={10} />
+                </button>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ── Batch Toolbar ──────────────────────────────────────────────────────────────
 
 function BatchToolbar({ selectedCount, onBatchTag, onClearSelection }: {
@@ -660,7 +811,8 @@ export default function AssetTaggerPage() {
         <select value={sort} onChange={e => { setSort(e.target.value); setPage(1); }}
           style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "0.4rem 0.65rem", color: "#94a3b8", fontSize: 11, cursor: "pointer", outline: "none" }}>
           <option value="name">Sort: Name</option>
-          <option value="date">Sort: Date</option>
+          <option value="date-newest">Sort: Date Newest</option>
+          <option value="date-oldest">Sort: Date Oldest</option>
         </select>
         <button onClick={() => fetchPage(page, debouncedSearch, mimeFilter, sort)}
           style={{ display: "flex", alignItems: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "0.4rem 0.65rem", color: "#64748b", cursor: "pointer" }}
@@ -668,6 +820,9 @@ export default function AssetTaggerPage() {
           <RefreshCw size={13} className={loading ? "spin" : ""} />
         </button>
       </div>
+
+      {/* Drop zone */}
+      <DropZone botUrl={BOT_URL} onUploaded={() => fetchPage(1, debouncedSearch, mimeFilter, sort)} />
 
       {/* Pagination header */}
       {pageData && pageData.totalPages > 1 && (
