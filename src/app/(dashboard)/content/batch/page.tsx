@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Zap, Play, Loader2, CheckCircle2, AlertCircle, Clock,
   ChevronDown, ChevronUp, RefreshCw, History, Trash2,
-  Tag, Database, Target, Film, Image as ImageIcon, FileText, X, Plus, Search,
+  Tag, Database, Film, Image as ImageIcon, FileText, X,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -309,24 +309,7 @@ export default function BatchTaggerPage() {
   // ── Batch run mode ──
   const [runMode,      setRunMode]      = useState<"untagged" | "enrich">("untagged");
   const [enrichMaxTags, setEnrichMaxTags] = useState(3);
-
-  // ── Targeted run state ──
-  const [tFileType,    setTFileType]    = useState<string>("all");
-  const [tTagStatus,   setTTagStatus]   = useState<string>("all");
-  const [tTargetTags,  setTTargetTags]  = useState<string[]>([]);
-  const [tTagSearch,   setTTagSearch]   = useState("");
-  const [tTagLibrary,  setTTagLibrary]  = useState<{tag: string; label: string}[]>([]);
-  const [tRunning,     setTRunning]     = useState(false);
-  const [tLastRunId,   setTLastRunId]   = useState<string | null>(null);
-
-  // Derived: how many files in the cache match the targeted filters (approx from driveStats)
-  const tMatchCount = (() => {
-    if (!driveStats) return null;
-    let n = driveStats.total;
-    if (tTagStatus === "tagged")   n = driveStats.tagged;
-    if (tTagStatus === "untagged") n = driveStats.untagged;
-    return n;
-  })();
+  const [bFileType,    setBFileType]    = useState<string>("all");
 
 
   const fetchDriveStats = useCallback(async () => {
@@ -357,18 +340,7 @@ export default function BatchTaggerPage() {
     finally { setLoading(false); }
   }, []);
 
-  // Load tag library for targeted run picker
-  const fetchTagLibrary = useCallback(async () => {
-    try {
-      const res = await fetch(`${BOT_URL}/admin/tags`);
-      if (res.ok) {
-        const d = await res.json();
-        setTTagLibrary((d.tags ?? []).filter((t: any) => t.is_active).map((t: any) => ({ tag: t.tag, label: t.label ?? t.tag })));
-      }
-    } catch { /* silent */ }
-  }, []);
-
-  useEffect(() => { fetchRuns(); fetchDriveStats(); fetchTagLibrary(); }, [fetchRuns, fetchDriveStats, fetchTagLibrary]);
+  useEffect(() => { fetchRuns(); fetchDriveStats(); }, [fetchRuns, fetchDriveStats]);
 
   // Refresh drive stats every 60s
   useEffect(() => {
@@ -406,32 +378,13 @@ export default function BatchTaggerPage() {
     ));
   };
 
-  const handleTargetedRun = async () => {
-    if (tTargetTags.length === 0) return;
-    setTRunning(true);
-    try {
-      const res = await fetch(`${BOT_URL}/admin/drive/run-targeted`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetTags: tTargetTags, fileType: tFileType, tagStatus: tTagStatus }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to start targeted run");
-      setTLastRunId(data.runId);
-      setTimeout(fetchRuns, 800);
-    } catch (err: any) {
-      alert(`Targeted run failed: ${err.message}`);
-      setTRunning(false);
-    }
-  };
-
   const handleRun = async () => {
     setRunning(true);
     try {
       const res = await fetch(`${BOT_URL}/admin/drive/run-batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ limit, mode: runMode, maxTags: enrichMaxTags }),
+        body: JSON.stringify({ limit, mode: runMode, maxTags: enrichMaxTags, fileType: bFileType }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to start run");
@@ -613,133 +566,6 @@ export default function BatchTaggerPage() {
         </motion.div>
       )}
 
-      {/* ── Targeted Tag Run ── */}
-      <div style={{ ...CARD, marginBottom: "1.25rem", background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.18)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1rem" }}>
-          <Target size={14} color="#818cf8" />
-          <span style={{ fontSize: 13, fontWeight: 800, color: "#e2e8f0" }}>Targeted Tag Run</span>
-          <span style={{ fontSize: 11, color: "#475569" }}>— add specific tags to existing files, no AI needed</span>
-        </div>
-
-        {/* Row 1: file type + tag status */}
-        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "0.875rem" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-            <span style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>File Type</span>
-            <div style={{ display: "flex", gap: "0.3rem" }}>
-              {([{id:"all",label:"All",Icon:Database,c:"#64748b"},{id:"video",label:"Video",Icon:Film,c:"#f59e0b"},{id:"image",label:"Image",Icon:ImageIcon,c:"#38bdf8"},{id:"document",label:"Doc",Icon:FileText,c:"#10b981"}] as const).map(({id,label,Icon,c}) => (
-                <button key={id} onClick={() => setTFileType(id)}
-                  style={{ display:"flex",alignItems:"center",gap:"0.3rem",padding:"0.3rem 0.65rem",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",
-                    background: tFileType===id ? `${c}18` : "rgba(255,255,255,0.04)",
-                    border: `1px solid ${tFileType===id ? c+"40" : "rgba(255,255,255,0.08)"}`,
-                    color: tFileType===id ? c : "#64748b", transition:"all 0.12s" }}>
-                  <Icon size={11}/>{label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-            <span style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>Tag Status</span>
-            <div style={{ display: "flex", gap: "0.3rem" }}>
-              {([{id:"all",label:"All Files"},{id:"tagged",label:"Tagged"},{id:"untagged",label:"Untagged"}] as const).map(({id,label}) => (
-                <button key={id} onClick={() => setTTagStatus(id)}
-                  style={{ padding:"0.3rem 0.65rem",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",
-                    background: tTagStatus===id ? "#818cf818" : "rgba(255,255,255,0.04)",
-                    border: `1px solid ${tTagStatus===id ? "#818cf840" : "rgba(255,255,255,0.08)"}`,
-                    color: tTagStatus===id ? "#818cf8" : "#64748b", transition:"all 0.12s" }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {tMatchCount !== null && (
-            <div style={{ display:"flex",alignItems:"flex-end",paddingBottom:"0.1rem" }}>
-              <span style={{ fontSize:11,color:"#475569" }}>~<b style={{color:"#e2e8f0"}}>{tMatchCount.toLocaleString()}</b> files match</span>
-            </div>
-          )}
-        </div>
-
-        {/* Row 2: tags to apply */}
-        <div style={{ marginBottom: "1rem" }}>
-          <span style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, display:"block", marginBottom:"0.4rem" }}>Tags to Apply</span>
-          <div style={{ display:"flex", gap:"0.5rem", flexWrap:"wrap", alignItems:"center" }}>
-            {tTargetTags.map(t => (
-              <span key={t} style={{ display:"inline-flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:"#818cf8",background:"#818cf815",border:"1px solid #818cf830",borderRadius:99,padding:"2px 8px" }}>
-                {t}
-                <button onClick={() => setTTargetTags(prev => prev.filter(x => x !== t))}
-                  style={{ background:"none",border:"none",padding:0,cursor:"pointer",color:"#818cf8",display:"flex",lineHeight:1 }}>
-                  <X size={10}/>
-                </button>
-              </span>
-            ))}
-            {/* Search input */}
-            <div style={{ position:"relative" }}>
-              <Search size={11} color="#475569" style={{ position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",pointerEvents:"none" }}/>
-              <input
-                value={tTagSearch}
-                onChange={e => setTTagSearch(e.target.value)}
-                placeholder="Search or type a tag…"
-                style={{ paddingLeft:24,paddingRight:8,paddingTop:"0.3rem",paddingBottom:"0.3rem",fontSize:11,color:"#e2e8f0",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,outline:"none",width:160 }}
-                onKeyDown={e => {
-                  if (e.key === "Enter" && tTagSearch.trim()) {
-                    const t = tTagSearch.trim().toLowerCase();
-                    if (!tTargetTags.includes(t)) setTTargetTags(prev => [...prev, t]);
-                    setTTagSearch("");
-                  }
-                }}
-              />
-              {/* Dropdown suggestions */}
-              {tTagSearch && (() => {
-                const q = tTagSearch.toLowerCase();
-                const matches = tTagLibrary.filter(t => (t.tag.includes(q) || t.label.toLowerCase().includes(q)) && !tTargetTags.includes(t.tag)).slice(0, 8);
-                if (matches.length === 0) return null;
-                return (
-                  <div style={{ position:"absolute",top:"calc(100% + 4px)",left:0,background:"rgba(15,23,42,0.98)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:10,padding:"0.4rem",display:"flex",flexDirection:"column",gap:2,minWidth:180,zIndex:50,boxShadow:"0 8px 24px rgba(0,0,0,0.4)" }}>
-                    {matches.map(t => (
-                      <button key={t.tag}
-                        onMouseDown={e => { e.preventDefault(); setTTargetTags(prev => [...prev, t.tag]); setTTagSearch(""); }}
-                        style={{ textAlign:"left",padding:"0.3rem 0.6rem",borderRadius:7,fontSize:11,fontWeight:600,color:"#e2e8f0",background:"transparent",border:"none",cursor:"pointer" }}
-                        onMouseEnter={e => (e.currentTarget.style.background="rgba(129,140,248,0.12)")}
-                        onMouseLeave={e => (e.currentTarget.style.background="transparent")}>
-                        <span style={{color:"#818cf8",marginRight:6}}>#</span>{t.label}
-                      </button>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-
-        {/* Row 3: run button */}
-        <div style={{ display:"flex",alignItems:"center",gap:"1rem" }}>
-          <button
-            onClick={handleTargetedRun}
-            disabled={tRunning || tTargetTags.length === 0}
-            style={{
-              display:"flex",alignItems:"center",gap:"0.5rem",
-              background: tRunning || tTargetTags.length===0 ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg,#6366f1,#818cf8)",
-              border:"none",borderRadius:10,padding:"0.6rem 1.75rem",
-              color: tRunning || tTargetTags.length===0 ? "#64748b" : "#fff",
-              fontSize:13,fontWeight:800,cursor: tRunning||tTargetTags.length===0 ? "default" : "pointer",
-              boxShadow: tRunning||tTargetTags.length===0 ? "none" : "0 4px 20px rgba(99,102,241,0.4)",
-              transition:"all 0.2s",
-            }}>
-            {tRunning ? <><Loader2 size={14} style={{animation:"spin 1s linear infinite"}}/>Running…</> : <><Play size={13} fill="#fff"/>Run Targeted</>}
-          </button>
-          {tLastRunId && !tRunning && (
-            <motion.span initial={{opacity:0,x:-6}} animate={{opacity:1,x:0}}
-              style={{fontSize:11,color:"#818cf8",display:"flex",alignItems:"center",gap:"0.35rem"}}>
-              <CheckCircle2 size={12}/> Started — see history below
-            </motion.span>
-          )}
-          {tTargetTags.length === 0 && (
-            <span style={{fontSize:11,color:"#475569"}}>Add at least one tag above to run</span>
-          )}
-        </div>
-      </div>
-
       <div id="batch-run-card" style={{ ...CARD, marginBottom: "1.75rem", background: "rgba(16,185,129,0.04)", border: "1px solid rgba(16,185,129,0.15)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1rem" }}>
           <Zap size={14} color={ACCENT} />
@@ -749,50 +575,94 @@ export default function BatchTaggerPage() {
           </span>
         </div>
 
-        {/* Mode toggle */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
-          <span style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, whiteSpace: "nowrap" }}>Mode</span>
-          <div style={{ display: "flex", gap: "0.3rem" }}>
-            {([
-              { id: "untagged" as const, label: "Untagged Only",       icon: "○" },
-              { id: "enrich"   as const, label: "Enrich Under-Tagged", icon: "◑" },
-            ] as const).map(({ id, label }) => (
-              <button key={id} onClick={() => setRunMode(id)}
-                style={{
-                  padding: "0.3rem 0.75rem", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer",
-                  background: runMode === id ? `${ACCENT}20` : "rgba(255,255,255,0.04)",
-                  border: `1px solid ${runMode === id ? ACCENT + "50" : "rgba(255,255,255,0.08)"}`,
-                  color: runMode === id ? ACCENT : "#64748b",
-                  transition: "all 0.12s",
-                }}
-              >{label}</button>
-            ))}
+        {/* Mode toggle + File Type filter row */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "1.25rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+
+          {/* Mode */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+            <span style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>Mode</span>
+            <div style={{ display: "flex", gap: "0.3rem" }}>
+              {([
+                { id: "untagged" as const, label: "Untagged Only",       icon: "○" },
+                { id: "enrich"   as const, label: "Enrich Under-Tagged", icon: "◑" },
+              ] as const).map(({ id, label }) => (
+                <button key={id} onClick={() => setRunMode(id)}
+                  style={{
+                    padding: "0.3rem 0.75rem", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                    background: runMode === id ? `${ACCENT}20` : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${runMode === id ? ACCENT + "50" : "rgba(255,255,255,0.08)"}`,
+                    color: runMode === id ? ACCENT : "#64748b",
+                    transition: "all 0.12s",
+                  }}
+                >{label}</button>
+              ))}
+            </div>
           </div>
 
-          {/* Max-tags threshold — only visible in enrich mode */}
+          {/* Sparse shortcut — only shown when enrich or as a quick-jump */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+            <span style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>Quick Target</span>
+            <button
+              id="sparse-one-tag"
+              onClick={() => { setRunMode("enrich"); setEnrichMaxTags(1); }}
+              title="Enrich only files that currently have exactly 1 tag"
+              style={{
+                display: "flex", alignItems: "center", gap: "0.35rem",
+                padding: "0.3rem 0.75rem", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                background: runMode === "enrich" && enrichMaxTags === 1 ? "rgba(245,158,11,0.18)" : "rgba(255,255,255,0.04)",
+                border: `1px solid ${runMode === "enrich" && enrichMaxTags === 1 ? "rgba(245,158,11,0.45)" : "rgba(255,255,255,0.08)"}`,
+                color: runMode === "enrich" && enrichMaxTags === 1 ? "#f59e0b" : "#64748b",
+                transition: "all 0.12s",
+              }}
+            >
+              <Tag size={10} />
+              Sparse (1 tag only)
+            </button>
+          </div>
+
+          {/* Max-tags threshold — visible in enrich mode */}
           {runMode === "enrich" && (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginLeft: "0.5rem" }}>
-              <span style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, whiteSpace: "nowrap" }}>Up to</span>
-              <div style={{ display: "flex", gap: "0.25rem" }}>
-                {[1, 2, 3, 4, 5].map(n => (
-                  <button key={n} onClick={() => setEnrichMaxTags(n)}
-                    title={`Enrich files that have ${n} tag${n > 1 ? "s" : ""} or fewer`}
-                    style={{
-                      width: 28, height: 24, borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer",
-                      background: enrichMaxTags === n ? "rgba(129,140,248,0.18)" : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${enrichMaxTags === n ? "#818cf840" : "rgba(255,255,255,0.08)"}`,
-                      color: enrichMaxTags === n ? "#818cf8" : "#64748b",
-                      transition: "all 0.12s",
-                    }}
-                  >{n}</button>
-                ))}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+              <span style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>Up To</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <div style={{ display: "flex", gap: "0.25rem" }}>
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <button key={n} onClick={() => setEnrichMaxTags(n)}
+                      title={`Enrich files that have ${n} tag${n > 1 ? "s" : ""} or fewer`}
+                      style={{
+                        width: 28, height: 24, borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer",
+                        background: enrichMaxTags === n ? "rgba(129,140,248,0.18)" : "rgba(255,255,255,0.04)",
+                        border: `1px solid ${enrichMaxTags === n ? "#818cf840" : "rgba(255,255,255,0.08)"}`,
+                        color: enrichMaxTags === n ? "#818cf8" : "#64748b",
+                        transition: "all 0.12s",
+                      }}
+                    >{n}</button>
+                  ))}
+                </div>
+                <span style={{ fontSize: 10, color: "#475569" }}>tag{enrichMaxTags > 1 ? "s" : ""}</span>
+                <span style={{ fontSize: 10, color: "#334155", marginLeft: 4 }}>
+                  (1-tag files first, then 2s, 3s…)
+                </span>
               </div>
-              <span style={{ fontSize: 10, color: "#475569" }}>tag{enrichMaxTags > 1 ? "s" : ""}</span>
-              <span style={{ fontSize: 10, color: "#334155", marginLeft: 4 }}>
-                (1-tag files first, then 2s, 3s…)
-              </span>
             </div>
           )}
+
+          {/* File Type filter */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+            <span style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>File Type</span>
+            <div style={{ display: "flex", gap: "0.3rem" }}>
+              {([{id:"all",label:"All",Icon:Database,c:"#64748b"},{id:"image",label:"Image",Icon:ImageIcon,c:"#38bdf8"},{id:"video",label:"Video",Icon:Film,c:"#f59e0b"},{id:"document",label:"Doc",Icon:FileText,c:"#10b981"}] as const).map(({id,label,Icon,c}) => (
+                <button key={id} onClick={() => setBFileType(id)}
+                  style={{ display:"flex",alignItems:"center",gap:"0.3rem",padding:"0.3rem 0.65rem",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",
+                    background: bFileType===id ? `${c}18` : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${bFileType===id ? c+"40" : "rgba(255,255,255,0.08)"}`,
+                    color: bFileType===id ? c : "#64748b", transition:"all 0.12s" }}>
+                  <Icon size={11}/>{label}
+                </button>
+              ))}
+            </div>
+          </div>
+
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
@@ -871,8 +741,8 @@ export default function BatchTaggerPage() {
         {/* Description */}
         <p style={{ fontSize: 11, color: "#475569", margin: "0.875rem 0 0" }}>
           {runMode === "enrich"
-            ? `Targets files with 1–${enrichMaxTags} tag${enrichMaxTags > 1 ? "s" : ""}, processing the most under-tagged first. Vision re-runs on each file and new tags are merged (existing ones are never removed).`
-            : "Files are matched against every tag in your Tag Library by filename keyword. Only untagged files are processed. The agent routine \"Batch and Tag Files\" also runs this automatically on weekday nights."
+            ? `Targets files with 1${enrichMaxTags > 1 ? `–${enrichMaxTags}` : ""} tag${enrichMaxTags > 1 ? "s" : ""} (${bFileType !== "all" ? bFileType + "s only, " : ""}processing most under-tagged first). Vision re-runs on each file and new tags are merged (existing ones are never removed).`
+            : `Files are matched against every tag in your Tag Library by filename keyword. Only${bFileType !== "all" ? ` ${bFileType}` : " untagged"} files are processed. The agent routine "Batch and Tag Files" also runs this automatically on weekday nights.`
           }
         </p>
       </div>
