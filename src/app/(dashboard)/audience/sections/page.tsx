@@ -54,12 +54,20 @@ const INPUT_STYLE = {
   color: "#e2e8f0",
 } as const;
 
-// Selects need a solid opaque dark background so native OS option list is readable
-const SELECT_STYLE = {
+// Selects need a solid opaque dark background so native OS option list is readable.
+// WebkitAppearance: none gives us full CSS control, bypassing Bulma overrides.
+const SELECT_STYLE: React.CSSProperties = {
   background: "#0f172a",
-  border: "1px solid rgba(255,255,255,0.15)",
+  border: "1px solid rgba(255,255,255,0.18)",
   color: "#e2e8f0",
-} as const;
+  WebkitAppearance: "none",
+  appearance: "none",
+  padding: "5px 10px",
+  borderRadius: 6,
+  width: "100%",
+  fontSize: 13,
+  cursor: "pointer",
+};
 
 // ── Live snippet list hook ────────────────────────────────────────────────────
 // Fetches the real file list from /admin/snippets so the dropdowns always
@@ -278,7 +286,7 @@ function AddVariationRow({ sectionId, onAdded }: { sectionId: string; onAdded: (
       <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. With Video"
         style={{ ...INPUT_STYLE, fontSize: 11, padding: "3px 8px", borderRadius: 6, width: 130 }} />
       <select value={snippetId} onChange={e => setSnippetId(e.target.value)}
-        style={{ ...SELECT_STYLE, fontSize: 10, padding: "3px 8px", borderRadius: 6, flex: 1, minWidth: 160 }}>
+        style={{ ...SELECT_STYLE, fontSize: 10, padding: "3px 8px", flex: 1, minWidth: 160 }}>
         <option value="">{snippetsLoading ? "Loading snippets…" : "— pick snippet —"}</option>
         {liveSnippets.map(s => (
           <option key={s.id} value={s.id}>
@@ -758,7 +766,7 @@ export default function SectionsPage() {
 
             <div style={{ marginBottom: "0.75rem" }}>
               <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>Primary Snippet (Default Variation)</label>
-              <select className="input is-small" value={form.shopify_section_id}
+              <select value={form.shopify_section_id}
                 onChange={e => {
                   const val = e.target.value;
                   const picked = liveSnippets.find(s => s.id === val);
@@ -769,14 +777,14 @@ export default function SectionsPage() {
                     description: f.description || (picked?.description ?? ""),
                   }));
                 }}
-                style={{ ...SELECT_STYLE, border: "1px solid rgba(56,189,248,0.25)" }}>
-                <option value="">{snippetsLoading ? "Loading snippets…" : "— select a snippet —"}</option>
+                style={{ ...SELECT_STYLE, border: "1px solid rgba(56,189,248,0.35)" }}>
+                <option value="" style={{ background: "#0f172a", color: "#94a3b8" }}>{snippetsLoading ? "Loading snippets…" : "— select a snippet —"}</option>
                 {liveSnippets.map(s => (
-                  <option key={s.id} value={s.id}>
+                  <option key={s.id} value={s.id} style={{ background: "#0f172a", color: "#e2e8f0" }}>
                     {s.id}{s.description ? ` — ${s.description.slice(0, 60)}` : ""}
                   </option>
                 ))}
-                <option value="__custom__">Other (custom ID…)</option>
+                <option value="__custom__" style={{ background: "#0f172a", color: "#94a3b8" }}>Other (custom ID…)</option>
               </select>
               {form.shopify_section_id === "__custom__" && (
                 <input className="input is-small" placeholder="my-custom-snippet-id" style={{ ...INPUT_STYLE, marginTop: "0.5rem" }}
@@ -798,10 +806,10 @@ export default function SectionsPage() {
               ))}
               <div>
                 <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>Matching Mode</label>
-                <select className="input is-small" value={form.hard_gate}
+                <select value={form.hard_gate}
                   onChange={e => setForm(f => ({ ...f, hard_gate: e.target.value }))} style={SELECT_STYLE}>
-                  <option value="false">⚖️ Weighted — signals add score, always eligible</option>
-                  <option value="true">🔒 Hard Gate — only shows when signals match</option>
+                  <option value="false" style={{ background: "#0f172a", color: "#e2e8f0" }}>⚖️ Weighted — signals add score, always eligible</option>
+                  <option value="true" style={{ background: "#0f172a", color: "#e2e8f0" }}>🔒 Hard Gate — only shows when signals match</option>
                 </select>
               </div>
             </div>
