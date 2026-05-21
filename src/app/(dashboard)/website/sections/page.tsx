@@ -411,7 +411,7 @@ function SectionCard({ section, onToggle, onEdit, onDelete, onRefresh, onVariati
       borderLeft: `3px solid ${section.active ? "#38bdf8" : "#334155"}`,
       borderRadius: 10,
       opacity: section.active ? 1 : 0.55, marginBottom: "0.4rem",
-      overflow: "hidden",
+      position: "relative",
     }}>
       {/* ── Clickable header row ─────────────────────────────────────── */}
       <div
@@ -543,7 +543,13 @@ function SectionCard({ section, onToggle, onEdit, onDelete, onRefresh, onVariati
       {/* ── Expanded body ─────────────────────────────────────────── */}
       <AnimatePresence>
         {expanded && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} style={{ overflow: "hidden" }}>
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            style={{ overflow: "visible" }}
+          >
             <div style={{ padding: "0 0.75rem 0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.6rem" }}>
               {section.description && (
                 <p style={{ fontSize: 11, color: "#64748b", marginBottom: "0.5rem", lineHeight: 1.5 }}>{section.description}</p>
