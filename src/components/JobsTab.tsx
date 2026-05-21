@@ -28,6 +28,11 @@ interface AgentJob {
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
+  // Pipeline fields
+  is_pipeline:  boolean | null;
+  pipeline_id:  string | null;   // set on stage jobs; null on parent
+  stage_index:  number | null;
+  stage_plan:   { index: number; name: string; prompt: string; is_final: boolean }[] | null;
 }
 
 interface ParseResult {
@@ -136,6 +141,7 @@ function JobComposer({ agents, onJobCreated }: { agents: AgentDef[]; onJobCreate
   const [createError, setCreateError] = useState<string | null>(null);
   const [discordMembers, setDiscordMembers] = useState<DiscordMember[]>([]);
   const [notifyUserId, setNotifyUserId] = useState<string>("");
+  const [pipelineMode, setPipelineMode] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Load Discord members once on mount
@@ -183,6 +189,7 @@ function JobComposer({ agents, onJobCreated }: { agents: AgentDef[]; onJobCreate
         body: JSON.stringify({
           title: parsed.title, request, prompt: parsed.prompt,
           agent_id: agentId, agent_name: agentName, category: parsed.category,
+          pipeline: pipelineMode,
           notify_discord_user_id:  notifyMember?.id ?? null,
           notify_discord_username: notifyMember?.displayName ?? null,
         }),
@@ -223,8 +230,8 @@ function JobComposer({ agents, onJobCreated }: { agents: AgentDef[]; onJobCreate
         ))}
       </div>
 
-      {/* Discord notify dropdown */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "0.75rem" }}>
+      {/* Discord notify + pipeline mode row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "0.75rem", flexWrap: "wrap" }}>
         <Bell size={12} color="#475569" />
         <span style={{ fontSize: 11, color: "#475569", whiteSpace: "nowrap" }}>Notify when done:</span>
         <select value={notifyUserId} onChange={e => setNotifyUserId(e.target.value)}
@@ -240,6 +247,28 @@ function JobComposer({ agents, onJobCreated }: { agents: AgentDef[]; onJobCreate
         {notifyUserId && (
           <span style={{ fontSize: 10, color: "#34d399" }}>✓ DM on complete</span>
         )}
+
+        {/* Pipeline mode toggle */}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            id="pipeline-mode-toggle"
+            onClick={() => setPipelineMode(v => !v)}
+            title="Pipeline mode: LLM plans research → analysis → deliverable stages automatically"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 5,
+              fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 7, cursor: "pointer",
+              background: pipelineMode ? "rgba(168,85,247,0.18)" : "rgba(255,255,255,0.04)",
+              border: `1px solid ${pipelineMode ? "rgba(168,85,247,0.45)" : "rgba(255,255,255,0.08)"}`,
+              color: pipelineMode ? "#c084fc" : "#475569",
+              transition: "all 0.15s",
+            }}>
+            <Zap size={10} />
+            Pipeline{pipelineMode ? " ON" : ""}
+          </button>
+          {pipelineMode && (
+            <span style={{ fontSize: 10, color: "#a78bfa" }}>Auto-planned stages</span>
+          )}
+        </div>
       </div>
 
       {/* Textarea */}
@@ -428,6 +457,29 @@ function JobCard({ job, onCancel, onDelete }: {
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{job.title}</span>
             <StatusBadge status={job.status} />
+            {/* Pipeline badge on parent jobs */}
+            {job.is_pipeline && !job.pipeline_id && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5,
+                background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.3)",
+                color: "#c084fc", display: "inline-flex", alignItems: "center", gap: 3,
+              }}>
+                <Zap size={8} />
+                {job.stage_plan
+                  ? `Pipeline · ${job.stage_plan.length} stages`
+                  : "Pipeline"}
+              </span>
+            )}
+            {/* Stage badge on child stage jobs */}
+            {job.pipeline_id && job.stage_index != null && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5,
+                background: "rgba(168,85,247,0.07)", border: "1px solid rgba(168,85,247,0.2)",
+                color: "#a78bfa",
+              }}>
+                Stage {job.stage_index}
+              </span>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3, flexWrap: "wrap" }}>
             <span style={{ fontSize: 11, color: "#475569" }}>
