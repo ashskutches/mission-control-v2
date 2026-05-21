@@ -96,6 +96,28 @@ function formatRelative(ts: string | null) {
   return `${Math.floor(m / 60)}h ago`;
 }
 
+/** Extract [title](url) links from the **Document:** section of a completion report. */
+function extractDocLinks(output: string | null): { title: string; url: string }[] {
+  if (!output) return [];
+  const results: { title: string; url: string }[] = [];
+  // Match markdown links anywhere in the output — catches 📄 [Title](URL) pattern
+  const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = linkRe.exec(output)) !== null) {
+    const title = m[1].replace(/^📄\s*/, "").trim();
+    const url   = m[2].trim();
+    // Only surface doc-type links (Drive, Sheets, or Mission Control agent docs)
+    if (
+      url.includes("docs.google.com") ||
+      url.includes("drive.google.com") ||
+      url.includes("/agents/") && url.includes("/documents/")
+    ) {
+      results.push({ title, url });
+    }
+  }
+  return results;
+}
+
 function StatusBadge({ status }: { status: AgentJob["status"] }) {
   const cfg = {
     queued:    { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",   label: "Queued",    Icon: Clock },
@@ -541,6 +563,44 @@ function JobCard({ job, onCancel, onDelete }: {
                 </p>
                 <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.5 }}>{job.request}</p>
               </div>
+
+              {/* Document links — shown above output */}
+              {(() => {
+                const docLinks = extractDocLinks(job.agent_output);
+                if (!docLinks.length) return null;
+                return (
+                  <div style={{ marginTop: 12 }}>
+                    <p style={{ fontSize: 10, fontWeight: 700, color: "#334155", textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 6px" }}>
+                      Deliverable
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      {docLinks.map((link, i) => (
+                        <a
+                          key={i}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: "flex", alignItems: "center", gap: 8,
+                            padding: "8px 12px", borderRadius: 8, textDecoration: "none",
+                            background: "rgba(52,211,153,0.07)",
+                            border: "1px solid rgba(52,211,153,0.25)",
+                            transition: "background 0.15s",
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "rgba(52,211,153,0.14)")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "rgba(52,211,153,0.07)")}
+                        >
+                          <span style={{ fontSize: 14, flexShrink: 0 }}>📄</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "#34d399", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {link.title || "View Document"}
+                          </span>
+                          <span style={{ fontSize: 10, color: "#334155", flexShrink: 0 }}>↗</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Output */}
               {job.agent_output && (
