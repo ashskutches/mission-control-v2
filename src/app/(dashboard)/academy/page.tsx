@@ -123,9 +123,12 @@ function TierBadge({ tier }: { tier: Tier }) {
 
 // ── Main Page ──────────────────────────────────────────────────────────────
 
+const MAX_WORKOUTS = 6;
+
 export default function AcademyPage() {
   const [activeGoal, setActiveGoal] = useState<Goal | "all">("all");
   const [activeDur,  setActiveDur]  = useState<string>("any");
+  const [showAll,    setShowAll]    = useState(false);
   const memberTier: Tier = "free"; // TODO: wire to session/API
 
   const freeCount = WORKOUTS.filter(w => w.tier === "free").length;
@@ -141,6 +144,10 @@ export default function AcademyPage() {
     return goalOk && durOk;
   });
 
+  // Reset showAll when filters change
+  const displayed = showAll ? filtered : filtered.slice(0, MAX_WORKOUTS);
+  const hasMore   = filtered.length > MAX_WORKOUTS;
+
   return (
     <div className="lr-brand" style={{ background: C.cream, minHeight: "100vh", color: C.charcoal, fontFamily: FONT_BODY }}>
 
@@ -155,13 +162,17 @@ export default function AcademyPage() {
 
       {/* ── Workout Library ── */}
       <LibrarySection
-        workouts={filtered}
+        workouts={displayed}
         allCount={WORKOUTS.length}
+        filteredCount={filtered.length}
         activeGoal={activeGoal}
         activeDur={activeDur}
         memberTier={memberTier}
-        onGoal={setActiveGoal}
-        onDur={setActiveDur}
+        showAll={showAll}
+        hasMore={hasMore}
+        onGoal={(g) => { setActiveGoal(g); setShowAll(false); }}
+        onDur={(d)  => { setActiveDur(d);  setShowAll(false); }}
+        onToggleAll={() => setShowAll(v => !v)}
       />
 
       {/* ── Pro upgrade strip ── */}
@@ -301,14 +312,16 @@ function ProgramsSection({ programs, memberTier }: { programs: Program[]; member
 // ── Section: Workout Library ───────────────────────────────────────────────
 
 interface LibraryProps {
-  workouts: Workout[]; allCount: number;
+  workouts: Workout[]; allCount: number; filteredCount: number;
   activeGoal: Goal|"all"; activeDur: string;
   memberTier: Tier;
-  onGoal: (g: Goal|"all") => void;
-  onDur:  (d: string) => void;
+  showAll: boolean; hasMore: boolean;
+  onGoal:      (g: Goal|"all") => void;
+  onDur:       (d: string) => void;
+  onToggleAll: () => void;
 }
 
-function LibrarySection({ workouts, allCount, activeGoal, activeDur, memberTier, onGoal, onDur }: LibraryProps) {
+function LibrarySection({ workouts, allCount, filteredCount, activeGoal, activeDur, memberTier, showAll, hasMore, onGoal, onDur, onToggleAll }: LibraryProps) {
   const durations = [
     { key:"any", label:"Any" },
     { key:"0-10",  label:"≤10 min" },
@@ -339,7 +352,7 @@ function LibrarySection({ workouts, allCount, activeGoal, activeDur, memberTier,
           </button>
         ))}
         <span style={{ marginLeft:"auto", color: C.graphite }}>
-          Showing <strong style={{ color: C.charcoal }}>{workouts.length}</strong> workouts
+          Showing <strong style={{ color: C.charcoal }}>{workouts.length}</strong> of {filteredCount} workouts
         </span>
       </div>
 
@@ -349,6 +362,20 @@ function LibrarySection({ workouts, allCount, activeGoal, activeDur, memberTier,
           <WorkoutCard key={w.id} w={w} i={i} memberTier={memberTier} />
         ))}
       </div>
+
+      {/* Show more / collapse toggle */}
+      {hasMore && (
+        <div style={{ marginTop:36, textAlign:"center" }}>
+          <motion.button
+            onClick={onToggleAll}
+            whileHover={{ scale:1.03 }}
+            whileTap={{ scale:0.97 }}
+            style={{ display:"inline-flex", alignItems:"center", gap:10, padding:"13px 32px", borderRadius:999, background: showAll ? C.paper : C.charcoal, color: showAll ? C.charcoal : "#fff", border: showAll ? `1.5px solid ${C.line}` : `1.5px solid ${C.charcoal}`, fontFamily: FONT_DISPLAY, fontWeight:800, fontSize:12, letterSpacing:"0.1em", textTransform:"uppercase", cursor:"pointer", boxShadow: showAll ? "none" : "0 8px 24px rgba(43,43,43,0.18)" }}
+          >
+            {showAll ? `↑ Show less` : `Show all ${filteredCount} workouts →`}
+          </motion.button>
+        </div>
+      )}
     </div>
   );
 }
