@@ -439,56 +439,154 @@ function PageHeader({ freeCount, proCount }: { freeCount: number; proCount: numb
 }
 
 // ── Hero Section ───────────────────────────────────────────────────────────────
+// ── Workout of the Day card (used in hero) ────────────────────────────────────
+const WOTD = WORKOUTS[2]; // Fun & Energizing Cardio
+
+function WOTDCard({ onPlay }: { onPlay: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 24, rotate: 1 }}
+      animate={{ opacity: 1, y: 0,  rotate: 1 }}
+      transition={{ type: "spring", stiffness: 200, damping: 24, delay: 0.15 }}
+      style={{
+        background: C.paper, borderRadius: 20,
+        boxShadow: "0 24px 72px rgba(43,43,43,0.18), 0 2px 8px rgba(43,43,43,0.06)",
+        overflow: "hidden", width: 320, flexShrink: 0,
+      }}
+    >
+      {/* Thumbnail area */}
+      <div style={{ position: "relative", background: PALETTES.peach.bg, padding: "32px 24px 0", display: "flex", justifyContent: "center" }}>
+        {/* Badges */}
+        <div style={{ position: "absolute", top: 14, left: 14, background: C.charcoal, color: "#fff", fontFamily: FD, fontWeight: 800, fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", padding: "5px 10px", borderRadius: 99 }}>
+          Workout of the Day
+        </div>
+        <div style={{ position: "absolute", top: 14, right: 14, background: C.orange, color: "#fff", fontFamily: FD, fontWeight: 900, fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", padding: "5px 10px", borderRadius: 99 }}>
+          Free
+        </div>
+        {/* SVG rebounder illustration */}
+        <div style={{ position: "relative", width: 160, height: 160 }}>
+          <svg viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "100%" }}>
+            {/* Rebounder frame */}
+            <ellipse cx="80" cy="128" rx="54" ry="10" fill={PALETTES.peach.accent} opacity="0.35"/>
+            <rect x="32" y="120" width="8" height="22" rx="4" fill={C.charcoal} opacity="0.7" transform="rotate(-8 36 131)"/>
+            <rect x="120" y="120" width="8" height="22" rx="4" fill={C.charcoal} opacity="0.7" transform="rotate(8 124 131)"/>
+            <ellipse cx="80" cy="120" rx="48" ry="9" fill={C.charcoal} opacity="0.12"/>
+            <ellipse cx="80" cy="118" rx="42" ry="7" fill={PALETTES.peach.accent} opacity="0.7"/>
+            {/* Body */}
+            <circle cx="80" cy="52" r="13" fill={C.charcoal} opacity="0.75"/>
+            <rect x="72" y="65" width="16" height="28" rx="7" fill={C.charcoal} opacity="0.75"/>
+            {/* Arms up */}
+            <rect x="48" y="62" width="8" height="20" rx="4" fill={C.charcoal} opacity="0.75" transform="rotate(-35 52 72)"/>
+            <rect x="104" y="62" width="8" height="20" rx="4" fill={C.charcoal} opacity="0.75" transform="rotate(35 108 72)"/>
+            {/* Legs */}
+            <rect x="70" y="91" width="8" height="22" rx="4" fill={C.charcoal} opacity="0.75" transform="rotate(-8 74 102)"/>
+            <rect x="82" y="91" width="8" height="22" rx="4" fill={C.charcoal} opacity="0.75" transform="rotate(8 86 102)"/>
+            {/* Bounce arcs */}
+            <path d="M38 100 Q60 80 80 100" stroke={PALETTES.peach.accent} strokeWidth="1.5" strokeDasharray="3 3" fill="none" opacity="0.5"/>
+            <path d="M80 100 Q100 80 122 100" stroke={PALETTES.peach.accent} strokeWidth="1.5" strokeDasharray="3 3" fill="none" opacity="0.5"/>
+          </svg>
+          {/* Play button */}
+          <motion.button
+            onClick={onPlay}
+            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+            aria-label="Play workout"
+            style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: 52, height: 52, borderRadius: "50%", background: C.orange, border: "3px solid rgba(255,255,255,0.9)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 6px 24px rgba(252,162,72,0.55)" }}
+          >
+            <Play size={18} fill="#fff" color="#fff" style={{ marginLeft: 2 }} />
+          </motion.button>
+        </div>
+      </div>
+      {/* Card info */}
+      <div style={{ padding: "18px 20px 22px" }}>
+        <div style={{ fontFamily: FD, fontWeight: 700, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: C.orangeDeep, marginBottom: 6 }}>
+          {WOTD.level} &middot; {WOTD.duration} Min &middot; {WOTD.goal}
+        </div>
+        <div style={{ fontFamily: FD, fontWeight: 900, fontSize: 18, textTransform: "uppercase", letterSpacing: "0.01em", color: C.charcoal, lineHeight: 1.1, marginBottom: 8 }}>
+          {WOTD.title}
+        </div>
+        <div style={{ fontFamily: FB, fontSize: 12, color: C.graphite, lineHeight: 1.5, marginBottom: 14 }}>
+          {WOTD.desc}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: C.orange, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontWeight: 900, fontSize: 10, color: "#fff" }}>
+              {WOTD.inst.slice(0, 2).toUpperCase()}
+            </div>
+            <span style={{ fontFamily: FB, fontSize: 12, color: C.graphite, fontWeight: 600 }}>{WOTD.inst}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ display: "inline-flex", gap: 1 }}>{[0,1,2,3,4].map(k => <Star key={k} size={10} fill={C.orange} color={C.orange} />)}</span>
+            <span style={{ fontFamily: FB, fontSize: 11, color: C.slate }}>(412)</span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 function HeroSection({ onPlayHero }: { onPlayHero: () => void }) {
   return (
-    <section style={{ background: `linear-gradient(135deg, ${C.orangeWash} 0%, ${C.cream} 100%)`, borderBottom: `1px solid ${C.line}` }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 380 }}>
-        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "56px 48px" }}>
-          <div style={{ fontFamily: FD, fontWeight: 700, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: C.orangeDeep, marginBottom: 14 }}>
-            L&R · Bounce Club
+    <section style={{ background: `linear-gradient(150deg, ${C.orangeWash} 0%, #FFF8EE 60%, #FAF0DC 100%)`, borderBottom: `1px solid ${C.line}`, overflow: "hidden" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 40, alignItems: "center", padding: "64px 48px 64px 56px", maxWidth: 1200, margin: "0 auto" }}>
+
+        {/* Left: copy */}
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {/* Eyebrow */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
+            <div style={{ fontFamily: FD, fontWeight: 700, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: C.orangeDeep }}>
+              The L&R Academy
+            </div>
+            <span style={{ width: 4, height: 4, borderRadius: "50%", background: C.orangeDeep, display: "inline-block" }} />
+            <div style={{ fontFamily: FD, fontWeight: 700, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: C.orangeDeep }}>
+              Free Preview
+            </div>
           </div>
-          <h2 style={{ fontFamily: FD, fontWeight: 900, fontSize: 38, lineHeight: 1.02, letterSpacing: "-0.01em", textTransform: "uppercase", margin: "0 0 18px", color: C.charcoal }}>
-            Welcome to<br />
-            <span style={{ color: C.orangeDeep }}>The Academy</span>
+
+          {/* Headline */}
+          <h2 style={{ fontFamily: FD, fontWeight: 900, fontSize: 72, lineHeight: 0.95, letterSpacing: "-0.02em", textTransform: "uppercase", margin: "0 0 28px", color: C.charcoal }}>
+            Bounce.<br />
+            Learn.<br />
+            <span style={{ color: C.orangeDeep }}>Repeat.</span>
           </h2>
-          <p style={{ fontFamily: FB, fontSize: 16, color: C.graphite, lineHeight: 1.65, maxWidth: 380, margin: "0 0 30px" }}>
-            Everything you need to feel <strong>confident</strong>, safe, and supported on your rebounder — starting from day one.
+
+          {/* Subtext */}
+          <p style={{ fontFamily: FB, fontSize: 16, color: C.graphite, lineHeight: 1.65, maxWidth: 420, margin: "0 0 36px" }}>
+            18 workouts. 4 multi-week programs. One trampoline.<br />
+            Built for the way your body actually feels — not the way a gym ad says it should.
           </p>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <motion.a
-              href="https://leapsandrebounds.com/products/bungee-rebounders-mini-trampoline"
-              target="_blank" rel="noreferrer"
+
+          {/* CTAs */}
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 28 }}>
+            <motion.button
               whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.charcoal, color: "#fff", fontFamily: FD, fontWeight: 800, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", padding: "13px 26px", borderRadius: 999, textDecoration: "none", boxShadow: "0 8px 24px rgba(43,43,43,0.2)" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.orange, color: "#fff", fontFamily: FD, fontWeight: 800, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", padding: "16px 28px", borderRadius: 999, border: "none", cursor: "pointer", boxShadow: "0 8px 28px rgba(252,162,72,0.45)" }}
             >
-              Shop Trampolines <ChevronRight size={12} />
-            </motion.a>
+              Start Free with Basic Bounce <ChevronRight size={13} />
+            </motion.button>
             <motion.button
               onClick={onPlayHero}
               whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "transparent", color: C.charcoal, fontFamily: FD, fontWeight: 800, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", padding: "13px 26px", borderRadius: 999, border: `1.5px solid ${C.charcoal}`, cursor: "pointer" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "transparent", color: C.charcoal, fontFamily: FD, fontWeight: 800, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", padding: "16px 28px", borderRadius: 999, border: `1.5px solid ${C.charcoal}`, cursor: "pointer" }}
             >
-              <Play size={11} fill={C.charcoal} color={C.charcoal} /> Watch Intro
+              See What&apos;s in Pro
             </motion.button>
           </div>
+
+          {/* Trust bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16, fontFamily: FD, fontWeight: 700, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: C.slate }}>
+            <span>14-Day Pro Trial</span>
+            <span style={{ opacity: 0.4 }}>·</span>
+            <span>Cancel Anytime</span>
+            <span style={{ opacity: 0.4 }}>·</span>
+            <span>5,200+ Members</span>
+          </div>
         </div>
-        <div style={{ position: "relative", overflow: "hidden" }}>
-          <img
-            src={HERO_VIDEO.poster}
-            alt="L&R intro video"
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          />
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(43,43,43,0.08), rgba(43,43,43,0.32))" }} />
-          <motion.button
-            onClick={onPlayHero}
-            whileHover={{ scale: 1.1, boxShadow: "0 12px 48px rgba(252,162,72,0.75)" }}
-            whileTap={{ scale: 0.95 }}
-            aria-label="Play intro video"
-            style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: 76, height: 76, borderRadius: "50%", background: C.orange, border: "4px solid rgba(255,255,255,0.95)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 8px 36px rgba(252,162,72,0.65)" }}
-          >
-            <Play size={28} fill="#fff" color="#fff" style={{ marginLeft: 3 }} />
-          </motion.button>
+
+        {/* Right: Workout of the Day card */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", paddingRight: 8 }}>
+          <WOTDCard onPlay={onPlayHero} />
         </div>
+
       </div>
     </section>
   );
