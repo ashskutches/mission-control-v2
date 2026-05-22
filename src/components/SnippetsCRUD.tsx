@@ -391,6 +391,7 @@ export default function SnippetsCRUD() {
   const [deployMsg, setDeployMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pulling, setPulling] = useState(false);
   const [pushing, setPushing] = useState(false);
+  const [deployingSections, setDeployingSections] = useState(false);
   const [syncResult, setSyncResult] = useState<{ result: SyncResult; label: string } | null>(null);
   const [themes, setThemes] = useState<ShopifyTheme[]>([]);
   const [selectedThemeId, setSelectedThemeId] = useState<number | null>(null);
@@ -523,6 +524,30 @@ export default function SnippetsCRUD() {
     }
   };
 
+  const handleDeploySections = async () => {
+    setDeployingSections(true);
+    setSyncResult(null);
+    try {
+      const body: Record<string, unknown> = { types: ["sections", "templates"] };
+      if (selectedThemeId) body.theme_id = selectedThemeId;
+      const res = await fetch(`${BOT_URL}/admin/snippets/deploy-assets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      setSyncResult({ result: json as SyncResult, label: "Deploy Sections & Templates" });
+    } catch (e: any) {
+      setSyncResult({
+        result: { ok: false, summary: e.message, created: [], updated: [], skipped: [], errors: [{ key: "request", error: e.message }] },
+        label: "Deploy Sections & Templates",
+      });
+    } finally {
+      setDeployingSections(false);
+    }
+  };
+
   const loadThemes = async () => {
     setLoadingThemes(true);
     try {
@@ -595,12 +620,20 @@ export default function SnippetsCRUD() {
                 {loadingThemes ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <Globe size={12} />}
                 {themes.length ? (selectedThemeId ? themes.find(t => t.id === selectedThemeId)?.name ?? "Theme" : "Pick Theme") : "List Themes"}
               </button>
-              {/* Push to Shopify */}
-              <button onClick={handlePush} disabled={pulling || pushing}
+              {/* Push to Shopify — snippets only */}
+              <button onClick={handlePush} disabled={pulling || pushing || deployingSections}
                 title="Push local snippets → create/update on Shopify (smart diff, skips unchanged)"
                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(233,141,32,0.1)", border: "1px solid rgba(233,141,32,0.25)", borderRadius: 8, padding: "0.5rem 0.9rem", color: ORANGE, fontSize: 12, fontWeight: 700, cursor: (pulling || pushing) ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
                 {pushing ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <ArrowUpFromLine size={12} />}
-                {pushing ? "Pushing…" : "Push to Shopify"}
+                {pushing ? "Pushing…" : "Push Snippets"}
+              </button>
+              {/* Deploy Sections & Templates — sections/ and templates/ dirs */}
+              <button onClick={handleDeploySections} disabled={pulling || pushing || deployingSections}
+                id="deploy-sections-btn"
+                title="Push local sections/*.liquid and templates/*.json to the selected Shopify theme"
+                style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: deployingSections ? "rgba(167,139,250,0.04)" : "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.3)", borderRadius: 8, padding: "0.5rem 0.9rem", color: "#a78bfa", fontSize: 12, fontWeight: 700, cursor: deployingSections ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
+                {deployingSections ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <Rocket size={12} />}
+                {deployingSections ? "Deploying…" : "Deploy Sections"}
               </button>
               {/* Deploy All — nuclear option for entire shopify-assets dir */}
               <button onClick={handleDeploy} disabled={deploying}
