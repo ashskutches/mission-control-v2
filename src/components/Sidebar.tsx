@@ -17,15 +17,24 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const router   = useRouter();
 
   const [openRequests, setOpenRequests] = useState<{ open: number; critical: number } | null>(null);
+  const [queueCount, setQueueCount] = useState<number>(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const fetchSummary = async () => {
       try {
-        const res = await fetch(`${BOT_URL}/admin/insights/summary`);
-        if (!res.ok) return;
-        const data = await res.json();
-        setOpenRequests({ open: data.openCount ?? 0, critical: data.criticalCount ?? 0 });
+        const [insRes, queueRes] = await Promise.all([
+          fetch(`${BOT_URL}/admin/insights/summary`),
+          fetch(`${BOT_URL}/admin/operations/queue`),
+        ]);
+        if (insRes.ok) {
+          const data = await insRes.json();
+          setOpenRequests({ open: data.openCount ?? 0, critical: data.criticalCount ?? 0 });
+        }
+        if (queueRes.ok) {
+          const qData = await queueRes.json();
+          setQueueCount(qData.count ?? 0);
+        }
       } catch { /* silent */ }
     };
     fetchSummary();
@@ -87,8 +96,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           const isActive = activeId === item.id;
           const Icon = item.icon;
           const accent = item.color ?? "var(--accent-orange)";
-          const showBadge = item.id === "system" && openRequests && openRequests.open > 0;
-          const isCritical = showBadge && openRequests!.critical > 0;
+          const showBadge   = item.id === "system" && openRequests && openRequests.open > 0;
+          const showQueue   = item.id === "queue" && queueCount > 0;
+          const isCritical  = showBadge && openRequests!.critical > 0;
+
 
           // Detect group change — show divider + label when group changes (core group is unlabeled)
           const prevItem = APP_CONFIG.navigation[idx - 1] as any | undefined;
@@ -144,6 +155,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                       animation: isCritical ? "pulse-badge 2s ease-in-out infinite" : undefined,
                     }}>
                       {openRequests!.open}
+                    </span>
+                  )}
+                  {showQueue && (
+                    <span style={{
+                      fontSize: 9, fontWeight: 900, lineHeight: 1,
+                      color: "#fff", background: "#f43f5e",
+                      border: "1px solid rgba(244,63,94,0.5)",
+                      borderRadius: 10, padding: "2px 6px",
+                      animation: "pulse-badge 2s ease-in-out infinite",
+                    }}>
+                      {queueCount}
                     </span>
                   )}
                 </a>

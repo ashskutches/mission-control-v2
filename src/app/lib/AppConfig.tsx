@@ -82,6 +82,7 @@ export const APP_CONFIG = {
         { id: 'landing-pages', group: 'core', href: '/commerce/landing-pages', icon: Layout,          label: 'Landing Pages', color: '#818cf8' },
 
         // ── Agentic ────────────────────────────────────────────────────────────
+        { id: 'queue',      group: 'agentic', href: '/queue',        icon: Cpu,           label: 'My Queue',   color: '#f43f5e' },
         { id: 'agents',     group: 'agentic', href: '/agents',       icon: Bot,           label: 'Agents',     color: '#6b7280' },
         { id: 'north-star', group: 'agentic', href: '/north-star',   icon: TrendingUp,    label: 'North Star', color: '#a78bfa' },
         { id: 'store',      group: 'agentic', href: '/commerce',     icon: ShoppingBag,   label: 'Commerce',   color: '#e98d20' },
