@@ -35,6 +35,7 @@ import {
     Copy,
     Layout,
     UserCheck,
+    Cpu,
 } from 'lucide-react';
 
 export const SQUADS = [
@@ -84,6 +85,7 @@ export const APP_CONFIG = {
         { id: 'agents',     group: 'agentic', href: '/agents',       icon: Bot,           label: 'Agents',     color: '#6b7280' },
         { id: 'north-star', group: 'agentic', href: '/north-star',   icon: TrendingUp,    label: 'North Star', color: '#a78bfa' },
         { id: 'store',      group: 'agentic', href: '/commerce',     icon: ShoppingBag,   label: 'Commerce',   color: '#e98d20' },
+        { id: 'work',       group: 'agentic', href: '/work',         icon: Cpu,           label: 'Work',       color: '#38bdf8' },
         { id: 'chats',      group: 'agentic', href: '/chats',        icon: MessageSquare, label: 'Chats',      color: '#6b7280' },
         { id: 'insights',   group: 'agentic', href: '/intelligence', icon: BrainCircuit,  label: 'Insights',   color: '#e98d20' },
 
