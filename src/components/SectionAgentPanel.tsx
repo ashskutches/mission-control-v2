@@ -155,19 +155,23 @@ Your goal is to help grow this area of the business. Surface what's actually imp
   };
 
   const assignAgent = async (agent: Agent) => {
-
     setAssigning(true);
+    setGenerateError(null);
     try {
       const res = await fetch(`${BOT_URL}/admin/sections/${sectionId}/agent`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agent_id: agent.id, trigger_onboarding: !section?.lead_agent_id }),
       });
-      if (res.ok) {
-        await fetchData();
-        setShowPicker(false);
-        onAgentAssigned?.(agent);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `Assignment failed (${res.status})`);
       }
+      await fetchData();
+      setShowPicker(false);
+      onAgentAssigned?.(agent);
+    } catch (err: any) {
+      setGenerateError(err.message);
     } finally {
       setAssigning(false);
     }
