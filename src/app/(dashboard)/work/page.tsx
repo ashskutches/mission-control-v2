@@ -824,20 +824,31 @@ export default function WorkPage() {
   const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [countdown, setCountdown] = useState(REFRESH_INTERVAL);
+  const [runnerEnabled, setRunnerEnabled] = useState<boolean | null>(null);
+  const [runnerLastRun, setRunnerLastRun] = useState<string | null>(null);
+  const [runnerLastCount, setRunnerLastCount] = useState<number | null>(null);
+  const [runnerToggling, setRunnerToggling] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [wRes, hRes, sRes] = await Promise.all([
+      const [wRes, hRes, sRes, rRes] = await Promise.all([
         fetch(`${BOT_URL}/admin/work?limit=150`),
         fetch(`${BOT_URL}/admin/work/human?limit=100`),
         fetch(`${BOT_URL}/admin/work/summary`),
+        fetch(`${BOT_URL}/admin/work/runner/status`),
       ]);
       if (wRes.ok) setWork(await wRes.json());
       if (hRes.ok) setHumanTasks(await hRes.json());
       if (sRes.ok) setSummary(await sRes.json());
+      if (rRes.ok) {
+        const r = await rRes.json();
+        setRunnerEnabled(r.enabled);
+        setRunnerLastRun(r.last_run_at);
+        setRunnerLastCount(r.last_items_processed);
+      }
     } catch { /* silent */ }
     finally { setLoading(false); }
   }, []);
@@ -887,6 +898,23 @@ export default function WorkPage() {
     });
     setHumanTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
     fetchData(true);
+  };
+
+  const toggleRunner = async () => {
+    if (runnerToggling || runnerEnabled === null) return;
+    const newVal = !runnerEnabled;
+    setRunnerToggling(true);
+    setRunnerEnabled(newVal); // optimistic
+    try {
+      await fetch(`${BOT_URL}/admin/work/runner/toggle`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: newVal }),
+      });
+    } catch {
+      setRunnerEnabled(!newVal); // revert on error
+    } finally {
+      setRunnerToggling(false);
+    }
   };
 
   // Filter agent work by tab
@@ -1031,6 +1059,63 @@ export default function WorkPage() {
             </div>
           )}
         </div>
+
+        {/* ── Work Runner Toggle ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${runnerEnabled ? "rgba(34,197,94,0.25)" : "rgba(255,255,255,0.07)"}`, borderRadius: 12, padding: "14px 16px", marginBottom: "1rem", transition: "border-color 0.3s" }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {/* Live dot */}
+              {runnerEnabled ? (
+                <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1.8 }}
+                  style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#475569", flexShrink: 0 }} />
+              )}
+              <div>
+                <div style={{ fontSize: "12px", fontWeight: 800, color: "#e2e8f0", letterSpacing: "0.02em" }}>
+                  Work Runner
+                </div>
+                <div style={{ fontSize: "10px", color: runnerEnabled ? "#22c55e" : "#64748b", marginTop: 1 }}>
+                  {runnerEnabled === null ? "Loading…" : runnerEnabled ? "Running · agents execute every 15 min" : "Paused · agents won't auto-execute"}
+                </div>
+              </div>
+            </div>
+
+            {/* Toggle switch */}
+            <button
+              id="work-runner-toggle"
+              onClick={toggleRunner}
+              disabled={runnerToggling || runnerEnabled === null}
+              aria-label={runnerEnabled ? "Disable work runner" : "Enable work runner"}
+              style={{ position: "relative", width: 44, height: 24, borderRadius: 12, background: runnerEnabled ? "rgba(34,197,94,0.35)" : "rgba(71,85,105,0.4)", border: `1px solid ${runnerEnabled ? "rgba(34,197,94,0.5)" : "rgba(71,85,105,0.5)"}`, cursor: runnerToggling ? "wait" : "pointer", transition: "background 0.25s, border-color 0.25s", flexShrink: 0, outline: "none" }}
+            >
+              <motion.div
+                animate={{ x: runnerEnabled ? 22 : 2 }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                style={{ position: "absolute", top: 3, width: 16, height: 16, borderRadius: "50%", background: runnerEnabled ? "#22c55e" : "#64748b", boxShadow: runnerEnabled ? "0 0 8px rgba(34,197,94,0.6)" : "none" }}
+              />
+            </button>
+          </div>
+
+          {/* Last run metadata */}
+          {(runnerLastRun || runnerLastCount !== null) && (
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", gap: 16 }}>
+              {runnerLastRun && (
+                <div style={{ fontSize: "10px", color: "#475569" }}>
+                  Last run: <span style={{ color: "#64748b" }}>{new Date(runnerLastRun).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+              )}
+              {runnerLastCount !== null && (
+                <div style={{ fontSize: "10px", color: "#475569" }}>
+                  Processed: <span style={{ color: "#64748b" }}>{runnerLastCount} item{runnerLastCount !== 1 ? "s" : ""}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </motion.div>
 
         {/* ── Human Tasks ── */}
         <div>
