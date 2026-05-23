@@ -5,6 +5,7 @@ import {
   BrainCircuit, AlertTriangle, Lightbulb, Eye, Users, Trophy,
   TrendingUp, Clock, ChevronDown, ChevronUp, ExternalLink, RefreshCw,
   Filter, Bug, ShieldAlert, Plug, Zap, Sparkles,
+  ShieldCheck, Shield, Zap as ZapAuto, Loader,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -80,6 +81,146 @@ const PRIORITY_BAR_COLOR = (p: number) =>
   p >= 8 ? "#f43f5e" : p >= 6 ? "#f59e0b" : p >= 4 ? "#38bdf8" : "#64748b";
 const DIFFICULTY_COLOR: Record<string, string> = { easy: "#22c55e", medium: "#f59e0b", hard: "#f43f5e" };
 const EFFORT_COLOR: Record<string, string>     = { low: "#22c55e", medium: "#f59e0b", high: "#f43f5e" };
+
+// ── Approval Mode Toggle ─────────────────────────────────────────────────────
+
+type ApprovalMode = "conservative" | "standard" | "autonomous";
+
+const APPROVAL_MODES: {
+  id: ApprovalMode;
+  label: string;
+  desc: string;
+  color: string;
+  bg: string;
+  icon: React.ElementType;
+}[] = [
+  {
+    id: "conservative",
+    label: "Conservative",
+    desc: "All agent actions require explicit approval before execution.",
+    color: "#f59e0b",
+    bg: "rgba(245,158,11,0.12)",
+    icon: ShieldCheck,
+  },
+  {
+    id: "standard",
+    label: "Standard",
+    desc: "Agents act on low-risk tasks autonomously; high-impact actions need approval.",
+    color: "#38bdf8",
+    bg: "rgba(56,189,248,0.12)",
+    icon: Shield,
+  },
+  {
+    id: "autonomous",
+    label: "Autonomous",
+    desc: "Agents operate fully autonomously. Use with trusted, well-tested agents only.",
+    color: "#a78bfa",
+    bg: "rgba(167,139,250,0.12)",
+    icon: ZapAuto,
+  },
+];
+
+function ApprovalToggle() {
+  const [mode, setMode] = useState<ApprovalMode | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [showDesc, setShowDesc] = useState(false);
+
+  useEffect(() => {
+    fetch(`${BOT_URL}/admin/facts/approval_mode`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.value) setMode(data.value as ApprovalMode); })
+      .catch(() => {});
+  }, []);
+
+  const switchMode = async (next: ApprovalMode) => {
+    if (next === mode || saving) return;
+    setSaving(true);
+    try {
+      await fetch(`${BOT_URL}/admin/facts/approval_mode`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: next, priority: "high" }),
+      });
+      setMode(next);
+    } catch { /* silent — mode stays unchanged */ }
+    finally { setSaving(false); }
+  };
+
+  const activeMeta = APPROVAL_MODES.find(m => m.id === mode);
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+      {/* Mode pill switcher */}
+      <div
+        style={{
+          display: "flex",
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 10, padding: 3, gap: 3,
+          position: "relative",
+        }}
+        onMouseEnter={() => setShowDesc(true)}
+        onMouseLeave={() => setShowDesc(false)}
+      >
+        {APPROVAL_MODES.map(m => {
+          const isActive = mode === m.id;
+          const Icon = m.icon;
+          return (
+            <motion.button
+              key={m.id}
+              onClick={() => switchMode(m.id)}
+              disabled={saving}
+              whileHover={!isActive && !saving ? { scale: 1.03 } : {}}
+              whileTap={!saving ? { scale: 0.97 } : {}}
+              aria-label={`Set approval mode to ${m.label}`}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 5,
+                padding: "5px 11px", borderRadius: 7,
+                border: isActive ? `1px solid ${m.color}35` : "1px solid transparent",
+                background: isActive ? m.bg : "transparent",
+                color: isActive ? m.color : "#475569",
+                fontWeight: isActive ? 800 : 500,
+                fontSize: "11px", cursor: saving ? "wait" : isActive ? "default" : "pointer",
+                transition: "all 0.15s",
+                letterSpacing: "0.02em",
+              }}
+            >
+              {saving && isActive
+                ? <Loader size={10} className="spin" />
+                : <Icon size={10} />
+              }
+              {m.label}
+            </motion.button>
+          );
+        })}
+      </div>
+
+      {/* Tooltip description */}
+      <AnimatePresence>
+        {showDesc && activeMeta && (
+          <motion.div
+            initial={{ opacity: 0, y: 4, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.97 }}
+            transition={{ duration: 0.12 }}
+            style={{
+              position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0,
+              background: "rgba(10,14,24,0.97)",
+              border: `1px solid ${activeMeta.color}25`,
+              borderRadius: 8, padding: "6px 12px",
+              fontSize: "11px", color: "#94a3b8",
+              zIndex: 100, pointerEvents: "none",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+            }}
+          >
+            <span style={{ color: activeMeta.color, fontWeight: 700 }}>{activeMeta.label}: </span>
+            {activeMeta.desc}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 // ── Type Tabs ───────────────────────────────────────────────────────────────
 
@@ -371,7 +512,10 @@ export default function InsightsPage() {
   return (
     <div className="px-5 py-5" style={{ maxWidth: 920, margin: "0 auto" }}>
       {/* Header */}
-      <div className="is-flex is-justify-content-space-between is-align-items-center mb-5">
+      <div
+        className="is-flex is-justify-content-space-between is-align-items-flex-start mb-5"
+        style={{ gap: "1rem", flexWrap: "wrap", position: "relative" }}
+      >
         <div>
           <div style={{ gap: "0.75rem", marginBottom: "0.25rem" }} className="is-flex is-align-items-center">
             <BrainCircuit size={22} color="#f59e0b" />
@@ -381,9 +525,12 @@ export default function InsightsPage() {
             Business intelligence, bugs, blockers, and app ideas — all in one place.
           </p>
         </div>
-        <button onClick={fetchData} className="button is-small is-ghost" style={{ color: "#64748b" }}>
-          <RefreshCw size={14} className={loading ? "spin" : ""} />
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          <ApprovalToggle />
+          <button onClick={fetchData} className="button is-small is-ghost" style={{ color: "#64748b" }}>
+            <RefreshCw size={14} className={loading ? "spin" : ""} />
+          </button>
+        </div>
       </div>
 
       {summary && <SummaryBar summary={summary} />}
