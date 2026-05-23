@@ -73,23 +73,25 @@ export const APP_CONFIG = {
     version: '3.0.0',
     author: 'L&R Intelligence',
     navigation: [
-        // ── Core ──────────────────────────────────────────────────────────────
-        { id: 'overview',   href: '/',             icon: LayoutDashboard, label: 'Overview'                   },
-        { id: 'north-star', href: '/north-star',   icon: TrendingUp,      label: 'North Star', color: '#a78bfa' },
-        { id: 'insights',   href: '/intelligence', icon: BrainCircuit,    label: 'Insights',   color: '#e98d20' },
-        { id: 'audience',   href: '/website',     icon: Layers,          label: 'Website',    color: '#4a9eff' },
-        { id: 'content',    href: '/content',      icon: Film,            label: 'Content',    color: '#e98d20' },
-        { id: 'customer',   href: '/customer',     icon: UserCheck,       label: 'Orders',     color: '#4a9eff' },
-        { id: 'store',          href: '/commerce',              icon: ShoppingBag, label: 'Commerce',       color: '#e98d20' },
-        { id: 'landing-pages',  href: '/commerce/landing-pages', icon: Layout,      label: 'Landing Pages',  color: '#818cf8' },
+        // ── Core (ungrouped) ───────────────────────────────────────────────────
+        { id: 'overview',      group: 'core', href: '/',                       icon: LayoutDashboard, label: 'Overview'                   },
+        { id: 'audience',      group: 'core', href: '/website',                icon: Layers,          label: 'Website',    color: '#4a9eff' },
+        { id: 'content',       group: 'core', href: '/content',                icon: Film,            label: 'Content',    color: '#e98d20' },
+        { id: 'customer',      group: 'core', href: '/customer',               icon: UserCheck,       label: 'Orders',     color: '#4a9eff' },
+        { id: 'landing-pages', group: 'core', href: '/commerce/landing-pages', icon: Layout,          label: 'Landing Pages', color: '#818cf8' },
 
-        // ── Command ────────────────────────────────────────────────────────────
-        { id: 'agents',   href: '/agents',    icon: Bot,           label: 'Agents',    color: '#6b7280' },
-        { id: 'chats',    href: '/chats',     icon: MessageSquare, label: 'Chats',     color: '#6b7280' },
-        { id: 'costs',    href: '/costs',     icon: DollarSign,    label: 'Costs',     color: '#22c55e' },
-        { id: 'brand',    href: '/brand',     icon: Palette,       label: 'Brand',     color: '#e98d20' },
-        { id: 'system',   href: '/blockages', icon: Bug,           label: 'Blockages', color: '#f43f5e' },
-        { id: 'settings', href: '/settings',  icon: Settings,      label: 'Settings'                   },
+        // ── Agentic ────────────────────────────────────────────────────────────
+        { id: 'agents',     group: 'agentic', href: '/agents',       icon: Bot,           label: 'Agents',     color: '#6b7280' },
+        { id: 'north-star', group: 'agentic', href: '/north-star',   icon: TrendingUp,    label: 'North Star', color: '#a78bfa' },
+        { id: 'store',      group: 'agentic', href: '/commerce',     icon: ShoppingBag,   label: 'Commerce',   color: '#e98d20' },
+        { id: 'chats',      group: 'agentic', href: '/chats',        icon: MessageSquare, label: 'Chats',      color: '#6b7280' },
+        { id: 'insights',   group: 'agentic', href: '/intelligence', icon: BrainCircuit,  label: 'Insights',   color: '#e98d20' },
+
+        // ── Settings ───────────────────────────────────────────────────────────
+        { id: 'brand',    group: 'settings', href: '/brand',     icon: Palette,   label: 'Brand',     color: '#e98d20' },
+        { id: 'system',   group: 'settings', href: '/blockages', icon: Bug,       label: 'Blockages', color: '#f43f5e' },
+        { id: 'costs',    group: 'settings', href: '/costs',     icon: DollarSign,label: 'Costs',     color: '#22c55e' },
+        { id: 'settings', group: 'settings', href: '/settings',  icon: Settings,  label: 'Settings'                   },
     ],
     theme: {
         accent: 'var(--accent-orange)',   // L&R #e98d20
