@@ -5,16 +5,18 @@
  * Real-time view of what agents are actively working on, what's blocked,
  * and what human tasks have been assigned by agents.
  */
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Cpu, ClipboardList, CheckCircle2, AlertCircle, Loader,
   RefreshCw, Clock, User, ChevronDown, ChevronUp,
   Zap, BarChart2, CircleDot, XCircle, PlayCircle,
   PauseCircle, AlertTriangle, CheckCheck, ExternalLink,
+  Plus, X, Send,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
+const REFRESH_INTERVAL = 20; // seconds
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -57,6 +59,7 @@ interface HumanTask {
   effort_tier: EffortTier | null;
   estimated_hours: number | null;
   due_date: string | null;
+  followup_count: number;
   completion_notes: string | null;
   created_at: string;
   updated_at: string;
@@ -85,13 +88,13 @@ interface WorkSummary {
 // ── Status config ──────────────────────────────────────────────────────────────
 
 const WORK_STATUS: Record<WorkStatus, { label: string; color: string; icon: React.ElementType }> = {
-  pending:      { label: "Pending",     color: "#64748b", icon: CircleDot   },
-  running:      { label: "Running",     color: "#38bdf8", icon: PlayCircle  },
-  in_progress:  { label: "In Progress", color: "#a78bfa", icon: Loader      },
-  blocked:      { label: "Blocked",     color: "#f43f5e", icon: PauseCircle },
+  pending:      { label: "Pending",     color: "#64748b", icon: CircleDot    },
+  running:      { label: "Running",     color: "#38bdf8", icon: PlayCircle   },
+  in_progress:  { label: "In Progress", color: "#a78bfa", icon: Loader       },
+  blocked:      { label: "Blocked",     color: "#f43f5e", icon: PauseCircle  },
   needs_human:  { label: "Needs You",   color: "#f59e0b", icon: AlertTriangle },
-  done:         { label: "Done",        color: "#22c55e", icon: CheckCircle2 },
-  cancelled:    { label: "Cancelled",   color: "#475569", icon: XCircle     },
+  done:         { label: "Done",        color: "#22c55e", icon: CheckCircle2  },
+  cancelled:    { label: "Cancelled",   color: "#475569", icon: XCircle      },
 };
 
 const TASK_STATUS: Record<TaskStatus, { label: string; color: string }> = {
@@ -133,6 +136,179 @@ function priorityBar(p: number, color: string) {
   );
 }
 
+// ── Create Task Modal ─────────────────────────────────────────────────────────
+
+function CreateTaskModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    instructions: "",
+    assigned_to: "ash",
+    priority: 5,
+    effort_tier: "" as EffortTier | "",
+    estimated_hours: "" as number | "",
+    due_date: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim() || !form.instructions.trim()) return;
+    setSaving(true); setError(null);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/work/human`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title.trim(),
+          description: form.description.trim() || null,
+          instructions: form.instructions.trim(),
+          assigned_to: form.assigned_to.trim() || "ash",
+          priority: Number(form.priority),
+          effort_tier: form.effort_tier || null,
+          estimated_hours: form.estimated_hours !== "" ? Number(form.estimated_hours) : null,
+          due_date: form.due_date || null,
+          created_by_agent: "human",
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Failed to create task");
+      onCreated();
+      onClose();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", padding: "8px 12px",
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: 8, color: "#e2e8f0", fontSize: "0.875rem",
+    outline: "none", boxSizing: "border-box",
+  };
+  const label: React.CSSProperties = {
+    fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em",
+    textTransform: "uppercase", color: "#64748b", marginBottom: 4, display: "block",
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "rgba(0,0,0,0.72)", backdropFilter: "blur(8px)",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem",
+      }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 14 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 14 }}
+        style={{
+          width: "100%", maxWidth: 560,
+          background: "rgba(13,17,27,0.98)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 16, padding: "1.5rem",
+          boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+          maxHeight: "90vh", overflowY: "auto",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <ClipboardList size={18} color="#a78bfa" />
+            <h2 style={{ fontWeight: 800, fontSize: "1.1rem", color: "#e2e8f0", margin: 0 }}>Assign Task</h2>
+          </div>
+          <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569" }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
+          <div>
+            <span style={label}>Title *</span>
+            <input id="task-title" style={inputStyle} value={form.title} onChange={set("title")} placeholder="e.g. Review and approve email draft" required />
+          </div>
+          <div>
+            <span style={label}>Description</span>
+            <input id="task-desc" style={inputStyle} value={form.description} onChange={set("description")} placeholder="Brief summary of why this is needed" />
+          </div>
+          <div>
+            <span style={label}>Instructions *</span>
+            <textarea
+              id="task-instructions"
+              style={{ ...inputStyle, minHeight: 100, resize: "vertical" }}
+              value={form.instructions}
+              onChange={set("instructions")}
+              placeholder="Step-by-step instructions for the assignee…"
+              required
+            />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+            <div>
+              <span style={label}>Assign to</span>
+              <input id="task-assignee" style={inputStyle} value={form.assigned_to} onChange={set("assigned_to")} placeholder="ash" />
+            </div>
+            <div>
+              <span style={label}>Priority (1–10)</span>
+              <input id="task-priority" style={inputStyle} type="number" min={1} max={10} value={form.priority} onChange={set("priority")} />
+            </div>
+            <div>
+              <span style={label}>Effort Tier</span>
+              <select id="task-effort" style={inputStyle} value={form.effort_tier} onChange={set("effort_tier")}>
+                <option value="">— optional —</option>
+                <option value="quick">Quick (&lt;30 min)</option>
+                <option value="moderate">Moderate (30–90 min)</option>
+                <option value="involved">Involved (1.5–3 hrs)</option>
+                <option value="epic">Epic (3+ hrs)</option>
+              </select>
+            </div>
+            <div>
+              <span style={label}>Due Date</span>
+              <input id="task-due" style={inputStyle} type="date" value={form.due_date} onChange={set("due_date")} />
+            </div>
+          </div>
+
+          {error && (
+            <div style={{
+              padding: "8px 12px", borderRadius: 8,
+              background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)",
+              color: "#f43f5e", fontSize: "0.85rem", display: "flex", gap: 8, alignItems: "center",
+            }}>
+              <AlertCircle size={14} /> {error}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginTop: "0.25rem" }}>
+            <button type="button" onClick={onClose} style={{ padding: "8px 16px", borderRadius: 8, fontSize: "0.875rem", color: "#475569", background: "transparent", border: "1px solid rgba(255,255,255,0.07)", cursor: "pointer" }}>
+              Cancel
+            </button>
+            <motion.button
+              type="submit" disabled={saving}
+              whileHover={!saving ? { scale: 1.02 } : {}} whileTap={!saving ? { scale: 0.98 } : {}}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "8px 20px", borderRadius: 8, fontWeight: 700, fontSize: "0.875rem",
+                background: "linear-gradient(135deg, #a78bfa, #818cf8)",
+                color: "#fff", border: "none", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1,
+              }}
+            >
+              {saving ? <Loader size={14} className="spin" /> : <Send size={14} />}
+              {saving ? "Creating…" : "Create Task"}
+            </motion.button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // ── Agent Work Card ────────────────────────────────────────────────────────────
 
 function WorkCard({ work, onStatusChange }: {
@@ -165,7 +341,7 @@ function WorkCard({ work, onStatusChange }: {
         opacity: work.status === "cancelled" ? 0.5 : 1,
       }}
     >
-      {/* Progress bar for running work */}
+      {/* Progress bar */}
       {(work.status === "running" || work.status === "in_progress") && milestones.length > 0 && (
         <div style={{ height: 2, background: "rgba(255,255,255,0.06)" }}>
           <motion.div
@@ -217,7 +393,6 @@ function WorkCard({ work, onStatusChange }: {
               {work.title}
             </p>
 
-            {/* Priority + run count + timestamps */}
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
               {priorityBar(work.priority, statusCfg.color)}
               <span style={{ fontSize: 9, color: "#475569" }}>
@@ -230,10 +405,9 @@ function WorkCard({ work, onStatusChange }: {
               )}
             </div>
 
-            {/* Latest progress */}
             {work.last_progress && (
               <p style={{ fontSize: "10px", color: "#94a3b8", marginTop: 5, lineHeight: 1.5 }}>
-                {work.last_progress.slice(0, 160)}{work.last_progress.length > 160 ? "…" : ""}
+                {work.last_progress.slice(0, 180)}{work.last_progress.length > 180 ? "…" : ""}
               </p>
             )}
           </div>
@@ -268,14 +442,17 @@ function WorkCard({ work, onStatusChange }: {
                 {/* Milestones */}
                 {milestones.length > 0 && (
                   <div style={{ marginBottom: "0.75rem" }}>
-                    <p style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", color: "#475569", letterSpacing: "0.08em", marginBottom: 5 }}>Milestones</p>
+                    <p style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", color: "#475569", letterSpacing: "0.08em", marginBottom: 5 }}>
+                      Milestones ({work.current_milestone}/{milestones.length})
+                    </p>
                     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                       {milestones.map((m, i) => (
                         <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <div style={{ width: 14, height: 14, borderRadius: "50%", flexShrink: 0, background: i < (work.current_milestone ?? 0) ? "#22c55e" : "rgba(255,255,255,0.06)", border: `1px solid ${i < (work.current_milestone ?? 0) ? "#22c55e" : "rgba(255,255,255,0.1)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                             {i < (work.current_milestone ?? 0) && <CheckCheck size={8} color="#fff" />}
                           </div>
-                          <span style={{ fontSize: "11px", color: i < (work.current_milestone ?? 0) ? "#22c55e" : "#64748b" }}>{m.label}</span>
+                          <span style={{ fontSize: "11px", color: i < (work.current_milestone ?? 0) ? "#22c55e" : i === (work.current_milestone ?? 0) ? "#e2e8f0" : "#64748b" }}>{m.label}</span>
+                          {i === (work.current_milestone ?? 0) && <span style={{ fontSize: 8, color: "#38bdf8" }}>← current</span>}
                         </div>
                       ))}
                     </div>
@@ -337,6 +514,7 @@ function HumanTaskCard({ task, onStatusChange }: {
   const [notes, setNotes] = useState("");
   const [acting, setActing] = useState(false);
   const statusCfg = TASK_STATUS[task.status] ?? TASK_STATUS.pending;
+  const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== "done";
 
   const act = async (status: TaskStatus, n?: string) => {
     setActing(true);
@@ -352,9 +530,9 @@ function HumanTaskCard({ task, onStatusChange }: {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       style={{
-        background: "rgba(245,158,11,0.03)",
-        border: `1px solid ${statusCfg.color}22`,
-        borderLeft: `3px solid ${statusCfg.color}`,
+        background: isOverdue ? "rgba(244,63,94,0.03)" : "rgba(245,158,11,0.03)",
+        border: `1px solid ${isOverdue ? "#f43f5e" : statusCfg.color}22`,
+        borderLeft: `3px solid ${isOverdue ? "#f43f5e" : statusCfg.color}`,
         borderRadius: 12, padding: "0.75rem 1rem",
         opacity: task.status === "done" || task.status === "cancelled" ? 0.6 : 1,
       }}
@@ -369,7 +547,7 @@ function HumanTaskCard({ task, onStatusChange }: {
             <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 5, background: `${statusCfg.color}15`, color: statusCfg.color, textTransform: "uppercase" }}>
               {statusCfg.label}
             </span>
-            {task.created_by_agent && (
+            {task.created_by_agent && task.created_by_agent !== "human" && (
               <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 5, background: "rgba(255,255,255,0.04)", color: "#64748b" }}>
                 from {task.created_by_agent}
               </span>
@@ -380,8 +558,13 @@ function HumanTaskCard({ task, onStatusChange }: {
               </span>
             )}
             {task.due_date && (
-              <span style={{ fontSize: 9, color: new Date(task.due_date) < new Date() ? "#f43f5e" : "#f59e0b" }}>
-                Due {new Date(task.due_date).toLocaleDateString()}
+              <span style={{ fontSize: 9, fontWeight: 700, color: isOverdue ? "#f43f5e" : "#f59e0b" }}>
+                {isOverdue ? "⚠ Overdue" : `Due ${new Date(task.due_date).toLocaleDateString()}`}
+              </span>
+            )}
+            {task.followup_count > 0 && (
+              <span style={{ fontSize: 9, color: "#475569" }}>
+                {task.followup_count} reminder{task.followup_count > 1 ? "s" : ""} sent
               </span>
             )}
           </div>
@@ -392,7 +575,7 @@ function HumanTaskCard({ task, onStatusChange }: {
           <div style={{ display: "flex", gap: "0.75rem", marginTop: 4, flexWrap: "wrap" }}>
             {priorityBar(task.priority, statusCfg.color)}
             <span style={{ fontSize: 9, color: "#334155" }}>
-              Assigned to: <span style={{ color: "#94a3b8" }}>{task.assigned_username ?? task.assigned_to}</span>
+              → <span style={{ color: "#94a3b8" }}>{task.assigned_username ?? task.assigned_to}</span>
             </span>
             <span style={{ fontSize: 9, color: "#334155" }}>{timeAgo(task.created_at)}</span>
           </div>
@@ -431,8 +614,7 @@ function HumanTaskCard({ task, onStatusChange }: {
           {completing ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
               <input
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
+                value={notes} onChange={e => setNotes(e.target.value)}
                 placeholder="Completion notes (optional)"
                 style={{ width: "100%", padding: "5px 10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: "#e2e8f0", fontSize: "11px", outline: "none" }}
                 autoFocus
@@ -489,9 +671,15 @@ function HumanTaskCard({ task, onStatusChange }: {
 
 // ── Stat pill ──────────────────────────────────────────────────────────────────
 
-function StatPill({ label, value, color }: { label: string; value: number | string; color: string }) {
+function StatPill({ label, value, color, urgent }: { label: string; value: number | string; color: string; urgent?: boolean }) {
   return (
-    <div style={{ padding: "8px 14px", borderRadius: 9, background: `${color}08`, border: `1px solid ${color}20`, textAlign: "center", minWidth: 80 }}>
+    <div style={{ padding: "8px 14px", borderRadius: 9, background: `${color}08`, border: `1px solid ${urgent ? color : color + "20"}`, textAlign: "center", minWidth: 80, position: "relative" }}>
+      {urgent && Number(value) > 0 && (
+        <motion.div
+          animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1.8 }}
+          style={{ position: "absolute", top: 6, right: 6, width: 5, height: 5, borderRadius: "50%", background: color }}
+        />
+      )}
       <div style={{ fontSize: "1.4rem", fontWeight: 900, color, lineHeight: 1 }}>{value}</div>
       <div style={{ fontSize: 9, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 2 }}>{label}</div>
     </div>
@@ -505,11 +693,15 @@ export default function WorkPage() {
   const [humanTasks, setHumanTasks] = useState<HumanTask[]>([]);
   const [summary, setSummary] = useState<WorkSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [workTab, setWorkTab] = useState<"active" | "pending" | "done" | "all">("active");
+  const [workTab, setWorkTab] = useState<"active" | "pending" | "blocked" | "done" | "all">("active");
   const [showDoneTasks, setShowDoneTasks] = useState(false);
+  const [showCreateTask, setShowCreateTask] = useState(false);
+  const [countdown, setCountdown] = useState(REFRESH_INTERVAL);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [wRes, hRes, sRes] = await Promise.all([
         fetch(`${BOT_URL}/admin/work?limit=150`),
@@ -523,7 +715,34 @@ export default function WorkPage() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // Auto-refresh
+  useEffect(() => {
+    fetchData();
+
+    intervalRef.current = setInterval(() => {
+      fetchData(true);
+      setCountdown(REFRESH_INTERVAL);
+    }, REFRESH_INTERVAL * 1000);
+
+    countdownRef.current = setInterval(() => {
+      setCountdown(c => (c <= 1 ? REFRESH_INTERVAL : c - 1));
+    }, 1000);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, [fetchData]);
+
+  const manualRefresh = () => {
+    fetchData();
+    setCountdown(REFRESH_INTERVAL);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      fetchData(true);
+      setCountdown(REFRESH_INTERVAL);
+    }, REFRESH_INTERVAL * 1000);
+  };
 
   const updateWorkStatus = async (id: string, status: WorkStatus) => {
     await fetch(`${BOT_URL}/admin/work/${id}`, {
@@ -531,7 +750,7 @@ export default function WorkPage() {
       body: JSON.stringify({ status }),
     });
     setWork(prev => prev.map(w => w.id === id ? { ...w, status } : w));
-    fetchData(); // re-fetch summary counts
+    fetchData(true);
   };
 
   const updateTaskStatus = async (id: string, status: TaskStatus, notes?: string) => {
@@ -540,14 +759,15 @@ export default function WorkPage() {
       body: JSON.stringify({ status, ...(notes ? { completion_notes: notes } : {}) }),
     });
     setHumanTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
-    fetchData();
+    fetchData(true);
   };
 
   // Filter agent work by tab
   const filteredWork = work.filter(w => {
-    if (workTab === "active") return ["running", "in_progress", "blocked", "needs_human"].includes(w.status);
+    if (workTab === "active")  return ["running", "in_progress"].includes(w.status);
+    if (workTab === "blocked") return ["blocked", "needs_human"].includes(w.status);
     if (workTab === "pending") return w.status === "pending";
-    if (workTab === "done") return w.status === "done" || w.status === "cancelled";
+    if (workTab === "done")    return w.status === "done" || w.status === "cancelled";
     return true;
   });
 
@@ -555,11 +775,14 @@ export default function WorkPage() {
     showDoneTasks ? true : (t.status !== "done" && t.status !== "cancelled")
   );
 
+  const blockedCount = (summary?.agent_work.blocked ?? 0) + (summary?.agent_work.needs_human ?? 0);
+
   const agentWorkTabs: { id: typeof workTab; label: string; count: number; color: string }[] = [
-    { id: "active",  label: "Active",   count: summary?.agent_work.active ?? 0,   color: "#38bdf8" },
-    { id: "pending", label: "Pending",  count: summary?.agent_work.pending ?? 0,  color: "#64748b" },
-    { id: "done",    label: "Done",     count: summary?.agent_work.done ?? 0,     color: "#22c55e" },
-    { id: "all",     label: "All",      count: summary?.agent_work.total ?? 0,    color: "#475569" },
+    { id: "active",  label: "Active",   count: summary?.agent_work.active  ?? 0, color: "#38bdf8" },
+    { id: "blocked", label: "Blocked",  count: blockedCount,                     color: "#f43f5e" },
+    { id: "pending", label: "Pending",  count: summary?.agent_work.pending ?? 0, color: "#64748b" },
+    { id: "done",    label: "Done",     count: summary?.agent_work.done    ?? 0, color: "#22c55e" },
+    { id: "all",     label: "All",      count: summary?.agent_work.total   ?? 0, color: "#475569" },
   ];
 
   return (
@@ -574,28 +797,30 @@ export default function WorkPage() {
             </div>
             <h1 style={{ fontWeight: 900, fontSize: "1.5rem", color: "#e2e8f0", margin: 0 }}>Work Queue</h1>
           </div>
-          <p style={{ fontSize: "0.875rem", color: "#64748b" }}>Active agent tasks, pending work, and items that need your attention.</p>
+          <p style={{ fontSize: "0.875rem", color: "#64748b" }}>Live view of agent tasks and items that need your attention.</p>
         </div>
-        <button
-          onClick={fetchData}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#64748b", fontSize: "12px", cursor: "pointer" }}
-          aria-label="Refresh"
-        >
-          <RefreshCw size={13} className={loading ? "spin" : ""} /> Refresh
-        </button>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: "#334155" }}>auto-refresh in {countdown}s</span>
+          <button
+            onClick={manualRefresh}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#64748b", fontSize: "12px", cursor: "pointer" }}
+            aria-label="Refresh"
+          >
+            <RefreshCw size={13} className={loading ? "spin" : ""} /> Refresh
+          </button>
+        </div>
       </div>
 
       {/* Stats row */}
       {summary && (
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1.75rem" }}>
           <StatPill label="Active" value={summary.agent_work.active} color="#38bdf8" />
-          <StatPill label="Blocked" value={summary.agent_work.blocked} color="#f43f5e" />
-          <StatPill label="Needs You" value={summary.agent_work.needs_human + summary.human_tasks.pending} color="#f59e0b" />
-          <StatPill label="Done Today" value={summary.agent_work.done} color="#22c55e" />
+          <StatPill label="Blocked" value={blockedCount} color="#f43f5e" urgent={blockedCount > 0} />
+          <StatPill label="Done" value={summary.agent_work.done} color="#22c55e" />
           <div style={{ width: 1, background: "rgba(255,255,255,0.07)", margin: "0 4px" }} />
           <StatPill label="Your Tasks" value={summary.human_tasks.pending + summary.human_tasks.in_progress} color="#a78bfa" />
           {summary.human_tasks.high_priority_pending > 0 && (
-            <StatPill label="Urgent" value={summary.human_tasks.high_priority_pending} color="#f43f5e" />
+            <StatPill label="Urgent" value={summary.human_tasks.high_priority_pending} color="#f43f5e" urgent />
           )}
         </div>
       )}
@@ -606,6 +831,14 @@ export default function WorkPage() {
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              {/* Live pulse */}
+              {summary && summary.agent_work.active > 0 && (
+                <motion.div
+                  animate={{ opacity: [1, 0.2, 1], scale: [1, 1.3, 1] }}
+                  transition={{ repeat: Infinity, duration: 2 }}
+                  style={{ width: 7, height: 7, borderRadius: "50%", background: "#38bdf8" }}
+                />
+              )}
               <Cpu size={14} color="#38bdf8" />
               <span style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#38bdf8" }}>Agent Work</span>
             </div>
@@ -636,7 +869,8 @@ export default function WorkPage() {
             <div style={{ textAlign: "center", padding: "3rem 1rem", border: "1px dashed rgba(255,255,255,0.07)", borderRadius: 12 }}>
               <BarChart2 size={32} color="#334155" style={{ margin: "0 auto 0.75rem" }} />
               <p style={{ fontSize: "0.875rem", color: "#475569" }}>
-                {workTab === "active" ? "No active work — agents are idle or done." : "No items in this view."}
+                {workTab === "active" ? "No active work — agents are idle." :
+                 workTab === "blocked" ? "Nothing blocked. 🎉" : "No items in this view."}
               </p>
             </div>
           ) : (
@@ -657,10 +891,24 @@ export default function WorkPage() {
               <ClipboardList size={14} color="#a78bfa" />
               <span style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a78bfa" }}>Your Tasks</span>
             </div>
-            <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "9px", color: "#475569", cursor: "pointer" }}>
-              <input type="checkbox" checked={showDoneTasks} onChange={e => setShowDoneTasks(e.target.checked)} style={{ width: 11, height: 11 }} />
-              Show done
-            </label>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "9px", color: "#475569", cursor: "pointer" }}>
+                <input type="checkbox" checked={showDoneTasks} onChange={e => setShowDoneTasks(e.target.checked)} style={{ width: 11, height: 11 }} />
+                Show done
+              </label>
+              <motion.button
+                onClick={() => setShowCreateTask(true)}
+                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                aria-label="Create task"
+                style={{
+                  width: 26, height: 26, borderRadius: 7, border: "1px solid rgba(167,139,250,0.3)",
+                  background: "rgba(167,139,250,0.1)", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", color: "#a78bfa",
+                }}
+              >
+                <Plus size={13} />
+              </motion.button>
+            </div>
           </div>
 
           {loading ? (
@@ -671,6 +919,12 @@ export default function WorkPage() {
             <div style={{ textAlign: "center", padding: "2.5rem 1rem", border: "1px dashed rgba(255,255,255,0.07)", borderRadius: 12 }}>
               <Zap size={28} color="#334155" style={{ margin: "0 auto 0.75rem" }} />
               <p style={{ fontSize: "0.82rem", color: "#475569" }}>No tasks assigned — you&apos;re clear! 🎉</p>
+              <button
+                onClick={() => setShowCreateTask(true)}
+                style={{ marginTop: "0.75rem", padding: "5px 14px", borderRadius: 7, fontSize: "11px", fontWeight: 700, background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.25)", color: "#a78bfa", cursor: "pointer" }}
+              >
+                + Assign a task
+              </button>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
@@ -684,6 +938,16 @@ export default function WorkPage() {
         </div>
 
       </div>
+
+      {/* Create Task Modal */}
+      <AnimatePresence>
+        {showCreateTask && (
+          <CreateTaskModal
+            onClose={() => setShowCreateTask(false)}
+            onCreated={() => fetchData(true)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
