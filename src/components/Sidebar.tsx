@@ -18,14 +18,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const [openRequests, setOpenRequests] = useState<{ open: number; critical: number } | null>(null);
   const [queueCount, setQueueCount] = useState<number>(0);
+  const [blockageCount, setBlockageCount] = useState<number>(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const fetchSummary = async () => {
       try {
-        const [insRes, queueRes] = await Promise.all([
+        const [insRes, queueRes, blockRes] = await Promise.all([
           fetch(`${BOT_URL}/admin/insights/summary`),
           fetch(`${BOT_URL}/admin/operations/queue`),
+          fetch(`${BOT_URL}/admin/blockages?status=open&limit=1`),
         ]);
         if (insRes.ok) {
           const data = await insRes.json();
@@ -34,6 +36,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         if (queueRes.ok) {
           const qData = await queueRes.json();
           setQueueCount(qData.count ?? 0);
+        }
+        if (blockRes.ok) {
+          const bData = await blockRes.json();
+          // API returns array or { data: [], total: N }
+          const arr = Array.isArray(bData) ? bData : (bData.data ?? []);
+          setBlockageCount(bData.total ?? arr.length);
         }
       } catch { /* silent */ }
     };
@@ -96,10 +104,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           const isActive = activeId === item.id;
           const Icon = item.icon;
           const accent = item.color ?? "var(--accent-orange)";
-          const showBadge   = item.id === "system" && openRequests && openRequests.open > 0;
+          const showBadge   = item.id === "system" && openRequests && (openRequests.open > 0 || blockageCount > 0);
           const showQueue   = item.id === "queue" && queueCount > 0;
-          const isCritical  = showBadge && openRequests!.critical > 0;
-
+          const isCritical  = showBadge && (openRequests!.critical > 0 || blockageCount > 0);
+          const systemBadgeCount = (openRequests?.open ?? 0) + blockageCount;
 
           // Detect group change — show divider + label when group changes (core group is unlabeled)
           const prevItem = APP_CONFIG.navigation[idx - 1] as any | undefined;
@@ -154,7 +162,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                       borderRadius: 10, padding: "2px 6px",
                       animation: isCritical ? "pulse-badge 2s ease-in-out infinite" : undefined,
                     }}>
-                      {openRequests!.open}
+                      {systemBadgeCount}
                     </span>
                   )}
                   {showQueue && (
