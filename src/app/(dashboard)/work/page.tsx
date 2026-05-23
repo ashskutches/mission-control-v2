@@ -12,7 +12,7 @@ import {
   RefreshCw, Clock, User, ChevronDown, ChevronUp,
   Zap, BarChart2, CircleDot, XCircle, PlayCircle,
   PauseCircle, AlertTriangle, CheckCheck, ExternalLink,
-  Plus, X, Send,
+  Plus, X, Send, LayoutList, Columns,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
@@ -686,6 +686,132 @@ function StatPill({ label, value, color, urgent }: { label: string; value: numbe
   );
 }
 
+// ── Work Pipeline (Kanban) ─────────────────────────────────────────────────────
+
+const PIPELINE_COLUMNS: { id: WorkStatus[]; label: string; color: string }[] = [
+  { id: ['pending'],                  label: 'Pending',    color: '#64748b' },
+  { id: ['running', 'in_progress'],   label: 'Active',     color: '#38bdf8' },
+  { id: ['blocked'],                  label: 'Blocked',    color: '#f43f5e' },
+  { id: ['needs_human'],              label: 'Needs You',  color: '#f59e0b' },
+  { id: ['done', 'cancelled'],        label: 'Done',       color: '#22c55e' },
+];
+
+function WorkPipeline({ work, onStatusChange }: {
+  work: AgentWork[];
+  onStatusChange: (id: string, status: WorkStatus) => Promise<void>;
+}) {
+  return (
+    <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 16, alignItems: 'flex-start' }}>
+      {PIPELINE_COLUMNS.map(col => {
+        const items = work.filter(w => col.id.includes(w.status));
+        return (
+          <div key={col.label} style={{
+            minWidth: 240, width: 240, flexShrink: 0,
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.07)',
+            borderTop: `3px solid ${col.color}`,
+            borderRadius: 12, padding: '0.75rem',
+          }}>
+            {/* Column header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: col.color }}>
+                {col.label}
+              </span>
+              {items.length > 0 && (
+                <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 10, background: `${col.color}20`, color: col.color }}>
+                  {items.length}
+                </span>
+              )}
+            </div>
+            {/* Cards */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '68vh', overflowY: 'auto' }}>
+              <AnimatePresence mode="popLayout">
+                {items.length === 0 && (
+                  <p style={{ fontSize: '10px', color: '#334155', textAlign: 'center', padding: '1rem 0' }}>—</p>
+                )}
+                {items.map(w => {
+                  const cfg = WORK_STATUS[w.status] ?? WORK_STATUS.pending;
+                  const pct = w.milestones.length > 0
+                    ? Math.round((w.current_milestone / w.milestones.length) * 100)
+                    : null;
+                  return (
+                    <motion.div
+                      key={w.id}
+                      layout
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.96 }}
+                      style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${cfg.color}18`,
+                        borderLeft: `3px solid ${cfg.color}`,
+                        borderRadius: 9, padding: '0.6rem 0.75rem',
+                        cursor: 'default',
+                      }}
+                    >
+                      {/* Agent tag */}
+                      {w.agent_name && (
+                        <div style={{ fontSize: 9, color: '#475569', marginBottom: 4, fontWeight: 600 }}>
+                          {w.agent_name}
+                        </div>
+                      )}
+                      {/* Title */}
+                      <p style={{
+                        fontWeight: 700, fontSize: '0.78rem', color: '#e2e8f0', margin: '0 0 5px',
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                      }}>
+                        {w.title}
+                      </p>
+                      {/* Progress bar */}
+                      {pct !== null && (
+                        <div style={{ height: 3, borderRadius: 3, background: 'rgba(255,255,255,0.07)', marginBottom: 6 }}>
+                          <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: cfg.color, transition: 'width 0.4s' }} />
+                        </div>
+                      )}
+                      {/* Priority + run count */}
+                      <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                        <span style={{ fontSize: 9, color: w.priority >= 8 ? '#f43f5e' : w.priority >= 6 ? '#f59e0b' : '#64748b', fontWeight: 700 }}>
+                          P{w.priority}
+                        </span>
+                        {w.run_count > 0 && (
+                          <span style={{ fontSize: 9, color: '#334155' }}>run {w.run_count}/{w.max_runs}</span>
+                        )}
+                        {/* Quick action: move to next status */}
+                        {w.status === 'pending' && (
+                          <button
+                            onClick={() => onStatusChange(w.id, 'in_progress')}
+                            style={{ marginLeft: 'auto', fontSize: 9, padding: '1px 7px', borderRadius: 5, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.25)', color: '#38bdf8', cursor: 'pointer', fontWeight: 700 }}
+                          >
+                            Start
+                          </button>
+                        )}
+                        {(w.status === 'running' || w.status === 'in_progress') && (
+                          <button
+                            onClick={() => onStatusChange(w.id, 'done')}
+                            style={{ marginLeft: 'auto', fontSize: 9, padding: '1px 7px', borderRadius: 5, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', color: '#22c55e', cursor: 'pointer', fontWeight: 700 }}
+                          >
+                            Done
+                          </button>
+                        )}
+                      </div>
+                      {/* Last progress snippet */}
+                      {w.last_progress && col.id.includes('in_progress' as WorkStatus) && (
+                        <p style={{ fontSize: 9, color: '#475569', marginTop: 5, lineHeight: 1.4 }}>
+                          {w.last_progress.slice(0, 80)}{w.last_progress.length > 80 ? '…' : ''}
+                        </p>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function WorkPage() {
@@ -694,6 +820,7 @@ export default function WorkPage() {
   const [summary, setSummary] = useState<WorkSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [workTab, setWorkTab] = useState<"active" | "pending" | "blocked" | "done" | "all">("active");
+  const [workView, setWorkView] = useState<'list' | 'pipeline'>('list');
   const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [countdown, setCountdown] = useState(REFRESH_INTERVAL);
@@ -842,22 +969,41 @@ export default function WorkPage() {
               <Cpu size={14} color="#38bdf8" />
               <span style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#38bdf8" }}>Agent Work</span>
             </div>
-            <div style={{ display: "flex", gap: 3 }}>
-              {agentWorkTabs.map(tab => (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ display: "flex", gap: 3 }}>
+                {agentWorkTabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setWorkTab(tab.id)}
+                    style={{
+                      padding: "3px 10px", borderRadius: 6, fontSize: "10px", fontWeight: 700,
+                      background: workTab === tab.id ? `${tab.color}15` : "transparent",
+                      color: workTab === tab.id ? tab.color : "#475569",
+                      border: workTab === tab.id ? `1px solid ${tab.color}30` : "1px solid transparent",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {tab.label} {tab.count > 0 && <span style={{ fontSize: 9, marginLeft: 2 }}>{tab.count}</span>}
+                  </button>
+                ))}
+              </div>
+              <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.07)' }} />
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                 <button
-                  key={tab.id}
-                  onClick={() => setWorkTab(tab.id)}
-                  style={{
-                    padding: "3px 10px", borderRadius: 6, fontSize: "10px", fontWeight: 700,
-                    background: workTab === tab.id ? `${tab.color}15` : "transparent",
-                    color: workTab === tab.id ? tab.color : "#475569",
-                    border: workTab === tab.id ? `1px solid ${tab.color}30` : "1px solid transparent",
-                    cursor: "pointer",
-                  }}
+                  onClick={() => setWorkView('list')}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 7, fontSize: '11px', fontWeight: 700, background: workView === 'list' ? 'rgba(56,189,248,0.15)' : 'transparent', border: `1px solid ${workView === 'list' ? 'rgba(56,189,248,0.35)' : 'rgba(255,255,255,0.07)'}`, color: workView === 'list' ? '#38bdf8' : '#475569', cursor: 'pointer' }}
+                  aria-label="List view"
                 >
-                  {tab.label} {tab.count > 0 && <span style={{ fontSize: 9, marginLeft: 2 }}>{tab.count}</span>}
+                  <LayoutList size={12} /> List
                 </button>
-              ))}
+                <button
+                  onClick={() => setWorkView('pipeline')}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 7, fontSize: '11px', fontWeight: 700, background: workView === 'pipeline' ? 'rgba(56,189,248,0.15)' : 'transparent', border: `1px solid ${workView === 'pipeline' ? 'rgba(56,189,248,0.35)' : 'rgba(255,255,255,0.07)'}`, color: workView === 'pipeline' ? '#38bdf8' : '#475569', cursor: 'pointer' }}
+                  aria-label="Pipeline view"
+                >
+                  <Columns size={12} /> Pipeline
+                </button>
+              </div>
             </div>
           </div>
 
@@ -873,6 +1019,8 @@ export default function WorkPage() {
                  workTab === "blocked" ? "Nothing blocked. 🎉" : "No items in this view."}
               </p>
             </div>
+          ) : workView === 'pipeline' ? (
+            <WorkPipeline work={work} onStatusChange={updateWorkStatus} />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               <AnimatePresence mode="popLayout">
