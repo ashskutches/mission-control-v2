@@ -91,6 +91,7 @@ export const APP_CONFIG = {
         { id: 'brand',    group: 'settings', href: '/brand',     icon: Palette,   label: 'Brand',     color: '#e98d20' },
         { id: 'system',   group: 'settings', href: '/blockages', icon: Bug,       label: 'Blockages', color: '#f43f5e' },
         { id: 'costs',    group: 'settings', href: '/costs',     icon: DollarSign,label: 'Costs',     color: '#22c55e' },
+        { id: 'team',     group: 'settings', href: '/team',      icon: Users,     label: 'Team',      color: '#a78bfa' },
         { id: 'settings', group: 'settings', href: '/settings',  icon: Settings,  label: 'Settings'                   },
     ],
     theme: {

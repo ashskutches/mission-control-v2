@@ -81,23 +81,37 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
       </div>
 
-      {/* ── Flat nav list ───────────────────────────────────────────────── */}
+      {/* ── Grouped nav list ─────────────────────────────────────────────── */}
       <ul className="menu-list">
-        {APP_CONFIG.navigation.map((item: any) => {
+        {APP_CONFIG.navigation.map((item: any, idx: number) => {
           const isActive = activeId === item.id;
           const Icon = item.icon;
           const accent = item.color ?? "var(--accent-orange)";
           const showBadge = item.id === "system" && openRequests && openRequests.open > 0;
           const isCritical = showBadge && openRequests!.critical > 0;
 
-          // Thin separator before the command group
-          const isFirstCommand = item.id === "agents";
+          // Detect group change — show divider + label when group changes (core group is unlabeled)
+          const prevItem = APP_CONFIG.navigation[idx - 1] as any | undefined;
+          const groupChanged = prevItem && prevItem.group !== item.group;
+          const showGroupHeader = groupChanged && item.group !== "core";
 
           return (
             <React.Fragment key={item.id}>
-              {isFirstCommand && (
+              {showGroupHeader && (
                 <li>
-                  <div style={{ height: 1, background: "rgba(255,255,255,0.05)", margin: "0.5rem 0.6rem 0.5rem" }} />
+                  <div style={{ height: 1, background: "rgba(255,255,255,0.05)", margin: "0.75rem 0.6rem 0.4rem" }} />
+                  <span
+                    className="is-uppercase has-text-weight-black"
+                    style={{
+                      fontSize: "9px",
+                      letterSpacing: "0.12em",
+                      color: "var(--text-muted)",
+                      display: "block",
+                      padding: "0 0.6rem 0.3rem",
+                    }}
+                  >
+                    {item.group}
+                  </span>
                 </li>
               )}
               <li>
