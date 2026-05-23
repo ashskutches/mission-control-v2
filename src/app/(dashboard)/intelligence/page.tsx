@@ -6,6 +6,7 @@ import {
   TrendingUp, Clock, ChevronDown, ChevronUp, ExternalLink, RefreshCw,
   Filter, Bug, ShieldAlert, Plug, Zap, Sparkles,
   ShieldCheck, Shield, Zap as ZapAuto, Loader,
+  LayoutList, Columns, CheckCircle2, XCircle,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -38,6 +39,13 @@ interface Insight {
   tool_name?: string | null;
   error_message?: string | null;
   integration_name?: string | null;
+  // Enhanced fields
+  approval_status?: string | null;
+  risk_tier?: 'low' | 'medium' | 'high' | 'critical' | null;
+  risk_score?: number | null;
+  stuck_since?: string | null;
+  duplicate_of?: string | null;
+  occurrences?: number | null;
 }
 
 interface Summary {
@@ -277,17 +285,47 @@ function SummaryBar({ summary }: { summary: Summary }) {
   );
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const RISK_TIER_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
+  low:      { color: "#22c55e", bg: "rgba(34,197,94,0.12)",  label: "LOW" },
+  medium:   { color: "#f59e0b", bg: "rgba(245,158,11,0.12)", label: "MED" },
+  high:     { color: "#f97316", bg: "rgba(249,115,22,0.12)", label: "HIGH" },
+  critical: { color: "#f43f5e", bg: "rgba(244,63,94,0.12)",  label: "CRIT" },
+};
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor(diff / 60000);
+  if (h >= 24) return `${Math.floor(h / 24)}d ago`;
+  if (h >= 1)  return `${h}h ago`;
+  return `${m}m ago`;
+}
+
+function isStuckOver6h(stuckSince: string | null | undefined): boolean {
+  if (!stuckSince) return false;
+  return Date.now() - new Date(stuckSince).getTime() > 6 * 3600_000;
+}
+
 // ── InsightCard ───────────────────────────────────────────────────────────────
 
-function InsightCard({ insight, onStatusChange, onDismiss }: {
+function InsightCard({ insight, onStatusChange, onDismiss, onApprove, onReject }: {
   insight: Insight;
   onStatusChange: (id: string, status: InsightStatus) => void;
   onDismiss: (id: string) => void;
+  onApprove?: (id: string) => void;
+  onReject?: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const tc = TYPE_CONFIG[insight.type] ?? TYPE_CONFIG.observation;
   const Icon = tc.icon;
   const nextStatus = STATUS_NEXT[insight.status];
+  const stuckHours = insight.stuck_since
+    ? Math.floor((Date.now() - new Date(insight.stuck_since).getTime()) / 3600_000)
+    : 0;
+  const isStuck = isStuckOver6h(insight.stuck_since);
+  const riskCfg = insight.risk_tier ? RISK_TIER_CONFIG[insight.risk_tier] : null;
 
   return (
     <motion.div
@@ -298,7 +336,7 @@ function InsightCard({ insight, onStatusChange, onDismiss }: {
       transition={{ duration: 0.2 }}
       className="box mb-3 p-4"
       style={{
-        background: "rgba(255,255,255,0.03)",
+        background: isStuck ? "rgba(244,63,94,0.04)" : "rgba(255,255,255,0.03)",
         border: `1px solid ${tc.color}28`,
         borderLeft: `3px solid ${tc.color}`,
       }}
@@ -326,6 +364,24 @@ function InsightCard({ insight, onStatusChange, onDismiss }: {
             {insight.agent_name && (
               <span className="tag is-rounded" style={{ fontSize: "9px", background: "rgba(255,255,255,0.04)", color: "#64748b" }}>
                 {insight.agent_name}
+              </span>
+            )}
+            {riskCfg && (
+              <span className="tag is-rounded" style={{ fontSize: "9px", background: riskCfg.bg, color: riskCfg.color, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                {riskCfg.label}
+              </span>
+            )}
+            {isStuck && (
+              <span
+                className="tag is-rounded"
+                style={{ fontSize: "9px", background: "rgba(244,63,94,0.15)", color: "#f43f5e", fontWeight: 800, animation: "pulse 2s ease-in-out infinite" }}
+              >
+                ⚠ STUCK {stuckHours}h
+              </span>
+            )}
+            {(insight.occurrences ?? 0) > 1 && (
+              <span className="tag is-rounded" style={{ fontSize: "9px", background: "rgba(245,158,11,0.12)", color: "#f59e0b", fontWeight: 700 }}>
+                ×{insight.occurrences} occurrences
               </span>
             )}
           </div>
@@ -414,7 +470,7 @@ function InsightCard({ insight, onStatusChange, onDismiss }: {
         )}
       </AnimatePresence>
 
-      <div className="is-flex is-align-items-center mt-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", gap: "0.5rem" }}>
+      <div className="is-flex is-align-items-center mt-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", gap: "0.5rem", flexWrap: "wrap" }}>
         {nextStatus && (
           <button
             onClick={() => onStatusChange(insight.id, nextStatus)}
@@ -423,6 +479,25 @@ function InsightCard({ insight, onStatusChange, onDismiss }: {
           >
             → {STATUS_LABEL[nextStatus]}
           </button>
+        )}
+        {/* Approve / Reject for pending insights */}
+        {insight.approval_status === "pending" && insight.status === "new" && onApprove && onReject && (
+          <>
+            <button
+              onClick={() => onApprove(insight.id)}
+              className="button is-small"
+              style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.25)", fontSize: "11px", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}
+            >
+              <CheckCircle2 size={12} /> Approve
+            </button>
+            <button
+              onClick={() => onReject(insight.id)}
+              className="button is-small"
+              style={{ background: "rgba(244,63,94,0.10)", color: "#f43f5e", border: "1px solid rgba(244,63,94,0.22)", fontSize: "11px", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}
+            >
+              <XCircle size={12} /> Reject
+            </button>
+          </>
         )}
         <a
           href={`/chats?agent=${insight.agent_name ?? ""}&context=${encodeURIComponent(`[Insight: ${insight.title}] Let's work on this.`)}`}
@@ -445,6 +520,166 @@ function InsightCard({ insight, onStatusChange, onDismiss }: {
   );
 }
 
+// ── KanbanBoard ───────────────────────────────────────────────────────────────
+
+const KANBAN_COLUMNS: { id: string; label: string; color: string }[] = [
+  { id: "new",         label: "NEW",         color: "#f59e0b" },
+  { id: "acknowledged",label: "ACKNOWLEDGED", color: "#38bdf8" },
+  { id: "in_progress", label: "IN PROGRESS",  color: "#a78bfa" },
+  { id: "blocked",     label: "BLOCKED",      color: "#f43f5e" },
+  { id: "done",        label: "DONE",         color: "#64748b" },
+];
+
+function KanbanMiniCard({ insight, onStatusChange, onApprove, onReject }: {
+  insight: Insight;
+  onStatusChange: (id: string, status: InsightStatus) => void;
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+}) {
+  const tc = TYPE_CONFIG[insight.type] ?? TYPE_CONFIG.observation;
+  const statusColor = STATUS_COLOR[insight.status];
+  const isStuck = isStuckOver6h(insight.stuck_since);
+  const stuckHours = insight.stuck_since
+    ? Math.floor((Date.now() - new Date(insight.stuck_since).getTime()) / 3600_000)
+    : 0;
+  const riskCfg = insight.risk_tier ? RISK_TIER_CONFIG[insight.risk_tier] : null;
+
+  return (
+    <div
+      style={{
+        background: isStuck ? "rgba(244,63,94,0.04)" : "rgba(255,255,255,0.03)",
+        border: "1px solid rgba(255,255,255,0.07)",
+        borderLeft: `3px solid ${statusColor}`,
+        borderRadius: 8,
+        padding: "8px 10px",
+        marginBottom: 8,
+        cursor: "default",
+      }}
+    >
+      {/* Badges row */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
+        {riskCfg && (
+          <span style={{ fontSize: "8px", background: riskCfg.bg, color: riskCfg.color, fontWeight: 800, padding: "1px 5px", borderRadius: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            {riskCfg.label}
+          </span>
+        )}
+        {isStuck && (
+          <span style={{ fontSize: "8px", background: "rgba(244,63,94,0.15)", color: "#f43f5e", fontWeight: 800, padding: "1px 5px", borderRadius: 4, animation: "pulse 2s ease-in-out infinite" }}>
+            ⚠ STUCK {stuckHours}h
+          </span>
+        )}
+      </div>
+
+      {/* Title */}
+      <p style={{ fontWeight: 700, fontSize: "0.8rem", color: "#e2e8f0", lineHeight: 1.3, marginBottom: 4,
+        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        {insight.title}
+      </p>
+
+      {/* Meta */}
+      <p style={{ fontSize: "9px", color: "#475569", marginBottom: 4 }}>
+        {insight.section}{insight.agent_name ? ` · ${insight.agent_name}` : ""}
+      </p>
+
+      {/* Priority bar */}
+      <div style={{ width: "100%", height: 3, borderRadius: 2, background: "rgba(255,255,255,0.06)", overflow: "hidden", marginBottom: 4 }}>
+        <div style={{ width: `${insight.priority * 10}%`, height: "100%", background: PRIORITY_BAR_COLOR(insight.priority), borderRadius: 2 }} />
+      </div>
+
+      {/* Footer */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: "9px", color: "#334155" }}>{timeAgo(insight.created_at)}</span>
+        {insight.approval_status === "pending" && insight.status === "new" && (
+          <div style={{ display: "flex", gap: 4 }}>
+            <button
+              onClick={() => onApprove(insight.id)}
+              style={{ fontSize: "9px", background: "rgba(34,197,94,0.12)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 4, padding: "2px 6px", cursor: "pointer", fontWeight: 700 }}
+              aria-label="Approve insight"
+            >
+              ✓ Approve
+            </button>
+            <button
+              onClick={() => onReject(insight.id)}
+              style={{ fontSize: "9px", background: "rgba(244,63,94,0.10)", color: "#f43f5e", border: "1px solid rgba(244,63,94,0.22)", borderRadius: 4, padding: "2px 6px", cursor: "pointer", fontWeight: 700 }}
+              aria-label="Reject insight"
+            >
+              ✗ Reject
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function KanbanBoard({ insights, onStatusChange, onApprove, onReject }: {
+  insights: Insight[];
+  onStatusChange: (id: string, status: InsightStatus) => void;
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+}) {
+  const buckets: Record<string, Insight[]> = {
+    new: [], acknowledged: [], in_progress: [], blocked: [], done: [],
+  };
+
+  for (const ins of insights) {
+    if (ins.status === "resolved" || ins.status === "dismissed") {
+      buckets.done.push(ins);
+    } else if (isStuckOver6h(ins.stuck_since)) {
+      buckets.blocked.push(ins);
+    } else if (buckets[ins.status] !== undefined) {
+      buckets[ins.status].push(ins);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 16, alignItems: "flex-start" }}>
+      {KANBAN_COLUMNS.map(col => (
+        <div
+          key={col.id}
+          style={{
+            minWidth: 260, width: 260, flexShrink: 0,
+            background: "rgba(255,255,255,0.02)",
+            border: "1px solid rgba(255,255,255,0.07)",
+            borderRadius: 12, padding: "10px 10px 6px",
+          }}
+        >
+          {/* Column header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: col.color, flexShrink: 0 }} />
+            <span style={{ fontSize: "10px", fontWeight: 800, color: col.color, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              {col.label}
+            </span>
+            <span style={{
+              marginLeft: "auto", fontSize: "9px", background: `${col.color}18`, color: col.color,
+              borderRadius: 10, padding: "1px 7px", fontWeight: 700,
+            }}>
+              {buckets[col.id].length}
+            </span>
+          </div>
+
+          {/* Cards */}
+          <div style={{ maxHeight: "65vh", overflowY: "auto", paddingRight: 2 }}>
+            {buckets[col.id].length === 0 ? (
+              <p style={{ fontSize: "10px", color: "#334155", textAlign: "center", padding: "20px 0" }}>—</p>
+            ) : (
+              buckets[col.id].map(ins => (
+                <KanbanMiniCard
+                  key={ins.id}
+                  insight={ins}
+                  onStatusChange={onStatusChange}
+                  onApprove={onApprove}
+                  onReject={onReject}
+                />
+              ))
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Main Page ───────────────────────────────────────────────────────────────
 
 export default function InsightsPage() {
@@ -455,6 +690,7 @@ export default function InsightsPage() {
   const [activeSection, setActiveSection] = useState<Section>("all");
   const [sortBy, setSortBy] = useState<"priority" | "value" | "date">("priority");
   const [showResolved, setShowResolved] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -497,6 +733,24 @@ export default function InsightsPage() {
     setInsights(prev => prev.filter(i => i.id !== id));
   };
 
+  const approveInsight = async (id: string) => {
+    await fetch(`${BOT_URL}/admin/insights/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approval_status: "approved", status: "acknowledged", approved_at: new Date().toISOString(), approved_by: "ash" }),
+    });
+    setInsights(prev => prev.map(i => i.id === id ? { ...i, approval_status: "approved", status: "acknowledged" as InsightStatus } : i));
+  };
+
+  const rejectInsight = async (id: string) => {
+    await fetch(`${BOT_URL}/admin/insights/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approval_status: "rejected", status: "dismissed" }),
+    });
+    setInsights(prev => prev.map(i => i.id === id ? { ...i, approval_status: "rejected", status: "dismissed" as InsightStatus } : i));
+  };
+
   const filtered = insights
     .filter(i => showResolved || (i.status !== "resolved" && i.status !== "dismissed"))
     .sort((a, b) => {
@@ -527,6 +781,33 @@ export default function InsightsPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
           <ApprovalToggle />
+          {/* View mode toggle */}
+          <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: 3, gap: 2 }}>
+            <button
+              onClick={() => setViewMode("list")}
+              aria-label="List view"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                padding: "4px 9px", borderRadius: 5, border: viewMode === "list" ? "1px solid rgba(56,189,248,0.35)" : "1px solid transparent",
+                background: viewMode === "list" ? "rgba(56,189,248,0.12)" : "transparent",
+                color: viewMode === "list" ? "#38bdf8" : "#475569", fontWeight: 700, fontSize: "11px", cursor: "pointer",
+              }}
+            >
+              <LayoutList size={13} /> List
+            </button>
+            <button
+              onClick={() => setViewMode("kanban")}
+              aria-label="Kanban view"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                padding: "4px 9px", borderRadius: 5, border: viewMode === "kanban" ? "1px solid rgba(167,139,250,0.35)" : "1px solid transparent",
+                background: viewMode === "kanban" ? "rgba(167,139,250,0.12)" : "transparent",
+                color: viewMode === "kanban" ? "#a78bfa" : "#475569", fontWeight: 700, fontSize: "11px", cursor: "pointer",
+              }}
+            >
+              <Columns size={13} /> Kanban
+            </button>
+          </div>
           <button onClick={fetchData} className="button is-small is-ghost" style={{ color: "#64748b" }}>
             <RefreshCw size={14} className={loading ? "spin" : ""} />
           </button>
@@ -617,7 +898,7 @@ export default function InsightsPage() {
         </div>
       </div>
 
-      {/* Cards */}
+      {/* Cards / Kanban */}
       {loading ? (
         <p className="has-text-grey has-text-centered py-6">Loading insights...</p>
       ) : filtered.length === 0 ? (
@@ -625,6 +906,13 @@ export default function InsightsPage() {
           <BrainCircuit size={32} color="#334155" style={{ margin: "0 auto 1rem" }} />
           <p className="has-text-grey">No insights yet — agents will file them as they research.</p>
         </div>
+      ) : viewMode === "kanban" ? (
+        <KanbanBoard
+          insights={filtered}
+          onStatusChange={updateStatus}
+          onApprove={approveInsight}
+          onReject={rejectInsight}
+        />
       ) : (
         <AnimatePresence mode="popLayout">
           {filtered.map(insight => (
@@ -633,6 +921,8 @@ export default function InsightsPage() {
               insight={insight}
               onStatusChange={updateStatus}
               onDismiss={dismiss}
+              onApprove={approveInsight}
+              onReject={rejectInsight}
             />
           ))}
         </AnimatePresence>
