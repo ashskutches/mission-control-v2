@@ -149,16 +149,16 @@ function SectionHeader({ icon: Icon, label, count, color, children }: {
 
 function InsightCard({ insight, onDecision }: {
   insight: QueueInsight;
-  onDecision: (id: string, action: "approve" | "reject") => Promise<void>;
+  onDecision: (id: string, action: "approve" | "approve_assign" | "reject") => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [acting, setActing] = useState<"approve" | "reject" | null>(null);
+  const [acting, setActing] = useState<"approve" | "approve_assign" | "reject" | null>(null);
   const riskCfg = insight.risk_tier ? RISK_CONFIG[insight.risk_tier] : null;
   const RiskIcon = riskCfg?.icon ?? BrainCircuit;
   const ageHours = Math.round((Date.now() - new Date(insight.created_at).getTime()) / 3_600_000);
   const isStuck = ageHours >= 6 && insight.priority >= 8;
 
-  const decide = async (action: "approve" | "reject") => {
+  const decide = async (action: "approve" | "approve_assign" | "reject") => {
     setActing(action);
     await onDecision(insight.id, action);
     setActing(null);
@@ -208,10 +208,19 @@ function InsightCard({ insight, onDecision }: {
           {/* Actions */}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <motion.button
+              onClick={() => decide("approve_assign")}
+              disabled={!!acting}
+              whileHover={!acting ? { scale: 1.03 } : {}} whileTap={!acting ? { scale: 0.97 } : {}}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 14px", borderRadius: 7, fontSize: "11px", fontWeight: 800, background: "linear-gradient(135deg, rgba(34,197,94,0.25), rgba(56,189,248,0.12))", border: "1px solid rgba(34,197,94,0.4)", color: "#22c55e", cursor: acting ? "wait" : "pointer", opacity: acting && acting !== "approve_assign" ? 0.4 : 1 }}
+            >
+              {acting === "approve_assign" ? <Loader size={11} style={{ animation: "spin 1s linear infinite" }} /> : <CheckCircle2 size={11} />}
+              Approve + Assign
+            </motion.button>
+            <motion.button
               onClick={() => decide("approve")}
               disabled={!!acting}
               whileHover={!acting ? { scale: 1.03 } : {}} whileTap={!acting ? { scale: 0.97 } : {}}
-              style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 14px", borderRadius: 7, fontSize: "11px", fontWeight: 800, background: "linear-gradient(135deg, rgba(34,197,94,0.18), rgba(34,197,94,0.08))", border: "1px solid rgba(34,197,94,0.35)", color: "#22c55e", cursor: acting ? "wait" : "pointer", opacity: acting === "reject" ? 0.4 : 1 }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 14px", borderRadius: 7, fontSize: "11px", fontWeight: 700, background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.2)", color: "#22c55e", cursor: acting ? "wait" : "pointer", opacity: acting && acting !== "approve" ? 0.4 : 1 }}
             >
               {acting === "approve" ? <Loader size={11} style={{ animation: "spin 1s linear infinite" }} /> : <CheckCircle2 size={11} />}
               Approve
@@ -220,7 +229,7 @@ function InsightCard({ insight, onDecision }: {
               onClick={() => decide("reject")}
               disabled={!!acting}
               whileHover={!acting ? { scale: 1.03 } : {}} whileTap={!acting ? { scale: 0.97 } : {}}
-              style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 14px", borderRadius: 7, fontSize: "11px", fontWeight: 700, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", color: "#f43f5e", cursor: acting ? "wait" : "pointer", opacity: acting === "approve" ? 0.4 : 1 }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 14px", borderRadius: 7, fontSize: "11px", fontWeight: 700, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", color: "#f43f5e", cursor: acting ? "wait" : "pointer", opacity: acting && acting !== "reject" ? 0.4 : 1 }}
             >
               {acting === "reject" ? <Loader size={11} style={{ animation: "spin 1s linear infinite" }} /> : <XCircle size={11} />}
               Reject
@@ -538,16 +547,25 @@ export default function QueuePage() {
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
-  const handleInsightDecision = async (id: string, action: "approve" | "reject") => {
+  const handleInsightDecision = async (id: string, action: "approve" | "approve_assign" | "reject") => {
+    const isApprove = action === "approve" || action === "approve_assign";
     await fetch(`${BOT_URL}/admin/insights/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        approval_status: action === "approve" ? "approved" : "rejected",
-        ...(action === "approve" ? { status: "approved" } : { status: "rejected" }),
+        approval_status: isApprove ? "approved" : "rejected",
+        status: isApprove ? "acknowledged" : "dismissed",
         approved_at: new Date().toISOString(),
         approved_by: "ash",
       }),
     });
+    // "Approve + Assign" also fires the assign endpoint
+    if (action === "approve_assign") {
+      await fetch(`${BOT_URL}/admin/insights/${id}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approved_by: "ash" }),
+      }).catch(() => { /* non-blocking — assign fires even if this errors */ });
+    }
     await fetchData(true);
   };
 
