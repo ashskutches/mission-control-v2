@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Send, Bot, RefreshCw, CheckCircle2, XCircle,
   Loader2, ChevronDown, ChevronUp, Clock, Zap, Search,
-  Palette, Mail, BarChart2, Users, Copy, Check, X, Bell,
+  Palette, Mail, BarChart2, Users, Copy, Check, X, Bell, FileText,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
@@ -29,10 +29,11 @@ interface AgentJob {
   started_at: string | null;
   completed_at: string | null;
   // Pipeline fields
-  is_pipeline:  boolean | null;
-  pipeline_id:  string | null;   // set on stage jobs; null on parent
-  stage_index:  number | null;
-  stage_plan:   { index: number; name: string; prompt: string; is_final: boolean }[] | null;
+  is_pipeline:      boolean | null;
+  pipeline_id:      string | null;   // set on stage jobs; null on parent
+  stage_index:      number | null;
+  stage_plan:       { index: number; name: string; prompt: string; is_final: boolean }[] | null;
+  pipeline_doc_url: string | null;   // Google Doc URL from final documentation stage
 }
 
 interface ParseResult {
@@ -501,6 +502,26 @@ function JobCard({ job, onCancel, onDelete }: {
               }}>
                 Stage {job.stage_index}
               </span>
+            )}
+            {/* Open Document button — visible when pipeline_doc_url is set */}
+            {job.pipeline_doc_url && (
+              <a
+                href={job.pipeline_doc_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 5,
+                  background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)",
+                  color: "#34d399", textDecoration: "none", transition: "background 0.15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(52,211,153,0.22)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "rgba(52,211,153,0.12)")}
+              >
+                <FileText size={8} />
+                Open Doc ↗
+              </a>
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3, flexWrap: "wrap" }}>
