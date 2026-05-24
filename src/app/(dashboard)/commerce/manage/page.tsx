@@ -8,7 +8,7 @@ import {
   Tag, Zap, LifeBuoy, Truck, MessageCircle, Mail, LineChart, Eye,
   ShoppingBag, BarChart3, Globe, Star, Rocket, Target, PieChart,
   Activity, Monitor, Smartphone, MousePointer, Package, Wallet, HeartHandshake,
-  Percent, Layers, Lightbulb, BellRing, ArrowRight, FileText, Brain, Link,
+  Percent, Layers, Lightbulb, BellRing, ArrowRight, FileText, Brain, Link, Sparkles,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
@@ -215,6 +215,12 @@ function AreaModal({
   const isEdit = !!area;
   const squadColor = squad.color ?? "#6366f1";
 
+  // Tab state — default to AI for new areas, Manual for edits
+  const [tab, setTab] = useState<"ai" | "manual">(isEdit ? "manual" : "ai");
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
   const [form, setForm] = useState({
     label:        area?.label        ?? "",
     slug:         area?.slug         ?? "",
@@ -235,7 +241,6 @@ function AreaModal({
     setForm(f => ({ ...f, [k]: e.target.value }));
   };
 
-  // Auto-slug from label unless manually edited
   useEffect(() => {
     if (!slugManual) {
       setForm(f => ({
@@ -246,15 +251,53 @@ function AreaModal({
     }
   }, [form.label, slugManual]);
 
+  // ── AI generation ──────────────────────────────────────────────────────────
+
+  const generateFromPrompt = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiGenerating(true);
+    setAiError(null);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/sections/areas/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          squad_id: form.squad_id,
+          squad_label: squad.label ?? squad.id,
+          prompt: aiPrompt.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Generation failed");
+
+      const g = json.area;
+      setForm(f => ({
+        ...f,
+        label:        g.label        ?? f.label,
+        slug:         g.slug         ?? f.slug,
+        description:  g.description  ?? f.description,
+        subtitle:     g.subtitle     ?? f.subtitle,
+        section_hint: g.section_hint ?? f.section_hint,
+        icon_name:    g.icon_name    ?? f.icon_name,
+        accent_color: g.accent_color ?? f.accent_color,
+      }));
+      setSlugManual(true); // keep generated slug
+      setTab("manual");    // switch to review form
+    } catch (err: any) {
+      setAiError(err.message);
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  // ── Save ───────────────────────────────────────────────────────────────────
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
     try {
-      await onSave({
-        ...form,
-        sort_order: Number(form.sort_order),
-      });
+      await onSave({ ...form, sort_order: Number(form.sort_order) });
       onClose();
     } catch (err: any) {
       setError(err.message);
@@ -263,13 +306,15 @@ function AreaModal({
     }
   };
 
+  // ── Styles ─────────────────────────────────────────────────────────────────
+
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "8px 12px",
     background: "rgba(255,255,255,0.05)",
     border: "1px solid rgba(255,255,255,0.1)",
     borderRadius: 8, color: "#e2e8f0", fontSize: "0.875rem", outline: "none",
   };
-  const label = (text: string) => (
+  const fieldLabel = (text: string) => (
     <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#64748b", display: "block", marginBottom: 4 }}>
       {text}
     </span>
@@ -290,7 +335,7 @@ function AreaModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 20 }}
         style={{
-          width: "100%", maxWidth: 620,
+          width: "100%", maxWidth: 640,
           background: "rgba(10,14,24,0.99)",
           border: "1px solid rgba(255,255,255,0.1)",
           borderRadius: 18, padding: "1.5rem",
@@ -299,7 +344,7 @@ function AreaModal({
         }}
       >
         {/* Modal header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: `${squadColor}18`, border: `1px solid ${squadColor}25`, display: "flex", alignItems: "center", justifyContent: "center" }}>
               {React.createElement(getIconEl(form.icon_name), { size: 15, color: form.accent_color || squadColor })}
@@ -313,128 +358,231 @@ function AreaModal({
           </button>
         </div>
 
-        <form onSubmit={submit}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+        {/* Tab switcher — only shown for new areas */}
+        {!isEdit && (
+          <div style={{ display: "flex", gap: 4, marginBottom: "1.25rem", background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: 4 }}>
+            {([["ai", "✨ AI Generate"], ["manual", "Manual"]] as const).map(([t, label]) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                style={{
+                  flex: 1, padding: "6px 0", borderRadius: 8,
+                  background: tab === t ? `${squadColor}22` : "transparent",
+                  border: tab === t ? `1px solid ${squadColor}44` : "1px solid transparent",
+                  color: tab === t ? "#e2e8f0" : "#64748b",
+                  fontWeight: 700, fontSize: "0.8rem", cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
-            {/* Label */}
-            <div style={{ gridColumn: "1/-1" }}>
-              {label("Label *")}
-              <input id="area-label" style={inputStyle} value={form.label} onChange={set("label")} placeholder="Website Performance" required />
-            </div>
-
-            {/* Slug */}
-            <div>
-              {label("URL Slug *")}
-              <input
-                id="area-slug"
-                style={inputStyle}
-                value={form.slug}
-                onChange={e => { setSlugManual(true); set("slug")(e); }}
-                placeholder="website-performance"
-                required
-              />
-              <p style={{ fontSize: "9px", color: "#334155", marginTop: 3 }}>
-                URL: /commerce/{form.squad_id || squad.id}/{form.slug || "…"}
-              </p>
-            </div>
-
-            {/* Squad */}
-            <div>
-              {label("Squad")}
-              <select id="area-squad" style={inputStyle} value={form.squad_id} onChange={set("squad_id")}>
+        {/* ── AI GENERATE TAB ── */}
+        {tab === "ai" && (
+          <motion.div key="ai" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+            <div style={{ marginBottom: "1rem" }}>
+              {fieldLabel("Squad")}
+              <select style={inputStyle} value={form.squad_id} onChange={set("squad_id")}>
                 {allSquads.map(sq => (
                   <option key={sq.id} value={sq.id}>{sq.label ?? sq.id}</option>
                 ))}
               </select>
             </div>
 
-            {/* Description */}
-            <div style={{ gridColumn: "1/-1" }}>
-              {label("Short Description")}
-              <input id="area-desc" style={inputStyle} value={form.description} onChange={set("description")} placeholder="Core Web Vitals monitoring & page speed optimization" />
-            </div>
-
-            {/* Subtitle */}
-            <div style={{ gridColumn: "1/-1" }}>
-              {label("Subtitle (shown on page header)")}
-              <input id="area-subtitle" style={inputStyle} value={form.subtitle} onChange={set("subtitle")} placeholder="Conversion · Web Performance · CWV Optimization" />
-            </div>
-
-            {/* Icon */}
-            <div style={{ gridColumn: "1/-1" }}>
-              {label("Icon")}
-              <IconPicker value={form.icon_name} onChange={n => setForm(f => ({ ...f, icon_name: n }))} accent={form.accent_color || squadColor} />
-            </div>
-
-            {/* Color */}
-            <div style={{ gridColumn: "1/-1" }}>
-              {label("Accent Color")}
-              <ColorPicker value={form.accent_color || squadColor} onChange={c => setForm(f => ({ ...f, accent_color: c }))} />
-            </div>
-
-            {/* Section hint */}
-            <div style={{ gridColumn: "1/-1" }}>
-              {label("Agent Context Hint (injected into AI chat)")}
+            <div style={{ marginBottom: "1rem" }}>
+              {fieldLabel("Describe what this area tracks")}
               <textarea
-                id="area-hint"
-                style={{ ...inputStyle, minHeight: 80, resize: "vertical", lineHeight: 1.6 }}
-                value={form.section_hint}
-                onChange={set("section_hint")}
-                placeholder="Extra context for the AI agent. E.g. 'This section tracks LCP, CLS, INP, and page load time across the Shopify storefront. Key tools: Google PageSpeed Insights, Search Console.'"
+                autoFocus
+                value={aiPrompt}
+                onChange={e => setAiPrompt(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) generateFromPrompt(); }}
+                placeholder={`e.g. "TikTok performance and influencer ROI" or "Email flows, Klaviyo segmentation, and campaign open rates"`}
+                style={{
+                  ...inputStyle,
+                  minHeight: 100, resize: "vertical", lineHeight: 1.6,
+                  fontSize: "0.9rem",
+                }}
               />
-              <p style={{ fontSize: "9px", color: "#334155", marginTop: 3 }}>
-                This text is injected at the top of every chat conversation on this section&apos;s page — great for giving the agent domain expertise.
+              <p style={{ fontSize: "10px", color: "#334155", marginTop: 4 }}>
+                AI will generate the name, description, URL slug, and agent context hint. ⌘+Enter to generate.
               </p>
             </div>
 
-            {/* Sort order + active */}
-            <div>
-              {label("Sort Order")}
-              <input id="area-sort" type="number" style={inputStyle} value={form.sort_order} onChange={set("sort_order")} />
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", paddingTop: "1.25rem" }}>
-              <button
+            {aiError && (
+              <div style={{ marginBottom: "0.75rem", padding: "8px 12px", borderRadius: 8, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", display: "flex", gap: 8, alignItems: "center", color: "#f43f5e", fontSize: "0.85rem" }}>
+                <AlertCircle size={14} />{aiError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+              <button type="button" onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569", fontSize: "0.875rem", padding: "8px 16px" }}>Cancel</button>
+              <motion.button
                 type="button"
-                onClick={() => setForm(f => ({ ...f, active: !f.active }))}
-                style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: form.active ? "#22c55e" : "#475569" }}
-                aria-label="Toggle active"
+                onClick={generateFromPrompt}
+                disabled={aiGenerating || !aiPrompt.trim()}
+                whileHover={!aiGenerating ? { scale: 1.02 } : {}}
+                whileTap={!aiGenerating ? { scale: 0.98 } : {}}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 20px",
+                  borderRadius: 8, fontWeight: 700, fontSize: "0.875rem",
+                  background: aiGenerating || !aiPrompt.trim()
+                    ? "rgba(255,255,255,0.07)"
+                    : `linear-gradient(135deg, ${squadColor}, ${squadColor}aa)`,
+                  color: aiGenerating || !aiPrompt.trim() ? "#475569" : "#fff",
+                  border: "none", cursor: aiGenerating || !aiPrompt.trim() ? "not-allowed" : "pointer",
+                }}
               >
-                {form.active ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
-                <span style={{ fontSize: "0.875rem", fontWeight: 700 }}>{form.active ? "Active" : "Inactive"}</span>
-              </button>
+                {aiGenerating ? <Loader size={14} className="spin" /> : <Sparkles size={14} />}
+                {aiGenerating ? "Generating…" : "Generate Area"}
+              </motion.button>
             </div>
 
-          </div>
-
-          {error && (
-            <div style={{ marginTop: "0.75rem", padding: "8px 12px", borderRadius: 8, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", display: "flex", gap: 8, alignItems: "center", color: "#f43f5e", fontSize: "0.85rem" }}>
-              <AlertCircle size={14} />{error}
+            <div style={{ marginTop: "1rem", padding: "0.75rem", borderRadius: 10, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <p style={{ fontSize: "10px", color: "#475569", margin: 0, lineHeight: 1.6 }}>
+                ✨ <strong style={{ color: "#64748b" }}>How it works:</strong> Describe the area in plain English. The AI generates the name, URL slug, description, subtitle keywords, and a detailed agent context hint tailored to Leaps & Rebounds. You&apos;ll review and can edit everything before saving.
+              </p>
             </div>
-          )}
+          </motion.div>
+        )}
 
-          <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginTop: "1.25rem" }}>
-            <button type="button" onClick={onClose} className="button is-ghost" style={{ color: "#475569", fontSize: "0.875rem" }}>Cancel</button>
-            <motion.button
-              type="submit"
-              disabled={saving}
-              whileHover={!saving ? { scale: 1.02 } : {}}
-              whileTap={!saving ? { scale: 0.98 } : {}}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 20px",
-                borderRadius: 8, fontWeight: 700, fontSize: "0.875rem",
-                background: `linear-gradient(135deg, ${form.accent_color || squadColor}, ${form.accent_color || squadColor}aa)`,
-                color: "#fff", border: "none", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1,
-              }}
-            >
-              {saving ? <Loader size={14} className="spin" /> : <Check size={14} />}
-              {saving ? "Saving…" : isEdit ? "Save Changes" : "Create Area"}
-            </motion.button>
-          </div>
-        </form>
+        {/* ── MANUAL TAB ── */}
+        {tab === "manual" && (
+          <motion.div key="manual" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+            <form onSubmit={submit}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+
+                {/* Label */}
+                <div style={{ gridColumn: "1/-1" }}>
+                  {fieldLabel("Label *")}
+                  <input id="area-label" style={inputStyle} value={form.label} onChange={set("label")} placeholder="Website Performance" required />
+                </div>
+
+                {/* Slug */}
+                <div>
+                  {fieldLabel("URL Slug *")}
+                  <input
+                    id="area-slug"
+                    style={inputStyle}
+                    value={form.slug}
+                    onChange={e => { setSlugManual(true); set("slug")(e); }}
+                    placeholder="website-performance"
+                    required
+                  />
+                  <p style={{ fontSize: "9px", color: "#334155", marginTop: 3 }}>
+                    URL: /commerce/{form.squad_id || squad.id}/{form.slug || "…"}
+                  </p>
+                </div>
+
+                {/* Squad */}
+                <div>
+                  {fieldLabel("Squad")}
+                  <select id="area-squad" style={inputStyle} value={form.squad_id} onChange={set("squad_id")}>
+                    {allSquads.map(sq => (
+                      <option key={sq.id} value={sq.id}>{sq.label ?? sq.id}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Description */}
+                <div style={{ gridColumn: "1/-1" }}>
+                  {fieldLabel("Short Description")}
+                  <input id="area-desc" style={inputStyle} value={form.description} onChange={set("description")} placeholder="Core Web Vitals monitoring & page speed optimization" />
+                </div>
+
+                {/* Subtitle */}
+                <div style={{ gridColumn: "1/-1" }}>
+                  {fieldLabel("Subtitle (shown on page header)")}
+                  <input id="area-subtitle" style={inputStyle} value={form.subtitle} onChange={set("subtitle")} placeholder="Conversion · Web Performance · CWV Optimization" />
+                </div>
+
+                {/* Icon */}
+                <div style={{ gridColumn: "1/-1" }}>
+                  {fieldLabel("Icon")}
+                  <IconPicker value={form.icon_name} onChange={n => setForm(f => ({ ...f, icon_name: n }))} accent={form.accent_color || squadColor} />
+                </div>
+
+                {/* Color */}
+                <div style={{ gridColumn: "1/-1" }}>
+                  {fieldLabel("Accent Color")}
+                  <ColorPicker value={form.accent_color || squadColor} onChange={c => setForm(f => ({ ...f, accent_color: c }))} />
+                </div>
+
+                {/* Section hint */}
+                <div style={{ gridColumn: "1/-1" }}>
+                  {fieldLabel("Agent Context Hint (injected into AI chat)")}
+                  <textarea
+                    id="area-hint"
+                    style={{ ...inputStyle, minHeight: 80, resize: "vertical", lineHeight: 1.6 }}
+                    value={form.section_hint}
+                    onChange={set("section_hint")}
+                    placeholder="Extra context for the AI agent. E.g. 'This section tracks LCP, CLS, INP, and page load time across the Shopify storefront. Key tools: Google PageSpeed Insights, Search Console.'"
+                  />
+                  <p style={{ fontSize: "9px", color: "#334155", marginTop: 3 }}>
+                    Injected at the top of every agent chat conversation on this page.
+                  </p>
+                </div>
+
+                {/* Sort order + active */}
+                <div>
+                  {fieldLabel("Sort Order")}
+                  <input id="area-sort" type="number" style={inputStyle} value={form.sort_order} onChange={set("sort_order")} />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", paddingTop: "1.25rem" }}>
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, active: !f.active }))}
+                    style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: form.active ? "#22c55e" : "#475569" }}
+                    aria-label="Toggle active"
+                  >
+                    {form.active ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
+                    <span style={{ fontSize: "0.875rem", fontWeight: 700 }}>{form.active ? "Active" : "Inactive"}</span>
+                  </button>
+                </div>
+
+              </div>
+
+              {error && (
+                <div style={{ marginTop: "0.75rem", padding: "8px 12px", borderRadius: 8, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", display: "flex", gap: 8, alignItems: "center", color: "#f43f5e", fontSize: "0.85rem" }}>
+                  <AlertCircle size={14} />{error}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginTop: "1.25rem" }}>
+                {!isEdit && (
+                  <button type="button" onClick={() => setTab("ai")} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, cursor: "pointer", color: "#64748b", fontSize: "0.8rem", padding: "8px 14px", display: "flex", alignItems: "center", gap: 5 }}>
+                    <Sparkles size={12} /> AI Generate
+                  </button>
+                )}
+                <button type="button" onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569", fontSize: "0.875rem", padding: "8px 16px" }}>Cancel</button>
+                <motion.button
+                  type="submit"
+                  disabled={saving}
+                  whileHover={!saving ? { scale: 1.02 } : {}}
+                  whileTap={!saving ? { scale: 0.98 } : {}}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 20px",
+                    borderRadius: 8, fontWeight: 700, fontSize: "0.875rem",
+                    background: `linear-gradient(135deg, ${form.accent_color || squadColor}, ${form.accent_color || squadColor}aa)`,
+                    color: "#fff", border: "none", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1,
+                  }}
+                >
+                  {saving ? <Loader size={14} className="spin" /> : <Check size={14} />}
+                  {saving ? "Saving…" : isEdit ? "Save Changes" : "Create Area"}
+                </motion.button>
+              </div>
+            </form>
+          </motion.div>
+        )}
+
       </motion.div>
     </motion.div>
   );
 }
+
 
 // ── Squad form modal ───────────────────────────────────────────────────────────
 
