@@ -18,16 +18,24 @@ const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
 import {
   TrendingUp, Megaphone, Users, Share2, SearchCheck, FlaskConical,
   Tag, Zap, LifeBuoy, Truck, MessageCircle, Mail, LineChart, Eye,
-  ShoppingBag, BarChart2, Target, Globe, Star, Rocket, Layers,
+  ShoppingBag, BarChart3, Target, Globe, Star, Rocket, Layers,
   PieChart, Activity, Monitor, Smartphone, MousePointer,
+  // Additional icons used in picker + seeds
+  Package, Wallet, HeartHandshake, Percent, Lightbulb, BellRing,
+  FileText, Brain, Link, Pencil, Heart, Search,
 } from "lucide-react";
 
 const ICON_REGISTRY: Record<string, React.ElementType> = {
+  // Core set (from original registry)
   TrendingUp, Megaphone, Users, Share2, SearchCheck, FlaskConical,
   Tag, Zap, LifeBuoy, Truck, MessageCircle, Mail, LineChart, Eye,
-  ShoppingBag, BarChart2, Target, Globe, Star, Rocket, Layers,
-  PieChart, Activity, Monitor, Smartphone, MousePointer,
-  LayoutGrid,
+  ShoppingBag, BarChart3, Target, Globe, Star, Rocket, Layers,
+  PieChart, Activity, Monitor, Smartphone, MousePointer, LayoutGrid,
+  // Extended — matches manage/page.tsx ICON_LIST
+  Package, Wallet, HeartHandshake, Percent, Lightbulb, BellRing,
+  FileText, Brain, Link,
+  // Aliases for any icon names stored in DB before the ICON_LIST was canonical
+  Pencil, Heart, Search,
 };
 
 interface CommerceArea {

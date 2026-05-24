@@ -342,6 +342,9 @@ function AreaModal({
           boxShadow: "0 32px 100px rgba(0,0,0,0.7)",
           maxHeight: "92vh", overflowY: "auto",
         }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={isEdit ? `Edit ${area.label}` : `New Area in ${squad.label ?? squad.id}`}
       >
         {/* Modal header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
@@ -635,6 +638,9 @@ function SquadModal({
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 20 }}
         style={{ width: "100%", maxWidth: 540, background: "rgba(10,14,24,0.99)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 18, padding: "1.5rem", boxShadow: "0 32px 100px rgba(0,0,0,0.7)", maxHeight: "90vh", overflowY: "auto" }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={isEdit ? `Edit Squad: ${squad?.label ?? squad?.id}` : "New Squad"}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
           <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#e2e8f0", margin: 0 }}>
