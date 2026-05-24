@@ -46,10 +46,22 @@ interface Insight {
   stuck_since?: string | null;
   duplicate_of?: string | null;
   occurrences?: number | null;
+  // Assignment (set when user assigns insight to an agent)
+  assigned_agent_id?: string | null;
+  assigned_agent_name?: string | null;
+}
+
+interface Agent {
+  id: string;
+  name: string;
+  emoji?: string;
+  category?: string;
+  specialization?: string;
 }
 
 interface Summary {
   total: number;
+  totalNew?: number;
   criticalNew: number;
   totalEstimatedMonthlyValue: number;
   byType: Record<string, number>;
@@ -310,11 +322,11 @@ function isStuckOver6h(stuckSince: string | null | undefined): boolean {
 
 // ── InsightCard ───────────────────────────────────────────────────────────────
 
-function InsightCard({ insight, onStatusChange, onDismiss, onApprove, onReject }: {
+function InsightCard({ insight, onStatusChange, onDismiss, onAssignApprove, onReject }: {
   insight: Insight;
   onStatusChange: (id: string, status: InsightStatus) => void;
   onDismiss: (id: string) => void;
-  onApprove?: (id: string) => void;
+  onAssignApprove?: (id: string) => void;
   onReject?: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -480,31 +492,37 @@ function InsightCard({ insight, onStatusChange, onDismiss, onApprove, onReject }
             → {STATUS_LABEL[nextStatus]}
           </button>
         )}
-        {/* Approve / Reject for pending insights */}
-        {insight.approval_status === "pending" && insight.status === "new" && onApprove && onReject && (
+        {/* Assign & Approve — shown for all new/unreviewed insights */}
+        {insight.status === "new" && onAssignApprove && onReject && (
           <>
             <button
-              onClick={() => onApprove(insight.id)}
+              onClick={() => onAssignApprove(insight.id)}
               className="button is-small"
               style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.25)", fontSize: "11px", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}
             >
-              <CheckCircle2 size={12} /> Approve
+              <CheckCircle2 size={12} /> Assign & Approve →
             </button>
             <button
               onClick={() => onReject(insight.id)}
               className="button is-small"
               style={{ background: "rgba(244,63,94,0.10)", color: "#f43f5e", border: "1px solid rgba(244,63,94,0.22)", fontSize: "11px", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}
             >
-              <XCircle size={12} /> Reject
+              <XCircle size={12} /> Dismiss
             </button>
           </>
+        )}
+        {/* Show assigned agent if already assigned */}
+        {insight.assigned_agent_name && insight.status !== "new" && (
+          <span style={{ fontSize: "10px", color: "#64748b", display: "flex", alignItems: "center", gap: 3 }}>
+            🤖 {insight.assigned_agent_name}
+          </span>
         )}
         <a
           href={`/chats?agent=${insight.agent_name ?? ""}&context=${encodeURIComponent(`[Insight: ${insight.title}] Let's work on this.`)}`}
           className="button is-small is-ghost"
           style={{ color: "#64748b", fontSize: "11px", gap: "0.3rem" }}
         >
-          <ExternalLink size={12} /> Chat about this
+          <ExternalLink size={12} /> Chat
         </a>
         {insight.status !== "dismissed" && (
           <button
@@ -530,10 +548,10 @@ const KANBAN_COLUMNS: { id: string; label: string; color: string }[] = [
   { id: "done",        label: "DONE",         color: "#64748b" },
 ];
 
-function KanbanMiniCard({ insight, onStatusChange, onApprove, onReject }: {
+function KanbanMiniCard({ insight, onStatusChange, onAssignApprove, onReject }: {
   insight: Insight;
   onStatusChange: (id: string, status: InsightStatus) => void;
-  onApprove: (id: string) => void;
+  onAssignApprove: (id: string) => void;
   onReject: (id: string) => void;
 }) {
   const tc = TYPE_CONFIG[insight.type] ?? TYPE_CONFIG.observation;
@@ -589,21 +607,21 @@ function KanbanMiniCard({ insight, onStatusChange, onApprove, onReject }: {
       {/* Footer */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontSize: "9px", color: "#334155" }}>{timeAgo(insight.created_at)}</span>
-        {insight.approval_status === "pending" && insight.status === "new" && (
+        {insight.status === "new" && (
           <div style={{ display: "flex", gap: 4 }}>
             <button
-              onClick={() => onApprove(insight.id)}
+              onClick={() => onAssignApprove(insight.id)}
               style={{ fontSize: "9px", background: "rgba(34,197,94,0.12)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 4, padding: "2px 6px", cursor: "pointer", fontWeight: 700 }}
-              aria-label="Approve insight"
+              aria-label="Assign & Approve insight"
             >
-              ✓ Approve
+              ✓ Assign
             </button>
             <button
               onClick={() => onReject(insight.id)}
               style={{ fontSize: "9px", background: "rgba(244,63,94,0.10)", color: "#f43f5e", border: "1px solid rgba(244,63,94,0.22)", borderRadius: 4, padding: "2px 6px", cursor: "pointer", fontWeight: 700 }}
-              aria-label="Reject insight"
+              aria-label="Dismiss insight"
             >
-              ✗ Reject
+              ✗
             </button>
           </div>
         )}
@@ -612,10 +630,10 @@ function KanbanMiniCard({ insight, onStatusChange, onApprove, onReject }: {
   );
 }
 
-function KanbanBoard({ insights, onStatusChange, onApprove, onReject }: {
+function KanbanBoard({ insights, onStatusChange, onAssignApprove, onReject }: {
   insights: Insight[];
   onStatusChange: (id: string, status: InsightStatus) => void;
-  onApprove: (id: string) => void;
+  onAssignApprove: (id: string) => void;
   onReject: (id: string) => void;
 }) {
   const buckets: Record<string, Insight[]> = {
@@ -668,7 +686,7 @@ function KanbanBoard({ insights, onStatusChange, onApprove, onReject }: {
                   key={ins.id}
                   insight={ins}
                   onStatusChange={onStatusChange}
-                  onApprove={onApprove}
+                  onAssignApprove={onAssignApprove}
                   onReject={onReject}
                 />
               ))
@@ -677,6 +695,218 @@ function KanbanBoard({ insights, onStatusChange, onApprove, onReject }: {
         </div>
       ))}
     </div>
+  );
+}
+
+// ── AgentPickerModal ─────────────────────────────────────────────────────────
+// Shown when user clicks "Assign & Approve" on an insight. Lets them pick
+// a specific agent (or auto-assign by section lead) before approval.
+
+function AgentPickerModal({
+  insight,
+  onConfirm,
+  onCancel,
+}: {
+  insight: Insight;
+  onConfirm: (agentId: string | null, agentName: string | null) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [loadingAgents, setLoadingAgents] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const tc = TYPE_CONFIG[insight.type] ?? TYPE_CONFIG.observation;
+  const Icon = tc.icon;
+
+  useEffect(() => {
+    fetch(`${BOT_URL}/admin/agents`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: Agent[]) => {
+        const filtered = (Array.isArray(data) ? data : [])
+          .filter(a => a.name)
+          .sort((a, b) => a.name.localeCompare(b.name));
+        setAgents(filtered);
+      })
+      .catch(() => setAgents([]))
+      .finally(() => setLoadingAgents(false));
+  }, []);
+
+  const selected = agents.find(a => a.id === selectedId) ?? null;
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    try {
+      await onConfirm(selectedId, selected?.name ?? null);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      style={{
+        position: "fixed", inset: 0,
+        background: "rgba(0,0,0,0.65)",
+        backdropFilter: "blur(6px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 9999, padding: "1rem",
+      }}
+      onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.94, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.94, y: 20 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+        style={{
+          background: "rgba(10,14,24,0.97)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 16,
+          padding: "1.5rem",
+          width: "100%", maxWidth: 520,
+          boxShadow: "0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04) inset",
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", marginBottom: "1.25rem" }}>
+          <div style={{
+            width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+            background: tc.bg, display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <Icon size={18} color={tc.color} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: "10px", color: tc.color, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.25rem" }}>
+              Assign & Approve Insight
+            </p>
+            <p style={{ fontWeight: 700, color: "#e2e8f0", fontSize: "0.95rem", lineHeight: 1.35, marginBottom: "0.25rem" }}>
+              {insight.title}
+            </p>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: "10px", color: "#64748b", background: "rgba(255,255,255,0.05)", padding: "2px 7px", borderRadius: 4 }}>
+                {insight.section}
+              </span>
+              <span style={{ fontSize: "10px", color: "#64748b" }}>P{insight.priority}</span>
+              {insight.estimated_monthly_value != null && (
+                <span style={{ fontSize: "10px", color: insight.estimated_monthly_value >= 0 ? "#22c55e" : "#f43f5e", fontWeight: 700 }}>
+                  {insight.estimated_monthly_value >= 0 ? "+" : ""}${Math.abs(insight.estimated_monthly_value).toLocaleString()}/mo
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Agent picker */}
+        <div style={{ marginBottom: "1.25rem" }}>
+          <p style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, marginBottom: "0.6rem" }}>
+            Who should handle this?
+          </p>
+
+          {loadingAgents ? (
+            <div style={{ textAlign: "center", padding: "1rem", color: "#475569", fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <Loader size={14} className="spin" /> Loading agents...
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, maxHeight: 260, overflowY: "auto", paddingRight: 2 }}>
+              {/* Auto-assign option (default) */}
+              <button
+                onClick={() => setSelectedId(null)}
+                style={{
+                  gridColumn: "1 / -1",
+                  background: selectedId === null ? "rgba(56,189,248,0.1)" : "rgba(255,255,255,0.03)",
+                  border: selectedId === null ? "1px solid rgba(56,189,248,0.3)" : "1px solid rgba(255,255,255,0.07)",
+                  borderRadius: 8, padding: "10px 12px",
+                  display: "flex", alignItems: "center", gap: 10,
+                  cursor: "pointer", textAlign: "left",
+                  transition: "all 0.12s",
+                }}
+              >
+                <span style={{ fontSize: "16px" }}>🤖</span>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontWeight: 700, fontSize: "12px", color: selectedId === null ? "#38bdf8" : "#e2e8f0" }}>Auto-assign by section lead</p>
+                  <p style={{ fontSize: "10px", color: "#475569" }}>Picks the lead agent for "{insight.section}"</p>
+                </div>
+                {selectedId === null && <CheckCircle2 size={14} color="#38bdf8" style={{ flexShrink: 0 }} />}
+              </button>
+
+              {/* Individual agents */}
+              {agents.map(agent => (
+                <button
+                  key={agent.id}
+                  onClick={() => setSelectedId(agent.id)}
+                  style={{
+                    background: selectedId === agent.id ? "rgba(245,158,11,0.1)" : "rgba(255,255,255,0.03)",
+                    border: selectedId === agent.id ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(255,255,255,0.07)",
+                    borderRadius: 8, padding: "8px 10px",
+                    display: "flex", alignItems: "center", gap: 8,
+                    cursor: "pointer", textAlign: "left",
+                    transition: "all 0.12s",
+                  }}
+                >
+                  <span style={{ fontSize: "16px", flexShrink: 0 }}>{agent.emoji ?? "🤖"}</span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{
+                      fontWeight: 700, fontSize: "11px",
+                      color: selectedId === agent.id ? "#f59e0b" : "#e2e8f0",
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {agent.name.split("—")[0].trim()}
+                    </p>
+                    {agent.specialization && (
+                      <p style={{ fontSize: "9px", color: "#475569", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {agent.specialization}
+                      </p>
+                    )}
+                  </div>
+                  {selectedId === agent.id && <CheckCircle2 size={12} color="#f59e0b" style={{ flexShrink: 0 }} />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center" }}>
+          <button
+            onClick={onCancel}
+            style={{
+              background: "transparent", border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 8, padding: "7px 14px", color: "#64748b",
+              fontSize: "12px", cursor: "pointer", fontWeight: 600,
+            }}
+          >
+            Cancel
+          </button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleConfirm}
+            disabled={submitting}
+            style={{
+              background: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
+              color: "#fff", border: "none", borderRadius: 8,
+              padding: "8px 18px", fontWeight: 800, fontSize: "12px",
+              cursor: submitting ? "wait" : "pointer",
+              display: "flex", alignItems: "center", gap: 6,
+              boxShadow: "0 4px 16px rgba(34,197,94,0.25)",
+              opacity: submitting ? 0.8 : 1,
+            }}
+          >
+            {submitting
+              ? <Loader size={12} className="spin" />
+              : <CheckCircle2 size={12} />
+            }
+            {selected
+              ? `Assign to ${selected.name.split("—")[0].trim()}`
+              : "Approve & Auto-assign"
+            }
+          </motion.button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -691,6 +921,8 @@ export default function InsightsPage() {
   const [sortBy, setSortBy] = useState<"priority" | "value" | "date">("priority");
   const [showResolved, setShowResolved] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+  // Assign & Approve modal state
+  const [assignModal, setAssignModal] = useState<Insight | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -733,13 +965,44 @@ export default function InsightsPage() {
     setInsights(prev => prev.filter(i => i.id !== id));
   };
 
-  const approveInsight = async (id: string) => {
+  // Opens the Assign & Approve modal — called when any new insight's button is clicked
+  const openAssignModal = (id: string) => {
+    const insight = insights.find(i => i.id === id);
+    if (insight) setAssignModal(insight);
+  };
+
+  // Fires after the user picks an agent in the modal and confirms
+  const confirmAssign = async (agentId: string | null, agentName: string | null) => {
+    if (!assignModal) return;
+    const id = assignModal.id;
+
+    const body: Record<string, unknown> = {
+      approval_status: "approved",
+      status: "acknowledged",
+      approved_at: new Date().toISOString(),
+      approved_by: "ash",
+    };
+    // force_agent_id is NOT stored — forwarded by backend to the /assign route
+    if (agentId) {
+      body.force_agent_id = agentId;
+      body.assigned_agent_id = agentId;
+      body.assigned_agent_name = agentName;
+    }
+
     await fetch(`${BOT_URL}/admin/insights/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ approval_status: "approved", status: "acknowledged", approved_at: new Date().toISOString(), approved_by: "ash" }),
+      body: JSON.stringify(body),
     });
-    setInsights(prev => prev.map(i => i.id === id ? { ...i, approval_status: "approved", status: "acknowledged" as InsightStatus } : i));
+
+    setInsights(prev => prev.map(i => i.id === id ? {
+      ...i,
+      approval_status: "approved",
+      status: "acknowledged" as InsightStatus,
+      assigned_agent_id: agentId ?? undefined,
+      assigned_agent_name: agentName ?? undefined,
+    } : i));
+    setAssignModal(null);
   };
 
   const rejectInsight = async (id: string) => {
@@ -765,6 +1028,17 @@ export default function InsightsPage() {
 
   return (
     <div className="px-5 py-5" style={{ maxWidth: 920, margin: "0 auto" }}>
+      {/* Assign & Approve modal — rendered at root so it overlays everything */}
+      <AnimatePresence>
+        {assignModal && (
+          <AgentPickerModal
+            insight={assignModal}
+            onConfirm={confirmAssign}
+            onCancel={() => setAssignModal(null)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div
         className="is-flex is-justify-content-space-between is-align-items-flex-start mb-5"
@@ -776,7 +1050,7 @@ export default function InsightsPage() {
             <h1 className="has-text-white" style={{ fontWeight: 800, fontSize: "1.4rem" }}>Insights</h1>
           </div>
           <p className="has-text-grey-light" style={{ fontSize: "0.85rem" }}>
-            Business intelligence, bugs, blockers, and app ideas — all in one place.
+            Review agent insights and assign them to the right agent for execution.
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
@@ -788,7 +1062,8 @@ export default function InsightsPage() {
               aria-label="List view"
               style={{
                 display: "inline-flex", alignItems: "center", gap: 4,
-                padding: "4px 9px", borderRadius: 5, border: viewMode === "list" ? "1px solid rgba(56,189,248,0.35)" : "1px solid transparent",
+                padding: "4px 9px", borderRadius: 5,
+                border: viewMode === "list" ? "1px solid rgba(56,189,248,0.35)" : "1px solid transparent",
                 background: viewMode === "list" ? "rgba(56,189,248,0.12)" : "transparent",
                 color: viewMode === "list" ? "#38bdf8" : "#475569", fontWeight: 700, fontSize: "11px", cursor: "pointer",
               }}
@@ -800,7 +1075,8 @@ export default function InsightsPage() {
               aria-label="Kanban view"
               style={{
                 display: "inline-flex", alignItems: "center", gap: 4,
-                padding: "4px 9px", borderRadius: 5, border: viewMode === "kanban" ? "1px solid rgba(167,139,250,0.35)" : "1px solid transparent",
+                padding: "4px 9px", borderRadius: 5,
+                border: viewMode === "kanban" ? "1px solid rgba(167,139,250,0.35)" : "1px solid transparent",
                 background: viewMode === "kanban" ? "rgba(167,139,250,0.12)" : "transparent",
                 color: viewMode === "kanban" ? "#a78bfa" : "#475569", fontWeight: 700, fontSize: "11px", cursor: "pointer",
               }}
@@ -808,7 +1084,7 @@ export default function InsightsPage() {
               <Columns size={13} /> Kanban
             </button>
           </div>
-          <button onClick={fetchData} className="button is-small is-ghost" style={{ color: "#64748b" }}>
+          <button onClick={fetchData} className="button is-small is-ghost" style={{ color: "#64748b" }} aria-label="Refresh">
             <RefreshCw size={14} className={loading ? "spin" : ""} />
           </button>
         </div>
@@ -910,7 +1186,7 @@ export default function InsightsPage() {
         <KanbanBoard
           insights={filtered}
           onStatusChange={updateStatus}
-          onApprove={approveInsight}
+          onAssignApprove={openAssignModal}
           onReject={rejectInsight}
         />
       ) : (
@@ -921,7 +1197,7 @@ export default function InsightsPage() {
               insight={insight}
               onStatusChange={updateStatus}
               onDismiss={dismiss}
-              onApprove={approveInsight}
+              onAssignApprove={openAssignModal}
               onReject={rejectInsight}
             />
           ))}
