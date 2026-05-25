@@ -1,137 +1,67 @@
 "use client";
-import { usePathname } from "next/navigation";
+import React from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { ShoppingBag, BarChart3, Layers } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { BarChart3, Layers, ShoppingBag } from "lucide-react";
 
-const TABS = [
-  { label: "Dashboard", href: "/commerce/dashboard", icon: BarChart3 },
-  { label: "Sections",  href: "/commerce/sections",  icon: Layers },
+const NAV = [
+  { href: "/commerce/dashboard", label: "Dashboard", icon: BarChart3, color: "#e98d20", exact: true },
+  { href: "/commerce/sections",  label: "Sections",  icon: Layers,    color: "#a78bfa" },
 ];
 
 export default function CommerceLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  const activeTab = pathname.startsWith("/commerce/dashboard")
-    ? "/commerce/dashboard"
-    : pathname.startsWith("/commerce/sections")
-    ? "/commerce/sections"
-    : null;
-
   return (
-    <div>
-      {/* ── Tab bar ── */}
-      <div
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-          background: "rgba(8,12,20,0.95)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 1.25rem",
-          height: 52,
-        }}
-      >
-        {/* Left: Commerce label */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              background: "rgba(233,141,32,0.12)",
-              border: "1px solid rgba(233,141,32,0.25)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <ShoppingBag size={13} color="#e98d20" />
-          </div>
-          <span
-            style={{
-              fontSize: "11px",
-              fontWeight: 800,
-              color: "#e98d20",
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-            }}
-          >
-            Commerce
-          </span>
+    <div className="px-5 py-5" style={{ maxWidth: 1020, margin: "0 auto" }}>
+      {/* Page header */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.3rem" }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 10,
+          background: "linear-gradient(135deg, rgba(233,141,32,0.2), rgba(167,139,250,0.2))",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          border: "1px solid rgba(233,141,32,0.2)",
+        }}>
+          <ShoppingBag size={18} color="#e98d20" />
         </div>
+        <h1 className="has-text-white" style={{ fontWeight: 800, fontSize: "1.5rem" }}>Commerce</h1>
+      </div>
+      <p style={{ color: "#64748b", fontSize: 13, marginBottom: "1.25rem" }}>
+        Revenue intelligence — squads, sections, analytics, and storefront performance.
+      </p>
 
-        {/* Right: Tab pills */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-          {TABS.map((tab) => {
-            const isActive = activeTab === tab.href;
-            const Icon = tab.icon;
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                style={{
-                  position: "relative",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.35rem",
-                  padding: "5px 14px",
-                  borderRadius: 20,
-                  fontSize: "12px",
-                  fontWeight: isActive ? 700 : 600,
-                  color: isActive ? "#e98d20" : "#475569",
-                  textDecoration: "none",
-                  border: isActive
-                    ? "1px solid rgba(233,141,32,0.3)"
-                    : "1px solid transparent",
-                  background: isActive
-                    ? "rgba(233,141,32,0.15)"
-                    : "transparent",
-                  transition: "color 0.15s, background 0.15s, border-color 0.15s",
-                  zIndex: 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLElement).style.color = "#94a3b8";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLElement).style.color = "#475569";
-                  }
-                }}
-                aria-current={isActive ? "page" : undefined}
-              >
-                {isActive && (
-                  <motion.span
-                    layoutId="commerce-tab-indicator"
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      borderRadius: 20,
-                      background: "rgba(233,141,32,0.15)",
-                      border: "1px solid rgba(233,141,32,0.3)",
-                      zIndex: -1,
-                    }}
-                    transition={{ type: "spring", stiffness: 380, damping: 35 }}
-                  />
-                )}
-                <Icon size={12} />
-                {tab.label}
-              </Link>
-            );
-          })}
-        </div>
+      {/* Sub-nav */}
+      <div style={{
+        display: "flex", gap: "0.4rem", flexWrap: "wrap",
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        paddingBottom: "0.75rem", marginBottom: "1.5rem",
+      }}>
+        {NAV.map(({ href, label, icon: Icon, color, exact }) => {
+          const active = exact ? pathname === href : pathname.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              id={`commerce-nav-${label.toLowerCase()}`}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: "0.4rem",
+                background: active ? `${color}18` : "rgba(255,255,255,0.04)",
+                color: active ? color : "#64748b",
+                border: active ? `1px solid ${color}30` : "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 8, padding: "0.3rem 0.85rem",
+                fontSize: 11, fontWeight: 700, textDecoration: "none",
+                textTransform: "uppercase", letterSpacing: "0.06em",
+                transition: "all 0.15s",
+              }}
+            >
+              <Icon size={12} />
+              {label}
+            </Link>
+          );
+        })}
       </div>
 
-      {/* ── Page content ── */}
-      <div>{children}</div>
+      {children}
     </div>
   );
 }

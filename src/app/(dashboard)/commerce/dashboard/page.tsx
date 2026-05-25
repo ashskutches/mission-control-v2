@@ -252,17 +252,7 @@ export default function CommerceDashboardPage() {
     router.push(`/commerce/sections/${squadId}/${areaSlug}`);
 
   return (
-    <div className="px-4 pb-8 pt-4" style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-
-      {/* ── Page title ── */}
-      <div>
-        <h1 style={{ fontSize: "clamp(18px,2.5vw,28px)", fontWeight: 900, color: "#fff", margin: 0, lineHeight: 1 }}>
-          Commerce Dashboard
-        </h1>
-        <p style={{ fontSize: 11, color: "#475569", marginTop: 4, margin: "4px 0 0" }}>
-          Live revenue intelligence &amp; section overview
-        </p>
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
 
       {/* ── Revenue KPIs ── */}
       <div>

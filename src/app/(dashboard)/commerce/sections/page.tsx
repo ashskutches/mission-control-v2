@@ -1033,30 +1033,15 @@ export default function CommerceSectionsPage() {
 
   return (
     <>
-      <div className="px-5 py-5" style={{ maxWidth: 900, margin: "0 auto" }}>
-
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem", marginBottom: "2rem" }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: 4 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg, rgba(233,141,32,0.2), rgba(233,141,32,0.08))", border: "1px solid rgba(233,141,32,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Settings size={20} color="#e98d20" />
-              </div>
-              <h1 style={{ fontWeight: 900, fontSize: "1.5rem", color: "#e2e8f0", margin: 0 }}>Manage Sections</h1>
-            </div>
-            <p style={{ fontSize: "0.875rem", color: "#64748b" }}>
-              Add, edit, or remove squads and their pages.
-            </p>
-          </div>
-
-          <motion.button
-            onClick={() => setSquadModal({ open: true, squad: null })}
-            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 18px", borderRadius: 9, fontWeight: 700, fontSize: "0.875rem", background: "linear-gradient(135deg, rgba(233,141,32,0.2), rgba(233,141,32,0.1))", border: "1px solid rgba(233,141,32,0.3)", color: "#e98d20", cursor: "pointer" }}
-          >
-            <Plus size={14} /> New Squad
-          </motion.button>
-        </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1.5rem" }}>
+        <motion.button
+          onClick={() => setSquadModal({ open: true, squad: null })}
+          whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 18px", borderRadius: 9, fontWeight: 700, fontSize: "0.875rem", background: "linear-gradient(135deg, rgba(233,141,32,0.2), rgba(233,141,32,0.1))", border: "1px solid rgba(233,141,32,0.3)", color: "#e98d20", cursor: "pointer" }}
+        >
+          <Plus size={14} /> New Squad
+        </motion.button>
+      </div>
 
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#475569", padding: "3rem 0" }}>
@@ -1094,7 +1079,6 @@ export default function CommerceSectionsPage() {
               ))}
           </div>
         )}
-      </div>
 
       {/* Squad modal */}
       <AnimatePresence>
