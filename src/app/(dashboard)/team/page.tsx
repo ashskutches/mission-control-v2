@@ -48,11 +48,22 @@ interface TeamMember {
 }
 
 const ROLE_COLORS: Record<string, { color: string; bg: string }> = {
-  owner:      { color: "#e98d20", bg: "rgba(233,141,32,0.12)" },
-  founder:    { color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  marketing:  { color: "#38bdf8", bg: "rgba(56,189,248,0.10)" },
-  ops:        { color: "#22c55e", bg: "rgba(34,197,94,0.10)" },
-  contractor: { color: "#94a3b8", bg: "rgba(148,163,184,0.08)" },
+  owner:            { color: "#e98d20", bg: "rgba(233,141,32,0.12)" },
+  founder:          { color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
+  marketing:        { color: "#38bdf8", bg: "rgba(56,189,248,0.10)" },
+  seo:              { color: "#22d3ee", bg: "rgba(34,211,238,0.10)" },
+  ops:              { color: "#22c55e", bg: "rgba(34,197,94,0.10)" },
+  engineer:         { color: "#818cf8", bg: "rgba(129,140,248,0.10)" },
+  designer:         { color: "#f472b6", bg: "rgba(244,114,182,0.10)" },
+  product:          { color: "#fb923c", bg: "rgba(251,146,60,0.10)" },
+  customer_success: { color: "#34d399", bg: "rgba(52,211,153,0.10)" },
+  sales:            { color: "#facc15", bg: "rgba(250,204,21,0.10)" },
+  finance:          { color: "#4ade80", bg: "rgba(74,222,128,0.10)" },
+  hr:               { color: "#e879f9", bg: "rgba(232,121,249,0.10)" },
+  content:          { color: "#f87171", bg: "rgba(248,113,113,0.10)" },
+  advisor:          { color: "#cbd5e1", bg: "rgba(203,213,225,0.08)" },
+  agency:           { color: "#7dd3fc", bg: "rgba(125,211,252,0.10)" },
+  contractor:       { color: "#94a3b8", bg: "rgba(148,163,184,0.08)" },
 };
 
 function getRoleStyle(role: string | null) {
@@ -196,11 +207,32 @@ function MemberModal({
               <label style={labelStyle}>Role</label>
               <select id="tm-role" style={inputStyle} value={form.role} onChange={set("role")}>
                 <option value="">— Select role —</option>
-                <option value="owner">Owner</option>
-                <option value="founder">Founder</option>
-                <option value="marketing">Marketing</option>
-                <option value="ops">Ops</option>
-                <option value="contractor">Contractor</option>
+                <optgroup label="Leadership">
+                  <option value="owner">Owner</option>
+                  <option value="founder">Founder</option>
+                  <option value="advisor">Advisor</option>
+                </optgroup>
+                <optgroup label="Marketing & Growth">
+                  <option value="marketing">Marketing</option>
+                  <option value="seo">SEO</option>
+                  <option value="content">Content Creator</option>
+                  <option value="sales">Sales</option>
+                </optgroup>
+                <optgroup label="Product & Tech">
+                  <option value="product">Product</option>
+                  <option value="engineer">Engineer / Dev</option>
+                  <option value="designer">Designer</option>
+                </optgroup>
+                <optgroup label="Operations">
+                  <option value="ops">Ops</option>
+                  <option value="finance">Finance / Accounting</option>
+                  <option value="hr">HR / People Ops</option>
+                  <option value="customer_success">Customer Success</option>
+                </optgroup>
+                <optgroup label="External">
+                  <option value="contractor">Contractor</option>
+                  <option value="agency">Agency / Partner</option>
+                </optgroup>
               </select>
             </div>
             <div>
