@@ -3,11 +3,30 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   Users, RefreshCw, Plus, Pencil, Trash2, X, Check,
   MapPin, Mail, Clock, Briefcase, Loader, AlertCircle,
-  Shield, ChevronDown, ChevronUp,
+  Shield, ChevronDown, ChevronUp, Sparkles, MessageSquare,
+  Play, ExternalLink, AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import SectionAgentPanel from "@/components/SectionAgentPanel";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
+
+const TEAM_SECTION_HINT = `You are the Lead Agent for the **Team** domain (section ID: "team").
+
+Your primary mission when triggered with a populate request:
+1. Call get_team_members (active_only: false) to get ALL team members with their IDs
+2. For each member, research who they are based on their username, display_name, Discord presence, and any context available
+3. Call update_team_member for each person to enrich their profile:
+   - bio: 2–3 sentences about who they are and their background
+   - role: their role at Leaps & Rebounds (owner/founder/marketing/ops/contractor)
+   - areas: an array of responsibility areas (e.g. ['marketing', 'email', 'customer_success'])
+   - current_focus: a sentence about what they're currently working on
+   - timezone: best guess based on their location if known
+4. After enriching all members, call log_insight to summarise the team composition
+
+For context: Leaps & Rebounds (leapsandrebounds.ai) is a DTC ecommerce brand selling rebounders/trampolines. The team is small (founder-led) and uses AI agents for most operational work.
+
+Be thoughtful and specific — generic placeholder bios are not acceptable. If you cannot determine something with confidence, leave that field unchanged (don't pass it) rather than guessing wildly.`.trim();
 
 interface TeamMember {
   id: string;
@@ -540,6 +559,14 @@ export default function TeamPage() {
   const [syncMsg, setSyncMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
+  const [assignedAgent, setAssignedAgent] = useState<{ id: string; name: string; emoji?: string; color?: string } | null>(null);
+
+  // Populate-data run state
+  const [populating, setPopulating] = useState(false);
+  const [popStage, setPopStage] = useState<"idle" | "creating" | "working" | "done" | "error">("idle");
+  const [popMsg, setPopMsg] = useState<string | null>(null);
+  const [popConvId, setPopConvId] = useState<string | null>(null);
+  const [popElapsed, setPopElapsed] = useState(0);
 
   const fetchMembers = useCallback(async () => {
     setLoading(true);
@@ -572,6 +599,67 @@ export default function TeamPage() {
     } finally {
       setSyncing(false);
       setTimeout(() => setSyncMsg(null), 5000);
+    }
+  };
+
+  const populateData = async () => {
+    if (!assignedAgent || populating) return;
+    setPopulating(true);
+    setPopStage("creating");
+    setPopMsg(null);
+    setPopConvId(null);
+    setPopElapsed(0);
+
+    const timerRef = setInterval(() => setPopElapsed(s => s + 1), 1000);
+
+    try {
+      // Step 1: Create conversation
+      const convRes = await fetch(`${BOT_URL}/admin/chat/conversations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agent_id: assignedAgent.id,
+          title: `Team Profile Population — ${new Date().toLocaleDateString()}`,
+        }),
+      });
+      if (!convRes.ok) throw new Error(`Failed to create conversation: ${await convRes.text()}`);
+      const conv = await convRes.json();
+      setPopConvId(conv.id);
+
+      // Step 2: Send the populate prompt
+      setPopStage("working");
+      const POPULATE_PROMPT = `You are being asked to populate and enrich team member profiles for Leaps & Rebounds.
+
+Please do the following:
+1. Call get_team_members with active_only: false to get ALL team members and their IDs
+2. For EACH team member returned:
+   - Review their username and display_name for context
+   - Construct an appropriate bio, role, areas, and current_focus based on what you know about the company and who they likely are
+   - Call update_team_member with the member_id and the fields you are confident about
+   - Only set fields you have reasonable confidence in — leave unknowns unset rather than fabricating
+3. After updating all members, provide a summary of what you updated for each person
+
+The company is Leaps & Rebounds (leapsandrebounds.ai) — a DTC ecommerce brand selling rebounders/trampolines for fitness. The team is small and founder-led.
+
+Begin immediately — call get_team_members first, then work through each member.`;
+
+      const msgRes = await fetch(`${BOT_URL}/admin/chat/conversations/${conv.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: POPULATE_PROMPT }),
+        signal: AbortSignal.timeout(300_000), // 5 min max for iterating through all members
+      });
+      if (!msgRes.ok) throw new Error(`Agent call failed: ${await msgRes.text()}`);
+
+      setPopStage("done");
+      fetchMembers(); // Refresh member cards after population
+    } catch (err: any) {
+      const msg = err?.name === "TimeoutError" ? "Agent timed out after 5 minutes" : err.message;
+      setPopMsg(msg);
+      setPopStage("error");
+    } finally {
+      clearInterval(timerRef);
+      setPopulating(false);
     }
   };
 
@@ -608,11 +696,13 @@ export default function TeamPage() {
   const activeMembers = members.filter(m => m.active);
   const inactiveMembers = members.filter(m => !m.active);
 
+  const accentColor = (assignedAgent as any)?.color ?? "#a78bfa";
+
   return (
     <>
       <div className="px-5 py-5" style={{ maxWidth: 1100, margin: "0 auto" }}>
         {/* Header */}
-        <div className="mb-5" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
+        <div className="mb-4" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: 4 }}>
               <div style={{
@@ -668,6 +758,111 @@ export default function TeamPage() {
             </motion.button>
           </div>
         </div>
+
+        {/* Agent Panel */}
+        <SectionAgentPanel
+          sectionId="team"
+          sectionName="Team"
+          sectionHint={TEAM_SECTION_HINT}
+          accentColor="#a78bfa"
+          onAgentAssigned={a => setAssignedAgent(a)}
+        />
+
+        {/* Populate Data button — only shown when an agent is assigned */}
+        <AnimatePresence>
+          {assignedAgent && (
+            <motion.div
+              key="populate-bar"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              style={{
+                marginBottom: "1.25rem",
+                padding: "0.875rem 1.25rem",
+                borderRadius: 12,
+                background: `${accentColor}07`,
+                border: `1px solid ${accentColor}20`,
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                flexWrap: "wrap", gap: "0.75rem",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: `${accentColor}15`, border: `1px solid ${accentColor}30`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: "1.1rem",
+                }}>
+                  {assignedAgent.emoji ?? "🤖"}
+                </div>
+                <div>
+                  <p style={{ fontWeight: 700, fontSize: "0.875rem", color: "#e2e8f0", margin: 0, lineHeight: 1 }}>
+                    Populate Team Profiles
+                  </p>
+                  <p style={{ fontSize: "11px", color: "#64748b", margin: "3px 0 0" }}>
+                    {assignedAgent.name} will enrich bios, roles, areas & focus for all members
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                {/* Status row */}
+                {popStage === "working" && (
+                  <span style={{ fontSize: "11px", color: "#94a3b8", display: "flex", alignItems: "center", gap: 4 }}>
+                    <Loader size={11} className="spin" />
+                    Enriching profiles… <span style={{ color: accentColor, fontWeight: 700 }}>{popElapsed}s</span>
+                    {popConvId && (
+                      <a href={`/chats?conversation=${popConvId}`} style={{ color: accentColor, display: "flex", alignItems: "center", gap: 2, marginLeft: 6, fontWeight: 700 }}>
+                        <MessageSquare size={11} /> Watch live
+                      </a>
+                    )}
+                  </span>
+                )}
+                {popStage === "done" && (
+                  <span style={{ fontSize: "11px", color: "#22c55e", display: "flex", alignItems: "center", gap: 4 }}>
+                    <Check size={12} /> Done in {popElapsed}s
+                    {popConvId && (
+                      <a href={`/chats?conversation=${popConvId}`} style={{ color: "#64748b", display: "flex", alignItems: "center", gap: 2, marginLeft: 6 }}>
+                        <MessageSquare size={11} /> View chat
+                      </a>
+                    )}
+                  </span>
+                )}
+                {popStage === "error" && (
+                  <span style={{ fontSize: "11px", color: "#f43f5e", display: "flex", alignItems: "center", gap: 4 }}>
+                    <AlertTriangle size={11} /> {popMsg ?? "Failed"}
+                    {popConvId && (
+                      <a href={`/chats?conversation=${popConvId}`} style={{ color: "#64748b", display: "flex", alignItems: "center", gap: 2, marginLeft: 6 }}>
+                        <MessageSquare size={11} /> Debug
+                      </a>
+                    )}
+                  </span>
+                )}
+                <motion.button
+                  id="populate-data-btn"
+                  onClick={populateData}
+                  disabled={populating}
+                  whileHover={!populating ? { scale: 1.03 } : {}}
+                  whileTap={!populating ? { scale: 0.97 } : {}}
+                  aria-label="Populate team profiles using AI agent"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: "0.8rem",
+                    background: populating
+                      ? `${accentColor}08`
+                      : `linear-gradient(135deg, ${accentColor}25, ${accentColor}15)`,
+                    border: `1px solid ${accentColor}${populating ? "18" : "40"}`,
+                    color: populating ? `${accentColor}80` : accentColor,
+                    cursor: populating ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {populating
+                    ? <><Loader size={13} className="spin" /> Populating…</>
+                    : <><Sparkles size={13} /> Populate Data</>}
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Sync result */}
         <AnimatePresence>
