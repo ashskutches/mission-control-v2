@@ -206,11 +206,12 @@ function ThrottleControl() {
   useEffect(() => {
     Promise.all([
       fetch(`${BOT_URL}/admin/facts/approval_mode_threshold`).then(r => r.ok ? r.json() : null),
-      fetch(`${BOT_URL}/admin/facts/work_runner_enabled`).then(r => r.ok ? r.json() : null),
+      fetch(`${BOT_URL}/admin/work/runner/status`).then(r => r.ok ? r.json() : null),
     ]).then(([thresh, runner]) => {
       if (thresh?.value) setThreshold(thresh.value as Threshold);
       else setThreshold("manual");
-      if (runner?.value !== undefined) setPaused(runner.value === "false" || runner.value === false);
+      // runner/status returns { enabled: boolean }
+      if (runner?.enabled !== undefined) setPaused(!runner.enabled);
     }).catch(() => setThreshold("manual"));
   }, []);
 
@@ -900,7 +901,7 @@ export default function QueuePage() {
                     {insightApprovals.map(i => (
                       <ApprovalCard key={`ins-${i.id}`} item={i} kind="insight"
                         onDecision={handleApprovalDecision}
-                        onExpand={() => {/* insights open in intelligence page */}} />
+                        onExpand={(id) => { window.location.href = `/intelligence?highlight=${id}`; }} />
                     ))}
                     {agentTasks.map(t => (
                       <ApprovalCard key={`task-${t.id}`} item={t} kind="agent_task"
