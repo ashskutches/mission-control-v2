@@ -1,9 +1,10 @@
 "use client";
 /**
- * /work — Agent Work Queue + Human Tasks Dashboard
+ * /work — Agent Work Pipeline
  *
  * Real-time view of what agents are actively working on, what's blocked,
  * and what human tasks have been assigned by agents.
+ * Click any card to open the full detail drawer.
  */
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,8 +13,11 @@ import {
   RefreshCw, Clock, User, ChevronDown, ChevronUp,
   Zap, BarChart2, CircleDot, XCircle, PlayCircle,
   PauseCircle, AlertTriangle, CheckCheck, ExternalLink,
-  Plus, X, Send, LayoutList, Columns,
+  Plus, X, Send, LayoutList, Columns, Maximize2,
 } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const WorkDetailDrawer = dynamic(() => import("@/components/WorkDetailDrawer"), { ssr: false });
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
 const REFRESH_INTERVAL = 20; // seconds
@@ -311,15 +315,28 @@ function CreateTaskModal({ onClose, onCreated }: { onClose: () => void; onCreate
 
 // ── Agent Work Card ────────────────────────────────────────────────────────────
 
-function WorkCard({ work, onStatusChange }: {
+// Status → background tint map
+const WORK_BG: Record<string, string> = {
+  running:      "rgba(56,189,248,0.04)",
+  in_progress:  "rgba(56,189,248,0.03)",
+  done:         "rgba(34,197,94,0.04)",
+  blocked:      "rgba(244,63,94,0.05)",
+  needs_human:  "rgba(245,158,11,0.04)",
+  pending:      "rgba(255,255,255,0.02)",
+  cancelled:    "rgba(255,255,255,0.01)",
+};
+
+function WorkCard({ work, onStatusChange, onOpenDrawer }: {
   work: AgentWork;
   onStatusChange: (id: string, status: WorkStatus) => Promise<void>;
+  onOpenDrawer: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [acting, setActing] = useState(false);
   const statusCfg = WORK_STATUS[work.status] ?? WORK_STATUS.pending;
   const StatusIcon = statusCfg.icon;
   const milestones: { label: string; done?: boolean }[] = Array.isArray(work.milestones) ? work.milestones : [];
+  const cardBg = WORK_BG[work.status] ?? "rgba(255,255,255,0.02)";
 
   const act = async (status: WorkStatus) => {
     setActing(true);
@@ -334,12 +351,14 @@ function WorkCard({ work, onStatusChange }: {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       style={{
-        background: "rgba(255,255,255,0.02)",
+        background: cardBg,
         border: `1px solid ${statusCfg.color}22`,
         borderLeft: `3px solid ${statusCfg.color}`,
         borderRadius: 12, overflow: "hidden",
         opacity: work.status === "cancelled" ? 0.5 : 1,
+        cursor: "pointer",
       }}
+      onClick={() => onOpenDrawer(work.id)}
     >
       {/* Progress bar */}
       {(work.status === "running" || work.status === "in_progress") && milestones.length > 0 && (
@@ -412,16 +431,26 @@ function WorkCard({ work, onStatusChange }: {
             )}
           </div>
 
-          {/* Expand button */}
-          {(work.description || milestones.length > 0 || work.completion_report) && (
+          {/* Expand / detail buttons */}
+          <div style={{ display: "flex", gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+            {(work.description || milestones.length > 0 || work.completion_report) && (
+              <button
+                onClick={() => setExpanded(e => !e)}
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569", padding: 4 }}
+                aria-label={expanded ? "Collapse" : "Expand"}
+              >
+                {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+            )}
             <button
-              onClick={() => setExpanded(e => !e)}
-              style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569", padding: 4, flexShrink: 0 }}
-              aria-label={expanded ? "Collapse" : "Expand"}
+              onClick={() => onOpenDrawer(work.id)}
+              style={{ background: "transparent", border: "none", cursor: "pointer", color: "#334155", padding: 4 }}
+              aria-label="Open detail panel"
+              title="Open detail panel"
             >
-              {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              <Maximize2 size={12} />
             </button>
-          )}
+          </div>
         </div>
 
         {/* Expanded content */}
@@ -505,9 +534,10 @@ function WorkCard({ work, onStatusChange }: {
 
 // ── Human Task Card ────────────────────────────────────────────────────────────
 
-function HumanTaskCard({ task, onStatusChange }: {
+function HumanTaskCard({ task, onStatusChange, onOpenDrawer }: {
   task: HumanTask;
   onStatusChange: (id: string, status: TaskStatus, notes?: string) => Promise<void>;
+  onOpenDrawer: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [completing, setCompleting] = useState(false);
@@ -523,6 +553,12 @@ function HumanTaskCard({ task, onStatusChange }: {
     setCompleting(false);
   };
 
+  const taskBg = isOverdue ? "rgba(244,63,94,0.05)"
+    : task.status === "done" ? "rgba(34,197,94,0.04)"
+    : task.status === "in_progress" ? "rgba(56,189,248,0.03)"
+    : task.status === "blocked" ? "rgba(244,63,94,0.04)"
+    : "rgba(245,158,11,0.03)";
+
   return (
     <motion.div
       layout
@@ -530,12 +566,14 @@ function HumanTaskCard({ task, onStatusChange }: {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       style={{
-        background: isOverdue ? "rgba(244,63,94,0.03)" : "rgba(245,158,11,0.03)",
+        background: taskBg,
         border: `1px solid ${isOverdue ? "#f43f5e" : statusCfg.color}22`,
         borderLeft: `3px solid ${isOverdue ? "#f43f5e" : statusCfg.color}`,
         borderRadius: 12, padding: "0.75rem 1rem",
-        opacity: task.status === "done" || task.status === "cancelled" ? 0.6 : 1,
+        opacity: task.status === "cancelled" ? 0.5 : 1,
+        cursor: "pointer",
       }}
+      onClick={() => onOpenDrawer(task.id)}
     >
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
@@ -828,6 +866,10 @@ export default function WorkPage() {
   const [runnerLastRun, setRunnerLastRun] = useState<string | null>(null);
   const [runnerLastCount, setRunnerLastCount] = useState<number | null>(null);
   const [runnerToggling, setRunnerToggling] = useState(false);
+  // Detail drawer
+  const [drawerItemId, setDrawerItemId] = useState<string | null>(null);
+  const [drawerItemType, setDrawerItemType] = useState<"work" | "task" | "agent_task">("work");
+  const openDrawer = (id: string, type: "work" | "task") => { setDrawerItemId(id); setDrawerItemType(type); };
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -1053,7 +1095,7 @@ export default function WorkPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               <AnimatePresence mode="popLayout">
                 {filteredWork.map(w => (
-                  <WorkCard key={w.id} work={w} onStatusChange={updateWorkStatus} />
+                  <WorkCard key={w.id} work={w} onStatusChange={updateWorkStatus} onOpenDrawer={(id) => openDrawer(id, "work")} />
                 ))}
               </AnimatePresence>
             </div>
@@ -1163,7 +1205,7 @@ export default function WorkPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               <AnimatePresence mode="popLayout">
                 {filteredHuman.map(t => (
-                  <HumanTaskCard key={t.id} task={t} onStatusChange={updateTaskStatus} />
+                  <HumanTaskCard key={t.id} task={t} onStatusChange={updateTaskStatus} onOpenDrawer={(id) => openDrawer(id, "task")} />
                 ))}
               </AnimatePresence>
             </div>
@@ -1178,6 +1220,18 @@ export default function WorkPage() {
           <CreateTaskModal
             onClose={() => setShowCreateTask(false)}
             onCreated={() => fetchData(true)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Work Detail Drawer */}
+      <AnimatePresence>
+        {drawerItemId && (
+          <WorkDetailDrawer
+            itemId={drawerItemId}
+            itemType={drawerItemType}
+            onClose={() => setDrawerItemId(null)}
+            onAction={() => { setDrawerItemId(null); fetchData(true); }}
           />
         )}
       </AnimatePresence>
