@@ -822,7 +822,7 @@ function SquadCard({
   onDeleteArea: (id: string) => void;
   onToggleArea: (id: string, active: boolean) => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(areas.length > 0);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const Icon = getIconEl(squad.icon_name);
   const color = squad.color ?? "#6366f1";
