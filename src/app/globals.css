@@ -112,7 +112,13 @@ body {
 
 .main-content {
   flex-grow: 1;
+  /* Allow full-width pages (like Pipeline kanban) to overflow horizontally */
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: auto;
   padding: 40px;
+  /* Allow the column to fill the remaining viewport height for inner scroll contexts */
+  height: 100vh;
 }
 
 @media screen and (max-width: 1023px) {
@@ -152,6 +158,7 @@ body {
 
   .main-content {
     padding: 20px 16px;
+    height: 100dvh;
   }
 }
 
@@ -175,6 +182,11 @@ body {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(233, 141, 32, 0.5);
+}
+
+/* Horizontal custom scrollbar (pipeline kanban) */
+.custom-scrollbar::-webkit-scrollbar:horizontal {
+  height: 4px;
 }
 
 /* ── Sidebar badge pulse ── */

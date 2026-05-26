@@ -602,8 +602,7 @@ export default function PipelinePage() {
 
   const pageStyle: React.CSSProperties = {
     padding: "1.5rem",
-    minHeight: "100vh",
-    background: "var(--bg-deep, #080c14)",
+    minHeight: "100%",
   };
 
   return (
@@ -672,7 +671,17 @@ export default function PipelinePage() {
           Loading pipeline…
         </div>
       ) : filtered ? (
-        <div style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 24, alignItems: "flex-start" }}>
+        <div style={{
+          display: "flex", gap: 16,
+          overflowX: "auto",
+          /* Enough bottom padding so scrollbar doesn't sit on top of cards */
+          paddingBottom: 24,
+          alignItems: "flex-start",
+          /* Smooth momentum scroll on iOS/trackpad */
+          WebkitOverflowScrolling: "touch" as any,
+          /* Don't let inner column heights clip the board */
+          minHeight: 0,
+        }}>
           {(["inbox", "assigned", "in_progress", "blocked"] as Stage[]).map(stage => (
             <StageColumn
               key={stage}

@@ -5,7 +5,7 @@
  */
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Check, X, Plug, ExternalLink, BarChart2, Lightbulb, MessageSquare } from "lucide-react";
+import { RefreshCw, Check, X, Plug, ExternalLink, BarChart2, Lightbulb, MessageSquare, GitMerge, ArrowRight } from "lucide-react";
 import SectionAgentPanel from "@/components/SectionAgentPanel";
 import SectionMetricsPanel from "@/components/SectionMetricsPanel";
 import SectionLiveKPIs from "@/components/SectionLiveKPIs";
@@ -213,12 +213,15 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
   const [metrics, setMetrics] = useState<any[]>([]);
   const [assignedAgent, setAssignedAgent] = useState<{ id: string; name: string; emoji?: string } | null>(null);
   const [reviewInsight, setReviewInsight] = useState<Insight | null>(null);
-  const [activeTab, setActiveTab] = useState<"analytics" | "insights" | "chat">("analytics");
+  const [activeTab, setActiveTab] = useState<"analytics" | "insights" | "chat" | "pipeline">("analytics");
+  const [pipelineItems, setPipelineItems] = useState<any[]>([]);
+  const [pipelineLoading, setPipelineLoading] = useState(false);
 
-  const TABS: { id: "analytics" | "insights" | "chat"; label: string; icon: React.ElementType }[] = [
-    { id: "analytics", label: "Analytics",                  icon: BarChart2 },
-    { id: "insights",  label: "Insights & Recommendations", icon: Lightbulb },
-    { id: "chat",      label: "Chat",                       icon: MessageSquare },
+  const TABS: { id: "analytics" | "insights" | "chat" | "pipeline"; label: string; icon: React.ElementType }[] = [
+    { id: "analytics", label: "Analytics",      icon: BarChart2 },
+    { id: "insights",  label: "Insights",        icon: Lightbulb },
+    { id: "pipeline",  label: "Pipeline",         icon: GitMerge },
+    { id: "chat",      label: "Chat",             icon: MessageSquare },
   ];
 
   const fetchInsights = useCallback(async () => {
@@ -250,6 +253,28 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
   }, [sectionId]);
 
   useEffect(() => { fetchInsights(); fetchMetrics(); }, [fetchInsights, fetchMetrics]);
+
+  // Fetch active pipeline items for this section when Pipeline tab is shown
+  const fetchPipelineItems = useCallback(async () => {
+    setPipelineLoading(true);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/pipeline?section=${sectionId}`);
+      if (!res.ok) return;
+      const d = await res.json();
+      const all = [
+        ...(d.inbox ?? []),
+        ...(d.assigned ?? []),
+        ...(d.in_progress ?? []),
+        ...(d.blocked ?? []),
+      ];
+      setPipelineItems(all);
+    } catch { /* silent */ }
+    finally { setPipelineLoading(false); }
+  }, [sectionId]);
+
+  useEffect(() => {
+    if (activeTab === "pipeline") fetchPipelineItems();
+  }, [activeTab, fetchPipelineItems]);
 
   const handleAnalysisDone = () => { setRefreshTrigger(t => t + 1); fetchInsights(); fetchMetrics(); };
 
@@ -306,7 +331,10 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
           // Badge: show new insight count on the Insights tab
-          const badge = tab.id === "insights" && counts["new"] > 0 ? counts["new"] : null;
+          const badge =
+            (tab.id === "insights" && counts["new"] > 0) ? counts["new"] :
+            (tab.id === "pipeline" && pipelineItems.length > 0) ? pipelineItems.length :
+            null;
           return (
             <button
               key={tab.id}
@@ -434,6 +462,14 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
             <div style={{ marginTop: "1rem" }}>
               <SectionTaskQueue sectionId={sectionId} accentColor={accentColor} />
             </div>
+            {/* Bridge to Pipeline */}
+            <div style={{ marginTop: "1rem", padding: "10px 14px", borderRadius: 10, background: "rgba(233,141,32,0.05)", border: "1px solid rgba(233,141,32,0.15)", display: "flex", alignItems: "center", gap: 10 }}>
+              <GitMerge size={14} color="#e98d20" />
+              <p style={{ fontSize: "12px", color: "#94a3b8", flex: 1 }}>Insights you accept here flow into the <strong style={{ color: "#e98d20" }}>Pipeline</strong> where they get assigned and executed.</p>
+              <a href={`/pipeline?section=${sectionId}`} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "11px", fontWeight: 700, color: "#e98d20", textDecoration: "none", whiteSpace: "nowrap" }}>
+                View Pipeline <ArrowRight size={11} />
+              </a>
+            </div>
           </motion.div>
         )}
 
@@ -466,10 +502,63 @@ export default function CommerceSectionPage({ config }: { config: SectionConfig 
             </div>
           </motion.div>
         )}
+
+        {activeTab === "pipeline" && (
+          <motion.div key="pipeline" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+            <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontWeight: 800, fontSize: "13px", color: "#e2e8f0", margin: 0 }}>Active Pipeline Items</p>
+                <p style={{ fontSize: "10px", color: "#475569", marginTop: 2 }}>Insights from this section that are queued, in progress, or blocked</p>
+              </div>
+              <a href="/pipeline" style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, background: "rgba(233,141,32,0.1)", border: "1px solid rgba(233,141,32,0.25)", color: "#e98d20", textDecoration: "none", fontSize: "11px", fontWeight: 700 }}>
+                <GitMerge size={12} /> Open Pipeline
+              </a>
+            </div>
+
+            {pipelineLoading ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#475569", padding: 24 }}>
+                <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} /> Loading pipeline…
+              </div>
+            ) : pipelineItems.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "40px 16px", color: "#334155" }}>
+                <GitMerge size={28} style={{ marginBottom: 8, opacity: 0.3 }} />
+                <p style={{ fontSize: "13px", fontWeight: 600 }}>No active pipeline items for this section</p>
+                <p style={{ fontSize: "11px", color: "#475569", marginTop: 4 }}>Accept insights from the Insights tab to create pipeline items</p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {pipelineItems.map((item: any) => {
+                  const stageColor: Record<string, string> = { new: "#e98d20", acknowledged: "#38bdf8", in_progress: "#22c55e", pending: "#38bdf8", running: "#22c55e", blocked: "#f43f5e", needs_human: "#fb923c" };
+                  const stage = item.status ?? "";
+                  const color = stageColor[stage] ?? "#64748b";
+                  return (
+                    <a key={item.id} href={item._kind === "insight" ? `/pipeline/${item.id}` : "/pipeline"}
+                      style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.07)`, textDecoration: "none", transition: "border-color 0.15s" }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(233,141,32,0.3)")}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)")}>
+                      <div style={{ width: 4, height: "100%", minHeight: 32, borderRadius: 2, background: color, flexShrink: 0, alignSelf: "stretch" }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                          <span style={{ fontSize: "9px", fontWeight: 800, textTransform: "uppercase", color: "#64748b", background: "rgba(255,255,255,0.05)", padding: "1px 6px", borderRadius: 4 }}>{item._kind?.replace("_", " ")}</span>
+                          <span style={{ fontSize: "9px", fontWeight: 700, color, background: `${color}18`, padding: "1px 6px", borderRadius: 4 }}>{stage}</span>
+                          {item.priority && <span style={{ fontSize: "9px", color: "#475569" }}>P{item.priority}/10</span>}
+                        </div>
+                        <p style={{ fontSize: "12px", fontWeight: 700, color: "#e2e8f0", margin: 0, lineHeight: 1.3 }}>{item.title}</p>
+                        {item.last_progress && <p style={{ fontSize: "10px", color: "#64748b", marginTop: 3 }}>{item.last_progress.slice(0, 80)}…</p>}
+                        {(item.assigned_agent_name ?? item.agent_name ?? item.assigned_to) && (
+                          <p style={{ fontSize: "10px", color: "#475569", marginTop: 3 }}>→ {item.assigned_agent_name ?? item.agent_name ?? item.assigned_to}</p>
+                        )}
+                      </div>
+                      <ArrowRight size={12} color="#334155" style={{ flexShrink: 0, marginTop: 4 }} />
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
+        )}
+
       </AnimatePresence>
-
-
-
 
       {/* Approval Review Panel — slide-out overlay */}
       <InsightReviewPanel
