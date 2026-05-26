@@ -44,7 +44,6 @@ export function TemplateLibrary() {
         fetch(`${BOT_URL}/admin/agents/templates`)
             .then(r => r.json())
             .then(data => {
-                console.log('[TemplateLibrary] templates response:', data);
                 const fetchedTemplates = Array.isArray(data) ? data : (data.templates ?? []);
                 setTemplates(fetchedTemplates);
 

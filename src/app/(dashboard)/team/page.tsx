@@ -4,7 +4,7 @@ import {
   Users, RefreshCw, Plus, Pencil, Trash2, X, Check,
   MapPin, Mail, Clock, Briefcase, Loader, AlertCircle,
   Shield, ChevronDown, ChevronUp, Sparkles, MessageSquare,
-  Play, ExternalLink, AlertTriangle, GitMerge,
+  AlertTriangle, GitMerge,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import SectionAgentPanel from "@/components/SectionAgentPanel";

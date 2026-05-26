@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Inbox, Users, Zap, AlertTriangle, CheckCircle2, RefreshCw,
   GitMerge, Filter, Search, X, ChevronDown, ChevronRight,
-  Bot, User, ArrowRight, Clock, MoreHorizontal, Tag,
+  Bot, User, ArrowRight, Clock,
   ExternalLink, RotateCcw, AlertCircle, Bell, BellOff,
 } from "lucide-react";
 
