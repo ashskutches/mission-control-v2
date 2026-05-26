@@ -724,7 +724,70 @@ function StatPill({ label, value, color, urgent }: { label: string; value: numbe
   );
 }
 
-// ── Work Pipeline (Kanban) ─────────────────────────────────────────────────────
+// ── Runner Cycle Progress Bar ───────────────────────────────────────────────────
+// Shows time elapsed since last run as a fill toward the 15-min cycle window.
+// Ticks every second; glows green as it approaches the next fire time.
+
+function RunnerCycleBar({ lastRunAt, cycleMinutes }: { lastRunAt: string | null; cycleMinutes: number }) {
+  const [pct, setPct] = useState(0);
+  const [secLeft, setSecLeft] = useState(cycleMinutes * 60);
+
+  useEffect(() => {
+    const tick = () => {
+      if (!lastRunAt) { setPct(0); setSecLeft(cycleMinutes * 60); return; }
+      const elapsed = (Date.now() - new Date(lastRunAt).getTime()) / 1000;
+      const total   = cycleMinutes * 60;
+      const p       = Math.min(100, (elapsed / total) * 100);
+      const left    = Math.max(0, total - elapsed);
+      setPct(p);
+      setSecLeft(Math.round(left));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lastRunAt, cycleMinutes]);
+
+  const imminent  = pct >= 90;
+  const minsLeft  = Math.floor(secLeft / 60);
+  const secsLeft  = secLeft % 60;
+  const label     = secLeft <= 0 ? "Running…" : `${minsLeft}m ${String(secsLeft).padStart(2, "0")}s`;
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, alignItems: "center" }}>
+        <span style={{ fontSize: "9px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          Next Run
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {imminent && (
+            <motion.div
+              animate={{ opacity: [1, 0.2, 1] }} transition={{ repeat: Infinity, duration: 0.8 }}
+              style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e" }}
+            />
+          )}
+          <span style={{ fontSize: "9px", color: imminent ? "#22c55e" : "#64748b", fontVariantNumeric: "tabular-nums" }}>
+            {!lastRunAt ? "—" : label}
+          </span>
+        </div>
+      </div>
+      <div style={{ height: 4, borderRadius: 4, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
+        <motion.div
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 1, ease: "linear" }}
+          style={{
+            height: "100%", borderRadius: 4,
+            background: imminent
+              ? "linear-gradient(90deg, #22c55e, #4ade80)"
+              : "linear-gradient(90deg, #1e3a5f, #38bdf8)",
+            boxShadow: imminent ? "0 0 8px rgba(34,197,94,0.5)" : "none",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+
 
 const PIPELINE_COLUMNS: { id: WorkStatus[]; label: string; color: string }[] = [
   { id: ['pending'],                  label: 'Pending',    color: '#64748b' },
@@ -1142,22 +1205,50 @@ export default function WorkPage() {
             </button>
           </div>
 
-          {/* Last run metadata */}
-          {(runnerLastRun || runnerLastCount !== null) && (
-            <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", gap: 16 }}>
-              {runnerLastRun && (
-                <div style={{ fontSize: "10px", color: "#475569" }}>
-                  Last run: <span style={{ color: "#64748b" }}>{new Date(runnerLastRun).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+          {/* ── Threshold bars ── */}
+          {runnerEnabled && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", flexDirection: "column", gap: 8 }}>
+
+              {/* Next-run countdown bar */}
+              <RunnerCycleBar lastRunAt={runnerLastRun} cycleMinutes={15} />
+
+              {/* Jobs processed in last cycle */}
+              {runnerLastCount !== null && (
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontSize: "9px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em" }}>Last Cycle</span>
+                    <span style={{ fontSize: "9px", color: "#64748b" }}>{runnerLastCount} job{runnerLastCount !== 1 ? "s" : ""} processed</span>
+                  </div>
+                  <div style={{ height: 4, borderRadius: 4, background: "rgba(255,255,255,0.06)" }}>
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, (runnerLastCount / 20) * 100)}%` }}
+                      transition={{ duration: 0.8, ease: "easeOut" }}
+                      style={{ height: "100%", borderRadius: 4, background: runnerLastCount > 0 ? "linear-gradient(90deg, #38bdf8, #818cf8)" : "#334155" }}
+                    />
+                  </div>
                 </div>
               )}
-              {runnerLastCount !== null && (
-                <div style={{ fontSize: "10px", color: "#475569" }}>
-                  Processed: <span style={{ color: "#64748b" }}>{runnerLastCount} item{runnerLastCount !== 1 ? "s" : ""}</span>
+
+              {/* Last-run timestamp */}
+              {runnerLastRun && (
+                <div style={{ fontSize: "9px", color: "#334155" }}>
+                  Last run: <span style={{ color: "#475569" }}>{new Date(runnerLastRun).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                 </div>
               )}
             </div>
           )}
+
+          {/* When paused, just show last run */}
+          {!runnerEnabled && runnerLastRun && (
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+              <div style={{ fontSize: "10px", color: "#475569" }}>
+                Last run: <span style={{ color: "#64748b" }}>{new Date(runnerLastRun).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+              </div>
+            </div>
+          )}
         </motion.div>
+
 
         {/* ── Human Tasks ── */}
         <div>
