@@ -36,6 +36,7 @@ import {
     Layout,
     UserCheck,
     Cpu,
+    GitMerge,
 } from 'lucide-react';
 
 export const SQUADS = [
@@ -81,14 +82,12 @@ export const APP_CONFIG = {
         { id: 'customer',      group: 'core', href: '/customer',               icon: UserCheck,       label: 'Orders',     color: '#4a9eff' },
         { id: 'landing-pages', group: 'core', href: '/commerce/landing-pages', icon: Layout,          label: 'Landing Pages', color: '#818cf8' },
 
-        // ── Agentic ────────────────────────────────────────────────────────────
-        { id: 'queue',      group: 'agentic', href: '/queue',        icon: Cpu,           label: 'My Queue',   color: '#f43f5e' },
-        { id: 'agents',     group: 'agentic', href: '/agents',       icon: Bot,           label: 'Agents',     color: '#6b7280' },
-        { id: 'north-star', group: 'agentic', href: '/north-star',   icon: TrendingUp,    label: 'North Star', color: '#a78bfa' },
-        { id: 'store',      group: 'agentic', href: '/commerce',     icon: ShoppingBag,   label: 'Commerce',   color: '#e98d20' },
-        { id: 'work',       group: 'agentic', href: '/work',         icon: Cpu,           label: 'Work',       color: '#38bdf8' },
-        { id: 'chats',      group: 'agentic', href: '/chats',        icon: MessageSquare, label: 'Chats',      color: '#6b7280' },
-        { id: 'insights',   group: 'agentic', href: '/intelligence', icon: BrainCircuit,  label: 'Insights',   color: '#e98d20' },
+        // ── Agentic ─────────────────────────────────────────────────────────────────────────
+        { id: 'pipeline', group: 'agentic', href: '/pipeline', icon: GitMerge,    label: 'Pipeline',   color: '#e98d20' },
+        { id: 'agents',   group: 'agentic', href: '/agents',   icon: Bot,          label: 'Agents',     color: '#6b7280' },
+        { id: 'north-star', group: 'agentic', href: '/north-star', icon: TrendingUp, label: 'North Star', color: '#a78bfa' },
+        { id: 'store',    group: 'agentic', href: '/commerce', icon: ShoppingBag,  label: 'Commerce',   color: '#e98d20' },
+        { id: 'chats',    group: 'agentic', href: '/chats',    icon: MessageSquare, label: 'Chats',     color: '#6b7280' },
 
         // ── Settings ───────────────────────────────────────────────────────────
         { id: 'brand',    group: 'settings', href: '/brand',     icon: Palette,   label: 'Brand',     color: '#e98d20' },

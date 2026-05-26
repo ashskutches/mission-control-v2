@@ -16,31 +16,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router   = useRouter();
 
-  const [insightsBadge, setInsightsBadge] = useState<number>(0);   // new unreviewed insights → Intelligence
+  const [pipelineBadge, setPipelineBadge] = useState<number>(0);   // inbox: new insights + pending approvals
   const [blockagesBadge, setBlockagesBadge] = useState<number>(0); // stuck agents → Blockages
-  const [queueCount, setQueueCount] = useState<number>(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const fetchSummary = async () => {
       try {
-        const [insRes, queueRes, blockRes] = await Promise.all([
-          fetch(`${BOT_URL}/admin/insights/summary`),
-          fetch(`${BOT_URL}/admin/operations/queue`),
+        const [plRes, blockRes] = await Promise.all([
+          fetch(`${BOT_URL}/admin/pipeline/summary`),
           fetch(`${BOT_URL}/admin/blockages?status=open&limit=200`),
         ]);
-        if (insRes.ok) {
-          const data = await insRes.json();
-          // totalNew = all insights with status='new' (unreviewed by user)
-          setInsightsBadge(data.totalNew ?? data.openCount ?? 0);
-        }
-        if (queueRes.ok) {
-          const qData = await queueRes.json();
-          setQueueCount(qData.count ?? 0);
+        if (plRes.ok) {
+          const data = await plRes.json();
+          setPipelineBadge(data.inbox_count ?? 0);
         }
         if (blockRes.ok) {
           const bData = await blockRes.json();
-          // blockages table = agents stuck mid-run (separate from insight-bugs)
           const arr = Array.isArray(bData) ? bData : (bData.data ?? []);
           setBlockagesBadge(arr.length);
         }
@@ -107,12 +99,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           const accent = item.color ?? "var(--accent-orange)";
 
           // ── Per-item badge logic ─────────────────────────────────────────────
-          // Intelligence (id='insights'): unreviewed new insights count
-          const showInsightsBadge = item.id === "insights" && insightsBadge > 0;
+          // Pipeline (id='pipeline'): unreviewed inbox count (new insights + pending approvals)
+          const showPipelineBadge = item.id === "pipeline" && pipelineBadge > 0;
           // Blockages (id='system'): stuck agents from blockages table
           const showBlockagesBadge = item.id === "system" && blockagesBadge > 0;
-          // Queue: pending items
-          const showQueue = item.id === "queue" && queueCount > 0;
 
           // Detect group change — show divider + label when group changes (core group is unlabeled)
           const prevItem = APP_CONFIG.navigation[idx - 1] as any | undefined;
@@ -158,15 +148,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   >
                     {item.label}
                   </span>
-                   {/* Intelligence badge — unreviewed new insights */}
-                  {showInsightsBadge && (
+                   {/* Pipeline badge — inbox count */}
+                  {showPipelineBadge && (
                     <span style={{
                       fontSize: 9, fontWeight: 900, lineHeight: 1,
-                      color: "#e98d20", background: "rgba(233,141,32,0.15)",
-                      border: "1px solid rgba(233,141,32,0.35)",
+                      color: "#fff", background: "#e98d20",
+                      border: "1px solid rgba(233,141,32,0.5)",
                       borderRadius: 10, padding: "2px 6px",
+                      animation: "pulse-badge 2s ease-in-out infinite",
                     }}>
-                      {insightsBadge}
+                      {pipelineBadge}
                     </span>
                   )}
                   {/* Blockages badge — stuck agents from blockages table */}
@@ -179,18 +170,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                       animation: "pulse-badge 2s ease-in-out infinite",
                     }}>
                       {blockagesBadge}
-                    </span>
-                  )}
-                  {/* Queue badge */}
-                  {showQueue && (
-                    <span style={{
-                      fontSize: 9, fontWeight: 900, lineHeight: 1,
-                      color: "#fff", background: "#f43f5e",
-                      border: "1px solid rgba(244,63,94,0.5)",
-                      borderRadius: 10, padding: "2px 6px",
-                      animation: "pulse-badge 2s ease-in-out infinite",
-                    }}>
-                      {queueCount}
                     </span>
                   )}
                 </a>
