@@ -4,7 +4,7 @@ import {
   Users, RefreshCw, Plus, Pencil, Trash2, X, Check,
   MapPin, Mail, Clock, Briefcase, Loader, AlertCircle,
   Shield, ChevronDown, ChevronUp, Sparkles, MessageSquare,
-  Play, ExternalLink, AlertTriangle,
+  Play, ExternalLink, AlertTriangle, GitMerge,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import SectionAgentPanel from "@/components/SectionAgentPanel";
@@ -336,10 +336,12 @@ function MemberCard({
   member,
   onEdit,
   onDelete,
+  pipelineCount,
 }: {
   member: TeamMember;
   onEdit: (m: TeamMember) => void;
   onDelete: (id: string) => void;
+  pipelineCount: number;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -412,7 +414,7 @@ function MemberCard({
             <p style={{ fontSize: "0.8rem", color: "#64748b", marginTop: 2 }}>@{member.username}</p>
 
             {/* Stats row */}
-            <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
               {member.timezone && (
                 <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "11px", color: "#475569" }}>
                   <MapPin size={10} /> {member.timezone.replace("America/", "").replace(/_/g, " ")}
@@ -428,6 +430,27 @@ function MemberCard({
                   <Briefcase size={10} />
                   {member.active_work_count} work · {member.active_task_count} tasks
                 </span>
+              )}
+              {/* Pipeline badge */}
+              {pipelineCount > 0 && (
+                <a
+                  href={`/pipeline`}
+                  title={`${pipelineCount} active pipeline item${pipelineCount !== 1 ? "s" : ""} assigned to ${name}`}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    fontSize: "11px", fontWeight: 700,
+                    color: "#e98d20",
+                    background: "rgba(233,141,32,0.1)",
+                    border: "1px solid rgba(233,141,32,0.25)",
+                    borderRadius: 8, padding: "2px 8px",
+                    textDecoration: "none",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(233,141,32,0.18)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "rgba(233,141,32,0.10)")}
+                >
+                  <GitMerge size={10} /> {pipelineCount} pipeline
+                </a>
               )}
             </div>
           </div>
@@ -600,6 +623,30 @@ export default function TeamPage() {
   const [popConvId, setPopConvId] = useState<string | null>(null);
   const [popElapsed, setPopElapsed] = useState(0);
 
+  // Pipeline counts keyed by username
+  const [pipelineCounts, setPipelineCounts] = useState<Record<string, number>>({});
+
+  const fetchPipelineCounts = useCallback(async () => {
+    try {
+      const res = await fetch(`${BOT_URL}/admin/pipeline`);
+      if (!res.ok) return;
+      const d = await res.json();
+      const allItems: any[] = [
+        ...(d.inbox ?? []),
+        ...(d.assigned ?? []),
+        ...(d.in_progress ?? []),
+        ...(d.blocked ?? []),
+      ];
+      const counts: Record<string, number> = {};
+      for (const item of allItems) {
+        // human_task items have assigned_to, insights may have human_username on their task
+        const who = item.assigned_to ?? item.human_username ?? null;
+        if (who) counts[who] = (counts[who] ?? 0) + 1;
+      }
+      setPipelineCounts(counts);
+    } catch { /* silent */ }
+  }, []);
+
   const fetchMembers = useCallback(async () => {
     setLoading(true);
     try {
@@ -612,7 +659,7 @@ export default function TeamPage() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchMembers(); }, [fetchMembers]);
+  useEffect(() => { fetchMembers(); fetchPipelineCounts(); }, [fetchMembers, fetchPipelineCounts]);
 
   const syncFromDiscord = async () => {
     setSyncing(true);
@@ -943,7 +990,7 @@ Begin immediately — call get_team_members first, then work through each member
             }}>
               <AnimatePresence>
                 {activeMembers.map(m => (
-                  <MemberCard key={m.id} member={m} onEdit={openEdit} onDelete={deleteMember} />
+                  <MemberCard key={m.id} member={m} onEdit={openEdit} onDelete={deleteMember} pipelineCount={pipelineCounts[m.username] ?? 0} />
                 ))}
               </AnimatePresence>
             </div>
@@ -969,7 +1016,7 @@ Begin immediately — call get_team_members first, then work through each member
                 }}>
                   <AnimatePresence>
                     {inactiveMembers.map(m => (
-                      <MemberCard key={m.id} member={m} onEdit={openEdit} onDelete={deleteMember} />
+                      <MemberCard key={m.id} member={m} onEdit={openEdit} onDelete={deleteMember} pipelineCount={pipelineCounts[m.username] ?? 0} />
                     ))}
                   </AnimatePresence>
                 </div>
