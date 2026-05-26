@@ -6,7 +6,9 @@ import {
   GitMerge, Filter, Search, X, ChevronDown, ChevronRight,
   Bot, User, ArrowRight, Clock,
   ExternalLink, RotateCcw, AlertCircle, Bell, BellOff,
+  Wrench, CheckCheck, XCircle,
 } from "lucide-react";
+
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
 const REFRESH_MS = 20_000;
@@ -118,7 +120,44 @@ function isAgentAssigned(item: PipelineItem): boolean {
   return !!(item.agent_id ?? item.assigned_agent_id);
 }
 
-// ── Re-assign Modal ───────────────────────────────────────────────────────────
+// ── Toast ─────────────────────────────────────────────────────────────────────
+type Toast = { id: number; type: "ok" | "err"; msg: string };
+let _toastId = 0;
+
+function ToastStack({ toasts, dismiss }: { toasts: Toast[]; dismiss: (id: number) => void }) {
+  return (
+    <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 99999, display: "flex", flexDirection: "column", gap: 8, pointerEvents: "none" }}>
+      <AnimatePresence>
+        {toasts.map(t => (
+          <motion.div key={t.id}
+            initial={{ opacity: 0, y: 12, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.95 }}
+            style={{
+              pointerEvents: "all",
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "10px 14px", borderRadius: 10,
+              background: t.type === "ok" ? "rgba(34,197,94,0.15)" : "rgba(244,63,94,0.15)",
+              border: `1px solid ${t.type === "ok" ? "rgba(34,197,94,0.4)" : "rgba(244,63,94,0.4)"}`,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+              backdropFilter: "blur(12px)",
+              maxWidth: 340,
+              cursor: "pointer",
+            }}
+            onClick={() => dismiss(t.id)}
+          >
+            {t.type === "ok"
+              ? <CheckCheck size={14} color="#22c55e" />
+              : <XCircle size={14} color="#f43f5e" />}
+            <span style={{ fontSize: "12px", fontWeight: 600, color: t.type === "ok" ? "#22c55e" : "#f87171", lineHeight: 1.4 }}>{t.msg}</span>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+
 function ReassignModal({
   item, agents, teamMembers, onClose, onReassign,
 }: {
@@ -282,20 +321,41 @@ function ReassignModal({
   );
 }
 
-// ── Pipeline Card ──────────────────────────────────────────────────────────────
 function PipelineCard({
   item, onReassign, onAction, onApprove, onReject,
 }: {
   item: PipelineItem;
   onReassign: (item: PipelineItem) => void;
   onAction: () => void;
-  onApprove?: (item: PipelineItem) => void;
-  onReject?: (item: PipelineItem) => void;
+  onApprove?: (item: PipelineItem) => Promise<void>;
+  onReject?: (item: PipelineItem) => Promise<void>;
 }) {
   const badge = KIND_BADGE[item._kind];
   const pct = milestonePercent(item);
   const assignee = assigneeName(item);
   const isAgent = isAgentAssigned(item);
+  const [acting, setActing] = useState<"approve" | "reject" | null>(null);
+
+  const act = async (which: "approve" | "reject") => {
+    if (acting) return;
+    setActing(which);
+    try {
+      if (which === "approve") await onApprove?.(item);
+      else await onReject?.(item);
+    } finally {
+      setActing(null);
+    }
+  };
+
+  // Format tool name: call_initiate → Call Initiate
+  const toolLabel = item.tool_name
+    ? item.tool_name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+    : null;
+
+  // Format section: "general" → "General"
+  const sectionLabel = item.section
+    ? item.section.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+    : null;
 
   return (
     <motion.div
@@ -304,21 +364,25 @@ function PipelineCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       style={{
-        background: "rgba(255,255,255,0.03)",
-        border: "1px solid rgba(255,255,255,0.07)",
+        background: item._kind === "agent_task"
+          ? "rgba(244,63,94,0.04)"
+          : "rgba(255,255,255,0.03)",
+        border: item._kind === "agent_task"
+          ? "1px solid rgba(244,63,94,0.18)"
+          : "1px solid rgba(255,255,255,0.07)",
         borderRadius: 12, padding: "12px 14px",
         marginBottom: 8, cursor: "default",
         transition: "border-color 0.15s",
       }}
     >
-      {/* Top row: type badge + priority dot + time */}
+      {/* Top row: type badge + section chip + time */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
         <span style={{ fontSize: "9px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: badge.color, background: badge.bg, borderRadius: 6, padding: "2px 7px" }}>
           {badge.label}
         </span>
-        {item.section && (
+        {sectionLabel && (
           <span style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", color: "#475569", background: "rgba(255,255,255,0.04)", borderRadius: 5, padding: "2px 6px" }}>
-            {item.section}
+            {sectionLabel}
           </span>
         )}
         {item.risk_tier && item.risk_tier !== "low" && (
@@ -368,11 +432,40 @@ function PipelineCard({
         </div>
       )}
 
-      {/* Tool info (agent_task approvals) */}
-      {item._kind === "agent_task" && item.tool_name && (
-        <div style={{ marginBottom: 8, marginLeft: 11, padding: "6px 10px", background: "rgba(244,63,94,0.06)", borderRadius: 6, border: "1px solid rgba(244,63,94,0.15)" }}>
-          <span style={{ fontSize: "10px", color: "#f43f5e", fontWeight: 700 }}>Tool: {item.tool_name}</span>
-          {item.human_note && <p style={{ fontSize: "10px", color: "#94a3b8", marginTop: 2 }}>{item.human_note}</p>}
+      {/* ── Agent task approval panel ─────────────────────────────────────── */}
+      {item._kind === "agent_task" && (
+        <div style={{ marginBottom: 8, marginLeft: 11, padding: "10px 12px", background: "rgba(244,63,94,0.06)", borderRadius: 8, border: "1px solid rgba(244,63,94,0.15)" }}>
+          {/* Tool being requested */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: item.human_note ? 6 : 0 }}>
+            <Wrench size={11} color="#f43f5e" />
+            <span style={{ fontSize: "10px", color: "#94a3b8", fontWeight: 500 }}>Requesting approval to run:</span>
+            <span style={{ fontSize: "10px", color: "#f43f5e", fontWeight: 800, fontFamily: "monospace", background: "rgba(244,63,94,0.1)", padding: "1px 6px", borderRadius: 4 }}>
+              {item.tool_name ?? "unknown_tool"}
+            </span>
+          </div>
+          {toolLabel && item.tool_name !== toolLabel.toLowerCase().replace(/ /g, "_") && (
+            <p style={{ fontSize: "10px", color: "#64748b", marginTop: 2, marginLeft: 17 }}>{toolLabel}</p>
+          )}
+          {/* Agent's note to the human */}
+          {item.human_note && (
+            <p style={{ fontSize: "11px", color: "#94a3b8", marginTop: 6, lineHeight: 1.4, fontStyle: "italic",
+              borderLeft: "2px solid rgba(244,63,94,0.3)", paddingLeft: 8 }}>
+              &ldquo;{item.human_note}&rdquo;
+            </p>
+          )}
+          {/* tool_input preview — only if it has meaningful keys */}
+          {item.tool_input && Object.keys(item.tool_input).filter(k => !k.startsWith("_")).length > 0 && (
+            <details style={{ marginTop: 6 }}>
+              <summary style={{ fontSize: "9px", color: "#475569", cursor: "pointer", userSelect: "none" }}>View input params</summary>
+              <pre style={{ fontSize: "9px", color: "#64748b", marginTop: 4, whiteSpace: "pre-wrap", wordBreak: "break-all",
+                background: "rgba(0,0,0,0.2)", padding: "6px 8px", borderRadius: 4, maxHeight: 80, overflowY: "auto" }}>
+                {JSON.stringify(
+                  Object.fromEntries(Object.entries(item.tool_input).filter(([k]) => !k.startsWith("_"))),
+                  null, 2
+                )}
+              </pre>
+            </details>
+          )}
         </div>
       )}
 
@@ -406,11 +499,38 @@ function PipelineCard({
           {/* Approval buttons for agent_task */}
           {item._kind === "agent_task" && onApprove && onReject && (
             <>
-              <button onClick={() => onReject(item)} style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(244,63,94,0.3)", background: "rgba(244,63,94,0.08)", color: "#f43f5e", fontSize: "10px", fontWeight: 700, cursor: "pointer" }}>
-                Reject
+              <button
+                onClick={() => act("reject")}
+                disabled={!!acting}
+                style={{
+                  padding: "4px 12px", borderRadius: 6,
+                  border: "1px solid rgba(244,63,94,0.3)",
+                  background: acting === "reject" ? "rgba(244,63,94,0.2)" : "rgba(244,63,94,0.08)",
+                  color: "#f43f5e", fontSize: "10px", fontWeight: 700,
+                  cursor: acting ? "wait" : "pointer",
+                  opacity: acting && acting !== "reject" ? 0.4 : 1,
+                  transition: "all 0.15s",
+                  display: "flex", alignItems: "center", gap: 4,
+                }}
+              >
+                {acting === "reject" ? <RefreshCw size={9} className="animate-spin" /> : <XCircle size={9} />}
+                {acting === "reject" ? "Rejecting…" : "Reject"}
               </button>
-              <button onClick={() => onApprove(item)} style={{ padding: "3px 10px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff", fontSize: "10px", fontWeight: 700, cursor: "pointer" }}>
-                Approve
+              <button
+                onClick={() => act("approve")}
+                disabled={!!acting}
+                style={{
+                  padding: "4px 12px", borderRadius: 6, border: "none",
+                  background: acting === "approve" ? "rgba(34,197,94,0.5)" : "linear-gradient(135deg,#22c55e,#16a34a)",
+                  color: "#fff", fontSize: "10px", fontWeight: 700,
+                  cursor: acting ? "wait" : "pointer",
+                  opacity: acting && acting !== "approve" ? 0.4 : 1,
+                  transition: "all 0.15s",
+                  display: "flex", alignItems: "center", gap: 4,
+                }}
+              >
+                {acting === "approve" ? <RefreshCw size={9} className="animate-spin" /> : <CheckCheck size={9} />}
+                {acting === "approve" ? "Approving…" : "Approve"}
               </button>
             </>
           )}
@@ -422,7 +542,7 @@ function PipelineCard({
             </a>
           )}
 
-          {/* Re-assign button */}
+          {/* Re-assign button — not shown on agent_task (use approve/reject instead) */}
           {item._kind !== "agent_task" && (
             <button onClick={() => onReassign(item)} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#94a3b8", fontSize: "10px", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 3 }}>
               <RotateCcw size={9} /> Re-assign
@@ -433,6 +553,7 @@ function PipelineCard({
     </motion.div>
   );
 }
+
 
 // ── Stage Column ──────────────────────────────────────────────────────────────
 const STAGE_META = {
@@ -450,8 +571,8 @@ function StageColumn({
   stage: Stage;
   items: PipelineItem[];
   onReassign: (item: PipelineItem) => void;
-  onApprove: (item: PipelineItem) => void;
-  onReject: (item: PipelineItem) => void;
+  onApprove: (item: PipelineItem) => Promise<void>;
+  onReject: (item: PipelineItem) => Promise<void>;
   onAction: () => void;
 }) {
   const meta = STAGE_META[stage];
@@ -512,7 +633,16 @@ export default function PipelinePage() {
   const [search, setSearch] = useState("");
   const [sectionFilter, setSectionFilter] = useState("");
   const [reassignItem, setReassignItem] = useState<PipelineItem | null>(null);
+  const [toasts, setToasts] = useState<Toast[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const addToast = (type: Toast["type"], msg: string) => {
+    const id = ++_toastId;
+    setToasts(t => [...t, { id, type, msg }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 5000);
+  };
+  const dismissToast = (id: number) => setToasts(t => t.filter(x => x.id !== id));
+
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -566,14 +696,51 @@ export default function PipelinePage() {
   };
 
   const handleApprove = async (item: PipelineItem) => {
-    await fetch(`${BOT_URL}/admin/tasks/${item.id}/approve`, { method: "POST", headers: { "Content-Type": "application/json" } });
-    fetchData(true);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/tasks/${item.id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const reason = body?.error ?? body?.message ?? `HTTP ${res.status}`;
+        addToast("err", `Approval failed: ${reason}`);
+        return;
+      }
+      // Show what actually happened: executed immediately vs queued for human
+      const execution = body._execution ?? "ai";
+      const taskStatus = body.status ?? "done";
+      if (taskStatus === "failed") {
+        addToast("err", `Approved but execution failed: ${body.result ?? "unknown error"}`);
+      } else if (execution === "human") {
+        addToast("ok", `Approved — assigned to human to complete manually.`);
+      } else {
+        addToast("ok", `Approved ✓ — ${body.tool_name ?? item.tool_name ?? "tool"} executed.`);
+      }
+      fetchData(true);
+    } catch (e: any) {
+      addToast("err", `Network error: ${e.message}`);
+    }
   };
 
   const handleReject = async (item: PipelineItem) => {
-    await fetch(`${BOT_URL}/admin/tasks/${item.id}/reject`, { method: "POST", headers: { "Content-Type": "application/json" } });
-    fetchData(true);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/tasks/${item.id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        addToast("err", `Reject failed: ${body?.error ?? `HTTP ${res.status}`}`);
+        return;
+      }
+      addToast("ok", `Task rejected — agent has been notified.`);
+      fetchData(true);
+    } catch (e: any) {
+      addToast("err", `Network error: ${e.message}`);
+    }
   };
+
 
   // Filter items by search/section
   const filterItems = (items: PipelineItem[]): PipelineItem[] => {
@@ -708,6 +875,9 @@ export default function PipelinePage() {
           />
         )}
       </AnimatePresence>
+
+      {/* Toast stack */}
+      <ToastStack toasts={toasts} dismiss={dismissToast} />
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
