@@ -5,7 +5,7 @@ import {
   Inbox, Users, Zap, AlertTriangle, CheckCircle2, RefreshCw,
   GitMerge, Filter, Search, X, ChevronDown, ChevronRight,
   Bot, User, ArrowRight, Clock, MoreHorizontal, Tag,
-  ExternalLink, RotateCcw, AlertCircle,
+  ExternalLink, RotateCcw, AlertCircle, Bell, BellOff,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
@@ -126,10 +126,11 @@ function ReassignModal({
   agents: Agent[];
   teamMembers: TeamMember[];
   onClose: () => void;
-  onReassign: (agentId: string | null, agentName: string | null, humanUsername: string | null) => Promise<void>;
+  onReassign: (agentId: string | null, agentName: string | null, humanUsername: string | null, notify: boolean) => Promise<void>;
 }) {
   const [tab, setTab] = useState<"agent" | "human">("agent");
   const [selected, setSelected] = useState<string | null>(null);
+  const [notify, setNotify] = useState(true); // Inform Human via Discord — on by default
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -139,9 +140,9 @@ function ReassignModal({
     try {
       if (tab === "agent") {
         const ag = agents.find(a => a.id === selected);
-        await onReassign(selected, ag?.name ?? null, null);
+        await onReassign(selected, ag?.name ?? null, null, false);
       } else {
-        await onReassign(null, null, selected);
+        await onReassign(null, null, selected, notify);
       }
       onClose();
     } catch (e: any) { setErr(e.message); }
@@ -229,6 +230,43 @@ function ReassignModal({
           )}
         </div>
 
+        {/* Inform Human toggle — only shown on Human tab */}
+        {tab === "human" && selected && (
+          <button
+            onClick={() => setNotify(n => !n)}
+            style={{
+              width: "100%", marginTop: 12, padding: "9px 14px",
+              borderRadius: 8, cursor: "pointer", display: "flex",
+              alignItems: "center", gap: 10, textAlign: "left",
+              background: notify ? "rgba(34,197,94,0.06)" : "rgba(255,255,255,0.03)",
+              border: `1px solid ${notify ? "rgba(34,197,94,0.3)" : "rgba(255,255,255,0.08)"}`,
+              transition: "all 0.15s",
+            }}
+          >
+            {/* Toggle pill */}
+            <div style={{
+              width: 34, height: 18, borderRadius: 9, flexShrink: 0,
+              background: notify ? "#22c55e" : "rgba(255,255,255,0.15)",
+              position: "relative", transition: "background 0.2s",
+            }}>
+              <div style={{
+                position: "absolute", top: 2, width: 14, height: 14, borderRadius: "50%",
+                background: "#fff", transition: "left 0.2s",
+                left: notify ? 18 : 2,
+              }} />
+            </div>
+            {notify ? <Bell size={13} color="#22c55e" /> : <BellOff size={13} color="#475569" />}
+            <div>
+              <p style={{ fontSize: "12px", fontWeight: 700, color: notify ? "#22c55e" : "#64748b" }}>
+                {notify ? "Notify via Discord" : "No notification"}
+              </p>
+              <p style={{ fontSize: "10px", color: "#475569", marginTop: 1 }}>
+                {notify ? "Assignee will receive a DM with a direct link" : "Silent assignment — no DM sent"}
+              </p>
+            </div>
+          </button>
+        )}
+
         {err && <p style={{ color: "#f43f5e", fontSize: "12px", marginTop: 8 }}>{err}</p>}
 
         <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
@@ -293,10 +331,18 @@ function PipelineCard({
         </span>
       </div>
 
-      {/* Priority bar */}
+      {/* Priority bar + clickable title for insights */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
         <div style={{ width: 3, height: 28, borderRadius: 2, background: priorityColor(item.priority), flexShrink: 0 }} />
-        <p style={{ fontWeight: 700, fontSize: "13px", color: "#e2e8f0", lineHeight: 1.3, flex: 1 }}>{item.title}</p>
+        {item._kind === "insight" ? (
+          <a href={`/pipeline/${item.id}`} style={{ fontWeight: 700, fontSize: "13px", color: "#e2e8f0", lineHeight: 1.3, flex: 1, textDecoration: "none", cursor: "pointer" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#e98d20")}
+            onMouseLeave={e => (e.currentTarget.style.color = "#e2e8f0")}>
+            {item.title}
+          </a>
+        ) : (
+          <p style={{ fontWeight: 700, fontSize: "13px", color: "#e2e8f0", lineHeight: 1.3, flex: 1 }}>{item.title}</p>
+        )}
       </div>
 
       {/* Body / last progress */}
@@ -505,12 +551,12 @@ export default function PipelinePage() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [fetchData]);
 
-  const handleReassign = async (agentId: string | null, agentName: string | null, humanUsername: string | null) => {
+  const handleReassign = async (agentId: string | null, agentName: string | null, humanUsername: string | null, notify: boolean) => {
     if (!reassignItem) return;
     const res = await fetch(`${BOT_URL}/admin/pipeline/${reassignItem.id}/reassign`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ item_type: reassignItem._kind, agent_id: agentId, agent_name: agentName, human_username: humanUsername }),
+      body: JSON.stringify({ item_type: reassignItem._kind, agent_id: agentId, agent_name: agentName, human_username: humanUsername, notify }),
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
