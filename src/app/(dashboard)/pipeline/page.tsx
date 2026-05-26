@@ -489,7 +489,7 @@ export default function PipelinePage() {
       }
       if (tmRes.ok) {
         const raw = await tmRes.json();
-        const arr = Array.isArray(raw) ? raw : (raw.data ?? []);
+        const arr = Array.isArray(raw) ? raw : (raw.members ?? raw.data ?? []);
         setTeamMembers(arr);
       }
     } catch (e: any) {
