@@ -6,7 +6,7 @@ import {
   GitMerge, Filter, Search, X, ChevronDown, ChevronRight,
   Bot, User, ArrowRight, Clock,
   ExternalLink, RotateCcw, AlertCircle, Bell, BellOff,
-  Wrench, CheckCheck, XCircle,
+  Wrench, CheckCheck, XCircle, Sparkles,
 } from "lucide-react";
 
 
@@ -169,9 +169,35 @@ function ReassignModal({
 }) {
   const [tab, setTab] = useState<"agent" | "human">("agent");
   const [selected, setSelected] = useState<string | null>(null);
-  const [notify, setNotify] = useState(true); // Inform Human via Discord — on by default
+  const [notify, setNotify] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [autoAssigning, setAutoAssigning] = useState(false);
+  const [autoResult, setAutoResult] = useState<{ agent_id: string; agent_name: string } | null>(null);
+
+  // Auto-assign: call the section-lead resolver, then close on success
+  const handleAutoAssign = async () => {
+    if (item._kind !== "insight") return;
+    setAutoAssigning(true);
+    setErr(null);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/insights/${item.id}/assign`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      // The /assign endpoint returns the updated insight row
+      const agentName = json.assigned_agent_name ?? json.agent_name ?? "Agent";
+      const agentId   = json.assigned_agent_id   ?? json.agent_id   ?? "";
+      setAutoResult({ agent_id: agentId, agent_name: agentName });
+      // Brief pause so the user sees the confirmation, then close
+      setTimeout(() => {
+        onReassign(agentId, agentName, null, false).then(() => onClose()).catch(() => onClose());
+      }, 900);
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setAutoAssigning(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!selected) return;
@@ -247,14 +273,74 @@ function ReassignModal({
         {/* List */}
         <div style={{ maxHeight: 320, overflowY: "auto" }}>
           {tab === "agent" ? (
-            agents.length > 0 ? agents.map(a => (
-              <div key={a.id} style={itemStyle(selected === a.id)} onClick={() => setSelected(a.id)}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(167,139,250,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Bot size={14} color="#a78bfa" />
+            <>
+              {/* Auto-assign banner — only for insights which have a section */}
+              {item._kind === "insight" && item.section && (
+                <div style={{
+                  marginBottom: 10,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: autoResult
+                    ? "rgba(34,197,94,0.08)"
+                    : "rgba(167,139,250,0.07)",
+                  border: autoResult
+                    ? "1px solid rgba(34,197,94,0.3)"
+                    : "1px solid rgba(167,139,250,0.2)",
+                  display: "flex", alignItems: "center", gap: 10,
+                  transition: "all 0.2s",
+                }}>
+                  {autoResult ? (
+                    <>
+                      <CheckCircle2 size={14} color="#22c55e" style={{ flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: "11px", fontWeight: 800, color: "#22c55e", margin: 0 }}>Assigned!</p>
+                        <p style={{ fontSize: "10px", color: "#64748b", margin: 0 }}>{autoResult.agent_name}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={14} color="#a78bfa" style={{ flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: "11px", fontWeight: 700, color: "#a78bfa", margin: 0 }}>Auto-Assign</p>
+                        <p style={{ fontSize: "10px", color: "#64748b", margin: "1px 0 0" }}>
+                          Picks the section lead for <strong style={{ color: "#94a3b8" }}>{item.section}</strong>
+                        </p>
+                      </div>
+                      <button
+                        id={`auto-assign-btn-${item.id}`}
+                        onClick={handleAutoAssign}
+                        disabled={autoAssigning}
+                        style={{
+                          padding: "5px 12px", borderRadius: 7, border: "none",
+                          background: autoAssigning
+                            ? "rgba(167,139,250,0.1)"
+                            : "linear-gradient(135deg,#7c3aed,#a855f7)",
+                          color: autoAssigning ? "#64748b" : "#fff",
+                          fontSize: "11px", fontWeight: 800, cursor: autoAssigning ? "wait" : "pointer",
+                          display: "flex", alignItems: "center", gap: 5,
+                          flexShrink: 0,
+                          boxShadow: autoAssigning ? "none" : "0 2px 12px rgba(124,58,237,0.35)",
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        {autoAssigning
+                          ? <><RefreshCw size={10} style={{ animation: "spin 0.8s linear infinite" }} /> Assigning…</>
+                          : <><Sparkles size={10} /> Auto-Assign</>}
+                      </button>
+                    </>
+                  )}
                 </div>
-                <span style={{ fontWeight: 600, fontSize: "13px", color: "#e2e8f0" }}>{a.name}</span>
-              </div>
-            )) : <p style={{ color: "#475569", fontSize: "13px", textAlign: "center", padding: 24 }}>No agents available</p>
+              )}
+              {/* Manual list */}
+              {agents.length > 0 ? agents.map(a => (
+                <div key={a.id} style={itemStyle(selected === a.id)} onClick={() => setSelected(a.id)}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(167,139,250,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Bot size={14} color="#a78bfa" />
+                  </div>
+                  <span style={{ fontWeight: 600, fontSize: "13px", color: "#e2e8f0" }}>{a.name}</span>
+                </div>
+              )) : <p style={{ color: "#475569", fontSize: "13px", textAlign: "center", padding: 24 }}>No agents available</p>}
+            </>
           ) : (
             teamMembers.length > 0 ? teamMembers.map(m => (
               <div key={m.discord_id} style={itemStyle(selected === m.username)} onClick={() => setSelected(m.username)}>
