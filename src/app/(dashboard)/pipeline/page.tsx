@@ -388,19 +388,30 @@ function ReassignModal({
 }
 
 function PipelineCard({
-  item, onReassign, onAction, onApprove, onReject,
+  item, onReassign, onAction, onApprove, onReject, onDismiss,
 }: {
   item: PipelineItem;
   onReassign: (item: PipelineItem) => void;
   onAction: () => void;
   onApprove?: (item: PipelineItem) => Promise<void>;
   onReject?: (item: PipelineItem) => Promise<void>;
+  onDismiss?: (item: PipelineItem) => Promise<void>;
 }) {
   const badge = KIND_BADGE[item._kind];
   const pct = milestonePercent(item);
   const assignee = assigneeName(item);
   const isAgent = isAgentAssigned(item);
   const [acting, setActing] = useState<"approve" | "reject" | null>(null);
+  const [dismissing, setDismissing] = useState(false);
+
+  const handleDismiss = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dismissing) return;
+    setDismissing(true);
+    try { await onDismiss?.(item); }
+    finally { setDismissing(false); }
+  };
 
   const act = async (which: "approve" | "reject") => {
     if (acting) return;
@@ -439,8 +450,43 @@ function PipelineCard({
         borderRadius: 12, padding: "12px 14px",
         marginBottom: 8, cursor: "default",
         transition: "border-color 0.15s",
+        position: "relative",
       }}
     >
+      {/* Dismiss button — insight cards only */}
+      {item._kind === "insight" && onDismiss && (
+        <button
+          onClick={handleDismiss}
+          disabled={dismissing}
+          aria-label="Dismiss insight"
+          title="Dismiss — mark as not needed"
+          style={{
+            position: "absolute", top: 8, right: 8,
+            width: 20, height: 20,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 6, cursor: dismissing ? "wait" : "pointer",
+            color: "#475569", padding: 0,
+            transition: "background 0.15s, color 0.15s, border-color 0.15s",
+            opacity: dismissing ? 0.5 : 1,
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = "rgba(244,63,94,0.15)";
+            (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(244,63,94,0.35)";
+            (e.currentTarget as HTMLButtonElement).style.color = "#f43f5e";
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
+            (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.08)";
+            (e.currentTarget as HTMLButtonElement).style.color = "#475569";
+          }}
+        >
+          {dismissing
+            ? <RefreshCw size={10} className="animate-spin" />
+            : <X size={10} />}
+        </button>
+      )}
       {/* Top row: type badge + section chip + time */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
         <span style={{ fontSize: "9px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: badge.color, background: badge.bg, borderRadius: 6, padding: "2px 7px" }}>
@@ -632,13 +678,14 @@ const STAGE_META = {
 type Stage = keyof typeof STAGE_META;
 
 function StageColumn({
-  stage, items, onReassign, onApprove, onReject, onAction,
+  stage, items, onReassign, onApprove, onReject, onDismiss, onAction,
 }: {
   stage: Stage;
   items: PipelineItem[];
   onReassign: (item: PipelineItem) => void;
   onApprove: (item: PipelineItem) => Promise<void>;
   onReject: (item: PipelineItem) => Promise<void>;
+  onDismiss: (item: PipelineItem) => Promise<void>;
   onAction: () => void;
 }) {
   const meta = STAGE_META[stage];
@@ -680,6 +727,7 @@ function StageColumn({
                 onAction={onAction}
                 onApprove={onApprove}
                 onReject={onReject}
+                onDismiss={onDismiss}
               />
             ))
           )}
@@ -807,6 +855,24 @@ export default function PipelinePage() {
     }
   };
 
+  const handleDismissInsight = async (item: PipelineItem) => {
+    try {
+      const res = await fetch(`${BOT_URL}/admin/insights/${item.id}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "dismissed", note: "Dismissed from pipeline view" }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        addToast("err", `Dismiss failed: ${body?.error ?? `HTTP ${res.status}`}`);
+        return;
+      }
+      addToast("ok", "Insight dismissed.");
+      fetchData(true);
+    } catch (e: any) {
+      addToast("err", `Network error: ${e.message}`);
+    }
+  };
 
   // Filter items by search/section
   const filterItems = (items: PipelineItem[]): PipelineItem[] => {
@@ -923,6 +989,7 @@ export default function PipelinePage() {
               onReassign={setReassignItem}
               onApprove={handleApprove}
               onReject={handleReject}
+              onDismiss={handleDismissInsight}
               onAction={() => fetchData(true)}
             />
           ))}
