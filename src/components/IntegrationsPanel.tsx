@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   RefreshCw, CheckCircle, XCircle, Clock, AlertTriangle,
-  ChevronDown, ChevronUp, Loader, Key, X, Eye, EyeOff, ShieldCheck,
+  ChevronDown, ChevronUp, Loader, Key, X, Eye, EyeOff, ShieldCheck, Zap, AlertCircle,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -26,11 +26,19 @@ interface Integration {
 }
 
 interface CheckResult {
+  // live-check fields
+  ok: boolean;
+  check_type: "live" | "env_only";
+  label: string;
+  detail: string | null;
+  latency_ms: number | null;
   status: string;
-  credentials_ok: boolean;
-  missing: string[];
-  present: string[];
-  message: string;
+  blockage_created: boolean;
+  // legacy /check fields (still returned by old endpoint)
+  credentials_ok?: boolean;
+  missing?: string[];
+  present?: string[];
+  message?: string;
 }
 
 interface SetSecretResult {
@@ -391,10 +399,11 @@ export default function IntegrationsPanel() {
   async function checkIntegration(id: string) {
     setCheckingId(id);
     try {
-      const res = await fetch(`${API_BASE}/admin/integrations/${id}/check`, { method: "POST" });
+      // Call live-check — makes a real API call, creates blockage on fail
+      const res = await fetch(`${API_BASE}/admin/integrations/${id}/live-check`, { method: "POST" });
       const result: CheckResult = await res.json();
       setCheckResult(prev => ({ ...prev, [id]: result }));
-      await load();
+      await load(); // refresh status badges
     } finally {
       setCheckingId(null);
     }
@@ -665,12 +674,55 @@ export default function IntegrationsPanel() {
                       {/* Check result */}
                       {result && (
                         <div style={{
-                          padding: "8px 10px", borderRadius: 6, fontSize: 11,
-                          background: result.credentials_ok ? "rgba(34,197,94,0.08)" : "rgba(244,63,94,0.08)",
-                          border: `1px solid ${result.credentials_ok ? "rgba(34,197,94,0.2)" : "rgba(244,63,94,0.2)"}`,
-                          color: result.credentials_ok ? "#22c55e" : "#fca5a5",
+                          padding: "10px 12px", borderRadius: 8, fontSize: 11,
+                          background: result.ok ? "rgba(34,197,94,0.07)" : "rgba(244,63,94,0.08)",
+                          border: `1px solid ${result.ok ? "rgba(34,197,94,0.2)" : "rgba(244,63,94,0.25)"}`,
+                          display: "flex", flexDirection: "column", gap: 6,
                         }}>
-                          {result.message}
+                          {/* Top row: ok/fail + check type badge + latency */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                            {result.ok
+                              ? <CheckCircle size={12} color="#22c55e" />
+                              : <AlertCircle size={12} color="#f43f5e" />}
+                            <span style={{ fontWeight: 800, color: result.ok ? "#22c55e" : "#fca5a5", flex: 1 }}>
+                              {result.label}
+                            </span>
+                            <span style={{
+                              fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 4, letterSpacing: "0.05em",
+                              background: result.check_type === "live" ? "rgba(56,189,248,0.12)" : "rgba(100,116,139,0.15)",
+                              color: result.check_type === "live" ? "#38bdf8" : "#94a3b8",
+                              display: "flex", alignItems: "center", gap: 3,
+                            }}>
+                              {result.check_type === "live"
+                                ? <><Zap size={8} /> LIVE TEST</>
+                                : <>ENV ONLY</>}
+                            </span>
+                            {result.latency_ms !== null && result.latency_ms !== undefined && (
+                              <span style={{ fontSize: 9, color: "#64748b" }}>{result.latency_ms}ms</span>
+                            )}
+                          </div>
+                          {/* Detail line */}
+                          {result.detail && (
+                            <div style={{ fontSize: 10, color: result.ok ? "#64748b" : "#fca5a5", lineHeight: 1.5 }}>
+                              {result.detail}
+                            </div>
+                          )}
+                          {/* Blockage notice */}
+                          {result.blockage_created && (
+                            <div style={{
+                              display: "flex", alignItems: "center", gap: 5, fontSize: 10,
+                              color: "#fbbf24", padding: "5px 8px", borderRadius: 6,
+                              background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)",
+                            }}>
+                              <AlertTriangle size={10} /> A blockage was auto-created — check /pipeline for details.
+                            </div>
+                          )}
+                          {/* Legacy missing vars */}
+                          {result.missing && result.missing.length > 0 && (
+                            <div style={{ fontSize: 10, color: "#fbbf24" }}>
+                              Missing: {result.missing.join(", ")}
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -682,13 +734,17 @@ export default function IntegrationsPanel() {
                           onClick={() => checkIntegration(item.id)}
                           style={{
                             padding: "5px 14px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer",
-                            background: "rgba(56,189,248,0.12)", border: "1px solid rgba(56,189,248,0.25)", color: "#38bdf8",
+                            background: checkingId === item.id ? "rgba(56,189,248,0.06)" : "rgba(56,189,248,0.12)",
+                            border: "1px solid rgba(56,189,248,0.25)", color: "#38bdf8",
                             display: "flex", alignItems: "center", gap: 5,
+                            transition: "all 0.15s",
                           }}
+                          onMouseEnter={e => { if (checkingId !== item.id) { (e.currentTarget as HTMLButtonElement).style.background = "rgba(56,189,248,0.22)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px rgba(56,189,248,0.2)"; } }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(56,189,248,0.12)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}
                         >
                           {checkingId === item.id
-                            ? <><Loader size={10} style={{ animation: "spin 0.8s linear infinite" }} /> Checking…</>
-                            : <>Check Integration</>}
+                            ? <><Loader size={10} style={{ animation: "spin 0.8s linear infinite" }} /> Testing…</>
+                            : <><Zap size={10} /> Run Live Test</>}
                         </button>
 
                         {item.docs_url && (
