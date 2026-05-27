@@ -64,28 +64,43 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         style={{ cursor: "pointer", gap: "1rem" }}
         onClick={() => navigate("/")}
       >
-        <div
-          className="is-flex is-justify-content-center is-align-items-center has-text-weight-black"
-          style={{
+        {/* Trampoline brand icon */}
+        <div style={{ position: "relative", width: "48px", height: "48px", flexShrink: 0 }}>
+          <div style={{
             width: "48px", height: "48px", borderRadius: "12px",
-            background: "linear-gradient(135deg, #e98d20 0%, #c97818 100%)",
-            boxShadow: "0 4px 16px rgba(233,141,32,0.4), 0 1px 0 rgba(255,255,255,0.15) inset",
-            fontSize: "15px", letterSpacing: "0.05em", color: "#fff",
-            fontFamily: "'Montserrat', sans-serif",
-          }}
-        >
-          L&R
+            background: "linear-gradient(135deg, rgba(233,141,32,0.15) 0%, rgba(201,120,24,0.08) 100%)",
+            boxShadow: "0 4px 16px rgba(233,141,32,0.25), 0 1px 0 rgba(255,255,255,0.08) inset",
+            border: "1px solid rgba(233,141,32,0.3)",
+            overflow: "hidden",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/lrb-trampoline-icon.png"
+              alt="Leaps & Rebounds"
+              className="lrb-bounce"
+              style={{ width: "40px", height: "40px", objectFit: "contain", filter: "brightness(1.1)" }}
+            />
+          </div>
+          {/* Pulse indicator */}
+          <span style={{
+            position: "absolute", bottom: -2, right: -2,
+            width: 10, height: 10, borderRadius: "50%",
+            background: "var(--accent-emerald)",
+            border: "2px solid var(--bg-sidebar)",
+            animation: "pulse-orange 2.5s ease-in-out infinite",
+          }} />
         </div>
         <div>
           <h2 className="is-size-5 has-text-weight-bold has-text-white is-marginless" style={{ fontFamily: "'Montserrat', sans-serif", letterSpacing: "-0.01em" }}>
             {APP_CONFIG.name}
           </h2>
-          <div className="is-flex is-align-items-center" style={{ gap: "0.5rem" }}>
-            <span className="is-size-7 has-text-weight-bold has-text-grey-light is-uppercase" style={{ fontSize: "9px" }}>
-              V{APP_CONFIG.version}
+          <div className="is-flex is-align-items-center" style={{ gap: "0.4rem", marginTop: "2px" }}>
+            <span className="tag is-rounded has-text-weight-bold" style={{ fontSize: "7px", height: "1.4em", backgroundColor: "rgba(233,141,32,0.12)", color: "var(--accent-orange)", border: "1px solid rgba(233,141,32,0.25)", padding: "0 5px" }}>
+              70% LESS IMPACT
             </span>
-            <span className="tag is-rounded has-text-weight-bold" style={{ fontSize: "8px", height: "1.5em", backgroundColor: "rgba(233,141,32,0.12)", color: "var(--accent-orange)", border: "1px solid rgba(233,141,32,0.25)" }}>
-              STABLE
+            <span className="tag is-rounded has-text-weight-bold" style={{ fontSize: "7px", height: "1.4em", backgroundColor: "rgba(34,197,94,0.08)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.2)", padding: "0 5px" }}>
+              LIVE
             </span>
           </div>
         </div>
@@ -208,6 +223,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <LogOut size={16} />
           <span className="is-uppercase has-text-weight-bold" style={{ fontSize: "11px" }}>Sign Out</span>
         </button>
+        {/* Brand watermark */}
+        <div className="lrb-watermark" style={{ textAlign: "center", paddingTop: "1rem", paddingBottom: "0.25rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/lrb-trampoline-icon.png" alt="" aria-hidden="true" style={{ width: 12, height: 12, objectFit: "contain", opacity: 0.25 }} />
+          Leaps &amp; Rebounds
+        </div>
       </div>
     </aside>
   );

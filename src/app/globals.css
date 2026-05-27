@@ -220,3 +220,26 @@ body {
 .lrb-orange { color: var(--accent-orange); }
 .lrb-orange-bg { background: var(--accent-orange); }
 .lrb-orange-border { border-color: var(--accent-orange); }
+
+/* ── L&R Bounce animation ── */
+@keyframes lrb-bounce {
+  0%, 100% { transform: translateY(0); }
+  45%       { transform: translateY(-6px); }
+  65%       { transform: translateY(-3px); }
+}
+
+.lrb-bounce {
+  animation: lrb-bounce 2.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) infinite;
+}
+
+/* ── L&R brand watermark text ── */
+.lrb-watermark {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 900;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(233, 141, 32, 0.25);
+  user-select: none;
+  pointer-events: none;
+}

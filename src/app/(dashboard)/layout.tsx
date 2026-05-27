@@ -51,8 +51,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </motion.div>
         </AnimatePresence>
 
-        <footer className="py-6 mt-2 has-text-centered has-text-grey-light is-size-7 is-uppercase has-text-weight-bold px-4" style={{ letterSpacing: "0.1em" }}>
-          Leaps & Rebounds · Operations Intelligence © {new Date().getFullYear()}
+        <footer className="py-6 mt-2 has-text-centered is-size-7 is-uppercase has-text-weight-bold px-4" style={{ letterSpacing: "0.1em" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", opacity: 0.35 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/lrb-trampoline-icon.png" alt="" aria-hidden="true" style={{ width: 14, height: 14, objectFit: "contain" }} />
+            <span style={{ color: "var(--accent-orange)" }}>Leaps &amp; Rebounds</span>
+            <span style={{ color: "var(--text-muted)" }}>·</span>
+            <span style={{ color: "var(--text-muted)" }}>70% Less Joint Impact</span>
+            <span style={{ color: "var(--text-muted)" }}>·</span>
+            <span style={{ color: "var(--text-muted)" }}>Ops Intelligence © {new Date().getFullYear()}</span>
+          </div>
         </footer>
       </section>
     </main>

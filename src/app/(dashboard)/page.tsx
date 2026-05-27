@@ -294,26 +294,63 @@ export default function OverviewPage() {
   return (
     <div className="px-4 pb-8 pt-4" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
 
-      {/* ── Hero strip ── */}
-      <section style={{ background: "linear-gradient(135deg, rgba(255,140,0,0.06), rgba(0,0,0,0))", border: "1px solid rgba(255,140,0,0.1)", borderRadius: 16, padding: "20px 24px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <p style={{ fontSize: 10, color: "#555", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", margin: 0 }}>Leaps &amp; Rebounds · Operations Hub</p>
-            <h1 style={{ fontSize: "clamp(24px,4vw,40px)", fontWeight: 900, color: "#fff", margin: "4px 0 0", lineHeight: 1 }}>Overview</h1>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <motion.button
-              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}
-              onClick={load}
-              style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "6px 12px", cursor: "pointer", color: "#888", fontSize: 11 }}
-            >
-              <RefreshCw size={11} /> Refresh
-            </motion.button>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 10, padding: "8px 14px" }}>
-              <ShieldAlert size={14} color="#22c55e" />
-              <span style={{ fontSize: 10, fontWeight: 800, color: "#22c55e", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                {agents.filter(a => a.enabled !== false).length} Agents Active
-              </span>
+      {/* ── L&R Hero banner ── */}
+      <section style={{ position: "relative", borderRadius: 16, overflow: "hidden", border: "1px solid rgba(233,141,32,0.2)" }}>
+        {/* Background image */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/lrb-hero-banner.png"
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: "absolute", inset: 0, width: "100%", height: "100%",
+            objectFit: "cover", objectPosition: "center 20%",
+            opacity: 0.18,
+            pointerEvents: "none",
+          }}
+        />
+        {/* Gradient overlay to ensure text legibility */}
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "linear-gradient(90deg, rgba(26,26,28,0.97) 0%, rgba(26,26,28,0.85) 55%, rgba(26,26,28,0.3) 100%)",
+          pointerEvents: "none",
+        }} />
+        {/* Content */}
+        <div style={{ position: "relative", zIndex: 1, padding: "22px 28px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+            <div>
+              <p style={{ fontSize: 10, color: "var(--accent-orange)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.14em", margin: 0 }}>Leaps &amp; Rebounds · Operations Hub</p>
+              <h1 style={{ fontSize: "clamp(22px,3.5vw,36px)", fontWeight: 900, color: "#fff", margin: "4px 0 10px", lineHeight: 1.1, fontFamily: "'Montserrat', sans-serif" }}>Mission Control</h1>
+              {/* Brand differentiator badges */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {[
+                  { label: "70% Less Joint Impact", color: "#e98d20" },
+                  { label: "Bungee · Not Springs", color: "#38bdf8" },
+                  { label: "Ships 95% Assembled", color: "#22c55e" },
+                  { label: "30-Day Jump Trial", color: "#a78bfa" },
+                ].map(({ label, color }) => (
+                  <span key={label} style={{
+                    fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em",
+                    color, background: `${color}12`, border: `1px solid ${color}30`,
+                    borderRadius: 6, padding: "3px 8px",
+                  }}>{label}</span>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <motion.button
+                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}
+                onClick={load}
+                style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "6px 12px", cursor: "pointer", color: "#888", fontSize: 11 }}
+              >
+                <RefreshCw size={11} /> Refresh
+              </motion.button>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 10, padding: "8px 14px" }}>
+                <ShieldAlert size={14} color="#22c55e" />
+                <span style={{ fontSize: 10, fontWeight: 800, color: "#22c55e", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  {agents.filter(a => a.enabled !== false).length} Agents Bouncing
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -321,7 +358,12 @@ export default function OverviewPage() {
 
       {/* ── KPI strip ── */}
       <div>
-        <p style={{ fontSize: 9, fontWeight: 800, color: "#444", textTransform: "uppercase", letterSpacing: "0.12em", margin: "0 0 8px" }}>Live Revenue Intelligence</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 8px" }}>
+          <div style={{ width: 16, height: 16, borderRadius: 4, background: "rgba(233,141,32,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <DollarSign size={10} color="var(--accent-orange)" />
+          </div>
+          <p style={{ fontSize: 9, fontWeight: 800, color: "#666", textTransform: "uppercase", letterSpacing: "0.12em", margin: 0 }}>Live Revenue Intelligence</p>
+        </div>
         {loading ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 8 }}>
             {Array(8).fill(0).map((_, i) => (
@@ -335,7 +377,12 @@ export default function OverviewPage() {
 
       {/* ── Department scorecards ── */}
       <div>
-        <p style={{ fontSize: 9, fontWeight: 800, color: "#444", textTransform: "uppercase", letterSpacing: "0.12em", margin: "0 0 10px" }}>Department Health</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 10px" }}>
+          <div style={{ width: 16, height: 16, borderRadius: 4, background: "rgba(233,141,32,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Activity size={10} color="var(--accent-orange)" />
+          </div>
+          <p style={{ fontSize: 9, fontWeight: 800, color: "#666", textTransform: "uppercase", letterSpacing: "0.12em", margin: 0 }}>Department Health</p>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
           {DEPARTMENTS.map(dept => (
             <DeptCard key={dept.id} dept={dept} health={deptHealthMap[dept.id]} onNav={router_fn} />
@@ -352,7 +399,9 @@ export default function OverviewPage() {
           {/* Pending Actions Inbox */}
           <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: "18px 20px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <AlertCircle size={14} color="#f59e0b" />
+              <div style={{ width: 22, height: 22, borderRadius: 6, background: "rgba(245,158,11,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <AlertCircle size={12} color="#f59e0b" />
+              </div>
               <p style={{ fontSize: 11, fontWeight: 800, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Pending Actions</p>
               {overview?.insights?.total > 0 && (
                 <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 800, color: "#f59e0b", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 5, padding: "1px 7px" }}>
@@ -380,7 +429,9 @@ export default function OverviewPage() {
           {/* Agent Wins Feed */}
           <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: "18px 20px", flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <Zap size={14} color="#22c55e" />
+              <div style={{ width: 22, height: 22, borderRadius: 6, background: "rgba(34,197,94,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Zap size={12} color="#22c55e" />
+              </div>
               <p style={{ fontSize: 11, fontWeight: 800, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Recent Agent Wins</p>
             </div>
             {overview?.recentWins?.length > 0 ? (
