@@ -107,15 +107,18 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 // ── Re-assign Modal ───────────────────────────────────────────────────────────
-function ReassignModal({ insightId, insightTitle, agents, teamMembers, onClose, onDone }: {
+function ReassignModal({ insightId, insightTitle, currentAgentId, currentAgentName, currentHuman, agents, teamMembers, onClose, onDone }: {
   insightId: string;
   insightTitle: string;
+  currentAgentId?: string | null;
+  currentAgentName?: string | null;
+  currentHuman?: string | null;
   agents: Agent[];
   teamMembers: TeamMember[];
   onClose: () => void;
   onDone: () => void;
 }) {
-  const [tab, setTab] = useState<"agent" | "human">("agent");
+  const [tab, setTab] = useState<"agent" | "human">(currentHuman && !currentAgentId ? "human" : "agent");
   const [selected, setSelected] = useState<string | null>(null);
   const [notify, setNotify] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -125,13 +128,30 @@ function ReassignModal({ insightId, insightTitle, agents, teamMembers, onClose, 
     if (!selected) return;
     setSaving(true); setErr(null);
     try {
-      const body = tab === "agent"
-        ? { item_type: "insight", agent_id: selected, agent_name: agents.find(a => a.id === selected)?.name ?? null, notify: false }
-        : { item_type: "insight", human_username: selected, notify };
-      const res = await fetch(`${BOT_URL}/admin/pipeline/${insightId}/reassign`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-      });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error ?? `HTTP ${res.status}`); }
+      let body: Record<string, any>;
+      if (selected === "__auto__") {
+        if (tab === "agent") {
+          const res = await fetch(`${BOT_URL}/admin/insights/${insightId}/assign`, { method: "POST" });
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+          body = { item_type: "insight", agent_id: json.assigned_agent_id ?? json.agent_id, agent_name: json.assigned_agent_name ?? json.agent_name, notify: false };
+        } else {
+          const first = teamMembers[0];
+          if (!first) throw new Error("No team members available");
+          body = { item_type: "insight", human_username: first.username, notify };
+        }
+      } else if (tab === "agent") {
+        body = { item_type: "insight", agent_id: selected, agent_name: agents.find(a => a.id === selected)?.name ?? null, notify: false };
+      } else {
+        body = { item_type: "insight", human_username: selected, notify };
+      }
+
+      if (selected !== "__auto__" || tab === "human") {
+        const res = await fetch(`${BOT_URL}/admin/pipeline/${insightId}/reassign`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error ?? `HTTP ${res.status}`); }
+      }
       onDone();
       onClose();
     } catch (e: any) { setErr(e.message); }
@@ -144,11 +164,11 @@ function ReassignModal({ insightId, insightTitle, agents, teamMembers, onClose, 
     background: active ? "rgba(233,141,32,0.15)" : "transparent",
     color: active ? "#e98d20" : "#64748b", transition: "all 0.15s",
   });
-  const itemStyle = (sel: boolean): React.CSSProperties => ({
+  const itemStyle = (sel: boolean, isCurrent = false): React.CSSProperties => ({
     display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
     borderRadius: 8, cursor: "pointer",
-    background: sel ? "rgba(233,141,32,0.1)" : "rgba(255,255,255,0.03)",
-    border: `1px solid ${sel ? "rgba(233,141,32,0.4)" : "rgba(255,255,255,0.06)"}`,
+    background: sel ? "rgba(233,141,32,0.1)" : isCurrent ? "rgba(56,189,248,0.06)" : "rgba(255,255,255,0.03)",
+    border: `1px solid ${sel ? "rgba(233,141,32,0.4)" : isCurrent ? "rgba(56,189,248,0.25)" : "rgba(255,255,255,0.06)"}`,
     marginBottom: 6, transition: "all 0.1s",
   });
 
@@ -167,7 +187,6 @@ function ReassignModal({ insightId, insightTitle, agents, teamMembers, onClose, 
           <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569", flexShrink: 0 }}><X size={18} /></button>
         </div>
 
-        {/* Tabs */}
         <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "rgba(255,255,255,0.04)", padding: 4, borderRadius: 10 }}>
           <button style={tabBtn(tab === "agent")} onClick={() => { setTab("agent"); setSelected(null); }}>
             <Bot size={12} style={{ display: "inline", marginRight: 4 }} />Agent
@@ -177,31 +196,99 @@ function ReassignModal({ insightId, insightTitle, agents, teamMembers, onClose, 
           </button>
         </div>
 
-        {/* List */}
-        <div style={{ maxHeight: 300, overflowY: "auto" }}>
+        <div style={{ maxHeight: 340, overflowY: "auto" }}>
           {tab === "agent" ? (
-            agents.length > 0 ? agents.map(a => (
-              <div key={a.id} style={itemStyle(selected === a.id)} onClick={() => setSelected(a.id)}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(167,139,250,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Bot size={14} color="#a78bfa" />
+            <>
+              {currentAgentId && (
+                <>
+                  <p style={{ fontSize: "9px", fontWeight: 800, color: "#334155", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 4px 6px" }}>Current</p>
+                  <div style={itemStyle(selected === currentAgentId, true)} onClick={() => setSelected(currentAgentId)}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(56,189,248,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Bot size={14} color="#38bdf8" />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontWeight: 700, fontSize: "13px", color: "#38bdf8" }}>{currentAgentName ?? currentAgentId}</span>
+                      <p style={{ fontSize: "10px", color: "#475569", margin: "1px 0 0" }}>Currently assigned</p>
+                    </div>
+                    {selected === currentAgentId && <CheckCircle2 size={14} color="#38bdf8" />}
+                  </div>
+                  <p style={{ fontSize: "9px", fontWeight: 800, color: "#334155", textTransform: "uppercase", letterSpacing: "0.08em", margin: "10px 4px 6px" }}>Change to</p>
+                </>
+              )}
+
+              <div style={itemStyle(selected === "__auto__")} onClick={() => setSelected("__auto__")}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(167,139,250,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Zap size={14} color="#a78bfa" />
                 </div>
-                <span style={{ fontWeight: 600, fontSize: "13px", color: "#e2e8f0" }}>{a.name}</span>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontWeight: 700, fontSize: "13px", color: "#a78bfa" }}>Choose Automatically</span>
+                  <p style={{ fontSize: "10px", color: "#64748b", margin: "1px 0 0" }}>Picks the best agent for this section</p>
+                </div>
+                {selected === "__auto__" && <CheckCircle2 size={14} color="#a78bfa" />}
               </div>
-            )) : <p style={{ color: "#475569", fontSize: "13px", textAlign: "center", padding: 24 }}>No agents found</p>
+
+              {agents.length > 0 && (
+                <p style={{ fontSize: "9px", fontWeight: 800, color: "#334155", textTransform: "uppercase", letterSpacing: "0.08em", margin: "10px 4px 6px" }}>Agents</p>
+              )}
+              {agents.map(a => (
+                <div key={a.id} style={itemStyle(selected === a.id)} onClick={() => setSelected(a.id)}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(167,139,250,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Bot size={14} color="#a78bfa" />
+                  </div>
+                  <span style={{ fontWeight: 600, fontSize: "13px", color: "#e2e8f0", flex: 1 }}>{a.name}</span>
+                  {selected === a.id && <CheckCircle2 size={14} color="#e98d20" />}
+                </div>
+              ))}
+              {agents.length === 0 && !currentAgentId && <p style={{ color: "#475569", fontSize: "13px", textAlign: "center", padding: "12px 24px" }}>No agents found</p>}
+            </>
           ) : (
-            teamMembers.length > 0 ? teamMembers.map(m => (
-              <div key={m.discord_id} style={itemStyle(selected === m.username)} onClick={() => setSelected(m.username)}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(34,197,94,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <User size={14} color="#22c55e" />
+            <>
+              {currentHuman && (
+                <>
+                  <p style={{ fontSize: "9px", fontWeight: 800, color: "#334155", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 4px 6px" }}>Current</p>
+                  <div style={itemStyle(selected === currentHuman, true)} onClick={() => setSelected(currentHuman)}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(34,197,94,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <User size={14} color="#22c55e" />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontWeight: 700, fontSize: "13px", color: "#22c55e" }}>{currentHuman}</span>
+                      <p style={{ fontSize: "10px", color: "#475569", margin: "1px 0 0" }}>Currently assigned</p>
+                    </div>
+                    {selected === currentHuman && <CheckCircle2 size={14} color="#22c55e" />}
+                  </div>
+                  <p style={{ fontSize: "9px", fontWeight: 800, color: "#334155", textTransform: "uppercase", letterSpacing: "0.08em", margin: "10px 4px 6px" }}>Change to</p>
+                </>
+              )}
+
+              <div style={itemStyle(selected === "__auto__")} onClick={() => setSelected("__auto__")}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(167,139,250,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Zap size={14} color="#a78bfa" />
                 </div>
-                <span style={{ fontWeight: 600, fontSize: "13px", color: "#e2e8f0" }}>{m.display_name ?? m.username}</span>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontWeight: 700, fontSize: "13px", color: "#a78bfa" }}>Choose Automatically</span>
+                  <p style={{ fontSize: "10px", color: "#64748b", margin: "1px 0 0" }}>Assigns to the first available team member</p>
+                </div>
+                {selected === "__auto__" && <CheckCircle2 size={14} color="#a78bfa" />}
               </div>
-            )) : <p style={{ color: "#475569", fontSize: "13px", textAlign: "center", padding: 24 }}>No team members found</p>
+
+              {teamMembers.length > 0 && (
+                <p style={{ fontSize: "9px", fontWeight: 800, color: "#334155", textTransform: "uppercase", letterSpacing: "0.08em", margin: "10px 4px 6px" }}>Team</p>
+              )}
+              {teamMembers.map(m => (
+                <div key={m.discord_id} style={itemStyle(selected === m.username)} onClick={() => setSelected(m.username)}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(34,197,94,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <User size={14} color="#22c55e" />
+                  </div>
+                  <span style={{ fontWeight: 600, fontSize: "13px", color: "#e2e8f0", flex: 1 }}>{m.display_name ?? m.username}</span>
+                  {selected === m.username && <CheckCircle2 size={14} color="#e98d20" />}
+                </div>
+              ))}
+              {teamMembers.length === 0 && !currentHuman && <p style={{ color: "#475569", fontSize: "13px", textAlign: "center", padding: "12px 24px" }}>No team members found</p>}
+            </>
           )}
         </div>
 
-        {/* Discord notify toggle — Human tab only, appears once someone is selected */}
-        {tab === "human" && selected && (
+        {tab === "human" && selected && selected !== "__auto__" && (
           <button onClick={() => setNotify(n => !n)}
             style={{ width: "100%", marginTop: 12, padding: "9px 14px", borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, textAlign: "left", background: notify ? "rgba(34,197,94,0.06)" : "rgba(255,255,255,0.03)", border: `1px solid ${notify ? "rgba(34,197,94,0.3)" : "rgba(255,255,255,0.08)"}`, transition: "all 0.15s" }}>
             <div style={{ width: 34, height: 18, borderRadius: 9, flexShrink: 0, background: notify ? "#22c55e" : "rgba(255,255,255,0.15)", position: "relative", transition: "background 0.2s" }}>
@@ -738,6 +825,9 @@ export default function InsightDetailPage() {
           <ReassignModal
             insightId={params.id}
             insightTitle={insight.title}
+            currentAgentId={insight.assigned_agent_id}
+            currentAgentName={insight.assigned_agent_name}
+            currentHuman={human_task?.assigned_to}
             agents={agents}
             teamMembers={teamMembers}
             onClose={() => setShowReassign(false)}
