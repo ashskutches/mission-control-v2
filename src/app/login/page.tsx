@@ -41,32 +41,27 @@ function LoginContent() {
     return (
         <div style={{
             width: "100%",
-            maxWidth: 360,
-            padding: 40,
+            maxWidth: 380,
+            padding: "36px 40px 40px",
             background: "var(--bg-sidebar)",
-            borderRadius: 16,
-            border: "1px solid var(--border)",
-            textAlign: "center"
+            borderRadius: 20,
+            border: "1px solid rgba(233,141,32,0.18)",
+            textAlign: "center",
+            boxShadow: "0 24px 64px rgba(0,0,0,0.55), 0 1px 0 rgba(233,141,32,0.12) inset",
+            backdropFilter: "blur(20px)",
         }}>
-            <div style={{
-                width: 48,
-                height: 48,
-                background: "linear-gradient(135deg, #e98d20 0%, #c97818 100%)",
-                borderRadius: 12,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 900,
-                fontSize: 14,
-                letterSpacing: "0.05em",
-                color: "white",
-                margin: "0 auto 20px",
-                boxShadow: "0 4px 16px rgba(233,141,32,0.4)",
-                fontFamily: "'Montserrat', sans-serif",
-            }}>L&R</div>
+            {/* Wordmark logo */}
+            <div style={{ marginBottom: 24 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                    src="/lrb-wordmark.png"
+                    alt="Leaps & Rebounds Mission Control"
+                    style={{ width: "100%", borderRadius: 10, border: "1px solid rgba(233,141,32,0.15)" }}
+                />
+            </div>
 
-            <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: "var(--text-primary)", fontFamily: "'Montserrat', sans-serif" }}>Operations Hub</h1>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 32, fontFamily: "'Montserrat', sans-serif" }}>Leaps &amp; Rebounds · Internal Intelligence</p>
+            <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 6, color: "var(--text-primary)", fontFamily: "'Montserrat', sans-serif" }}>Operations Hub</h1>
+            <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 28, fontFamily: "'Montserrat', sans-serif" }}>Internal Intelligence · Enter your access code</p>
 
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <input
@@ -78,12 +73,13 @@ function LoginContent() {
                     style={{
                         padding: "12px 16px",
                         background: "var(--bg-base)",
-                        border: "1px solid var(--border)",
+                        border: "1px solid rgba(233,141,32,0.2)",
                         borderRadius: 8,
                         color: "var(--text-primary)",
                         fontSize: 14,
                         outline: "none",
-                        transition: "border-color 0.2s"
+                        transition: "border-color 0.2s",
+                        fontFamily: "'Montserrat', sans-serif",
                     }}
                 />
 
@@ -102,15 +98,26 @@ function LoginContent() {
                         color: "white",
                         border: "none",
                         borderRadius: 8,
-                        fontSize: 14,
-                        fontWeight: 600,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
                         cursor: loading ? "default" : "pointer",
-                        transition: "opacity 0.2s"
+                        transition: "opacity 0.2s, box-shadow 0.2s",
+                        fontFamily: "'Montserrat', sans-serif",
+                        boxShadow: loading ? "none" : "0 4px 16px rgba(233,141,32,0.35)",
                     }}
                 >
                     {loading ? "Verifying..." : "Access Dashboard"}
                 </button>
             </form>
+
+            {/* Brand badge */}
+            <div style={{ marginTop: 24, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <span style={{ fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(233,141,32,0.45)", fontFamily: "'Montserrat', sans-serif" }}>70% Less Joint Impact</span>
+                <span style={{ color: "rgba(255,255,255,0.1)", fontSize: 10 }}>·</span>
+                <span style={{ fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,0.18)", fontFamily: "'Montserrat', sans-serif" }}>Bungee · Not Springs</span>
+            </div>
         </div>
     );
 }
@@ -122,12 +129,34 @@ export default function LoginPage() {
             alignItems: "center",
             justifyContent: "center",
             minHeight: "100vh",
+            fontFamily: "'Montserrat', -apple-system, sans-serif",
+            position: "relative",
+            overflow: "hidden",
             background: "var(--bg-base)",
-            fontFamily: "'Montserrat', -apple-system, sans-serif"
         }}>
+            {/* Hero banner background */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+                src="/lrb-hero-banner.png"
+                alt=""
+                aria-hidden="true"
+                style={{
+                    position: "absolute", inset: 0, width: "100%", height: "100%",
+                    objectFit: "cover", objectPosition: "center",
+                    opacity: 0.12,
+                    pointerEvents: "none",
+                }}
+            />
+            {/* Dark vignette overlay */}
+            <div style={{
+                position: "absolute", inset: 0,
+                background: "radial-gradient(ellipse at center, transparent 0%, rgba(26,26,28,0.85) 100%)",
+                pointerEvents: "none",
+            }} />
             <Suspense fallback={<div>Loading...</div>}>
                 <LoginContent />
             </Suspense>
         </div>
     );
 }
+

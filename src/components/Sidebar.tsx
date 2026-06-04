@@ -58,50 +58,49 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   return (
     <aside className={cn("sidebar-bulma menu custom-scrollbar", isOpen && "is-active")} style={{ overflowY: "auto" }}>
 
-      {/* Brand Header */}
+      {/* Brand Header — wordmark lockup */}
       <div
-        className="mb-6 is-flex is-align-items-center"
-        style={{ cursor: "pointer", gap: "1rem" }}
+        className="mb-6"
+        style={{ cursor: "pointer" }}
         onClick={() => navigate("/")}
+        role="link"
+        aria-label="Go to overview"
       >
-        {/* Trampoline brand icon */}
-        <div style={{ position: "relative", width: "48px", height: "48px", flexShrink: 0 }}>
-          <div style={{
-            width: "48px", height: "48px", borderRadius: "12px",
-            background: "linear-gradient(135deg, rgba(233,141,32,0.15) 0%, rgba(201,120,24,0.08) 100%)",
-            boxShadow: "0 4px 16px rgba(233,141,32,0.25), 0 1px 0 rgba(255,255,255,0.08) inset",
-            border: "1px solid rgba(233,141,32,0.3)",
-            overflow: "hidden",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/lrb-trampoline-icon.png"
-              alt="Leaps & Rebounds"
-              className="lrb-bounce"
-              style={{ width: "40px", height: "40px", objectFit: "contain", filter: "brightness(1.1)" }}
-            />
-          </div>
-          {/* Pulse indicator */}
-          <span style={{
-            position: "absolute", bottom: -2, right: -2,
-            width: 10, height: 10, borderRadius: "50%",
-            background: "var(--accent-emerald)",
-            border: "2px solid var(--bg-sidebar)",
-            animation: "pulse-orange 2.5s ease-in-out infinite",
-          }} />
+        {/* Wordmark image — full L&R logo */}
+        <div style={{
+          position: "relative",
+          borderRadius: "12px",
+          overflow: "hidden",
+          border: "1px solid rgba(233,141,32,0.18)",
+          background: "rgba(233,141,32,0.04)",
+          padding: "2px",
+          boxShadow: "0 2px 12px rgba(233,141,32,0.1)",
+          transition: "box-shadow 0.2s, border-color 0.2s",
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 20px rgba(233,141,32,0.22)";
+          (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(233,141,32,0.35)";
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 12px rgba(233,141,32,0.1)";
+          (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(233,141,32,0.18)";
+        }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/lrb-wordmark.png"
+            alt="Leaps & Rebounds Mission Control"
+            style={{ width: "100%", display: "block", borderRadius: "10px", objectFit: "cover" }}
+          />
         </div>
-        <div>
-          <h2 className="is-size-5 has-text-weight-bold has-text-white is-marginless" style={{ fontFamily: "'Montserrat', sans-serif", letterSpacing: "-0.01em" }}>
-            {APP_CONFIG.name}
-          </h2>
-          <div className="is-flex is-align-items-center" style={{ gap: "0.4rem", marginTop: "2px" }}>
-            <span className="tag is-rounded has-text-weight-bold" style={{ fontSize: "7px", height: "1.4em", backgroundColor: "rgba(233,141,32,0.12)", color: "var(--accent-orange)", border: "1px solid rgba(233,141,32,0.25)", padding: "0 5px" }}>
-              70% LESS IMPACT
-            </span>
-            <span className="tag is-rounded has-text-weight-bold" style={{ fontSize: "7px", height: "1.4em", backgroundColor: "rgba(34,197,94,0.08)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.2)", padding: "0 5px" }}>
-              LIVE
-            </span>
+        {/* Live indicator strip */}
+        <div className="is-flex is-align-items-center is-justify-content-space-between" style={{ marginTop: "8px", padding: "0 2px" }}>
+          <span style={{ fontSize: "9px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(233,141,32,0.6)", fontFamily: "'Montserrat', sans-serif" }}>
+            Ops Intelligence
+          </span>
+          <div className="is-flex is-align-items-center" style={{ gap: "5px" }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent-emerald)", display: "block", animation: "pulse-orange 2.5s ease-in-out infinite" }} />
+            <span style={{ fontSize: "9px", fontWeight: 800, color: "#22c55e", textTransform: "uppercase", letterSpacing: "0.08em" }}>Live</span>
           </div>
         </div>
       </div>
@@ -223,11 +222,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <LogOut size={16} />
           <span className="is-uppercase has-text-weight-bold" style={{ fontSize: "11px" }}>Sign Out</span>
         </button>
-        {/* Brand watermark */}
+        {/* Brand watermark — new icon */}
         <div className="lrb-watermark" style={{ textAlign: "center", paddingTop: "1rem", paddingBottom: "0.25rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/lrb-trampoline-icon.png" alt="" aria-hidden="true" style={{ width: 12, height: 12, objectFit: "contain", opacity: 0.25 }} />
-          Leaps &amp; Rebounds
+          <img src="/lrb-icon-v2.png" alt="" aria-hidden="true" style={{ width: 14, height: 14, objectFit: "contain", opacity: 0.28, filter: "saturate(0)" }} />
+          Leaps &amp; Rebounds · Ops
         </div>
       </div>
     </aside>

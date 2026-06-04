@@ -319,8 +319,12 @@ export default function OverviewPage() {
         <div style={{ position: "relative", zIndex: 1, padding: "22px 28px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
             <div>
-              <p style={{ fontSize: 10, color: "var(--accent-orange)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.14em", margin: 0 }}>Leaps &amp; Rebounds · Operations Hub</p>
-              <h1 style={{ fontSize: "clamp(22px,3.5vw,36px)", fontWeight: 900, color: "#fff", margin: "4px 0 10px", lineHeight: 1.1, fontFamily: "'Montserrat', sans-serif" }}>Mission Control</h1>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/lrb-wordmark.png"
+                alt="Leaps & Rebounds Mission Control"
+                style={{ width: "min(260px, 55vw)", borderRadius: 10, marginBottom: 10, display: "block" }}
+              />
               {/* Brand differentiator badges */}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {[
