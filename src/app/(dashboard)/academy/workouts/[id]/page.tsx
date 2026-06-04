@@ -5,8 +5,11 @@
  * IDs match the live Shopify blog slugs at:
  * leapsandrebounds.com/blogs/mini-trampoline-workouts/[id]
  *
- * Title + meta tags handled by generateMetadata in layout.tsx (server component).
- * This file is "use client" for Framer Motion and interactive state.
+ * Metadata (title, description, OG) is handled by the sibling layout.tsx
+ * server component so this file can stay "use client" for Framer Motion.
+ *
+ * Styling: page.module.css — no inline styles except the 5 documented
+ * dynamic exceptions (palette colours, JS-toggled states).
  */
 import React, { useState } from "react";
 import { useParams } from "next/navigation";
@@ -15,28 +18,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, ChevronRight, Clock, Zap, Target, BarChart2,
   Facebook, Link2, CheckCircle, ArrowRight,
-  ShieldCheck, Package, Droplets,
+  Package, Droplets,
 } from "lucide-react";
-
-// ── Brand tokens ───────────────────────────────────────────────────────────────
-const C = {
-  orange:     "#FCA248",
-  orangeDeep: "#E88828",
-  orangeSoft: "#FFE2C2",
-  orangeWash: "#FFF4E6",
-  charcoal:   "#2B2B2B",
-  graphite:   "#4A4A4A",
-  slate:      "#6E6E6E",
-  mist:       "#B3B3B3",
-  cream:      "#FAF6F0",
-  paper:      "#FFFFFF",
-  line:       "#E6E2DA",
-  leaf:       "#6BA368",
-} as const;
-
-const FD = "'Montserrat','Helvetica Neue',Arial,sans-serif";
-const FB = "system-ui,Arial,'Helvetica Neue',sans-serif";
-const CDN = "https://leapsandrebounds.com/cdn/shop";
+import styles from "./page.module.css";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type Tier = "free" | "pro";
@@ -59,6 +43,8 @@ export interface Workout {
   videoThumb?: string;
 }
 
+// Per-workout SVG illustration colours — set as CSS vars on the container
+// so the SVG can reference them. Dynamic by nature, legitimate inline use.
 const PALETTES: Record<string, { bg: string; accent: string }> = {
   peach:  { bg: "#FFD8B8", accent: "#FCA248" },
   cream:  { bg: "#FAF0E0", accent: "#E88828" },
@@ -70,6 +56,8 @@ const PALETTES: Record<string, { bg: string; accent: string }> = {
   rose:   { bg: "#F2C6C6", accent: "#C04A4A" },
   sky:    { bg: "#C8DEE8", accent: "#6FB6D9" },
 };
+
+const CDN = "https://leapsandrebounds.com/cdn/shop";
 
 /**
  * IDs are the exact Shopify blog slugs from:
@@ -248,21 +236,25 @@ function getRelated(current: Workout, all: Workout[]): Workout[] {
 }
 
 // ── Thumb placeholder ──────────────────────────────────────────────────────────
+// Dynamic exception: --palette-bg and --palette-accent are per-workout values
+// from JS, so they're passed as inline CSS custom properties on the wrapper.
 function ThumbPlaceholder({ palette, ratio = "16/9" }: { palette: string; ratio?: string }) {
   const p = PALETTES[palette] ?? PALETTES.peach;
   return (
-    <div style={{ background: p.bg, aspectRatio: ratio, position: "relative", overflow: "hidden" }}>
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none"
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+    <div
+      className={styles.thumbPlaceholder}
+      style={{ aspectRatio: ratio, "--palette-bg": p.bg } as React.CSSProperties}
+    >
+      <svg className={styles.thumbPlaceholderSvg} viewBox="0 0 100 100" preserveAspectRatio="none">
         <path d="M10 70 Q30 40 50 70" stroke={p.accent} strokeOpacity="0.25" strokeWidth="0.8" strokeDasharray="2 2" fill="none"/>
         <path d="M50 70 Q70 40 90 70" stroke={p.accent} strokeOpacity="0.25" strokeWidth="0.8" strokeDasharray="2 2" fill="none"/>
         <ellipse cx="50" cy="83" rx="24" ry="5" fill={p.accent} opacity="0.35"/>
-        <circle cx="50" cy="30" r="7" fill={C.charcoal} opacity="0.65"/>
-        <rect x="46" y="37" width="8" height="20" rx="3" fill={C.charcoal} opacity="0.65"/>
-        <rect x="38" y="40" width="6" height="14" rx="3" fill={C.charcoal} opacity="0.65" transform="rotate(-15 41 47)"/>
-        <rect x="56" y="40" width="6" height="14" rx="3" fill={C.charcoal} opacity="0.65" transform="rotate(15 59 47)"/>
-        <rect x="43" y="55" width="6" height="14" rx="3" fill={C.charcoal} opacity="0.65"/>
-        <rect x="51" y="55" width="6" height="14" rx="3" fill={C.charcoal} opacity="0.65"/>
+        <circle cx="50" cy="30" r="7" fill="#2B2B2B" opacity="0.65"/>
+        <rect x="46" y="37" width="8" height="20" rx="3" fill="#2B2B2B" opacity="0.65"/>
+        <rect x="38" y="40" width="6" height="14" rx="3" fill="#2B2B2B" opacity="0.65" transform="rotate(-15 41 47)"/>
+        <rect x="56" y="40" width="6" height="14" rx="3" fill="#2B2B2B" opacity="0.65" transform="rotate(15 59 47)"/>
+        <rect x="43" y="55" width="6" height="14" rx="3" fill="#2B2B2B" opacity="0.65"/>
+        <rect x="51" y="55" width="6" height="14" rx="3" fill="#2B2B2B" opacity="0.65"/>
       </svg>
     </div>
   );
@@ -270,112 +262,75 @@ function ThumbPlaceholder({ palette, ratio = "16/9" }: { palette: string; ratio?
 
 // ── Related card ───────────────────────────────────────────────────────────────
 function RelatedCard({ w, index }: { w: Workout; index: number }) {
-  const [hovered, setHovered] = useState(false);
-  const pal = PALETTES[w.palette] ?? PALETTES.peach;
   return (
     <motion.a
       href={`/academy/workouts/${w.id}`}
+      className={styles.relatedCard}
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.07 }}
       whileHover={{ y: -3 }}
-      onHoverStart={() => setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
-      style={{
-        background: C.paper, borderRadius: 14, overflow: "hidden",
-        border: `1px solid ${C.line}`, textDecoration: "none", color: "inherit",
-        display: "flex", flexDirection: "column",
-        boxShadow: hovered ? "0 12px 32px rgba(43,43,43,0.10)" : "0 2px 8px rgba(43,43,43,0.06)",
-        transition: "box-shadow 0.22s ease",
-      }}
     >
-      <div style={{ position: "relative", aspectRatio: "16/10", background: pal.bg, overflow: "hidden" }}>
+      <div className={styles.relatedThumb}>
         {w.videoThumb
-          ? <img src={w.videoThumb} alt={w.title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          ? <img src={w.videoThumb} alt={w.title} />
           : <ThumbPlaceholder palette={w.palette} ratio="16/10" />
         }
         <motion.div
-          animate={{ scale: hovered ? 1.08 : 1 }}
+          className={styles.relatedPlayBtn}
+          whileHover={{ scale: 1.08 }}
           transition={{ type: "spring", stiffness: 300, damping: 28 }}
-          style={{
-            position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
-            width: 52, height: 52, borderRadius: "50%", background: C.orange,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 4px 12px rgba(43,43,43,0.10)",
-          }}
         >
-          <Play size={22} fill="#fff" color="#fff" style={{ marginLeft: 2 }} />
+          <Play size={22} fill="#fff" color="#fff" />
         </motion.div>
-        <span style={{
-          position: "absolute", right: 10, bottom: 10,
-          background: "rgba(43,43,43,0.8)", color: "#fff",
-          fontFamily: FD, fontWeight: 700, fontSize: 11, padding: "4px 9px", borderRadius: 999,
-        }}>{w.duration} min</span>
+        <span className={styles.relatedDuration}>{w.duration} min</span>
       </div>
-      <div style={{ padding: "16px 16px 18px", display: "flex", flexDirection: "column", gap: 6 }}>
-        <span style={{ fontFamily: FD, fontWeight: 700, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: C.orangeDeep }}>
-          {w.level} · {w.goal}
-        </span>
-        <span style={{ fontFamily: FD, fontWeight: 800, textTransform: "uppercase", fontSize: 15, lineHeight: 1.1, color: C.charcoal }}>
-          {w.title}
-        </span>
-        <span style={{ fontFamily: FB, fontSize: 13, color: C.slate, lineHeight: 1.5 }}>
-          {w.desc}
-        </span>
+      <div className={styles.relatedInfo}>
+        <span className={styles.relatedLevel}>{w.level} · {w.goal}</span>
+        <span className={styles.relatedName}>{w.title}</span>
+        <span className={styles.relatedDesc}>{w.desc}</span>
       </div>
     </motion.a>
   );
 }
 
-// ── Not Found ─────────────────────────────────────────────────────────────────
+// ── Not found ──────────────────────────────────────────────────────────────────
 function NotFound() {
   return (
     <motion.div
+      className={styles.notFound}
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      style={{
-        display: "flex", flexDirection: "column", alignItems: "center",
-        justifyContent: "center", minHeight: 480, gap: 24,
-        padding: "80px 40px", textAlign: "center",
-      }}
     >
-      <div style={{ width: 72, height: 72, borderRadius: "50%", background: C.orangeWash, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Play size={32} color={C.orangeDeep} />
+      <div className={styles.notFoundIcon}>
+        <Play size={32} color="#E88828" />
       </div>
-      <h1 style={{ fontFamily: FD, fontWeight: 900, fontSize: 28, color: C.charcoal, margin: 0, textTransform: "uppercase" }}>
-        Workout Not Found
-      </h1>
-      <p style={{ fontFamily: FB, fontSize: 16, color: C.slate, maxWidth: 360, margin: 0, lineHeight: 1.6 }}>
+      <h1 className={styles.notFoundTitle}>Workout Not Found</h1>
+      <p className={styles.notFoundBody}>
         We couldn&apos;t find that workout. Head back to the Academy to browse all available sessions.
       </p>
-      <Link href="/academy" style={{
-        display: "inline-flex", alignItems: "center", gap: 8,
-        background: C.orange, color: "#fff",
-        fontFamily: FD, fontWeight: 800, fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase",
-        padding: "13px 24px", borderRadius: 999, textDecoration: "none",
-        boxShadow: "0 4px 12px rgba(252,162,72,0.35)",
-      }}>
+      <Link href="/academy" className={styles.notFoundBtn}>
         Back to Academy <ChevronRight size={14} />
       </Link>
     </motion.div>
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Main page ─────────────────────────────────────────────────────────────────
 export default function WorkoutShowPage() {
-  const params = useParams();
-  const id = typeof params.id === "string" ? params.id : "";
+  const params  = useParams();
+  const id      = typeof params.id === "string" ? params.id : "";
   const workout = WORKOUTS.find(w => w.id === id);
 
   const [commentForm, setCommentForm] = useState({ name: "", email: "", msg: "" });
-  const [submitted, setSubmitted] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
+  const [submitted,   setSubmitted]   = useState(false);
+  const [linkCopied,  setLinkCopied]  = useState(false);
 
   if (!workout) return <NotFound />;
 
-  const pal = PALETTES[workout.palette] ?? PALETTES.peach;
   const related = getRelated(workout, WORKOUTS);
-  const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${workout.inst} ${workout.title} rebounder`)}`;
+  const ytUrl   = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${workout.inst} ${workout.title} rebounder`)}`;
+  const fbUrl   = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`https://leapsandrebounds.com/blogs/mini-trampoline-workouts/${workout.id}`)}`;
 
   const handleCopyLink = () => {
     if (typeof window !== "undefined") {
@@ -385,174 +340,108 @@ export default function WorkoutShowPage() {
     setTimeout(() => setLinkCopied(false), 2000);
   };
 
-  const fullBleed: React.CSSProperties = { margin: "0 -40px" };
-  const wrap: React.CSSProperties = { maxWidth: 1200, margin: "0 auto", padding: "0 40px" };
-
   return (
-    <div style={{ background: C.paper, minHeight: "100vh", fontFamily: FB, color: C.charcoal }}>
+    <div className={styles.page}>
 
-      {/* ── Hero video ─────────────────────────────────────────────────────── */}
+      {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <motion.div
+        className={styles.heroWrapper}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        style={{ ...fullBleed, padding: "0 40px" }}
       >
-        {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb" style={{ maxWidth: 1200, margin: "0 auto", padding: "18px 0 6px", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", fontFamily: FB, fontSize: 13, color: C.slate }}>
-          <Link href="/academy" style={{ color: C.orangeDeep, textDecoration: "none", fontWeight: 600 }}>Academy</Link>
-          <span style={{ color: C.mist }} aria-hidden="true">›</span>
-          <Link href="/academy" style={{ color: C.orangeDeep, textDecoration: "none", fontWeight: 600 }}>Mini Trampoline Workouts</Link>
-          <span style={{ color: C.mist }} aria-hidden="true">›</span>
-          <span style={{ color: C.graphite }} aria-current="page">{workout.title}</span>
+        <nav className={styles.breadcrumb} aria-label="Breadcrumb">
+          <Link href="/academy" className={styles.breadcrumbLink}>Academy</Link>
+          <span className={styles.breadcrumbSep} aria-hidden="true">›</span>
+          <Link href="/academy" className={styles.breadcrumbLink}>Mini Trampoline Workouts</Link>
+          <span className={styles.breadcrumbSep} aria-hidden="true">›</span>
+          <span className={styles.breadcrumbCurrent} aria-current="page">{workout.title}</span>
         </nav>
 
-        {/* Video hero */}
-        <div style={{ maxWidth: 880, margin: "20px auto 0", position: "relative", borderRadius: 14, overflow: "hidden", background: C.charcoal, aspectRatio: "16/9", boxShadow: "0 4px 12px rgba(43,43,43,0.08), 0 2px 4px rgba(43,43,43,0.04)" }}>
+        <div className={styles.videoHero}>
           {workout.videoThumb
-            ? <img src={workout.videoThumb} alt={`${workout.title} workout thumbnail`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            ? <img src={workout.videoThumb} alt={`${workout.title} workout thumbnail`} />
             : <ThumbPlaceholder palette={workout.palette} ratio="16/9" />
           }
-          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(180deg, rgba(43,43,43,0) 55%, rgba(43,43,43,0.45) 100%)" }} />
-          <span style={{ position: "absolute", left: 16, top: 16, zIndex: 3, background: "rgba(255,255,255,0.92)", color: C.charcoal, fontFamily: FD, fontWeight: 800, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", padding: "7px 13px", borderRadius: 999 }}>
-            Rebounder Edition
-          </span>
-          <span style={{ position: "absolute", right: 16, bottom: 16, zIndex: 3, background: "rgba(43,43,43,0.78)", backdropFilter: "blur(4px)", color: "#fff", fontFamily: FD, fontWeight: 700, fontSize: 13, letterSpacing: "0.06em", padding: "6px 12px", borderRadius: 999, display: "flex", alignItems: "center", gap: 6 }}>
+          <div className={styles.videoGradient} />
+          <span className={styles.videoBadgeEdition}>Rebounder Edition</span>
+          <span className={styles.videoDuration}>
             <Clock size={13} /> {workout.duration}:00
           </span>
           <motion.a
             href={ytUrl}
             target="_blank"
             rel="noreferrer"
+            className={styles.playBtn}
             aria-label={`Play ${workout.title} on YouTube`}
             whileHover={{ scale: 1.04, y: -2 }}
             whileTap={{ scale: 0.97 }}
             transition={{ type: "spring", stiffness: 400, damping: 22 }}
-            style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 72, height: 72, borderRadius: "50%", border: "none", background: C.orange, color: "#fff", boxShadow: "0 8px 24px rgba(252,162,72,0.35)", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}
           >
             <Play size={32} fill="#fff" color="#fff" style={{ marginLeft: 4 }} />
           </motion.a>
         </div>
       </motion.div>
 
-      {/* ── Workout head ───────────────────────────────────────────────────── */}
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 40px" }}>
+      {/* ── Workout head ──────────────────────────────────────────────────── */}
+      <div className={styles.container}>
         <motion.div
+          className={styles.head}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08, duration: 0.3 }}
-          style={{ padding: "28px 0 8px" }}
         >
-          <div style={{ fontFamily: FD, fontWeight: 700, fontSize: 13, letterSpacing: "0.14em", textTransform: "uppercase", color: C.orangeDeep, marginBottom: 12 }}>
-            Mini Trampoline Workout
-          </div>
-          <h1 style={{ fontFamily: FD, fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.01em", lineHeight: 1.04, margin: 0, fontSize: "clamp(30px, 4.2vw, 46px)", color: C.charcoal }}>
-            {workout.title}
-          </h1>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "14px 18px", marginTop: 18 }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <div className={styles.eyebrow}>Mini Trampoline Workout</div>
+          <h1 className={styles.title}>{workout.title}</h1>
+
+          <div className={styles.metaRow}>
+            <div className={styles.chips}>
               {[workout.level, `${workout.duration} Minutes`].map(chip => (
-                <span key={chip} style={{ fontFamily: FD, fontWeight: 700, fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", color: C.charcoal, background: C.orangeSoft, borderRadius: 999, padding: "7px 14px" }}>
-                  {chip}
-                </span>
+                <span key={chip} className={styles.chip}>{chip}</span>
               ))}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
-              <span style={{ fontSize: 12, color: C.slate, fontFamily: FB }}>Share</span>
+            <div className={styles.shareRow}>
+              <span className={styles.shareLabel}>Share</span>
               <motion.a
-                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`https://leapsandrebounds.com/blogs/mini-trampoline-workouts/${workout.id}`)}`}
-                target="_blank" rel="noreferrer"
+                href={fbUrl}
+                target="_blank"
+                rel="noreferrer"
+                className={styles.shareBtn}
                 aria-label="Share on Facebook"
-                whileHover={{ y: -2, borderColor: C.orange, color: C.orangeDeep }}
                 whileTap={{ scale: 0.95 }}
-                style={{ width: 36, height: 36, borderRadius: "50%", border: `1px solid ${C.line}`, background: "#fff", color: C.charcoal, display: "inline-flex", alignItems: "center", justifyContent: "center", transition: "all 0.22s ease" }}
               >
                 <Facebook size={15} />
               </motion.a>
+              {/* Dynamic exception: color toggles between leaf and charcoal on linkCopied state */}
               <motion.button
+                className={styles.shareBtn}
                 aria-label="Copy link"
                 onClick={handleCopyLink}
-                whileHover={{ y: -2, borderColor: C.orange, color: C.orangeDeep }}
                 whileTap={{ scale: 0.95 }}
-                style={{ width: 36, height: 36, borderRadius: "50%", border: `1px solid ${C.line}`, background: "#fff", color: linkCopied ? "#6BA368" : C.charcoal, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", transition: "all 0.22s ease" }}
+                style={{ color: linkCopied ? "#6BA368" : undefined }}
               >
                 {linkCopied ? <CheckCircle size={15} /> : <Link2 size={15} />}
               </motion.button>
             </div>
           </div>
-          <p style={{ fontFamily: FB, fontSize: 18, lineHeight: 1.6, color: C.graphite, maxWidth: "62ch", margin: "22px 0 0" }}>
-            {workout.lede}
-          </p>
+
+          <p className={styles.lede}>{workout.lede}</p>
         </motion.div>
 
-        {/* ── Two-column layout ─────────────────────────────────────────────── */}
+        {/* ── Two-column layout ────────────────────────────────────────────── */}
         <motion.div
+          className={styles.layout}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.15, duration: 0.3 }}
-          style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 340px", gap: 56, alignItems: "start", padding: "36px 0 8px" }}
         >
-          {/* ── Article body (backend-rendered rich text) ─────────────────── */}
+          {/* Article body */}
           <div>
-            <article className="article-body" style={{ color: C.graphite, fontFamily: FB, fontSize: 16.5, lineHeight: 1.72 }}>
-              <style>{`
-                .article-body > *:first-child { margin-top: 0; }
-                .article-body > *:last-child { margin-bottom: 0; }
-                .article-body h2 {
-                  font-family: 'Montserrat','Helvetica Neue',Arial,sans-serif;
-                  font-weight: 900; text-transform: uppercase;
-                  letter-spacing: -0.005em; line-height: 1.08; color: #2B2B2B;
-                  font-size: clamp(24px, 3vw, 30px); margin: 44px 0 16px;
-                }
-                .article-body h3 {
-                  font-family: 'Montserrat','Helvetica Neue',Arial,sans-serif;
-                  font-weight: 800; text-transform: uppercase;
-                  letter-spacing: 0.02em; line-height: 1.15; color: #2B2B2B;
-                  font-size: 19px; margin: 34px 0 12px; padding-top: 16px;
-                  border-top: 1px solid #E6E2DA;
-                }
-                .article-body h4 {
-                  font-family: 'Montserrat','Helvetica Neue',Arial,sans-serif;
-                  font-weight: 700; text-transform: uppercase;
-                  letter-spacing: 0.04em; font-size: 15px; color: #E88828; margin: 26px 0 8px;
-                }
-                .article-body p { margin: 0 0 16px; }
-                .article-body a { color: #E88828; text-decoration: underline; text-underline-offset: 2px; }
-                .article-body a:hover { color: #2B2B2B; }
-                .article-body strong, .article-body b { color: #2B2B2B; font-weight: 700; }
-                .article-body em, .article-body i { font-style: italic; }
-                .article-body hr { border: none; border-top: 1px solid #E6E2DA; margin: 32px 0; }
-                .article-body ul, .article-body ol { margin: 0 0 18px; padding: 0; list-style: none; }
-                .article-body li { position: relative; padding-left: 30px; margin: 0 0 12px; }
-                .article-body ul > li::before {
-                  content: ""; position: absolute; left: 4px; top: 9px;
-                  width: 9px; height: 9px; border-radius: 999px;
-                  background: #FFE2C2; border: 2px solid #FCA248; box-sizing: border-box;
-                }
-                .article-body ol { counter-reset: ab; }
-                .article-body ol > li { counter-increment: ab; padding-left: 38px; }
-                .article-body ol > li::before {
-                  content: counter(ab); position: absolute; left: 0; top: 1px;
-                  width: 24px; height: 24px; border-radius: 999px;
-                  background: #FCA248; color: #fff;
-                  font-family: 'Montserrat',sans-serif; font-weight: 800; font-size: 12px;
-                  display: flex; align-items: center; justify-content: center;
-                }
-                .article-body blockquote {
-                  margin: 24px 0; padding: 4px 0 4px 22px; border-left: 4px solid #FCA248;
-                  font-family: 'Montserrat','Helvetica Neue',Arial,sans-serif;
-                  font-weight: 500; text-transform: uppercase;
-                  letter-spacing: 0.01em; line-height: 1.25; font-size: 22px; color: #2B2B2B;
-                }
-                .article-body blockquote p { margin: 0; }
-                .article-body img { border-radius: 14px; margin: 22px 0; max-width: 100%; }
-                .article-body iframe { width: 100%; aspect-ratio: 16/9; border: none; border-radius: 14px; margin: 22px 0; }
-              `}</style>
-
+            <article className={styles.articleBody}>
               <h2>The Workout</h2>
               <p>
-                This {workout.duration}-minute, low-impact session is designed around the rebounder — your joints stay happy,
-                your heart rate climbs, and you walk away having actually enjoyed every second of it.
+                This {workout.duration}-minute, low-impact session is designed around the rebounder — your joints
+                stay happy, your heart rate climbs, and you walk away having actually enjoyed every second of it.
                 Follow along with {workout.inst} and keep your core engaged throughout.
               </p>
 
@@ -586,51 +475,48 @@ export default function WorkoutShowPage() {
 
               <h2>Your Coach</h2>
               <p>
-                <strong>{workout.inst}</strong> brings high-energy, beginner-friendly workouts to the rebounder. With years of
-                hands-on fitness experience, they make every session something you actually look forward to.
+                <strong>{workout.inst}</strong> brings high-energy, beginner-friendly workouts to the rebounder.
+                With years of hands-on fitness experience, they make every session something you actually look
+                forward to.
               </p>
             </article>
           </div>
 
-          {/* ── Sticky sidebar ────────────────────────────────────────────── */}
-          <aside aria-label="Workout details" style={{ position: "sticky", top: 96, display: "flex", flexDirection: "column", gap: 18 }}>
+          {/* Sidebar */}
+          <aside className={styles.sidebar} aria-label="Workout details">
 
             {/* Quick facts */}
-            <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, overflow: "hidden" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+            <div className={styles.factGrid}>
+              <div className={styles.factCells}>
                 {[
                   { k: "Duration", v: `${workout.duration} min`, icon: <Clock size={16} /> },
-                  { k: "Level",    v: workout.level,             icon: <BarChart2 size={16} /> },
-                  { k: "Burn",     v: workout.burn ?? "~varies", icon: <Zap size={16} /> },
+                  { k: "Level",    v: workout.level,              icon: <BarChart2 size={16} /> },
+                  { k: "Burn",     v: workout.burn ?? "~varies",  icon: <Zap size={16} /> },
                   { k: "Goal",     v: workout.goalLabel ?? workout.goal, icon: <Target size={16} /> },
-                ].map((f, i) => (
-                  <div key={f.k} style={{ padding: "14px 12px", display: "flex", flexDirection: "column", gap: 7, borderBottom: i < 2 ? `1px solid ${C.line}` : undefined, borderRight: i % 2 === 0 ? `1px solid ${C.line}` : undefined }}>
-                    <span style={{ fontFamily: FB, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: C.slate }}>{f.k}</span>
-                    <span style={{ fontFamily: FD, fontWeight: 800, fontSize: 19, color: C.charcoal, textTransform: "uppercase" }}>{f.v}</span>
+                ].map(f => (
+                  <div key={f.k} className={styles.factCell}>
+                    <span className={styles.factLabel}>{f.k}</span>
+                    <span className={styles.factValue}>{f.v}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Equipment */}
-            <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 22 }}>
-              <h3 style={{ fontFamily: FD, fontWeight: 800, textTransform: "uppercase", fontSize: 15, letterSpacing: "0.06em", color: C.charcoal, margin: "0 0 14px" }}>
-                What you&apos;ll need
-              </h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className={styles.equipmentCard}>
+              <h3>What you&apos;ll need</h3>
+              <div className={styles.equipmentList}>
                 {[
-                  { icon: <Package size={18} />, name: "40″ or 48″ Rebounder", note: "your bounce HQ", req: true },
-                  { icon: <ArrowRight size={18} />, name: "Stability Bar", note: "steady hands for balance", req: false },
-                  { icon: <Droplets size={18} />, name: "Water + Grip Socks", note: "stay grounded, stay hydrated", req: false },
+                  { icon: <Package size={18} />,  name: "40″ or 48″ Rebounder",  note: "your bounce HQ",              req: true  },
+                  { icon: <ArrowRight size={18} />, name: "Stability Bar",          note: "steady hands for balance",    req: false },
+                  { icon: <Droplets size={18} />,  name: "Water + Grip Socks",     note: "stay grounded, stay hydrated",req: false },
                 ].map(e => (
-                  <div key={e.name} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                    <span style={{ width: 34, height: 34, borderRadius: "50%", flexShrink: 0, background: C.orangeWash, color: C.orangeDeep, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {e.icon}
-                    </span>
+                  <div key={e.name} className={styles.equipmentItem}>
+                    <span className={styles.equipmentIcon}>{e.icon}</span>
                     <div>
-                      <div style={{ fontFamily: FD, fontWeight: 700, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.03em", color: C.charcoal }}>{e.name}</div>
-                      <div style={{ fontFamily: FB, fontSize: 13, color: C.slate }}>
-                        <span style={{ fontFamily: FD, fontWeight: 700, fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", color: e.req ? "#6BA368" : C.slate }}>
+                      <div className={styles.equipmentName}>{e.name}</div>
+                      <div className={styles.equipmentNote}>
+                        <span className={e.req ? styles.equipmentRequired : styles.equipmentOptional}>
                           {e.req ? "Required" : "Optional"}
                         </span>
                         {" · "}{e.note}
@@ -642,29 +528,26 @@ export default function WorkoutShowPage() {
             </div>
 
             {/* Product CTA */}
-            <div style={{ background: C.charcoal, color: "#fff", borderRadius: 14, overflow: "hidden" }}>
-              <div style={{ aspectRatio: "16/10", background: C.orangeWash, overflow: "hidden" }}>
+            <div className={styles.ctaCard}>
+              <div className={styles.ctaThumb}>
                 <ThumbPlaceholder palette="peach" ratio="16/10" />
               </div>
-              <div style={{ padding: 20 }}>
-                <div style={{ fontFamily: FD, fontWeight: 700, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: C.orange }}>
-                  Bounce on the real thing
-                </div>
-                <div style={{ fontFamily: FD, fontWeight: 900, fontSize: 24, textTransform: "uppercase", margin: "6px 0 8px", lineHeight: 1.05 }}>
-                  The 40&Prime; Rebounder
-                </div>
-                <p style={{ fontFamily: FB, fontSize: 13, color: "#D8D5CF", lineHeight: 1.55, margin: "0 0 16px" }}>
+              <div className={styles.ctaBody}>
+                <div className={styles.ctaEyebrow}>Bounce on the real thing</div>
+                <div className={styles.ctaProductName}>The 40&Prime; Rebounder</div>
+                <p className={styles.ctaDesc}>
                   Whisper-quiet bungee cords — not springs — for 70% less joint impact. Ships 95% assembled.
                 </p>
-                <div style={{ fontFamily: FD, fontWeight: 900, fontSize: 26, marginBottom: 16 }}>
-                  $229 <small style={{ fontSize: 13, fontWeight: 700, color: "#B3B3B3" }}>+ free shipping</small>
+                <div className={styles.ctaPrice}>
+                  $229 <small className={styles.ctaPriceSmall}>+ free shipping</small>
                 </div>
                 <motion.a
                   href="https://leapsandrebounds.com/products/bungee-rebounders-mini-trampoline"
-                  target="_blank" rel="noreferrer"
+                  target="_blank"
+                  rel="noreferrer"
+                  className={styles.ctaBtn}
                   whileHover={{ scale: 1.02, y: -1 }}
                   whileTap={{ scale: 0.98 }}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "15px 28px", borderRadius: 999, background: C.orange, color: "#fff", textDecoration: "none", fontFamily: FD, fontWeight: 800, fontSize: 15, letterSpacing: "0.08em", textTransform: "uppercase", boxShadow: "0 4px 12px rgba(43,43,43,0.10)" }}
                 >
                   Shop the Rebounder <ArrowRight size={16} />
                 </motion.a>
@@ -672,9 +555,13 @@ export default function WorkoutShowPage() {
             </div>
 
             {/* Trust marks */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "4px 2px" }}>
-              {["30-day jump trial — bounce risk-free", "Free shipping, both ways", "Lifetime warranty on the frame"].map(t => (
-                <div key={t} style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: FB, fontSize: 13, color: C.graphite }}>
+            <div className={styles.trustList}>
+              {[
+                "30-day jump trial — bounce risk-free",
+                "Free shipping, both ways",
+                "Lifetime warranty on the frame",
+              ].map(t => (
+                <div key={t} className={styles.trustItem}>
                   <CheckCircle size={18} color="#6BA368" style={{ flexShrink: 0 }} />
                   {t}
                 </div>
@@ -687,22 +574,20 @@ export default function WorkoutShowPage() {
       {/* ── Related workouts ──────────────────────────────────────────────────── */}
       {related.length > 0 && (
         <motion.section
+          className={styles.relatedSection}
+          aria-label="Related workouts"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          aria-label="Related workouts"
-          style={{ ...fullBleed, background: C.cream, padding: "56px 40px", marginTop: 32 }}
         >
-          <div style={wrap}>
-            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, marginBottom: 26 }}>
-              <h2 style={{ fontFamily: FD, fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.01em", fontSize: "clamp(28px, 3.4vw, 40px)", margin: 0, color: C.charcoal }}>
-                Keep Bouncing
-              </h2>
-              <Link href="/academy" style={{ fontFamily: FD, fontWeight: 700, fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase", color: C.orangeDeep, textDecoration: "none", whiteSpace: "nowrap" }}>
+          <div className={styles.relatedInner}>
+            <div className={styles.relatedHeader}>
+              <h2 className={styles.relatedTitle}>Keep Bouncing</h2>
+              <Link href="/academy" className={styles.relatedBrowseLink}>
                 Browse the library →
               </Link>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 22 }}>
+            <div className={styles.relatedGrid}>
               {related.map((w, i) => <RelatedCard key={w.id} w={w} index={i} />)}
             </div>
           </div>
@@ -710,95 +595,126 @@ export default function WorkoutShowPage() {
       )}
 
       {/* ── Comments ──────────────────────────────────────────────────────────── */}
-      <section aria-label="Comments" style={{ padding: "56px 40px" }}>
-        <div style={{ maxWidth: 820 }}>
-          <h2 style={{ fontFamily: FD, fontWeight: 900, textTransform: "uppercase", fontSize: 24, color: C.charcoal, margin: "0 0 8px" }}>
-            Leave a comment
-          </h2>
-          <p style={{ fontFamily: FB, color: C.slate, margin: "0 0 22px" }}>
+      <section className={styles.commentsSection} aria-label="Comments">
+        <div className={styles.commentsInner}>
+          <h2 className={styles.commentsTitle}>Leave a comment</h2>
+          <p className={styles.commentsSub}>
             Did this one work for you? Tell the community how the bounce went.
           </p>
           <AnimatePresence>
             {!submitted ? (
               <motion.form
                 key="form"
+                className={styles.commentForm}
                 initial={{ opacity: 1 }}
                 exit={{ opacity: 0, y: -8 }}
                 onSubmit={e => { e.preventDefault(); setSubmitted(true); }}
-                style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}
               >
                 {[
-                  { id: "cname", label: "Name", type: "text", placeholder: "Your name", key: "name" as const },
-                  { id: "cmail", label: "Email", type: "email", placeholder: "you@email.com", key: "email" as const },
+                  { id: "cname", label: "Name",  type: "text",  placeholder: "Your name",      key: "name"  as const },
+                  { id: "cmail", label: "Email", type: "email", placeholder: "you@email.com",   key: "email" as const },
                 ].map(f => (
                   <div key={f.id}>
-                    <label htmlFor={f.id} style={{ display: "block", fontFamily: FD, fontWeight: 700, fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", color: C.graphite, marginBottom: 7 }}>{f.label}</label>
-                    <input id={f.id} type={f.type} placeholder={f.placeholder} value={commentForm[f.key]} onChange={e => setCommentForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                      style={{ width: "100%", fontFamily: FB, fontSize: 15, color: C.charcoal, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 8, padding: "12px 14px", outline: "none", boxSizing: "border-box" }} />
+                    <label htmlFor={f.id} className={styles.commentLabel}>{f.label}</label>
+                    <input
+                      id={f.id}
+                      type={f.type}
+                      placeholder={f.placeholder}
+                      value={commentForm[f.key]}
+                      onChange={e => setCommentForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      className={styles.commentInput}
+                    />
                   </div>
                 ))}
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label htmlFor="cmsg" style={{ display: "block", fontFamily: FD, fontWeight: 700, fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", color: C.graphite, marginBottom: 7 }}>Comment</label>
-                  <textarea id="cmsg" placeholder="Share how the workout felt…" value={commentForm.msg} onChange={e => setCommentForm(prev => ({ ...prev, msg: e.target.value }))}
-                    style={{ width: "100%", fontFamily: FB, fontSize: 15, color: C.charcoal, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 8, padding: "12px 14px", outline: "none", resize: "vertical", minHeight: 110, boxSizing: "border-box" }} />
+                <div className={styles.commentFullWidth}>
+                  <label htmlFor="cmsg" className={styles.commentLabel}>Comment</label>
+                  <textarea
+                    id="cmsg"
+                    placeholder="Share how the workout felt…"
+                    value={commentForm.msg}
+                    onChange={e => setCommentForm(prev => ({ ...prev, msg: e.target.value }))}
+                    className={styles.commentTextarea}
+                  />
                 </div>
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <motion.button type="submit" whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }}
-                    style={{ fontFamily: FD, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", background: C.orange, color: "#fff", border: "none", borderRadius: 999, padding: "12px 22px", fontSize: 13, cursor: "pointer", boxShadow: "0 4px 12px rgba(43,43,43,0.10)" }}>
+                <div className={styles.commentFullWidth}>
+                  <motion.button
+                    type="submit"
+                    className={styles.commentSubmit}
+                    whileHover={{ scale: 1.02, y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
                     Post comment
                   </motion.button>
                 </div>
               </motion.form>
             ) : (
-              <motion.div key="thanks" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 22px", borderRadius: 14, background: C.orangeWash, border: `1px solid ${C.line}`, marginBottom: 16 }}>
+              <motion.div
+                key="thanks"
+                className={styles.commentThanks}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
                 <CheckCircle size={20} color="#6BA368" />
-                <span style={{ fontFamily: FB, fontSize: 15, color: C.graphite }}>Thanks for sharing! Your comment is awaiting moderation.</span>
+                Thanks for sharing! Your comment is awaiting moderation.
               </motion.div>
             )}
           </AnimatePresence>
-          <div style={{ fontFamily: FD, fontWeight: 800, textTransform: "uppercase", fontSize: 14, color: C.charcoal, margin: "26px 0 6px" }}>0 comments</div>
-          <div style={{ fontFamily: FB, fontSize: 14, color: C.slate }}>No comments yet — be the first to bounce in.</div>
+          <div className={styles.commentsCount}>0 comments</div>
+          <div className={styles.commentsEmpty}>No comments yet — be the first to bounce in.</div>
         </div>
       </section>
 
       {/* ── Risk-free banner ──────────────────────────────────────────────────── */}
       <motion.section
+        className={styles.banner}
+        aria-label="Risk-free guarantee"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
-        aria-label="Risk-free guarantee"
-        style={{ ...fullBleed, background: C.charcoal, color: "#fff", padding: "64px 40px", position: "relative", overflow: "hidden" }}
       >
-        <div style={{ position: "absolute", inset: 0, opacity: 0.04, backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 35 Q20 5 35 35' stroke='%23FCA248' stroke-width='1.2' fill='none'/%3E%3C/svg%3E")`, backgroundSize: "80px" }} />
-        <div style={{ ...wrap, position: "relative", display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 24, alignItems: "center" }}>
+        <div className={styles.bannerPattern} />
+        <div className={styles.bannerInner}>
           <div>
-            <div style={{ fontFamily: FD, fontWeight: 700, fontSize: 13, letterSpacing: "0.14em", textTransform: "uppercase", color: C.orange, marginBottom: 14 }}>100% money-back guarantee</div>
-            <h2 style={{ fontFamily: FD, fontWeight: 900, textTransform: "uppercase", lineHeight: 1.02, fontSize: "clamp(30px, 4vw, 52px)", margin: "0 0 16px" }}>
-              Try our rebounder <em style={{ fontStyle: "normal", color: C.orange }}>risk-free</em>
+            <div className={styles.bannerEyebrow}>100% money-back guarantee</div>
+            <h2 className={styles.bannerTitle}>
+              Try our rebounder{" "}
+              <em className={styles.bannerAccent}>risk-free</em>
             </h2>
-            <p style={{ fontFamily: FB, fontSize: 16, lineHeight: 1.6, color: "#D8D5CF", maxWidth: "48ch", margin: "0 0 24px" }}>
-              Bounce on it for 30 days. If you don&apos;t absolutely love how you feel, send it back and we&apos;ll refund every penny — return shipping on us.
+            <p className={styles.bannerDesc}>
+              Bounce on it for 30 days. If you don&apos;t absolutely love how you feel, send it back
+              and we&apos;ll refund every penny — return shipping on us.
             </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center" }}>
-              <motion.a href="https://leapsandrebounds.com/collections/mini-trampolines" target="_blank" rel="noreferrer" whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.97 }}
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.orange, color: "#fff", textDecoration: "none", fontFamily: FD, fontWeight: 800, fontSize: 15, letterSpacing: "0.08em", textTransform: "uppercase", padding: "15px 28px", borderRadius: 999, boxShadow: "0 8px 24px rgba(252,162,72,0.35)" }}>
+            <div className={styles.bannerActions}>
+              <motion.a
+                href="https://leapsandrebounds.com/collections/mini-trampolines"
+                target="_blank"
+                rel="noreferrer"
+                className={styles.bannerBtnPrimary}
+                whileHover={{ scale: 1.03, y: -2 }}
+                whileTap={{ scale: 0.97 }}
+              >
                 Shop Rebounders <ArrowRight size={16} />
               </motion.a>
-              <motion.a href="https://leapsandrebounds.com/collections/mini-trampolines" target="_blank" rel="noreferrer" whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.97 }}
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#fff", color: C.charcoal, textDecoration: "none", fontFamily: FD, fontWeight: 800, fontSize: 15, letterSpacing: "0.08em", textTransform: "uppercase", padding: "15px 28px", borderRadius: 999 }}>
+              <motion.a
+                href="https://leapsandrebounds.com/collections/mini-trampolines"
+                target="_blank"
+                rel="noreferrer"
+                className={styles.bannerBtnSecondary}
+                whileHover={{ scale: 1.03, y: -2 }}
+                whileTap={{ scale: 0.97 }}
+              >
                 Compare Models
               </motion.a>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className={styles.bannerSeal}>
             <motion.div
+              className={styles.sealCircle}
               animate={{ rotate: [0, 2, -2, 0] }}
               transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
-              style={{ width: 150, height: 150, borderRadius: "50%", border: `2px dashed ${C.orange}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}
             >
-              <span style={{ fontFamily: FD, fontWeight: 900, fontSize: 48, lineHeight: 1, color: C.orange }}>30</span>
-              <span style={{ fontFamily: FD, fontWeight: 800, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 6 }}>Day Jump Trial</span>
+              <span className={styles.sealNumber}>30</span>
+              <span className={styles.sealLabel}>Day Jump Trial</span>
             </motion.div>
           </div>
         </div>
