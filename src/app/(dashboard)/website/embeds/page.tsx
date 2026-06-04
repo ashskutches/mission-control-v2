@@ -169,6 +169,11 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
   const requiredCount = embed.sections.filter((s: any) => s.is_required).length;
   const isLive = embed.is_live ?? false;
 
+  // Aggregate stats across all sections for the header
+  const totalEmbedImp = embed.sections.reduce((sum: number, s: any) => sum + (s.embed_impressions ?? 0), 0);
+  const totalEmbedATC = embed.sections.reduce((sum: number, s: any) => sum + (s.embed_add_to_carts ?? 0), 0);
+  const embedAtcRate = totalEmbedImp > 0 ? ((totalEmbedATC / totalEmbedImp) * 100).toFixed(1) : null;
+
   return (
     <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
       style={{ ...CARD, marginBottom: "0.75rem", borderLeft: `3px solid ${isLive ? "#f59e0b" : embed.active ? "#34d399" : "#334155"}`, opacity: embed.active ? 1 : 0.6 }}>
@@ -187,6 +192,16 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
             <span style={{ fontSize: 10, color: "#475569" }}>{embed.sections.length} section{embed.sections.length !== 1 ? "s" : ""}</span>
             {requiredCount > 0 && <span style={{ fontSize: 9, color: "#f59e0b", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.18)", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>★ {requiredCount} required</span>}
             {embed.max_sections && <span style={{ fontSize: 9, color: "#a78bfa", background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.2)", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>max {embed.max_sections}</span>}
+            {/* Aggregate stats — always visible in collapsed header */}
+            <span title="Total embed impressions" style={{ fontSize: 10, fontWeight: 700, color: totalEmbedImp > 0 ? "#38bdf8" : "#334155", background: totalEmbedImp > 0 ? "rgba(56,189,248,0.08)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(56,189,248,0.12)", borderRadius: 5, padding: "1px 7px" }}>
+              {totalEmbedImp.toLocaleString()} <span style={{ color: "#475569", fontWeight: 400 }}>imp</span>
+            </span>
+            <span title="Total Add-to-Carts" style={{ fontSize: 10, fontWeight: 700, color: totalEmbedATC > 0 ? "#a78bfa" : "#334155", background: totalEmbedATC > 0 ? "rgba(167,139,250,0.08)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(167,139,250,0.12)", borderRadius: 5, padding: "1px 7px" }}>
+              {totalEmbedATC} <span style={{ color: "#475569", fontWeight: 400 }}>ATC</span>
+            </span>
+            <span title="Assisted ATC% — exposure credit attribution" style={{ fontSize: 10, fontWeight: 700, color: totalEmbedImp > 0 ? "#34d399" : "#334155", background: totalEmbedImp > 0 ? "rgba(52,211,153,0.08)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(52,211,153,0.12)", borderRadius: 5, padding: "1px 7px" }}>
+              {embedAtcRate ?? "—"}{embedAtcRate != null ? "%" : ""} <span style={{ color: "#475569", fontWeight: 400 }}>AATC</span>
+            </span>
           </div>
           {embed.description && <p style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{embed.description}</p>}
           {embed.url_patterns.length > 0 && (
@@ -295,11 +310,12 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
                           )}
                         </div>
 
-                        {/* Stats */}
-                        <span style={{ fontSize: 10, color: "#38bdf8", fontWeight: 600, flexShrink: 0 }}>{s.embed_impressions ?? 0} imp</span>
-                        {atcRate && (
-                          <span title="Assisted ATC% — exposure credit attribution" style={{ fontSize: 10, color: "#34d399", fontWeight: 700, flexShrink: 0 }}>{atcRate}% Assisted ATC</span>
-                        )}
+                        {/* Stats — always show, use "—" when no data yet */}
+                        <span title="Embed impressions" style={{ fontSize: 10, color: (s.embed_impressions ?? 0) > 0 ? "#38bdf8" : "#334155", fontWeight: 600, flexShrink: 0 }}>{s.embed_impressions ?? 0} imp</span>
+                        <span title="Embed Add-to-Carts" style={{ fontSize: 10, color: (s.embed_add_to_carts ?? 0) > 0 ? "#a78bfa" : "#334155", fontWeight: 600, flexShrink: 0 }}>{s.embed_add_to_carts ?? 0} ATC</span>
+                        <span title="Assisted ATC% — exposure credit attribution" style={{ fontSize: 10, color: (s.embed_impressions ?? 0) > 0 ? "#34d399" : "#475569", fontWeight: 700, flexShrink: 0 }}>
+                          {atcRate != null ? `${atcRate}%` : "—"} AATC
+                        </span>
 
                         {/* UCB1 score bar */}
                         <div title={`UCB1 score: ${score.toFixed(2)}`} style={{ width: 36, height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 2, flexShrink: 0, overflow: "hidden" }}>
@@ -364,7 +380,7 @@ export default function EmbedsPage() {
   const fetchEmbeds = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await fetch(`${BOT_URL}/admin/intelligence/embeds`);
+      const res = await fetch(`${BOT_URL}/admin/intelligence/embeds`, { cache: "no-store" });
       if (res.ok) { const data = await res.json(); setEmbeds(data.embeds ?? []); }
     } catch { /* silent */ }
     finally { if (!silent) setLoading(false); }
@@ -372,12 +388,18 @@ export default function EmbedsPage() {
 
   const fetchSections = useCallback(async () => {
     try {
-      const res = await fetch(`${BOT_URL}/admin/intelligence/sections`);
+      const res = await fetch(`${BOT_URL}/admin/intelligence/sections`, { cache: "no-store" });
       if (res.ok) { const data = await res.json(); setSections(data.sections ?? []); }
     } catch { /* silent */ }
   }, []);
 
   useEffect(() => { fetchEmbeds(); fetchSections(); }, [fetchEmbeds, fetchSections]);
+
+  // Auto-refresh every 20 s so imp/ATC numbers update without manual reload
+  useEffect(() => {
+    const id = setInterval(() => { fetchEmbeds(true); }, 20_000);
+    return () => clearInterval(id);
+  }, [fetchEmbeds]);
 
   const refresh = () => { fetchEmbeds(true); };
 
