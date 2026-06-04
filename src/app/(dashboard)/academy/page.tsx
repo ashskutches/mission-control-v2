@@ -726,14 +726,14 @@ function ProgramsSection({ programs, memberTier }: { programs: Program[]; member
 // ── Workout Card ───────────────────────────────────────────────────────────────
 function WorkoutCard({ w, i, memberTier }: { w: Workout; i: number; memberTier: Tier }) {
   const locked = w.tier === "pro" && memberTier === "free";
-  const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${w.inst} ${w.title} rebounder`)}`;
+  const showUrl = `/academy/workouts/${w.id}`;
   return (
     <motion.div
-      onClick={() => { if (!locked) window.open(ytUrl, "_blank", "noreferrer"); }}
+      onClick={() => { if (!locked) window.location.href = showUrl; }}
       role={locked ? undefined : "link"}
       tabIndex={locked ? undefined : 0}
-      onKeyDown={(e) => { if (!locked && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); window.open(ytUrl, "_blank", "noreferrer"); } }}
-      aria-label={locked ? undefined : `Find ${w.title} by ${w.inst} on YouTube`}
+      onKeyDown={(e) => { if (!locked && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); window.location.href = showUrl; } }}
+      aria-label={locked ? undefined : `View ${w.title} workout`}
       initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
       whileHover={{ y: -3, boxShadow: "0 14px 40px rgba(43,43,43,0.13)" }}
       style={{ background: C.paper, border: `1px solid ${C.line}`, borderRadius: 14, overflow: "hidden", display: "flex", flexDirection: "column", cursor: locked ? "default" : "pointer", boxShadow: "0 2px 8px rgba(43,43,43,0.06)" }}
