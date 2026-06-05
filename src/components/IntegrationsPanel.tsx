@@ -45,7 +45,8 @@ interface SetSecretResult {
   ok: boolean;
   railway_updated: boolean;
   in_memory_set: boolean;
-  redeploy_note: string;
+  redeploy_note?: string;
+  persistence_warning?: string;
   status: string;
   credentials_ok: boolean;
   missing: string[];
@@ -54,6 +55,7 @@ interface SetSecretResult {
   error?: string;
   hint?: string;
 }
+
 
 interface SetKeyModalState {
   integrationId: string;
@@ -318,9 +320,11 @@ function SetKeyModal({
                       Still missing: {result.missing.join(", ")}
                     </div>
                   )}
-                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-                    ℹ️ {result.redeploy_note}
-                  </div>
+                  {result.redeploy_note && (
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+                      ℹ️ {result.redeploy_note}
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
