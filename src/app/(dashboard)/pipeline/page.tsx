@@ -740,21 +740,32 @@ function StageColumn({
 
   return (
     <div style={{ flex: "0 0 320px", minWidth: 280, maxWidth: 360 }}>
-      {/* Column header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ width: 28, height: 28, borderRadius: 7, background: `${meta.color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Icon size={14} color={meta.color} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontWeight: 800, fontSize: "13px", color: "#e2e8f0" }}>{meta.label}</span>
-            <span style={{ fontSize: "10px", fontWeight: 900, color: meta.color, background: `${meta.color}18`, borderRadius: 8, padding: "1px 7px" }}>
-              {items.length}
-            </span>
+      {/* Column header — click to open full stage view */}
+      <a
+        href={`/pipeline/stage/${stage}`}
+        style={{ textDecoration: "none", display: "block" }}
+      >
+        <div
+          style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", cursor: "pointer", transition: "border-color 0.15s, background 0.15s" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = `${meta.color}0a`; (e.currentTarget as HTMLDivElement).style.borderColor = `${meta.color}35`; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.03)"; (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.06)"; }}
+        >
+          <div style={{ width: 28, height: 28, borderRadius: 7, background: `${meta.color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Icon size={14} color={meta.color} />
           </div>
-          <p style={{ fontSize: "9px", color: "#475569", marginTop: 1 }}>{meta.desc}</p>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontWeight: 800, fontSize: "13px", color: "#e2e8f0" }}>{meta.label}</span>
+              <span style={{ fontSize: "10px", fontWeight: 900, color: meta.color, background: `${meta.color}18`, borderRadius: 8, padding: "1px 7px" }}>
+                {items.length}
+              </span>
+            </div>
+            <p style={{ fontSize: "9px", color: "#475569", marginTop: 1 }}>{meta.desc}</p>
+          </div>
+          <ChevronRight size={12} color="#334155" style={{ flexShrink: 0 }} />
         </div>
-      </div>
+      </a>
+
 
       {/* Cards */}
       <div style={{ maxHeight: "calc(100vh - 240px)", overflowY: "auto", paddingRight: 2 }}>
