@@ -794,6 +794,8 @@ export default function PipelinePage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sectionFilter, setSectionFilter] = useState("");
+  const [agentFilter, setAgentFilter] = useState("");
+  const [humanFilter, setHumanFilter] = useState("");
   const [reassignItem, setReassignItem] = useState<PipelineItem | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -944,23 +946,38 @@ export default function PipelinePage() {
     }
   };
 
-  // Filter items by search/section
+  // Filter items by search/section/agent/human
   const filterItems = (items: PipelineItem[]): PipelineItem[] => {
-    if (!search && !sectionFilter) return items;
+    if (!search && !sectionFilter && !agentFilter && !humanFilter) return items;
     return items.filter(i => {
-      const matchSearch = !search || i.title.toLowerCase().includes(search.toLowerCase());
+      const matchSearch  = !search       || i.title.toLowerCase().includes(search.toLowerCase());
       const matchSection = !sectionFilter || i.section === sectionFilter;
-      return matchSearch && matchSection;
+      const itemAgent    = i.agent_id ?? i.assigned_agent_id ?? "";
+      const matchAgent   = !agentFilter  || itemAgent === agentFilter;
+      const itemHuman    = i.assigned_to ?? i.assigned_username ?? "";
+      const matchHuman   = !humanFilter  || itemHuman === humanFilter;
+      return matchSearch && matchSection && matchAgent && matchHuman;
     });
   };
 
-  // Collect unique sections for filter
-  const allSections = Array.from(new Set([
+  // Collect unique values for filter dropdowns
+  const allItems = [
     ...(data?.inbox ?? []),
     ...(data?.assigned ?? []),
     ...(data?.in_progress ?? []),
     ...(data?.blocked ?? []),
-  ].map(i => i.section).filter(Boolean)));
+  ];
+  const allSections = Array.from(new Set(allItems.map(i => i.section).filter(Boolean)));
+  const allAgents = Array.from(
+    new Map(
+      allItems
+        .filter(i => i.agent_id ?? i.assigned_agent_id)
+        .map(i => [(i.agent_id ?? i.assigned_agent_id)!, (i.agent_name ?? i.assigned_agent_name ?? i.agent_id ?? i.assigned_agent_id)!])
+    )
+  );
+  const allHumans = Array.from(new Set(
+    allItems.map(i => i.assigned_to ?? i.assigned_username).filter(Boolean) as string[]
+  ));
 
   const filtered = data ? {
     inbox:       filterItems(data.inbox),
@@ -1012,6 +1029,30 @@ export default function PipelinePage() {
               >
                 <option value="">All sections</option>
                 {allSections.map(s => <option key={s} value={s!}>{s}</option>)}
+              </select>
+            )}
+
+            {/* Agent filter */}
+            {allAgents.length > 0 && (
+              <select
+                value={agentFilter}
+                onChange={e => setAgentFilter(e.target.value)}
+                style={{ height: 34, paddingLeft: 10, paddingRight: 10, borderRadius: 8, border: `1px solid ${agentFilter ? "rgba(167,139,250,0.4)" : "rgba(255,255,255,0.08)"}`, background: agentFilter ? "rgba(167,139,250,0.08)" : "rgba(255,255,255,0.04)", color: agentFilter ? "#a78bfa" : "#64748b", fontSize: "12px", outline: "none" }}
+              >
+                <option value="">All agents</option>
+                {allAgents.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+              </select>
+            )}
+
+            {/* Human assignee filter */}
+            {allHumans.length > 0 && (
+              <select
+                value={humanFilter}
+                onChange={e => setHumanFilter(e.target.value)}
+                style={{ height: 34, paddingLeft: 10, paddingRight: 10, borderRadius: 8, border: `1px solid ${humanFilter ? "rgba(34,197,94,0.4)" : "rgba(255,255,255,0.08)"}`, background: humanFilter ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.04)", color: humanFilter ? "#22c55e" : "#64748b", fontSize: "12px", outline: "none" }}
+              >
+                <option value="">All people</option>
+                {allHumans.map(h => <option key={h} value={h}>{h}</option>)}
               </select>
             )}
 
