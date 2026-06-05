@@ -63,6 +63,13 @@ interface SetKeyModalState {
   varName: string;
 }
 
+interface ViewSecretState {
+  value: string | null;
+  is_set: boolean;
+  length: number;
+  revealed: boolean;
+}
+
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
@@ -383,6 +390,9 @@ export default function IntegrationsPanel() {
   const [deletingId, setDeletingId]     = useState<string | null>(null);
   const [setKeyModal, setSetKeyModal]   = useState<SetKeyModalState | null>(null);
   const [recentlySet, setRecentlySet]   = useState<Record<string, string>>({});  // varName → message
+  // varKey = `${integrationId}:${varName}`
+  const [viewing, setViewing]           = useState<Record<string, boolean>>({});   // fetching in progress
+  const [revealed, setRevealed]         = useState<Record<string, ViewSecretState | null>>({}); // fetched secrets
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -574,63 +584,174 @@ export default function IntegrationsPanel() {
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                             {item.env_vars.map(v => {
-                              const isSet = item.credentials_ok || recentlySet[v];
+                              const isSet   = item.credentials_ok || recentlySet[v];
+                              const viewKey = `${item.id}:${v}`;
+                              const secret  = revealed[viewKey];
+                              const loading = viewing[viewKey];
+
+                              async function fetchSecret() {
+                                setViewing(prev => ({ ...prev, [viewKey]: true }));
+                                try {
+                                  const res  = await fetch(`${API_BASE}/admin/integrations/${item.id}/get-secret?var_name=${encodeURIComponent(v)}`);
+                                  const data = await res.json();
+                                  setRevealed(prev => ({ ...prev, [viewKey]: { value: data.value, is_set: data.is_set, length: data.length, revealed: false } }));
+                                  // Auto-clear after 30s
+                                  setTimeout(() => setRevealed(prev => ({ ...prev, [viewKey]: null })), 30_000);
+                                } catch {
+                                  setRevealed(prev => ({ ...prev, [viewKey]: { value: null, is_set: false, length: 0, revealed: false } }));
+                                } finally {
+                                  setViewing(prev => ({ ...prev, [viewKey]: false }));
+                                }
+                              }
+
+                              function maskValue(val: string) {
+                                if (val.length <= 8) return "*".repeat(val.length);
+                                return val.slice(0, 4) + "*".repeat(Math.min(val.length - 8, 20)) + val.slice(-4);
+                              }
+
                               return (
-                                <div key={v} style={{
-                                  display: "flex", alignItems: "center", gap: 8,
-                                  padding: "7px 10px", borderRadius: 7,
-                                  background: isSet
-                                    ? "rgba(34,197,94,0.06)"
-                                    : "rgba(244,63,94,0.05)",
-                                  border: isSet
-                                    ? "1px solid rgba(34,197,94,0.15)"
-                                    : "1px solid rgba(244,63,94,0.12)",
-                                }}>
+                                <div key={v} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                   <div style={{
-                                    width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
-                                    background: isSet ? "#22c55e" : "#f43f5e",
-                                    boxShadow: isSet ? "0 0 5px #22c55e" : "none",
-                                  }} />
-                                  <code style={{
-                                    fontSize: 11, fontFamily: "monospace", flex: 1,
-                                    color: isSet ? "#4ade80" : "#fca5a5", fontWeight: 600,
+                                    display: "flex", alignItems: "center", gap: 8,
+                                    padding: "7px 10px", borderRadius: secret ? "7px 7px 0 0" : 7,
+                                    background: isSet
+                                      ? "rgba(34,197,94,0.06)"
+                                      : "rgba(244,63,94,0.05)",
+                                    border: isSet
+                                      ? "1px solid rgba(34,197,94,0.15)"
+                                      : "1px solid rgba(244,63,94,0.12)",
+                                    borderBottom: secret ? "none" : undefined,
                                   }}>
-                                    {v}
-                                  </code>
-                                  {recentlySet[v] ? (
-                                    <span style={{ fontSize: 10, color: "#4ade80", fontWeight: 700 }}>✓ SET</span>
-                                  ) : !item.credentials_ok ? (
+                                    <div style={{
+                                      width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+                                      background: isSet ? "#22c55e" : "#f43f5e",
+                                      boxShadow: isSet ? "0 0 5px #22c55e" : "none",
+                                    }} />
+                                    <code style={{
+                                      fontSize: 11, fontFamily: "monospace", flex: 1,
+                                      color: isSet ? "#4ade80" : "#fca5a5", fontWeight: 600,
+                                    }}>
+                                      {v}
+                                    </code>
+
+                                    {/* View button — always visible */}
                                     <button
-                                      id={`set-key-btn-${item.id}-${v}`}
-                                      aria-label={`Set ${v} for ${item.display_name}`}
+                                      id={`view-key-btn-${item.id}-${v}`}
+                                      aria-label={secret ? `Hide ${v}` : `View ${v}`}
                                       onClick={e => {
                                         e.stopPropagation();
-                                        setSetKeyModal({
-                                          integrationId: item.id,
-                                          integrationName: item.display_name,
-                                          varName: v,
-                                        });
+                                        if (secret) {
+                                          setRevealed(prev => ({ ...prev, [viewKey]: null }));
+                                        } else {
+                                          fetchSecret();
+                                        }
                                       }}
+                                      disabled={loading}
                                       style={{
-                                        padding: "4px 11px", borderRadius: 5, fontSize: 10, fontWeight: 800,
-                                        cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
-                                        background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.25)",
-                                        color: "#38bdf8",
+                                        padding: "3px 8px", borderRadius: 5, fontSize: 10, fontWeight: 700,
+                                        cursor: loading ? "default" : "pointer",
+                                        display: "flex", alignItems: "center", gap: 3,
+                                        background: secret ? "rgba(148,163,184,0.12)" : "rgba(100,116,139,0.1)",
+                                        border: "1px solid rgba(100,116,139,0.2)",
+                                        color: secret ? "#94a3b8" : "#64748b",
                                         transition: "all 0.15s",
                                       }}
-                                      onMouseEnter={e => {
-                                        (e.currentTarget as HTMLButtonElement).style.background = "rgba(56,189,248,0.2)";
-                                        (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px rgba(56,189,248,0.2)";
-                                      }}
-                                      onMouseLeave={e => {
-                                        (e.currentTarget as HTMLButtonElement).style.background = "rgba(56,189,248,0.1)";
-                                        (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
-                                      }}
                                     >
-                                      <Key size={9} /> Set Key
+                                      {loading
+                                        ? <Loader size={9} style={{ animation: "spin 0.8s linear infinite" }} />
+                                        : secret
+                                          ? <><EyeOff size={9} /> Hide</>
+                                          : <><Eye size={9} /> View</>
+                                      }
                                     </button>
-                                  ) : (
-                                    <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 700 }}>✓ OK</span>
+
+                                    {/* Set Key or status badge */}
+                                    {recentlySet[v] ? (
+                                      <span style={{ fontSize: 10, color: "#4ade80", fontWeight: 700 }}>&#10003; SET</span>
+                                    ) : !item.credentials_ok ? (
+                                      <button
+                                        id={`set-key-btn-${item.id}-${v}`}
+                                        aria-label={`Set ${v} for ${item.display_name}`}
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          setSetKeyModal({
+                                            integrationId: item.id,
+                                            integrationName: item.display_name,
+                                            varName: v,
+                                          });
+                                        }}
+                                        style={{
+                                          padding: "4px 11px", borderRadius: 5, fontSize: 10, fontWeight: 800,
+                                          cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
+                                          background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.25)",
+                                          color: "#38bdf8",
+                                          transition: "all 0.15s",
+                                        }}
+                                        onMouseEnter={e => {
+                                          (e.currentTarget as HTMLButtonElement).style.background = "rgba(56,189,248,0.2)";
+                                          (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px rgba(56,189,248,0.2)";
+                                        }}
+                                        onMouseLeave={e => {
+                                          (e.currentTarget as HTMLButtonElement).style.background = "rgba(56,189,248,0.1)";
+                                          (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                                        }}
+                                      >
+                                        <Key size={9} /> Set Key
+                                      </button>
+                                    ) : (
+                                      <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 700 }}>&#10003; OK</span>
+                                    )}
+                                  </div>
+
+                                  {/* Inline value reveal panel */}
+                                  {secret && (
+                                    <div style={{
+                                      padding: "8px 12px",
+                                      borderRadius: "0 0 7px 7px",
+                                      background: "rgba(15,23,42,0.8)",
+                                      border: isSet ? "1px solid rgba(34,197,94,0.15)" : "1px solid rgba(244,63,94,0.12)",
+                                      borderTop: "1px solid rgba(255,255,255,0.05)",
+                                      display: "flex", alignItems: "center", gap: 8,
+                                    }}>
+                                      {secret.is_set ? (
+                                        <>
+                                          <code style={{
+                                            flex: 1, fontSize: 11, fontFamily: "monospace",
+                                            color: "#e2e8f0", wordBreak: "break-all", lineHeight: 1.5,
+                                            letterSpacing: secret.revealed ? "normal" : "0.12em",
+                                          }}>
+                                            {secret.revealed ? secret.value : maskValue(secret.value!)}
+                                          </code>
+                                          <button
+                                            aria-label={secret.revealed ? "Mask value" : "Reveal full value"}
+                                            onClick={e => {
+                                              e.stopPropagation();
+                                              setRevealed(prev => ({
+                                                ...prev,
+                                                [viewKey]: prev[viewKey] ? { ...prev[viewKey]!, revealed: !prev[viewKey]!.revealed } : null,
+                                              }));
+                                            }}
+                                            style={{
+                                              flexShrink: 0, background: "none", border: "none",
+                                              padding: 4, cursor: "pointer", color: "#475569",
+                                              display: "flex", alignItems: "center",
+                                            }}
+                                          >
+                                            {secret.revealed ? <EyeOff size={12} /> : <Eye size={12} />}
+                                          </button>
+                                          <span style={{ fontSize: 9, color: "#475569", flexShrink: 0 }}>
+                                            {secret.length} chars
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <span style={{ fontSize: 11, color: "#f43f5e", fontStyle: "italic" }}>
+                                          Not set in process.env
+                                        </span>
+                                      )}
+                                      <span style={{ fontSize: 9, color: "#334155", marginLeft: "auto", flexShrink: 0 }}>
+                                        clears in 30s
+                                      </span>
+                                    </div>
                                   )}
                                 </div>
                               );
