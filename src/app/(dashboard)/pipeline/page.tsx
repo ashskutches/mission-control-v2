@@ -38,6 +38,8 @@ interface PipelineItem {
   estimated_monthly_value?: number | null;
   occurrences?: number | null;
   assigned_work_id?: string | null;
+  // Work / human_task parent link
+  insight_id?: string | null;
   // Work-specific
   milestones?: { label: string; done: boolean }[] | null;
   current_milestone?: number | null;
@@ -388,7 +390,7 @@ function ReassignModal({
 }
 
 function PipelineCard({
-  item, onReassign, onAction, onApprove, onReject, onDismiss,
+  item, onReassign, onAction, onApprove, onReject, onDismiss, onComplete,
 }: {
   item: PipelineItem;
   onReassign: (item: PipelineItem) => void;
@@ -396,6 +398,7 @@ function PipelineCard({
   onApprove?: (item: PipelineItem) => Promise<void>;
   onReject?: (item: PipelineItem) => Promise<void>;
   onDismiss?: (item: PipelineItem) => Promise<void>;
+  onComplete?: (item: PipelineItem) => Promise<void>;
 }) {
   const badge = KIND_BADGE[item._kind];
   const pct = milestonePercent(item);
@@ -403,6 +406,7 @@ function PipelineCard({
   const isAgent = isAgentAssigned(item);
   const [acting, setActing] = useState<"approve" | "reject" | null>(null);
   const [dismissing, setDismissing] = useState(false);
+  const [completing, setCompleting] = useState(false);
 
   const handleDismiss = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -411,6 +415,13 @@ function PipelineCard({
     setDismissing(true);
     try { await onDismiss?.(item); }
     finally { setDismissing(false); }
+  };
+
+  const handleComplete = async () => {
+    if (completing) return;
+    setCompleting(true);
+    try { await onComplete?.(item); }
+    finally { setCompleting(false); }
   };
 
   const act = async (which: "approve" | "reject") => {
@@ -507,18 +518,29 @@ function PipelineCard({
         </span>
       </div>
 
-      {/* Priority bar + clickable title for insights */}
+      {/* Priority bar + clickable title */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
         <div style={{ width: 3, height: 28, borderRadius: 2, background: priorityColor(item.priority), flexShrink: 0 }} />
-        {item._kind === "insight" ? (
-          <a href={`/pipeline/${item.id}`} style={{ fontWeight: 700, fontSize: "13px", color: "#e2e8f0", lineHeight: 1.3, flex: 1, textDecoration: "none", cursor: "pointer" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "#e98d20")}
-            onMouseLeave={e => (e.currentTarget.style.color = "#e2e8f0")}>
-            {item.title}
-          </a>
-        ) : (
-          <p style={{ fontWeight: 700, fontSize: "13px", color: "#e2e8f0", lineHeight: 1.3, flex: 1 }}>{item.title}</p>
-        )}
+        {(() => {
+          // insights link to their own detail page
+          // work / human_task link to the parent insight if insight_id is available
+          const href =
+            item._kind === "insight" ? `/pipeline/${item.id}` :
+            item.insight_id ? `/pipeline/${item.insight_id}` :
+            null;
+          return href ? (
+            <a
+              href={href}
+              style={{ fontWeight: 700, fontSize: "13px", color: "#e2e8f0", lineHeight: 1.3, flex: 1, textDecoration: "none", cursor: "pointer" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "#e98d20")}
+              onMouseLeave={e => (e.currentTarget.style.color = "#e2e8f0")}
+            >
+              {item.title}
+            </a>
+          ) : (
+            <p style={{ fontWeight: 700, fontSize: "13px", color: "#e2e8f0", lineHeight: 1.3, flex: 1 }}>{item.title}</p>
+          );
+        })()}
       </div>
 
       {/* Body / last progress */}
@@ -647,6 +669,30 @@ function PipelineCard({
             </>
           )}
 
+          {/* Mark Done — work and human_task cards */}
+          {(item._kind === "work" || item._kind === "human_task") && onComplete && (
+            <button
+              onClick={handleComplete}
+              disabled={completing}
+              title="Mark this item as done"
+              style={{
+                padding: "4px 10px", borderRadius: 6, border: "none",
+                background: completing
+                  ? "rgba(34,197,94,0.3)"
+                  : "linear-gradient(135deg,#22c55e,#16a34a)",
+                color: "#fff", fontSize: "10px", fontWeight: 700,
+                cursor: completing ? "wait" : "pointer",
+                display: "flex", alignItems: "center", gap: 4,
+                transition: "all 0.15s",
+              }}
+            >
+              {completing
+                ? <RefreshCw size={9} className="animate-spin" />
+                : <CheckCheck size={9} />}
+              {completing ? "Saving…" : "Done ✓"}
+            </button>
+          )}
+
           {/* Work link */}
           {item._kind === "insight" && item.assigned_work_id && (
             <a href="/work" style={{ display: "flex", alignItems: "center", gap: 3, padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(56,189,248,0.2)", color: "#38bdf8", fontSize: "10px", fontWeight: 700, textDecoration: "none" }}>
@@ -678,7 +724,7 @@ const STAGE_META = {
 type Stage = keyof typeof STAGE_META;
 
 function StageColumn({
-  stage, items, onReassign, onApprove, onReject, onDismiss, onAction,
+  stage, items, onReassign, onApprove, onReject, onDismiss, onComplete, onAction,
 }: {
   stage: Stage;
   items: PipelineItem[];
@@ -686,6 +732,7 @@ function StageColumn({
   onApprove: (item: PipelineItem) => Promise<void>;
   onReject: (item: PipelineItem) => Promise<void>;
   onDismiss: (item: PipelineItem) => Promise<void>;
+  onComplete: (item: PipelineItem) => Promise<void>;
   onAction: () => void;
 }) {
   const meta = STAGE_META[stage];
@@ -728,6 +775,7 @@ function StageColumn({
                 onApprove={onApprove}
                 onReject={onReject}
                 onDismiss={onDismiss}
+                onComplete={onComplete}
               />
             ))
           )}
@@ -831,6 +879,28 @@ export default function PipelinePage() {
       } else {
         addToast("ok", `Approved ✓ — ${body.tool_name ?? item.tool_name ?? "tool"} executed.`);
       }
+      fetchData(true);
+    } catch (e: any) {
+      addToast("err", `Network error: ${e.message}`);
+    }
+  };
+
+  const handleCompleteItem = async (item: PipelineItem) => {
+    try {
+      const item_type = item._kind === "work" ? "work"
+        : item._kind === "human_task" ? "human_task"
+        : "insight";
+      const res = await fetch(`${BOT_URL}/admin/pipeline/${item.id}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_type, completed_by: "ash" }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        addToast("err", `Could not complete: ${body?.error ?? `HTTP ${res.status}`}`);
+        return;
+      }
+      addToast("ok", `✓ Marked complete${body.title ? `: "${body.title}"` : ""}`);
       fetchData(true);
     } catch (e: any) {
       addToast("err", `Network error: ${e.message}`);
@@ -990,6 +1060,7 @@ export default function PipelinePage() {
               onApprove={handleApprove}
               onReject={handleReject}
               onDismiss={handleDismissInsight}
+              onComplete={handleCompleteItem}
               onAction={() => fetchData(true)}
             />
           ))}
