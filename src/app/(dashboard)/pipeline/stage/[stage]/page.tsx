@@ -9,6 +9,7 @@ import {
   Trash2, RotateCcw, CheckCheck, DollarSign, TrendingUp,
   AlertCircle, ExternalLink, Clock, Tag, Layers, CheckCircle2,
   XCircle, Sparkles, Bell, BellOff, ArrowUpDown,
+  Minimize2, Maximize2,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
@@ -109,9 +110,9 @@ function itemDetailHref(item: PipelineItem): string | null {
 
 // ── Rich Grid Card ─────────────────────────────────────────────────────────────
 function GridCard({
-  item, selected, onSelect, onDismiss, onComplete, onReassign, stageColor,
+  item, selected, onSelect, onDismiss, onComplete, onReassign, stageColor, compact,
 }: {
-  item: PipelineItem; selected: boolean; stageColor: string;
+  item: PipelineItem; selected: boolean; stageColor: string; compact: boolean;
   onSelect: () => void; onDismiss: () => Promise<void>;
   onComplete: () => Promise<void>; onReassign: () => void;
 }) {
@@ -182,15 +183,15 @@ function GridCard({
         <p style={{ fontWeight: 700, fontSize: 13, color: "#e2e8f0", lineHeight: 1.4, marginBottom: 6 }}>{item.title}</p>
       )}
 
-      {/* Full body / progress / instructions */}
-      {(item.body ?? item.last_progress ?? item.instructions) && (
+      {/* Full body / progress / instructions — hidden in compact mode */}
+      {!compact && (item.body ?? item.last_progress ?? item.instructions) && (
         <p style={{ fontSize: 11, color: "#64748b", lineHeight: 1.6, marginBottom: 8 }}>
           {item.last_progress ?? item.body ?? item.instructions}
         </p>
       )}
 
-      {/* Milestone progress */}
-      {item._kind === "work" && item.milestones && item.milestones.length > 0 && (
+      {/* Milestone progress — hidden in compact mode */}
+      {!compact && item._kind === "work" && item.milestones && item.milestones.length > 0 && (
         <div style={{ marginBottom: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
             <span style={{ fontSize: 9, color: "#475569" }}>
@@ -494,6 +495,7 @@ export default function StagePage() {
 
   // View controls
   const [view, setView] = useState<ViewMode>("grid");
+  const [compact, setCompact] = useState(false);
   const [search, setSearch] = useState("");
   const [sectionFilter, setSectionFilter] = useState("");
   const [agentFilter, setAgentFilter] = useState("");
@@ -768,14 +770,34 @@ export default function StagePage() {
           </select>
         )}
 
-        {/* View toggle */}
-        <div style={{ display: "flex", gap: 2, background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: 3, marginLeft: "auto" }}>
-          {([["grid", LayoutGrid], ["table", LayoutList]] as [ViewMode, any][]).map(([v, Icon]) => (
-            <button key={v} onClick={() => setView(v)} aria-label={v}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 6, border: "none", cursor: "pointer", background: view === v ? `${meta.color}22` : "transparent", color: view === v ? meta.color : "#475569", transition: "all 0.15s" }}>
-              <Icon size={13} />
+        {/* Compact toggle (grid only) + View toggle */}
+        <div style={{ display: "flex", gap: 6, alignItems: "center", marginLeft: "auto" }}>
+          {view === "grid" && (
+            <button
+              onClick={() => setCompact(c => !c)}
+              aria-label={compact ? "Show detailed view" : "Show compact view"}
+              title={compact ? "Detailed view" : "Compact view"}
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                height: 30, padding: "0 10px", borderRadius: 7, cursor: "pointer",
+                border: `1px solid ${compact ? `${meta.color}40` : "rgba(255,255,255,0.08)"}`,
+                background: compact ? `${meta.color}10` : "rgba(255,255,255,0.04)",
+                color: compact ? meta.color : "#64748b",
+                fontSize: 11, fontWeight: 700, transition: "all 0.15s",
+              }}
+            >
+              {compact ? <Maximize2 size={11} /> : <Minimize2 size={11} />}
+              {compact ? "Detailed" : "Compact"}
             </button>
-          ))}
+          )}
+          <div style={{ display: "flex", gap: 2, background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: 3 }}>
+            {([["grid", LayoutGrid], ["table", LayoutList]] as [ViewMode, any][]).map(([v, Icon]) => (
+              <button key={v} onClick={() => setView(v)} aria-label={v}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 6, border: "none", cursor: "pointer", background: view === v ? `${meta.color}22` : "transparent", color: view === v ? meta.color : "#475569", transition: "all 0.15s" }}>
+                <Icon size={13} />
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -832,6 +854,7 @@ export default function StagePage() {
                       key={item.id} item={item}
                       selected={selected.has(item.id)}
                       stageColor={meta.color}
+                      compact={compact}
                       onSelect={() => toggleSelect(item.id)}
                       onDismiss={() => handleDismiss(item)}
                       onComplete={() => handleComplete(item)}
