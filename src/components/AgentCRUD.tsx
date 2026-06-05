@@ -119,7 +119,7 @@ const ROLE_PRESETS: { id: string; label: string; emoji: string; description: str
     { id: "email-marketer",    label: "Email Marketer",              emoji: "📧", description: "Gmail, Klaviyo, Shopify. Drafts and manages email campaigns." },
     { id: "content-creator",   label: "Content Creator",            emoji: "🎨", description: "Image & video generation, social content, brand asset library." },
     { id: "influencing-agent", label: "Influencer / Social Media",  emoji: "⭐", description: "Influencer outreach, partnership content, social scheduling." },
-    { id: "support-agent",     label: "Customer Support",           emoji: "🛟", description: "Customer queries, order lookups, Gorgias, SMS & voice calls." },
+    { id: "support-agent",     label: "Customer Support",           emoji: "🛟", description: "Customer queries, order lookups, SMS & voice calls." },
     { id: "ads-manager",       label: "Paid Ads Manager",           emoji: "📢", description: "Ad performance research, creative generation, asset library." },
     { id: "analytics-agent",   label: "Analytics & Commerce",       emoji: "📊", description: "Revenue dashboards, Triple Whale, Klaviyo, Shopify metrics." },
 ];
