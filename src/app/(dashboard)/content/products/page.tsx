@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import {
-  ShoppingBag, ImageIcon, Pin, PinOff, Plus, Trash2, GripVertical,
+  ShoppingBag, ImageIcon, Pin, Plus, Trash2, GripVertical,
   Search, ChevronRight, Link2, CheckCircle2, AlertCircle, X, RefreshCw,
-  Loader2,
+  Loader2, Upload,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -296,16 +296,19 @@ function ImagePicker({
 // ── Reference Set Panel ────────────────────────────────────────────────────────
 
 function ReferenceSet({
-  product, refs, onRemove, onReorder, onAddUrl,
+  product, refs, onRemove, onReorder, onAddUrl, onUpload,
 }: {
   product: ShopifyProduct;
   refs: PinnedRef[];
   onRemove: (refId: string) => void;
   onReorder: (newOrder: PinnedRef[]) => void;
   onAddUrl: (url: string) => void;
+  onUpload: (files: FileList) => void;
 }) {
   const [urlInput, setUrlInput] = useState("");
   const [urlError, setUrlError] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const count = refs.length;
   const pct = Math.round((count / MAX_REFS) * 100);
   const barColor = count === 0 ? "#334155" : count >= MAX_REFS ? "#10b981" : ACCENT;
@@ -317,6 +320,12 @@ function ReferenceSet({
     setUrlError("");
     onAddUrl(trimmed);
     setUrlInput("");
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files.length > 0) onUpload(e.dataTransfer.files);
   }
 
   return (
@@ -412,6 +421,49 @@ function ReferenceSet({
             ))}
           </Reorder.Group>
         )}
+      </div>
+
+      {/* Upload drop zone */}
+      <div
+        onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+        onClick={() => count < MAX_REFS && fileInputRef.current?.click()}
+        style={{
+          margin: "0 0.75rem 0.75rem",
+          border: `2px dashed ${isDragging ? ACCENT : "rgba(255,255,255,0.1)"}`,
+          borderRadius: 10,
+          padding: "0.75rem",
+          display: "flex", alignItems: "center", gap: "0.6rem",
+          cursor: count < MAX_REFS ? "pointer" : "default",
+          background: isDragging ? `${ACCENT}08` : "rgba(255,255,255,0.02)",
+          transition: "all 0.15s",
+          opacity: count >= MAX_REFS ? 0.4 : 1,
+        }}
+      >
+        <div style={{
+          width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+          background: `${ACCENT}14`, border: `1px solid ${ACCENT}25`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <Upload size={13} color={ACCENT} />
+        </div>
+        <div>
+          <p style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", margin: 0 }}>
+            {isDragging ? "Drop to upload" : "Upload from desktop"}
+          </p>
+          <p style={{ fontSize: 10, color: "#475569", margin: 0 }}>
+            Drag & drop or click · JPG, PNG, WebP · max 20 MB
+          </p>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: "none" }}
+          onChange={e => e.target.files && onUpload(e.target.files)}
+        />
       </div>
 
       {/* URL input */}
@@ -589,6 +641,48 @@ export default function ProductRefsPage() {
     }, 800);
   }, [selected]);
 
+  // ── Upload files from desktop ───────────────────────────────────────────────
+  const handleUpload = useCallback(async (files: FileList) => {
+    if (!selected) return;
+    const arr = Array.from(files).filter(f => f.type.startsWith("image/"));
+    if (arr.length === 0) { showToast("No valid image files selected", "error"); return; }
+
+    const remaining = MAX_REFS - refs.length;
+    const toUpload = arr.slice(0, remaining);
+    if (toUpload.length === 0) { showToast("Max 14 refs already reached", "error"); return; }
+
+    showToast(`Uploading ${toUpload.length} image${toUpload.length > 1 ? "s" : ""}…`);
+
+    let successCount = 0;
+    for (const file of toUpload) {
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("product_title", selected.title);
+        fd.append("product_handle", selected.handle);
+
+        const r = await fetch(`${BOT_URL}/admin/products/refs/${selected.id}/upload`, {
+          method: "POST",
+          body: fd,
+          signal: AbortSignal.timeout(30_000),
+        });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`);
+        const data = await r.json();
+        if (data.ref) {
+          setRefs(prev => [...prev, data.ref]);
+          setProducts(prev => prev.map(p => p.id === selected.id ? { ...p, ref_count: p.ref_count + 1 } : p));
+          successCount++;
+        }
+      } catch (e: any) {
+        showToast(`Upload failed for ${file.name}: ${e.message}`, "error");
+      }
+    }
+
+    if (successCount > 0) {
+      showToast(`✅ ${successCount} image${successCount > 1 ? "s" : ""} uploaded and pinned`);
+    }
+  }, [selected, refs.length]);
+
   const pinnedUrls = new Set(refs.map(r => r.image_url));
 
   return (
@@ -669,6 +763,7 @@ export default function ProductRefsPage() {
               onRemove={handleRemove}
               onReorder={handleReorder}
               onAddUrl={(url) => handleAddImage(url, "url")}
+              onUpload={handleUpload}
             />
           )
         ) : (
