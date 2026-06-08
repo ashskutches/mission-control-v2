@@ -2,9 +2,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
-  Film, ImageIcon, FileText, Layers, Video, FolderOpen,
-  Tag, Sparkles, RefreshCw, Clock, CheckCircle2, AlertCircle,
-  TrendingUp, Package, Copy, ArrowRight,
+  Film, ImageIcon, FileText, Layers,
+  Tag, FolderOpen, TrendingUp, Package, Copy, ArrowRight,
 } from "lucide-react";
 import SectionAgentPanel from "@/components/SectionAgentPanel";
 import ChatBox from "@/components/ChatBox";
@@ -21,15 +20,6 @@ const CARD: React.CSSProperties = {
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-interface ContentStats {
-  clips_total: number;
-  clips_high_quality: number;
-  video_jobs: { draft: number; pending: number; rendering: number; done: number; failed: number };
-  sections_total: number;
-  assets_tagged: number;
-  assets_untagged: number;
-}
 
 interface DriveStats {
   configured: boolean;
@@ -75,14 +65,13 @@ function StatCard({ label, value, icon: Icon, color, sub, loading }: {
 
 function AssetLibraryPanel({ stats, loading }: { stats: DriveStats | null; loading: boolean }) {
   const FILE_TYPES = [
-    { key: "videos",    label: "Videos",    color: "#f59e0b", icon: Film },
     { key: "images",    label: "Images",    color: "#38bdf8", icon: ImageIcon },
     { key: "documents", label: "Documents", color: "#10b981", icon: FileText },
     { key: "other",     label: "Other",     color: "#94a3b8", icon: Package },
   ] as const;
 
-  const total   = stats?.total   ?? 0;
-  const tagged  = stats?.tagged  ?? 0;
+  const total    = stats?.total    ?? 0;
+  const tagged   = stats?.tagged   ?? 0;
   const untagged = stats?.untagged ?? 0;
   const coverage = stats?.tagCoverage ?? 0;
 
@@ -160,48 +149,9 @@ function AssetLibraryPanel({ stats, loading }: { stats: DriveStats | null; loadi
   );
 }
 
-// ── Video Job Status Bar ───────────────────────────────────────────────────────
-
-function VideoJobStatusBar({ jobs, loading }: { jobs: ContentStats["video_jobs"] | null; loading: boolean }) {
-  const statuses = [
-    { key: "draft",     label: "Draft",     color: "#64748b", icon: Clock },
-    { key: "pending",   label: "Approved",  color: "#f59e0b", icon: CheckCircle2 },
-    { key: "rendering", label: "Rendering", color: "#38bdf8", icon: RefreshCw },
-    { key: "done",      label: "Done",      color: "#10b981", icon: CheckCircle2 },
-    { key: "failed",    label: "Failed",    color: "#f43f5e", icon: AlertCircle },
-  ] as const;
-
-  return (
-    <div style={{ ...CARD, marginBottom: "1.25rem" }}>
-      <p style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, marginBottom: "1rem" }}>
-        Video Jobs Pipeline
-      </p>
-      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-        {statuses.map(({ key, label, color, icon: Icon }) => (
-          <div key={key} style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: `${color}0d`, border: `1px solid ${color}25`, borderRadius: 20, padding: "0.3rem 0.75rem" }}>
-            <Icon size={11} color={color} />
-            <span style={{ fontSize: 10, color, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color }}>
-              {loading ? "–" : (jobs?.[key] ?? 0)}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── Quick Nav Tiles ───────────────────────────────────────────────────────────
 
 const NAV_TILES = [
-  {
-    href: "/content/video",
-    label: "Video Agent",
-    icon: Video,
-    color: "#f59e0b",
-    sub: "Create storyboards from your clip library",
-    badge: "AI",
-  },
   {
     href: "/content/assets",
     label: "Asset Tagger",
@@ -272,115 +222,38 @@ function QuickNavTile({ href, label, icon: Icon, color, sub, badge }: typeof NAV
   );
 }
 
-// ── Recent Activity Feed ───────────────────────────────────────────────────────
-
-interface VideoJob {
-  id: string;
-  status: string;
-  created_at: string;
-  output_url?: string;
-  error_message?: string;
-}
-
-function RecentJobsFeed({ jobs, loading }: { jobs: VideoJob[]; loading: boolean }) {
-  const statusColor: Record<string, string> = {
-    draft: "#64748b", pending: "#f59e0b", rendering: "#38bdf8", done: "#10b981", failed: "#f43f5e",
-  };
-  return (
-    <div style={CARD}>
-      <p style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, marginBottom: "1rem" }}>
-        Recent Video Jobs
-      </p>
-      {loading ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          {[0, 1, 2].map(i => (
-            <div key={i} style={{ height: 40, background: "rgba(255,255,255,0.03)", borderRadius: 8, animation: "pulse 1.5s infinite" }} />
-          ))}
-        </div>
-      ) : jobs.length === 0 ? (
-        <p style={{ fontSize: 12, color: "#475569" }}>No video jobs yet — create one in the Video Agent.</p>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-          {jobs.map((j, i) => (
-            <motion.div
-              key={j.id}
-              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
-              style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0.75rem", background: "rgba(255,255,255,0.02)", borderRadius: 8 }}
-            >
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: statusColor[j.status] ?? "#64748b", flexShrink: 0 }} />
-              <span style={{ fontSize: 11, color: "#94a3b8", fontFamily: "monospace", flex: 1 }}>#{j.id.slice(0, 8)}</span>
-              <span style={{ fontSize: 10, color: statusColor[j.status] ?? "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", background: `${statusColor[j.status] ?? "#64748b"}12`, padding: "1px 6px", borderRadius: 10 }}>
-                {j.status}
-              </span>
-              <span style={{ fontSize: 10, color: "#475569" }}>
-                {new Date(j.created_at).toLocaleDateString()}
-              </span>
-            </motion.div>
-          ))}
-          <a href="/content/video" style={{ fontSize: 11, color: ACCENT, fontWeight: 700, marginTop: "0.25rem", textDecoration: "none" }}>
-            View all jobs →
-          </a>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Content Hub Page ──────────────────────────────────────────────────────────
 
 const CONTENT_HINT = `
 You are the Content Intelligence agent for Leaps & Rebounds — an ecommerce brand selling rebounders/trampolines.
 
 Your domain covers ALL content production:
-- Video library: clip metadata, quality scores, storyboard drafts, rendering jobs
 - Asset library: images, raw files tagged by type/campaign/theme
 - Shopify section snippets: custom liquid sections for A/B testing
 - Copy assets: ads, emails, product descriptions, SMS
 
 Your job is to:
-- Audit existing content for gaps (missing video content types, untagged assets, low-quality clips)
+- Audit existing content for gaps (untagged assets, missing copy types)
 - Recommend content briefs based on top-converting audiences and page sections
-- Surface video jobs stuck in draft/failed state
 - Identify which personas/audiences we're under-serving with content
 - Suggest next content priorities based on what's working in the UCB1 audience system
 
-Be direct and specific. Reference clip counts, job statuses, and section performance where relevant.
+Be direct and specific. Reference asset counts, tag coverage, and section performance where relevant.
 Always tie content recommendations to business outcomes (conversion, LTV, CAC reduction).
 `.trim();
 
 export default function ContentHubPage() {
-  const [stats, setStats] = useState<ContentStats | null>(null);
   const [driveStats, setDriveStats] = useState<DriveStats | null>(null);
-  const [recentJobs, setRecentJobs] = useState<VideoJob[]>([]);
-  const [loading, setLoading] = useState(true);
   const [driveLoading, setDriveLoading] = useState(true);
   const [assignedAgent, setAssignedAgent] = useState<AssignedAgent | null>(null);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
     setDriveLoading(true);
     try {
-      const [jobsRes, driveRes] = await Promise.allSettled([
-        fetch(`${BOT_URL}/admin/video/jobs?limit=8`),
-        fetch(`${BOT_URL}/admin/drive/stats`),
-      ]);
-
-      if (jobsRes.status === "fulfilled" && jobsRes.value.ok) {
-        const jobData = await jobsRes.value.json();
-        const jobs: VideoJob[] = jobData.data ?? [];
-        setRecentJobs(jobs);
-        const jobCounts = { draft: 0, pending: 0, rendering: 0, done: 0, failed: 0 };
-        for (const j of jobs) {
-          if (j.status in jobCounts) jobCounts[j.status as keyof typeof jobCounts]++;
-        }
-        setStats({ clips_total: 0, clips_high_quality: 0, video_jobs: jobCounts, sections_total: 0, assets_tagged: 0, assets_untagged: 0 });
-      }
-
-      if (driveRes.status === "fulfilled" && driveRes.value.ok) {
-        setDriveStats(await driveRes.value.json());
-      }
+      const res = await fetch(`${BOT_URL}/admin/drive/stats`);
+      if (res.ok) setDriveStats(await res.json());
     } catch { /* silent */ }
-    finally { setLoading(false); setDriveLoading(false); }
+    finally { setDriveLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -388,12 +261,12 @@ export default function ContentHubPage() {
   const accentColor = (assignedAgent as any)?.color ?? ACCENT;
 
   const agentMetrics = [
-    { label: "Video Jobs (total)", value: String(recentJobs.length) },
-    { label: "Draft Jobs", value: String(stats?.video_jobs.draft ?? 0) },
-    { label: "Completed Videos", value: String(stats?.video_jobs.done ?? 0) },
     { label: "Total Drive Files", value: String(driveStats?.total ?? 0) },
-    { label: "Tagged Files", value: String(driveStats?.tagged ?? 0) },
-    { label: "Tag Coverage", value: `${driveStats?.tagCoverage ?? 0}%` },
+    { label: "Tagged Files",      value: String(driveStats?.tagged ?? 0) },
+    { label: "Untagged Files",    value: String(driveStats?.untagged ?? 0) },
+    { label: "Tag Coverage",      value: `${driveStats?.tagCoverage ?? 0}%` },
+    { label: "Images",            value: String(driveStats?.images ?? 0) },
+    { label: "Documents",         value: String(driveStats?.documents ?? 0) },
   ];
 
   return (
@@ -427,17 +300,14 @@ export default function ContentHubPage() {
 
         {/* KPI Row */}
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1.25rem" }}>
-          <StatCard label="Video Jobs" value={recentJobs.length} icon={Film} color="#f59e0b" sub="All time" loading={loading} />
-          <StatCard label="Completed" value={stats?.video_jobs.done ?? 0} icon={CheckCircle2} color="#10b981" sub="Rendered videos" loading={loading} />
-          <StatCard label="In Queue" value={(stats?.video_jobs.pending ?? 0) + (stats?.video_jobs.rendering ?? 0)} icon={RefreshCw} color="#38bdf8" sub="Pending + rendering" loading={loading} />
-          <StatCard label="Failed" value={stats?.video_jobs.failed ?? 0} icon={AlertCircle} color="#f43f5e" sub="Need attention" loading={loading} />
+          <StatCard label="Total Files"    value={driveStats?.total    ?? 0} icon={FolderOpen}  color="#f59e0b" sub="In Drive library"     loading={driveLoading} />
+          <StatCard label="Tagged"         value={driveStats?.tagged   ?? 0} icon={Tag}         color="#10b981" sub="Ready for agents"     loading={driveLoading} />
+          <StatCard label="Untagged"       value={driveStats?.untagged ?? 0} icon={TrendingUp}  color="#f43f5e" sub="Need tagging"         loading={driveLoading} />
+          <StatCard label="Tag Coverage"   value={`${driveStats?.tagCoverage ?? 0}%`} icon={ImageIcon} color="#38bdf8" sub="Coverage score" loading={driveLoading} />
         </div>
 
         {/* Asset Library Stats */}
         <AssetLibraryPanel stats={driveStats} loading={driveLoading} />
-
-        {/* Video pipeline status */}
-        <VideoJobStatusBar jobs={stats?.video_jobs ?? null} loading={loading} />
 
         {/* Quick nav tiles */}
         <div style={{ marginBottom: "1.25rem" }}>
@@ -448,9 +318,6 @@ export default function ContentHubPage() {
             {NAV_TILES.map(tile => <QuickNavTile key={tile.href} {...tile} />)}
           </div>
         </div>
-
-        {/* Recent jobs */}
-        <RecentJobsFeed jobs={recentJobs} loading={loading} />
       </div>
 
       {/* ── Right: Agent Chat ── */}
@@ -486,7 +353,7 @@ export default function ContentHubPage() {
           <div style={{ marginTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
             {[
               "What content should we prioritize creating next?",
-              "Which video clips are underutilized?",
+              "Which assets are untagged and most urgent?",
               "What audience segments lack dedicated content?",
             ].map(prompt => (
               <button key={prompt}

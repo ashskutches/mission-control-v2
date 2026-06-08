@@ -31,7 +31,6 @@ import {
     Layers,
     Code2,
     Film,
-    Video,
     Copy,
     Layout,
     UserCheck,
