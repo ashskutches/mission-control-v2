@@ -6,6 +6,7 @@ import {
   Image as ImageIcon, Film, FileText, Package, X, Plus,
   ChevronDown, ChevronLeft, ChevronRight, Database,
   AlertCircle, Loader2, BookmarkPlus, Check, UploadCloud,
+  Bot, ExternalLink, Link2, HardDrive,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -597,9 +598,313 @@ function IndexBanner({ status, total, foldersScanned, onReindex }: {
   return null;
 }
 
+// ── Documents Panel ───────────────────────────────────────────────────────────
+
+interface AgentDoc {
+  id: string;
+  agent_id: string;
+  title: string;
+  description: string | null;
+  url: string | null;
+  doc_type: string;
+  routine_id: string | null;
+  is_public: boolean;
+  last_updated_at: string | null;
+  created_at: string;
+}
+
+interface DocsResponse {
+  documents: AgentDoc[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
+function DocTypeBadge({ type }: { type: string }) {
+  const cfg: Record<string, { label: string; color: string; Icon: React.ElementType }> = {
+    doc:         { label: "Doc",   color: "#10b981", Icon: FileText },
+    link:        { label: "Link",  color: "#818cf8", Icon: Link2 },
+    spreadsheet: { label: "Sheet", color: "#f59e0b", Icon: Database },
+  };
+  const { label, color, Icon } = cfg[type] ?? { label: type, color: "#64748b", Icon: Package };
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      fontSize: 9, fontWeight: 800, color,
+      background: `${color}12`, border: `1px solid ${color}30`,
+      borderRadius: 8, padding: "2px 7px", textTransform: "uppercase", letterSpacing: "0.06em",
+    }}>
+      <Icon size={9} />{label}
+    </span>
+  );
+}
+
+function DocumentsPanel() {
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [docType, setDocType] = useState("");
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState<DocsResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const fetchDocs = useCallback(async (p: number, q: string, type: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ page: String(p), perPage: "40" });
+      if (q)    params.set("q", q);
+      if (type) params.set("doc_type", type);
+      const res = await fetch(`${BOT_URL}/admin/agents/documents?${params}`);
+      if (!res.ok) throw new Error((await res.json()).error ?? `HTTP ${res.status}`);
+      setData(await res.json());
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchDocs(page, debouncedSearch, docType); }, [page, debouncedSearch, docType, fetchDocs]);
+
+  const DOC_TYPE_FILTERS = [
+    { id: "",            label: "All",    Icon: FolderOpen },
+    { id: "doc",         label: "Docs",   Icon: FileText },
+    { id: "link",        label: "Links",  Icon: Link2 },
+    { id: "spreadsheet", label: "Sheets", Icon: Database },
+  ];
+
+  function fmtDate(d: string | null) {
+    if (!d) return "—";
+    const dt = new Date(d);
+    const diff = Date.now() - dt.getTime();
+    if (diff < 60_000)        return "just now";
+    if (diff < 3_600_000)     return `${Math.floor(diff / 60_000)}m ago`;
+    if (diff < 86_400_000)    return `${Math.floor(diff / 3_600_000)}h ago`;
+    if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d ago`;
+    return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  const docs = data?.documents ?? [];
+
+  return (
+    <div>
+      {/* Controls */}
+      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1.25rem", alignItems: "center" }}>
+        {/* Search */}
+        <div style={{ flex: 1, minWidth: 220, position: "relative" }}>
+          <Search size={13} color="#475569" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search documents by title or description…"
+            style={{
+              width: "100%", paddingLeft: 32, paddingRight: 12,
+              paddingTop: "0.5rem", paddingBottom: "0.5rem",
+              background: "rgba(255,255,255,0.04)",
+              border: `1px solid ${search ? ACCENT + "40" : "rgba(255,255,255,0.08)"}`,
+              borderRadius: 10, color: "#e2e8f0", fontSize: 12, outline: "none",
+              boxSizing: "border-box", transition: "border-color 0.15s",
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#475569", display: "flex", padding: 0 }}
+              aria-label="Clear search"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
+        {/* Type filter */}
+        <div style={{ display: "flex", gap: "0.4rem" }}>
+          {DOC_TYPE_FILTERS.map(({ id, label, Icon }) => (
+            <button key={id} onClick={() => { setDocType(id); setPage(1); }}
+              style={{
+                display: "flex", alignItems: "center", gap: "0.4rem",
+                background: docType === id ? `${ACCENT}18` : "rgba(255,255,255,0.04)",
+                border: `1px solid ${docType === id ? ACCENT + "40" : "rgba(255,255,255,0.08)"}`,
+                borderRadius: 8, padding: "0.4rem 0.65rem",
+                color: docType === id ? ACCENT : "#64748b",
+                fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all 0.12s",
+              }}>
+              <Icon size={11} />{label}
+            </button>
+          ))}
+        </div>
+        {/* Refresh */}
+        <button
+          onClick={() => fetchDocs(page, debouncedSearch, docType)}
+          style={{ display: "flex", alignItems: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "0.4rem 0.65rem", color: "#64748b", cursor: "pointer" }}
+          aria-label="Refresh documents">
+          <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+        </button>
+      </div>
+
+      {/* Stats strip */}
+      {data && (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.25rem", flexWrap: "wrap" }}>
+          {[
+            { label: "Total", value: data.total.toLocaleString(), color: ACCENT },
+            { label: "This page", value: docs.length.toLocaleString(), color: "#64748b" },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: `${color}0d`, border: `1px solid ${color}20`, borderRadius: 20, padding: "0.2rem 0.65rem" }}>
+              <span style={{ fontSize: 9, color, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color }}>{value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.2)", borderRadius: 10, padding: "0.75rem 1rem", marginBottom: "1rem" }}>
+          <AlertCircle size={14} color="#f43f5e" />
+          <span style={{ fontSize: 12, color: "#f43f5e" }}>{error}</span>
+        </div>
+      )}
+
+      {/* Loading skeleton */}
+      {loading && docs.length === 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+          {[...Array(8)].map((_, i) => (
+            <div key={i} style={{ height: 68, background: "rgba(255,255,255,0.03)", borderRadius: 12, animation: "pulse 1.5s infinite" }} />
+          ))}
+        </div>
+      )}
+
+      {/* Empty */}
+      {!loading && docs.length === 0 && !error && (
+        <div style={{ ...CARD, textAlign: "center", padding: "3rem", opacity: 0.5 }}>
+          <Bot size={32} color="#475569" style={{ marginBottom: "0.75rem" }} />
+          <p style={{ color: "#475569", fontSize: 13 }}>
+            {debouncedSearch ? `No documents match "${debouncedSearch}".` : "No agent documents found."}
+          </p>
+        </div>
+      )}
+
+      {/* Document list */}
+      {docs.length > 0 && (
+        <motion.div
+          key={`${page}-${debouncedSearch}-${docType}`}
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}
+          style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}
+        >
+          {docs.map(doc => (
+            <motion.div
+              key={doc.id}
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+              style={{
+                ...CARD,
+                display: "flex", alignItems: "flex-start", gap: "0.85rem",
+                transition: "border-color 0.12s, background 0.12s",
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}25`;
+                (e.currentTarget as HTMLElement).style.background = `${ACCENT}05`;
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)";
+                (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)";
+              }}
+            >
+              {/* Icon */}
+              <div style={{ width: 34, height: 34, borderRadius: 9, background: "rgba(56,189,248,0.07)", border: "1px solid rgba(56,189,248,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                <Bot size={16} color={ACCENT} />
+              </div>
+
+              {/* Body */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: 4, flexWrap: "wrap" }}>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "40ch" }}>
+                    {doc.title}
+                  </span>
+                  <DocTypeBadge type={doc.doc_type} />
+                  {doc.is_public && (
+                    <span style={{ fontSize: 9, fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 8, padding: "2px 7px" }}>PUBLIC</span>
+                  )}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 10, color: "#475569" }}>
+                    <span style={{ color: "#64748b", fontWeight: 600 }}>agent:</span> {doc.agent_id}
+                  </span>
+                  <span style={{ fontSize: 10, color: "#475569" }}>
+                    {fmtDate(doc.last_updated_at ?? doc.created_at)}
+                  </span>
+                  {doc.routine_id && (
+                    <span style={{ fontSize: 10, color: "#475569" }}>
+                      <span style={{ color: "#64748b", fontWeight: 600 }}>routine:</span> {doc.routine_id}
+                    </span>
+                  )}
+                </div>
+                {doc.description && (
+                  <p style={{ fontSize: 11, color: "#64748b", margin: "0.35rem 0 0", lineHeight: 1.45, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                    {doc.description}
+                  </p>
+                )}
+              </div>
+
+              {/* Actions */}
+              {doc.url && (
+                <a
+                  href={doc.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "flex", alignItems: "center", gap: 5,
+                    fontSize: 10, fontWeight: 700, color: ACCENT,
+                    background: `${ACCENT}10`, border: `1px solid ${ACCENT}25`,
+                    borderRadius: 8, padding: "5px 10px",
+                    textDecoration: "none", flexShrink: 0, whiteSpace: "nowrap",
+                    transition: "background 0.12s",
+                  }}
+                  aria-label={`Open ${doc.title}`}
+                >
+                  <ExternalLink size={11} /> Open
+                </a>
+              )}
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
+
+      {/* Pagination */}
+      {data && data.totalPages > 1 && (
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "0.75rem", marginTop: "1.5rem" }}>
+          <button
+            onClick={() => { setPage(p => Math.max(1, p - 1)); }}
+            disabled={!data.hasPrevPage || loading}
+            style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "0.5rem 1rem", color: data.hasPrevPage ? "#94a3b8" : "#334155", fontSize: 12, cursor: data.hasPrevPage ? "pointer" : "default" }}>
+            <ChevronLeft size={13} /> Previous
+          </button>
+          <span style={{ fontSize: 11, color: "#475569" }}>{data.page} / {data.totalPages}</span>
+          <button
+            onClick={() => { setPage(p => Math.min(data.totalPages, p + 1)); }}
+            disabled={!data.hasNextPage || loading}
+            style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "0.5rem 1rem", color: data.hasNextPage ? "#94a3b8" : "#334155", fontSize: 12, cursor: data.hasNextPage ? "pointer" : "default" }}>
+            Next <ChevronRight size={13} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function AssetTaggerPage() {
+  const [activeTab, setActiveTab] = useState<"drive" | "documents">("drive");
+
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -760,6 +1065,33 @@ export default function AssetTaggerPage() {
 
   return (
     <div>
+      {/* Tab switcher */}
+      <div style={{ display: "flex", gap: "0.4rem", marginBottom: "1.5rem", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0.85rem" }}>
+        {([
+          { id: "drive",     label: "Drive Assets",      Icon: HardDrive },
+          { id: "documents", label: "Agent Documents",   Icon: Bot },
+        ] as const).map(({ id, label, Icon }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            style={{
+              display: "flex", alignItems: "center", gap: "0.5rem",
+              fontSize: 12, fontWeight: 700,
+              color: activeTab === id ? ACCENT : "#64748b",
+              background: activeTab === id ? `${ACCENT}10` : "transparent",
+              border: `1px solid ${activeTab === id ? ACCENT + "30" : "rgba(255,255,255,0.07)"}`,
+              borderRadius: 9, padding: "0.45rem 0.9rem",
+              cursor: "pointer", transition: "all 0.15s",
+            }}
+          >
+            <Icon size={13} />{label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "documents" && <DocumentsPanel />}
+
+      {activeTab === "drive" && <div>
       {/* Index status banner */}
       <IndexBanner
         status={indexStatus} total={indexTotal}
@@ -912,6 +1244,7 @@ export default function AssetTaggerPage() {
           <BatchToolbar selectedCount={selectedIds.size} onBatchTag={batchTag} onClearSelection={() => setSelectedIds(new Set())} />
         )}
       </AnimatePresence>
+      </div>}
     </div>
   );
 }
