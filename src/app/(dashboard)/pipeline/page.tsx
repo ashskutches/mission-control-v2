@@ -6,7 +6,7 @@ import {
   GitMerge, Filter, Search, X, ChevronDown, ChevronRight,
   Bot, User, ArrowRight, Clock,
   ExternalLink, RotateCcw, AlertCircle, Bell, BellOff,
-  Wrench, CheckCheck, XCircle, Sparkles,
+  Wrench, CheckCheck, XCircle, Sparkles, Trash2,
 } from "lucide-react";
 
 
@@ -159,6 +159,277 @@ function ToastStack({ toasts, dismiss }: { toasts: Toast[]; dismiss: (id: number
   );
 }
 
+
+// ── Purge Modal ───────────────────────────────────────────────────────────────
+const ALL_STATUSES = ["new", "acknowledged", "dismissed", "resolved"] as const;
+const ALL_TYPES    = ["observation", "opportunity", "bug", "blocker", "critical_issue", "feature_request", "integration_request", "win"] as const;
+
+type PurgeResult = { dry_run: boolean; would_purge?: number; purged?: number; sample?: any[]; message?: string };
+
+function PurgeModal({
+  allSections,
+  onClose,
+  onDone,
+}: {
+  allSections: string[];
+  onClose: () => void;
+  onDone: (msg: string) => void;
+}) {
+  const [olderThanDays, setOlderThanDays] = useState(30);
+  const [selectedSections, setSelectedSections] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["new", "dismissed"]);
+  const [hardDelete, setHardDelete] = useState(false);
+  const [preview, setPreview] = useState<PurgeResult | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const toggleItem = (list: string[], setList: (v: string[]) => void, val: string) =>
+    setList(list.includes(val) ? list.filter(x => x !== val) : [...list, val]);
+
+  const buildBody = (dryRun: boolean) => ({
+    older_than_days: olderThanDays > 0 ? olderThanDays : undefined,
+    sections: selectedSections,
+    types: selectedTypes,
+    statuses: selectedStatuses,
+    hard_delete: hardDelete,
+    dry_run: dryRun,
+  });
+
+  const handlePreview = async () => {
+    setPreviewLoading(true); setPreview(null); setErr(null); setConfirmed(false);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/pipeline/purge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildBody(true)),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      setPreview(json);
+    } catch (e: any) { setErr(e.message); }
+    finally { setPreviewLoading(false); }
+  };
+
+  const handlePurge = async () => {
+    setRunning(true); setErr(null);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/pipeline/purge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildBody(false)),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      onDone(json.message ?? `Purged ${json.purged} insights.`);
+      onClose();
+    } catch (e: any) { setErr(e.message); }
+    finally { setRunning(false); }
+  };
+
+  const overlayStyle: React.CSSProperties = {
+    position: "fixed", inset: 0, zIndex: 9999,
+    background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)",
+    display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem",
+  };
+  const modalStyle: React.CSSProperties = {
+    width: "100%", maxWidth: 520,
+    background: "rgba(13,17,27,0.98)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: 16, padding: "1.5rem",
+    boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+    maxHeight: "92vh", overflowY: "auto",
+  };
+  const chipStyle = (active: boolean, color = "#f43f5e"): React.CSSProperties => ({
+    padding: "4px 10px", borderRadius: 6, cursor: "pointer",
+    fontSize: "11px", fontWeight: 700, userSelect: "none",
+    background: active ? `${color}22` : "rgba(255,255,255,0.04)",
+    border: `1px solid ${active ? `${color}55` : "rgba(255,255,255,0.08)"}`,
+    color: active ? color : "#64748b",
+    transition: "all 0.1s",
+  });
+
+  const sectionLabel = (s: string) => s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+  const canPurge = selectedStatuses.length > 0;
+  const previewCount = preview?.would_purge ?? 0;
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={overlayStyle} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 16 }} style={modalStyle}>
+
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(244,63,94,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Trash2 size={16} color="#f43f5e" />
+            </div>
+            <div>
+              <p style={{ fontSize: "10px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, marginBottom: 1 }}>Bulk Purge</p>
+              <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#e2e8f0" }}>Purge Insights</h2>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569" }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Age threshold */}
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: 700, color: "#94a3b8", marginBottom: 8 }}>
+            <span>Older than</span>
+            <span style={{ color: olderThanDays === 0 ? "#64748b" : "#e98d20" }}>
+              {olderThanDays === 0 ? "Any age" : `${olderThanDays} days`}
+            </span>
+          </label>
+          <input
+            type="range" min={0} max={180} step={1}
+            value={olderThanDays}
+            onChange={e => { setOlderThanDays(Number(e.target.value)); setPreview(null); }}
+            style={{ width: "100%", accentColor: "#e98d20" }}
+          />
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "9px", color: "#334155", marginTop: 4 }}>
+            <span>Any age</span><span>30d</span><span>60d</span><span>90d</span><span>180d</span>
+          </div>
+        </div>
+
+        {/* Statuses */}
+        <div style={{ marginBottom: 14 }}>
+          <p style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", marginBottom: 8 }}>Target statuses</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {ALL_STATUSES.map(s => (
+              <span key={s} style={chipStyle(selectedStatuses.includes(s), "#f43f5e")}
+                onClick={() => { toggleItem(selectedStatuses, setSelectedStatuses, s); setPreview(null); }}>
+                {s}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Sections */}
+        {allSections.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <p style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", marginBottom: 8 }}>Sections <span style={{ color: "#334155", fontWeight: 400 }}>(empty = all)</span></p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {allSections.map(s => (
+                <span key={s} style={chipStyle(selectedSections.includes(s), "#38bdf8")}
+                  onClick={() => { toggleItem(selectedSections, setSelectedSections, s); setPreview(null); }}>
+                  {sectionLabel(s)}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Types */}
+        <div style={{ marginBottom: 18 }}>
+          <p style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", marginBottom: 8 }}>Types <span style={{ color: "#334155", fontWeight: 400 }}>(empty = all)</span></p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {ALL_TYPES.map(t => (
+              <span key={t} style={chipStyle(selectedTypes.includes(t), "#a78bfa")}
+                onClick={() => { toggleItem(selectedTypes, setSelectedTypes, t); setPreview(null); }}>
+                {t.replace(/_/g, " ")}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Delete mode toggle */}
+        <button
+          onClick={() => { setHardDelete(h => !h); setPreview(null); }}
+          style={{
+            width: "100%", marginBottom: 16, padding: "9px 14px",
+            borderRadius: 8, cursor: "pointer", display: "flex",
+            alignItems: "center", gap: 10, textAlign: "left",
+            background: hardDelete ? "rgba(244,63,94,0.08)" : "rgba(255,255,255,0.03)",
+            border: `1px solid ${hardDelete ? "rgba(244,63,94,0.35)" : "rgba(255,255,255,0.08)"}`,
+            transition: "all 0.15s",
+          }}
+        >
+          <div style={{ width: 34, height: 18, borderRadius: 9, flexShrink: 0, background: hardDelete ? "#f43f5e" : "rgba(255,255,255,0.15)", position: "relative", transition: "background 0.2s" }}>
+            <div style={{ position: "absolute", top: 2, width: 14, height: 14, borderRadius: "50%", background: "#fff", transition: "left 0.2s", left: hardDelete ? 18 : 2 }} />
+          </div>
+          <div>
+            <p style={{ fontSize: "12px", fontWeight: 700, color: hardDelete ? "#f43f5e" : "#64748b" }}>
+              {hardDelete ? "⚠ Hard delete (permanent)" : "Soft dismiss (recoverable)"}
+            </p>
+            <p style={{ fontSize: "10px", color: "#475569", marginTop: 1 }}>
+              {hardDelete ? "Rows will be permanently removed from Supabase." : "Insights will be marked 'dismissed' and hidden from the pipeline."}
+            </p>
+          </div>
+        </button>
+
+        {/* Preview result */}
+        {preview && (
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+            style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10,
+              background: previewCount === 0 ? "rgba(34,197,94,0.06)" : "rgba(244,63,94,0.06)",
+              border: `1px solid ${previewCount === 0 ? "rgba(34,197,94,0.2)" : "rgba(244,63,94,0.2)"}` }}>
+            <p style={{ fontSize: "12px", fontWeight: 800, color: previewCount === 0 ? "#22c55e" : "#f87171", marginBottom: previewCount > 0 && preview.sample?.length ? 8 : 0 }}>
+              {previewCount === 0 ? "✓ No insights match — nothing to purge." : `${previewCount} insight${previewCount === 1 ? "" : "s"} will be ${hardDelete ? "permanently deleted" : "dismissed"}.`}
+            </p>
+            {preview.sample && preview.sample.length > 0 && (
+              <>
+                <p style={{ fontSize: "9px", color: "#64748b", marginBottom: 4, fontWeight: 700 }}>SAMPLE (up to 5):</p>
+                {preview.sample.map((s: any) => (
+                  <div key={s.id} style={{ fontSize: "10px", color: "#94a3b8", padding: "3px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                    <span style={{ color: "#475569", marginRight: 6 }}>[{s.section}]</span>{s.title}
+                  </div>
+                ))}
+              </>
+            )}
+          </motion.div>
+        )}
+
+        {err && <p style={{ color: "#f43f5e", fontSize: "12px", marginBottom: 10 }}>{err}</p>}
+
+        {/* Confirm checkbox (only shown when preview has items) */}
+        {preview && previewCount > 0 && (
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 14, fontSize: "12px", color: "#94a3b8" }}>
+            <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}
+              style={{ accentColor: "#f43f5e", width: 14, height: 14 }} />
+            I understand this action {hardDelete ? "permanently deletes" : "dismisses"} {previewCount} insight{previewCount === 1 ? "" : "s"}
+          </label>
+        )}
+
+        {/* Actions */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#94a3b8", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>
+            Cancel
+          </button>
+          <button
+            onClick={handlePreview}
+            disabled={previewLoading || !canPurge}
+            style={{ flex: 1.5, padding: "8px 0", borderRadius: 8, border: "1px solid rgba(56,189,248,0.3)", background: "rgba(56,189,248,0.08)", color: "#38bdf8", cursor: canPurge ? "pointer" : "not-allowed", fontWeight: 700, fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}
+          >
+            {previewLoading ? <RefreshCw size={11} className="animate-spin" /> : <Search size={11} />}
+            {previewLoading ? "Scanning…" : "Preview"}
+          </button>
+          <button
+            onClick={handlePurge}
+            disabled={running || !preview || previewCount === 0 || !confirmed}
+            style={{
+              flex: 2, padding: "8px 0", borderRadius: 8, border: "none",
+              cursor: (!preview || previewCount === 0 || !confirmed || running) ? "not-allowed" : "pointer",
+              background: (!preview || previewCount === 0 || !confirmed) ? "rgba(255,255,255,0.06)" : hardDelete ? "linear-gradient(135deg,#f43f5e,#c92f4a)" : "linear-gradient(135deg,#e98d20,#c97818)",
+              color: (!preview || previewCount === 0 || !confirmed) ? "#475569" : "#fff",
+              fontWeight: 700, fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+              transition: "all 0.15s",
+            }}
+          >
+            {running ? <RefreshCw size={11} className="animate-spin" /> : <Trash2 size={11} />}
+            {running ? "Purging…" : hardDelete ? "Delete Forever" : "Dismiss All"}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
 
 function ReassignModal({
   item, agents, teamMembers, onClose, onReassign,
@@ -808,6 +1079,7 @@ export default function PipelinePage() {
   const [agentFilter, setAgentFilter] = useState("");
   const [humanFilter, setHumanFilter] = useState("");
   const [reassignItem, setReassignItem] = useState<PipelineItem | null>(null);
+  const [showPurge, setShowPurge] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -1067,6 +1339,17 @@ export default function PipelinePage() {
               </select>
             )}
 
+            {/* Purge */}
+            <button
+              onClick={() => setShowPurge(true)}
+              title="Purge old insights by criteria"
+              style={{ height: 34, padding: "0 12px", borderRadius: 8, border: "1px solid rgba(244,63,94,0.25)", background: "rgba(244,63,94,0.06)", color: "#f87171", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: "12px", fontWeight: 700 }}
+              aria-label="Purge old insights"
+            >
+              <Trash2 size={12} />
+              Purge
+            </button>
+
             {/* Refresh */}
             <button
               onClick={() => fetchData()}
@@ -1128,6 +1411,17 @@ export default function PipelinePage() {
             teamMembers={teamMembers}
             onClose={() => setReassignItem(null)}
             onReassign={handleReassign}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Purge modal */}
+      <AnimatePresence>
+        {showPurge && (
+          <PurgeModal
+            allSections={allSections as string[]}
+            onClose={() => setShowPurge(false)}
+            onDone={msg => { addToast("ok", msg); fetchData(true); }}
           />
         )}
       </AnimatePresence>
