@@ -6,7 +6,7 @@ import {
   Image as ImageIcon, Film, FileText, Package, X, Plus,
   ChevronDown, ChevronLeft, ChevronRight, Database,
   AlertCircle, Loader2, BookmarkPlus, Check, UploadCloud,
-  Bot, ExternalLink, Link2, HardDrive,
+  Bot, ExternalLink, Link2, HardDrive, Sparkles, Wand2,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -900,10 +900,267 @@ function DocumentsPanel() {
   );
 }
 
+// ── Agent Images Panel ─────────────────────────────────────────────────────────
+
+interface GeneratedAsset {
+  id: string;
+  agent_id: string | null;
+  agent_name: string | null;
+  prompt: string;
+  enhanced_prompt: string;
+  image_url: string;
+  size: string;
+  quality: string;
+  created_at: string;
+}
+
+interface LibraryResponse {
+  assets: GeneratedAsset[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
+function AgentImagesPanel() {
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState<LibraryResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  // Debounce agent name search
+  useEffect(() => {
+    const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const fetchImages = useCallback(async (p: number, agentName: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ page: String(p), perPage: "40" });
+      if (agentName) params.set("agent_name", agentName);
+      const res = await fetch(`${BOT_URL}/admin/business/library?${params}`);
+      if (!res.ok) throw new Error((await res.json()).error ?? `HTTP ${res.status}`);
+      setData(await res.json());
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchImages(page, debouncedSearch); }, [page, debouncedSearch, fetchImages]);
+
+  function fmtDate(d: string) {
+    const dt = new Date(d);
+    const diff = Date.now() - dt.getTime();
+    if (diff < 60_000)         return "just now";
+    if (diff < 3_600_000)      return `${Math.floor(diff / 60_000)}m ago`;
+    if (diff < 86_400_000)     return `${Math.floor(diff / 3_600_000)}h ago`;
+    if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d ago`;
+    return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  const assets = data?.assets ?? [];
+  const PURPLE = "#a78bfa";
+
+  return (
+    <div>
+      {/* Controls */}
+      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1.25rem", alignItems: "center" }}>
+        {/* Agent name search */}
+        <div style={{ flex: 1, minWidth: 220, position: "relative" }}>
+          <Search size={13} color="#475569" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Filter by agent name…"
+            style={{
+              width: "100%", paddingLeft: 32, paddingRight: 12,
+              paddingTop: "0.5rem", paddingBottom: "0.5rem",
+              background: "rgba(255,255,255,0.04)",
+              border: `1px solid ${search ? PURPLE + "50" : "rgba(255,255,255,0.08)"}`,
+              borderRadius: 10, color: "#e2e8f0", fontSize: 12, outline: "none",
+              boxSizing: "border-box", transition: "border-color 0.15s",
+            }}
+          />
+          {search && (
+            <button onClick={() => setSearch("")}
+              style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#475569", display: "flex", padding: 0 }}
+              aria-label="Clear filter">
+              <X size={12} />
+            </button>
+          )}
+        </div>
+        {/* Refresh */}
+        <button
+          onClick={() => fetchImages(page, debouncedSearch)}
+          style={{ display: "flex", alignItems: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "0.4rem 0.65rem", color: "#64748b", cursor: "pointer" }}
+          aria-label="Refresh agent images">
+          <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+        </button>
+      </div>
+
+      {/* Stats strip */}
+      {data && (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.25rem", flexWrap: "wrap" }}>
+          {[
+            { label: "Total Generated", value: data.total.toLocaleString(), color: PURPLE },
+            { label: "This page",        value: assets.length.toLocaleString(), color: "#64748b" },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: `${color}0d`, border: `1px solid ${color}20`, borderRadius: 20, padding: "0.2rem 0.65rem" }}>
+              <span style={{ fontSize: 9, color, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color }}>{value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.2)", borderRadius: 10, padding: "0.75rem 1rem", marginBottom: "1rem" }}>
+          <AlertCircle size={14} color="#f43f5e" />
+          <span style={{ fontSize: 12, color: "#f43f5e" }}>{error}</span>
+        </div>
+      )}
+
+      {/* Loading skeleton */}
+      {loading && assets.length === 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "0.75rem" }}>
+          {[...Array(12)].map((_, i) => (
+            <div key={i} style={{ height: 220, background: "rgba(255,255,255,0.03)", borderRadius: 12, animation: "pulse 1.5s infinite" }} />
+          ))}
+        </div>
+      )}
+
+      {/* Empty */}
+      {!loading && assets.length === 0 && !error && (
+        <div style={{ ...CARD, textAlign: "center", padding: "3rem", opacity: 0.5 }}>
+          <Sparkles size={32} color="#475569" style={{ marginBottom: "0.75rem" }} />
+          <p style={{ color: "#475569", fontSize: 13 }}>
+            {debouncedSearch ? `No images from agent "${debouncedSearch}".` : "No AI-generated images yet. Images generated by agents or tasks will appear here."}
+          </p>
+        </div>
+      )}
+
+      {/* Image grid */}
+      {assets.length > 0 && (
+        <motion.div
+          key={`${page}-${debouncedSearch}`}
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}
+          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "0.75rem" }}
+        >
+          {assets.map(asset => {
+            const isExpanded = expanded === asset.id;
+            return (
+              <motion.div
+                key={asset.id}
+                layout
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                style={{
+                  ...CARD, padding: 0, overflow: "hidden",
+                  border: isExpanded ? `1px solid ${PURPLE}35` : "1px solid rgba(255,255,255,0.07)",
+                  background: isExpanded ? `${PURPLE}05` : "rgba(255,255,255,0.03)",
+                  transition: "border-color 0.15s, background 0.15s",
+                }}
+              >
+                {/* Image preview */}
+                <a href={asset.image_url} target="_blank" rel="noopener noreferrer"
+                  style={{ display: "block", position: "relative", width: "100%", height: 180, overflow: "hidden", background: "rgba(0,0,0,0.4)", textDecoration: "none" }}>
+                  <ImageThumb src={asset.image_url} alt={asset.prompt.slice(0, 60)} />
+                  {/* AI badge */}
+                  <span style={{
+                    position: "absolute", top: 6, left: 6,
+                    background: "rgba(0,0,0,0.72)", backdropFilter: "blur(6px)",
+                    borderRadius: 6, padding: "2px 7px",
+                    border: `1px solid ${PURPLE}40`,
+                    fontSize: 9, color: PURPLE, fontWeight: 800, letterSpacing: "0.06em",
+                    display: "flex", alignItems: "center", gap: 4,
+                  }}>
+                    <Wand2 size={9} />AI Generated
+                  </span>
+                  {/* Size badge */}
+                  <span style={{
+                    position: "absolute", top: 6, right: 6,
+                    background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)",
+                    borderRadius: 5, padding: "2px 6px",
+                    fontSize: 9, color: "#94a3b8", fontWeight: 700,
+                  }}>
+                    {asset.size ?? "—"}
+                  </span>
+                  {/* Open link overlay on hover handled by browser */}
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.15s", background: "rgba(0,0,0,0.35)" }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = "0")}>
+                    <ExternalLink size={18} color="#fff" />
+                  </div>
+                </a>
+
+                {/* Card body */}
+                <div style={{ padding: "0.75rem" }}>
+                  {/* Agent name + timestamp */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.45rem", gap: "0.5rem" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 700, color: PURPLE, background: `${PURPLE}10`, border: `1px solid ${PURPLE}25`, borderRadius: 7, padding: "2px 7px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "60%" }}>
+                      <Bot size={9} />{asset.agent_name ?? "Unknown agent"}
+                    </span>
+                    <span style={{ fontSize: 10, color: "#475569", flexShrink: 0 }}>{fmtDate(asset.created_at)}</span>
+                  </div>
+
+                  {/* Prompt — collapse/expand */}
+                  <p
+                    onClick={() => setExpanded(isExpanded ? null : asset.id)}
+                    style={{
+                      fontSize: 11, color: "#94a3b8", margin: 0, lineHeight: 1.5,
+                      cursor: "pointer",
+                      overflow: "hidden",
+                      display: "-webkit-box",
+                      WebkitLineClamp: isExpanded ? undefined : 2,
+                      WebkitBoxOrient: "vertical",
+                    }}
+                  >
+                    {asset.prompt}
+                  </p>
+                  {asset.prompt.length > 100 && (
+                    <button onClick={() => setExpanded(isExpanded ? null : asset.id)}
+                      style={{ background: "none", border: "none", padding: 0, marginTop: 4, cursor: "pointer", fontSize: 10, color: PURPLE, fontWeight: 700 }}>
+                      {isExpanded ? "Show less" : "Show more"}
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      )}
+
+      {/* Pagination */}
+      {data && data.totalPages > 1 && (
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "0.75rem", marginTop: "1.5rem" }}>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={!data.hasPrevPage || loading}
+            style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "0.5rem 1rem", color: data.hasPrevPage ? "#94a3b8" : "#334155", fontSize: 12, cursor: data.hasPrevPage ? "pointer" : "default" }}>
+            <ChevronLeft size={13} /> Previous
+          </button>
+          <span style={{ fontSize: 11, color: "#475569" }}>{data.page} / {data.totalPages}</span>
+          <button onClick={() => setPage(p => Math.min(data.totalPages, p + 1))} disabled={!data.hasNextPage || loading}
+            style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "0.5rem 1rem", color: data.hasNextPage ? "#94a3b8" : "#334155", fontSize: 12, cursor: data.hasNextPage ? "pointer" : "default" }}>
+            Next <ChevronRight size={13} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function AssetTaggerPage() {
-  const [activeTab, setActiveTab] = useState<"drive" | "documents">("drive");
+  const [activeTab, setActiveTab] = useState<"drive" | "documents" | "agent-images">("drive");
 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -1068,8 +1325,9 @@ export default function AssetTaggerPage() {
       {/* Tab switcher */}
       <div style={{ display: "flex", gap: "0.4rem", marginBottom: "1.5rem", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0.85rem" }}>
         {([
-          { id: "drive",     label: "Drive Assets",      Icon: HardDrive },
-          { id: "documents", label: "Agent Documents",   Icon: Bot },
+          { id: "drive",        label: "Drive Assets",    Icon: HardDrive },
+          { id: "documents",    label: "Agent Documents", Icon: Bot },
+          { id: "agent-images", label: "Agent Images",    Icon: Sparkles },
         ] as const).map(({ id, label, Icon }) => (
           <button
             key={id}
@@ -1077,9 +1335,9 @@ export default function AssetTaggerPage() {
             style={{
               display: "flex", alignItems: "center", gap: "0.5rem",
               fontSize: 12, fontWeight: 700,
-              color: activeTab === id ? ACCENT : "#64748b",
-              background: activeTab === id ? `${ACCENT}10` : "transparent",
-              border: `1px solid ${activeTab === id ? ACCENT + "30" : "rgba(255,255,255,0.07)"}`,
+              color: activeTab === id ? (id === "agent-images" ? "#a78bfa" : ACCENT) : "#64748b",
+              background: activeTab === id ? `${id === "agent-images" ? "#a78bfa" : ACCENT}10` : "transparent",
+              border: `1px solid ${activeTab === id ? (id === "agent-images" ? "#a78bfa" : ACCENT) + "30" : "rgba(255,255,255,0.07)"}`,
               borderRadius: 9, padding: "0.45rem 0.9rem",
               cursor: "pointer", transition: "all 0.15s",
             }}
@@ -1089,7 +1347,8 @@ export default function AssetTaggerPage() {
         ))}
       </div>
 
-      {activeTab === "documents" && <DocumentsPanel />}
+      {activeTab === "documents"    && <DocumentsPanel />}
+      {activeTab === "agent-images" && <AgentImagesPanel />}
 
       {activeTab === "drive" && <div>
       {/* Index status banner */}
