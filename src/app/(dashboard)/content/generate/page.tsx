@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Wand2, Upload, X, ImageIcon, Sparkles, RefreshCw,
   ChevronDown, ExternalLink, Copy, Check, AlertCircle,
-  Loader2, BookOpen, ZoomIn,
+  Loader2, BookOpen, ZoomIn, Package, Search, ChevronRight,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -28,6 +28,21 @@ interface GeneratedImage {
   size: string;
   quality: string;
   created_at: string;
+}
+
+interface ProductRef {
+  id: string;
+  product_id: string;
+  product_title: string;
+  image_url: string;
+  image_source: string;
+  display_order: number;
+}
+
+interface RefProduct {
+  product_id: string;
+  product_title: string;
+  refs: ProductRef[];
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -80,44 +95,60 @@ function Thumb({ src, alt }: { src: string; alt: string }) {
   );
 }
 
-// ── Best Practices Guide ───────────────────────────────────────────────────────
+// ── Best Practices Guide — clickable prompt starters ──────────────────────────
 
-function BestPracticesGuide() {
+const TIPS: { title: string; body: string; starter: string }[] = [
+  {
+    title: "Lightbox packshot",
+    body: "Classic studio product photo on pure white — great for Amazon & PDP.",
+    starter: "Ultra-realistic studio packshot of mini trampoline rebounder. Three-point lighting: key light 45° front-left (100%, 5600K, diffused softbox), fill light 45° front-right (45%, 5600K), rim light behind product (35%, 6500K). Pure white seamless background #FFFFFF. 50mm equivalent lens, f/8, ISO 100. Product fills 70% of frame. Shadows have visible detail — not pure black. 4K resolution, ultra-sharp, commercial e-commerce photography. No plastic sheen. No blown-out highlights. No fisheye distortion.",
+  },
+  {
+    title: "Lifestyle — home gym",
+    body: "Person using the product in a bright, modern home gym setting.",
+    starter: "Late-30s athletic woman mid-bounce on a mini trampoline rebounder in a bright home gym. Large windows with natural daylight, light grey walls, clean hardwood floor, energetic and healthy mood. Canon EOS R5, 85mm prime lens, f/2.8, shallow depth of field. Product fills 65% of frame. Camera 15–20° above horizontal. Photorealistic lifestyle photography, 4K ultra-detailed. No plastic sheen, no pure black shadows, no fisheye distortion.",
+  },
+  {
+    title: "Lifestyle — rustic kitchen",
+    body: "Candid morning scene in a warm farmhouse kitchen.",
+    starter: "Mid-40s woman sitting on a mini trampoline rebounder in a rustic farmhouse kitchen. Morning sunlight through large wooden window, warm coffee mug beside her, exposed brick wall, hardwood floor. Candid and natural mood. Canon EOS R5, 85mm prime lens, f/2.8. Product fills 65% of frame. Photorealistic lifestyle photography, 4K ultra-detailed. No plastic sheen, no pure black shadows.",
+  },
+  {
+    title: "Dramatic hero shot",
+    body: "Dark gradient background with hard key light — premium presentation.",
+    starter: "Dramatic studio product shot of mini trampoline rebounder. Rich dark gradient background (#0a0f1a to #1e1b4b). Primary key light at 45° front-left (hard edge, high contrast, 5600K), strong rim light behind product defining spring edges and frame silhouette (6500K). Deep shadows with visible detail — NOT pure black. Spring coils individually visible with brushed metallic reflections. Mat weave texture defined. 50mm equivalent lens, f/8. 4K resolution, ultra-sharp, premium commercial photography. No plastic sheen. No mirror-chrome springs.",
+  },
+  {
+    title: "Material detail close-up",
+    body: "Macro crop emphasising spring coils, mat weave, and frame joints.",
+    starter: "Macro-detail product shot of mini trampoline rebounder. Extreme close crop on bungee cords and jump ring. Spring coils individually distinguishable with fine coil winding, brushed galvanized steel finish — NOT mirror-chrome, NOT plastic. Mat woven polypropylene mesh with subtle grid weave texture clearly defined. Frame weld seams subtly present. Fill light increased so shadows show detail — NOT pure black. 50mm equivalent, f/4. 4K ultra-sharp. No blurred surface textures, no plastic sheen.",
+  },
+  {
+    title: "Outdoor lifestyle",
+    body: "Sunny backyard or patio scene for summer campaigns.",
+    starter: "Early-50s woman standing beside a mini trampoline rebounder on a sunny backyard deck. Holding a coffee mug, relaxed morning mood. Green trees in background, soft natural light, golden hour warmth. Canon EOS R5, 85mm prime, f/2.8. Wide shot showing full body and product. 4K ultra-detailed, photorealistic lifestyle photography. No plastic sheen, no pure black shadows, no fisheye distortion.",
+  },
+  {
+    title: "Three-point lighting guide",
+    body: "Copy this lighting block into any packshot prompt.",
+    starter: "Three-point lighting: key light at 45° front-left (5600K daylight, large diffused softbox, 100% intensity), fill light at 45° front-right (5600K, 45% intensity, broad soft fill — reveals detail under springs and mat), rim light directly behind product (6500K slightly cooler, 35% intensity, harder source — separates product from background and defines edges). Shadows have visible detail — NOT pure black. No blown-out highlights.",
+  },
+  {
+    title: "Negative prompting block",
+    body: "Add this to any prompt to prevent common AI failures.",
+    starter: "No plastic sheen, no toy-like appearance, no mirror-chrome finish, no pure black shadows, no blown-out highlights, no fisheye distortion, no barrel distortion, no product cropping, no blurred surface textures, no oversaturation, no CGI look, no giant full-size trampoline (mini rebounder ~40 inches diameter only).",
+  },
+];
+
+function BestPracticesGuide({ onInsert }: { onInsert: (text: string) => void }) {
   const [open, setOpen] = useState(false);
-  const tips = [
-    {
-      title: "Shot type first",
-      body: "Start with the shot type — \"Studio packshot on white background\" or \"Lifestyle — woman using product in bright kitchen\".",
-    },
-    {
-      title: "Three-point lighting (packshots)",
-      body: "Add: \"key light 45° front-left (5600K), fill light 45° front-right (45% intensity), rim light behind (6500K)\" for professional product photos.",
-    },
-    {
-      title: "Camera specs = sharper results",
-      body: "Include lens: \"50mm f/8\" for packshots, \"85mm f/2.8\" for lifestyle. Add \"4K, ultra-sharp, photorealistic\".",
-    },
-    {
-      title: "Material descriptions",
-      body: "Be specific: \"galvanized steel with individual coil winding visible, brushed metallic reflections\" beats \"metal springs\".",
-    },
-    {
-      title: "Drop reference images",
-      body: "Upload 1–3 product reference photos in the dropzone below the prompt. The model will keep the product consistent across generations.",
-    },
-    {
-      title: "Negative prompting",
-      body: "End your prompt with: \"no plastic sheen, no pure black shadows, no fisheye distortion, no mirror-chrome finish, no blown-out highlights\".",
-    },
-    {
-      title: "Model guide",
-      body: "Auto picks the best available. Use nano-banana-2 for product packshots with refs, kie-lifestyle for people + product, flux-pro for creative scenes.",
-    },
-    {
-      title: "Composition",
-      body: "Specify framing: \"product fills 70% of frame, camera 15–20° above horizontal, slight tilt shows top and front surfaces\".",
-    },
-  ];
+  const [inserted, setInserted] = useState<string | null>(null);
+
+  const handleClick = (starter: string, title: string) => {
+    onInsert(starter);
+    setInserted(title);
+    setTimeout(() => setInserted(null), 1800);
+  };
 
   return (
     <div style={{ ...CARD, marginBottom: "1.5rem", overflow: "hidden" }}>
@@ -125,24 +156,23 @@ function BestPracticesGuide() {
         onClick={() => setOpen(o => !o)}
         style={{
           width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "0.9rem 1.25rem", background: "none", border: "none", cursor: "pointer",
-          color: "#e2e8f0",
+          padding: "0.9rem 1.25rem", background: "none", border: "none", cursor: "pointer", color: "#e2e8f0",
         }}
         aria-expanded={open}
-        aria-controls="guide-body"
         id="guide-toggle"
       >
         <span style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 700, fontSize: 13 }}>
-          <BookOpen size={14} color={PURPLE} /> Best Practices Guide
+          <BookOpen size={14} color={PURPLE} /> Prompt Starters &amp; Best Practices
+          <span style={{ fontSize: 10, color: "#475569", fontWeight: 500 }}>— click any card to load into prompt</span>
         </span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
           <ChevronDown size={15} color="#475569" />
         </motion.span>
       </button>
+
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
-            id="guide-body"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -150,19 +180,197 @@ function BestPracticesGuide() {
             style={{ overflow: "hidden" }}
           >
             <div style={{
-              display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-              gap: "0.75rem", padding: "0 1.25rem 1.25rem",
+              display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
+              gap: "0.65rem", padding: "0 1.25rem 1.25rem",
             }}>
-              {tips.map(({ title, body }) => (
-                <div key={title} style={{
-                  background: `${PURPLE}08`, border: `1px solid ${PURPLE}18`,
-                  borderRadius: 10, padding: "0.75rem 1rem",
-                }}>
-                  <p style={{ fontSize: 11, fontWeight: 800, color: PURPLE, margin: "0 0 0.35rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    {title}
-                  </p>
-                  <p style={{ fontSize: 12, color: "#94a3b8", margin: 0, lineHeight: 1.55 }}>{body}</p>
+              {TIPS.map(({ title, body, starter }) => {
+                const isInserted = inserted === title;
+                return (
+                  <motion.button
+                    key={title}
+                    onClick={() => handleClick(starter, title)}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    style={{
+                      background: isInserted ? `${PURPLE}18` : `${PURPLE}08`,
+                      border: `1px solid ${isInserted ? PURPLE + "50" : PURPLE + "18"}`,
+                      borderRadius: 10, padding: "0.75rem 1rem",
+                      cursor: "pointer", textAlign: "left", transition: "border-color 0.15s, background 0.15s",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.35rem" }}>
+                      <p style={{ fontSize: 11, fontWeight: 800, color: isInserted ? "#10b981" : PURPLE,
+                        margin: 0, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        {isInserted ? "✓ Loaded" : title}
+                      </p>
+                      {!isInserted && <ChevronRight size={11} color={PURPLE} style={{ flexShrink: 0 }} />}
+                    </div>
+                    <p style={{ fontSize: 11, color: "#94a3b8", margin: 0, lineHeight: 1.5 }}>{body}</p>
+                  </motion.button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Product Ref Picker ─────────────────────────────────────────────────────────
+
+function ProductRefPicker({ onSelect }: { onSelect: (urls: string[], title: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [products, setProducts] = useState<RefProduct[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<string | null>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  // Load pinned refs on first open
+  useEffect(() => {
+    if (!open || products.length > 0) return;
+    setLoading(true);
+    fetch(`${BOT_URL}/admin/products/refs`)
+      .then(r => r.json())
+      .then(({ refs }: { refs: Record<string, ProductRef[]> }) => {
+        // Group into array, dedupe by product_id, sort by title
+        const grouped = Object.entries(refs).map(([pid, rows]) => ({
+          product_id: pid,
+          product_title: rows[0]?.product_title ?? pid,
+          refs: rows,
+        })).sort((a, b) => a.product_title.localeCompare(b.product_title));
+        setProducts(grouped);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [open, products.length]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const filtered = products.filter(p =>
+    !search || p.product_title.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleSelect = (p: RefProduct) => {
+    const urls = p.refs.slice(0, 10).map(r => r.image_url);
+    onSelect(urls, p.product_title);
+    setSelected(p.product_title);
+    setOpen(false);
+    setTimeout(() => setSelected(null), 2500);
+  };
+
+  return (
+    <div ref={dropRef} style={{ position: "relative", display: "inline-block" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        id="product-ref-picker-btn"
+        style={{
+          display: "flex", alignItems: "center", gap: "0.4rem",
+          background: selected ? "rgba(16,185,129,0.1)" : "rgba(255,255,255,0.05)",
+          border: `1px solid ${selected ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.1)"}`,
+          borderRadius: 8, padding: "0.4rem 0.8rem",
+          color: selected ? "#10b981" : "#94a3b8", fontSize: 11, fontWeight: 700, cursor: "pointer",
+          transition: "all 0.15s", whiteSpace: "nowrap",
+        }}
+      >
+        <Package size={12} />
+        {selected ? `✓ ${selected.slice(0, 22)}${selected.length > 22 ? "…" : ""}` : "Use Product Refs"}
+        <ChevronDown size={11} style={{ opacity: 0.5 }} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            style={{
+              position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 200,
+              background: "rgba(10,15,26,0.98)", backdropFilter: "blur(20px)",
+              border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12,
+              width: 320, maxHeight: 380, overflow: "hidden",
+              boxShadow: "0 8px 40px rgba(0,0,0,0.55)",
+              display: "flex", flexDirection: "column",
+            }}
+          >
+            {/* Search */}
+            <div style={{ padding: "0.65rem 0.75rem", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <div style={{ position: "relative" }}>
+                <Search size={11} color="#475569" style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+                <input
+                  autoFocus
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search products…"
+                  style={{
+                    width: "100%", boxSizing: "border-box", paddingLeft: 26, paddingRight: 10,
+                    paddingTop: "0.4rem", paddingBottom: "0.4rem",
+                    background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 7, color: "#e2e8f0", fontSize: 12, outline: "none",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* List */}
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {loading && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "1rem 0.75rem", color: "#475569", fontSize: 12 }}>
+                  <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Loading product refs…
                 </div>
+              )}
+              {!loading && filtered.length === 0 && (
+                <div style={{ padding: "1rem 0.75rem", color: "#475569", fontSize: 12, textAlign: "center" }}>
+                  {search ? `No products match "${search}"` : "No pinned refs found. Add refs under Content → Products."}
+                </div>
+              )}
+              {filtered.map(p => (
+                <button
+                  key={p.product_id}
+                  onClick={() => handleSelect(p)}
+                  style={{
+                    width: "100%", display: "flex", alignItems: "center", gap: "0.65rem",
+                    padding: "0.55rem 0.75rem", background: "none", border: "none",
+                    borderBottom: "1px solid rgba(255,255,255,0.04)",
+                    cursor: "pointer", textAlign: "left", transition: "background 0.1s",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(167,139,250,0.07)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                >
+                  {/* Thumbnail of first ref */}
+                  <div style={{ width: 38, height: 38, borderRadius: 7, overflow: "hidden",
+                    background: "rgba(0,0,0,0.3)", flexShrink: 0, border: "1px solid rgba(255,255,255,0.07)" }}>
+                    {p.refs[0]?.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.refs[0].image_url} alt={p.product_title}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Package size={14} color="#334155" />
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#e2e8f0",
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {p.product_title}
+                    </p>
+                    <p style={{ margin: 0, fontSize: 10, color: "#475569" }}>
+                      {p.refs.length} pinned ref{p.refs.length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <ChevronRight size={12} color="#334155" style={{ flexShrink: 0 }} />
+                </button>
               ))}
             </div>
           </motion.div>
@@ -172,14 +380,15 @@ function BestPracticesGuide() {
   );
 }
 
-// ── Reference Image Drop Zone ──────────────────────────────────────────────────
+// ── Reference Image Zone (drop + product picker) ───────────────────────────────
 
 function RefImageZone({
-  images, onAdd, onRemove,
+  images, onAdd, onRemove, onProductSelect,
 }: {
-  images: { dataUrl: string; name: string }[];
-  onAdd: (imgs: { dataUrl: string; name: string }[]) => void;
+  images: { url: string; name: string }[];
+  onAdd: (imgs: { url: string; name: string }[]) => void;
   onRemove: (i: number) => void;
+  onProductSelect: (urls: string[], title: string) => void;
 }) {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -187,22 +396,31 @@ function RefImageZone({
   const processFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     const valid = Array.from(files).filter(f => f.type.startsWith("image/")).slice(0, 3 - images.length);
-    const converted = await Promise.all(valid.map(async f => ({ dataUrl: await fileToDataUrl(f), name: f.name })));
+    const converted = await Promise.all(valid.map(async f => ({ url: await fileToDataUrl(f), name: f.name })));
     if (converted.length) onAdd(converted);
   };
 
   return (
     <div>
-      <p style={{ fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-        Reference Images (optional, max 3)
-      </p>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+        <p style={{ fontSize: 11, fontWeight: 700, color: "#64748b", margin: 0,
+          textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          Reference Images <span style={{ color: "#334155", fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(optional, max 3)</span>
+        </p>
+        <ProductRefPicker onSelect={(urls, title) => {
+          // Replace all current refs with product refs (up to 3)
+          const next = urls.slice(0, 3).map((url, i) => ({ url, name: `${title} ref ${i + 1}` }));
+          // Clear existing and set product refs
+          onProductSelect(next);
+        }} />
+      </div>
+
       <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", alignItems: "flex-start" }}>
-        {/* Existing images */}
         {images.map((img, i) => (
           <div key={i} style={{ position: "relative", width: 80, height: 80, borderRadius: 10, overflow: "hidden",
             border: `1px solid ${PURPLE}30`, flexShrink: 0 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={img.dataUrl} alt={img.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <img src={img.url} alt={img.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             <button
               onClick={() => onRemove(i)}
               style={{ position: "absolute", top: 3, right: 3, background: "rgba(0,0,0,0.7)", border: "none",
@@ -212,14 +430,20 @@ function RefImageZone({
             >
               <X size={10} />
             </button>
+            {/* Source badge */}
+            <span style={{
+              position: "absolute", bottom: 3, left: 3, fontSize: 8, fontWeight: 800,
+              color: "#fff", background: "rgba(0,0,0,0.65)", borderRadius: 4, padding: "1px 4px",
+              letterSpacing: "0.04em",
+            }}>
+              {img.name.includes("ref") ? "PROD" : "FILE"}
+            </span>
           </div>
         ))}
 
-        {/* Drop zone (only show if < 3 images) */}
         {images.length < 3 && (
           <div
-            role="button"
-            tabIndex={0}
+            role="button" tabIndex={0}
             aria-label="Drop or click to add reference images"
             onClick={() => inputRef.current?.click()}
             onKeyDown={e => e.key === "Enter" && inputRef.current?.click()}
@@ -235,7 +459,9 @@ function RefImageZone({
             }}
           >
             <Upload size={16} color={dragging ? PURPLE : "#475569"} />
-            <span style={{ fontSize: 9, color: "#475569", fontWeight: 700 }}>DROP / CLICK</span>
+            <span style={{ fontSize: 9, color: "#475569", fontWeight: 700, textAlign: "center", lineHeight: 1.3 }}>
+              DROP /<br />CLICK
+            </span>
           </div>
         )}
       </div>
@@ -265,19 +491,15 @@ function ImageCard({ img, highlight = false }: { img: GeneratedImage; highlight?
       initial={{ opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
       style={{
-        ...CARD,
-        padding: 0,
-        overflow: "hidden",
+        ...CARD, padding: 0, overflow: "hidden",
         border: highlight ? `1px solid ${PURPLE}50` : "1px solid rgba(255,255,255,0.07)",
         boxShadow: highlight ? `0 0 0 1px ${PURPLE}25, 0 4px 24px ${PURPLE}12` : "none",
       }}
     >
-      {/* Preview */}
       <a href={img.image_url} target="_blank" rel="noopener noreferrer"
         style={{ display: "block", position: "relative", width: "100%", height: 180,
           overflow: "hidden", background: "#0a0f1a", textDecoration: "none" }}>
         <Thumb src={img.image_url} alt={img.prompt.slice(0, 60)} />
-        {/* Badges */}
         <span style={{
           position: "absolute", top: 6, left: 6, fontSize: 9, fontWeight: 800,
           color: isStudio ? PURPLE : ACCENT,
@@ -285,7 +507,7 @@ function ImageCard({ img, highlight = false }: { img: GeneratedImage; highlight?
           border: `1px solid ${isStudio ? PURPLE : ACCENT}35`,
           borderRadius: 6, padding: "2px 7px", display: "flex", alignItems: "center", gap: 4,
         }}>
-          <Wand2 size={9} />{isStudio ? "Studio" : img.agent_name ?? "Agent"}
+          <Wand2 size={9} />{isStudio ? "Studio" : (img.agent_name ?? "Agent")}
         </span>
         <span style={{
           position: "absolute", top: 6, right: 6, fontSize: 9, color: "#94a3b8",
@@ -294,19 +516,15 @@ function ImageCard({ img, highlight = false }: { img: GeneratedImage; highlight?
         }}>
           {img.size}
         </span>
-        {/* Hover overlay */}
         <div style={{
           position: "absolute", inset: 0, display: "flex", alignItems: "center",
-          justifyContent: "center", opacity: 0, transition: "opacity 0.15s",
-          background: "rgba(0,0,0,0.3)",
+          justifyContent: "center", opacity: 0, transition: "opacity 0.15s", background: "rgba(0,0,0,0.3)",
         }}
           onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
           onMouseLeave={e => (e.currentTarget.style.opacity = "0")}>
           <ZoomIn size={20} color="#fff" />
         </div>
       </a>
-
-      {/* Card body */}
       <div style={{ padding: "0.7rem 0.85rem" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
           <span style={{ fontSize: 10, color: "#475569" }}>{fmtDate(img.created_at)}</span>
@@ -345,7 +563,7 @@ function ImageCard({ img, highlight = false }: { img: GeneratedImage; highlight?
   );
 }
 
-// ── Main Page ──────────────────────────────────────────────────────────────────
+// ── Model / Size constants ─────────────────────────────────────────────────────
 
 const MODELS = [
   { id: "auto",          label: "Auto (recommended)" },
@@ -362,21 +580,22 @@ const SIZES = [
   { id: "1024x1792", label: "Portrait (1024×1792)" },
 ];
 
+// ── Main Page ──────────────────────────────────────────────────────────────────
+
 export default function ImageStudioPage() {
-  const [prompt, setPrompt]     = useState("");
-  const [model, setModel]       = useState("auto");
-  const [size, setSize]         = useState("1024x1024");
-  const [quality, setQuality]   = useState<"standard" | "hd">("standard");
-  const [refImages, setRefImages] = useState<{ dataUrl: string; name: string }[]>([]);
+  const [prompt, setPrompt]   = useState("");
+  const [model, setModel]     = useState("auto");
+  const [size, setSize]       = useState("1024x1024");
+  const [quality, setQuality] = useState<"standard" | "hd">("standard");
+  const [refImages, setRefImages] = useState<{ url: string; name: string }[]>([]);
 
   const [generating, setGenerating] = useState(false);
   const [error, setError]           = useState<string | null>(null);
   const [newImages, setNewImages]   = useState<GeneratedImage[]>([]);
 
-  const [history, setHistory]       = useState<GeneratedImage[]>([]);
+  const [history, setHistory]             = useState<GeneratedImage[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
-  // Fetch recent images on mount and after each generation
   const fetchHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
@@ -392,24 +611,19 @@ export default function ImageStudioPage() {
     if (!prompt.trim() || generating) return;
     setGenerating(true);
     setError(null);
-
     try {
       const res = await fetch(`${BOT_URL}/admin/generate/image`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: prompt.trim(),
-          model,
-          size,
-          quality,
-          reference_image_urls: refImages.map(r => r.dataUrl),
+          model, size, quality,
+          reference_image_urls: refImages.map(r => r.url),
         }),
       });
-
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
 
-      // Prepend to newImages for the "just generated" highlight
       const created: GeneratedImage = {
         id: Date.now().toString(),
         agent_name: "mission-control/studio",
@@ -421,7 +635,6 @@ export default function ImageStudioPage() {
         created_at: new Date().toISOString(),
       };
       setNewImages(prev => [created, ...prev]);
-      // Refresh history after short delay so DB write has propagated
       setTimeout(fetchHistory, 1500);
     } catch (err: any) {
       setError(err.message);
@@ -434,13 +647,12 @@ export default function ImageStudioPage() {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") generate();
   };
 
-  // Merge: newest generated images first, then deduplicated history
   const historyIds = new Set(newImages.map(i => i.image_url));
-  const mergedHistory = [...history.filter(h => !historyIds.has(h.image_url))];
+  const mergedHistory = history.filter(h => !historyIds.has(h.image_url));
 
   return (
     <div>
-      <BestPracticesGuide />
+      <BestPracticesGuide onInsert={text => setPrompt(text)} />
 
       {/* ── Studio Panel ── */}
       <div style={{ ...CARD, padding: "1.5rem", marginBottom: "2rem" }}>
@@ -451,7 +663,7 @@ export default function ImageStudioPage() {
           </div>
           <div>
             <p style={{ margin: 0, fontWeight: 800, fontSize: 14, color: "#e2e8f0" }}>Image Studio</p>
-            <p style={{ margin: 0, fontSize: 11, color: "#475569" }}>Generate with a prompt · drop reference images · pick your model</p>
+            <p style={{ margin: 0, fontSize: 11, color: "#475569" }}>Prompt · reference images · model — ⌘+Enter to generate</p>
           </div>
         </div>
 
@@ -466,7 +678,7 @@ export default function ImageStudioPage() {
             value={prompt}
             onChange={e => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ultra-realistic studio packshot of mini trampoline rebounder. Three-point lighting: key 45° front-left (5600K), fill 45° right (45%), rim light behind (6500K)…"
+            placeholder="Try a prompt starter above, or write your own…"
             rows={4}
             style={{
               width: "100%", boxSizing: "border-box", resize: "vertical",
@@ -477,9 +689,6 @@ export default function ImageStudioPage() {
               transition: "border-color 0.15s", fontFamily: "inherit",
             }}
           />
-          <p style={{ fontSize: 10, color: "#334155", margin: "0.3rem 0 0" }}>
-            ⌘ + Enter to generate
-          </p>
         </div>
 
         {/* Reference images */}
@@ -488,10 +697,11 @@ export default function ImageStudioPage() {
             images={refImages}
             onAdd={imgs => setRefImages(prev => [...prev, ...imgs].slice(0, 3))}
             onRemove={i => setRefImages(prev => prev.filter((_, j) => j !== i))}
+            onProductSelect={next => setRefImages(next)}
           />
         </div>
 
-        {/* Model / Size / Quality row */}
+        {/* Model / Size / Quality */}
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1.25rem" }}>
           <div style={{ flex: 1, minWidth: 180 }}>
             <label htmlFor="img-model" style={{ display: "block", fontSize: 10, fontWeight: 700,
@@ -499,9 +709,8 @@ export default function ImageStudioPage() {
               Model
             </label>
             <select id="img-model" value={model} onChange={e => setModel(e.target.value)}
-              style={{ width: "100%", background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.09)", borderRadius: 8,
-                padding: "0.45rem 0.75rem", color: "#e2e8f0", fontSize: 12, outline: "none", cursor: "pointer" }}>
+              style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)",
+                borderRadius: 8, padding: "0.45rem 0.75rem", color: "#e2e8f0", fontSize: 12, outline: "none", cursor: "pointer" }}>
               {MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
             </select>
           </div>
@@ -511,9 +720,8 @@ export default function ImageStudioPage() {
               Size
             </label>
             <select id="img-size" value={size} onChange={e => setSize(e.target.value)}
-              style={{ width: "100%", background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.09)", borderRadius: 8,
-                padding: "0.45rem 0.75rem", color: "#e2e8f0", fontSize: 12, outline: "none", cursor: "pointer" }}>
+              style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)",
+                borderRadius: 8, padding: "0.45rem 0.75rem", color: "#e2e8f0", fontSize: 12, outline: "none", cursor: "pointer" }}>
               {SIZES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
           </div>
@@ -522,8 +730,7 @@ export default function ImageStudioPage() {
               textTransform: "uppercase", letterSpacing: "0.06em" }}>Quality</p>
             <div style={{ display: "flex", gap: "0.4rem" }}>
               {(["standard", "hd"] as const).map(q => (
-                <button key={q} onClick={() => setQuality(q)}
-                  id={`quality-${q}`}
+                <button key={q} id={`quality-${q}`} onClick={() => setQuality(q)}
                   style={{
                     padding: "0.45rem 0.9rem", fontSize: 12, fontWeight: 700, cursor: "pointer",
                     borderRadius: 8, border: `1px solid ${quality === q ? PURPLE + "50" : "rgba(255,255,255,0.09)"}`,
@@ -545,8 +752,8 @@ export default function ImageStudioPage() {
                 background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.2)",
                 borderRadius: 10, padding: "0.65rem 1rem", marginBottom: "1rem" }}>
               <AlertCircle size={14} color="#f43f5e" />
-              <span style={{ fontSize: 12, color: "#f43f5e" }}>{error}</span>
-              <button onClick={() => setError(null)} style={{ marginLeft: "auto", background: "none", border: "none",
+              <span style={{ fontSize: 12, color: "#f43f5e", flex: 1 }}>{error}</span>
+              <button onClick={() => setError(null)} style={{ background: "none", border: "none",
                 cursor: "pointer", color: "#f43f5e", display: "flex" }} aria-label="Dismiss error">
                 <X size={12} />
               </button>
@@ -561,21 +768,18 @@ export default function ImageStudioPage() {
           disabled={!prompt.trim() || generating}
           style={{
             display: "flex", alignItems: "center", gap: "0.6rem",
-            background: !prompt.trim() || generating
-              ? "rgba(167,139,250,0.08)"
-              : `linear-gradient(135deg, ${PURPLE}, #818cf8)`,
-            border: `1px solid ${PURPLE}40`,
-            borderRadius: 10, padding: "0.75rem 1.75rem",
+            background: !prompt.trim() || generating ? "rgba(167,139,250,0.08)" : `linear-gradient(135deg, ${PURPLE}, #818cf8)`,
+            border: `1px solid ${PURPLE}40`, borderRadius: 10, padding: "0.75rem 1.75rem",
             color: !prompt.trim() || generating ? "#475569" : "#fff",
-            fontSize: 13, fontWeight: 800, cursor: !prompt.trim() || generating ? "not-allowed" : "pointer",
-            transition: "all 0.15s", boxShadow: !prompt.trim() || generating ? "none" : `0 4px 20px ${PURPLE}30`,
+            fontSize: 13, fontWeight: 800,
+            cursor: !prompt.trim() || generating ? "not-allowed" : "pointer",
+            transition: "all 0.15s",
+            boxShadow: !prompt.trim() || generating ? "none" : `0 4px 20px ${PURPLE}30`,
           }}
         >
-          {generating ? (
-            <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Generating…</>
-          ) : (
-            <><Wand2 size={15} /> Generate Image</>
-          )}
+          {generating
+            ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Generating…</>
+            : <><Wand2 size={15} /> Generate Image</>}
         </button>
       </div>
 
