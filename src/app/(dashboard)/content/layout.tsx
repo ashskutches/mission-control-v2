@@ -2,15 +2,16 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Tag, Layers, Copy, Film, Pin } from "lucide-react";
+import { BarChart3, Tag, Layers, Copy, Film, Pin, Wand2 } from "lucide-react";
 
 const NAV = [
-  { href: "/content",          label: "Dashboard",       icon: BarChart3,  color: "#f59e0b", exact: true },
-  { href: "/content/assets",   label: "Content",         icon: Film,       color: "#38bdf8" },
-  { href: "/content/products", label: "Products",         icon: Pin,        color: "#f59e0b" },
-  { href: "/content/tags",     label: "Tag Library",     icon: Tag,        color: "#a78bfa" },
-  { href: "/content/batch",    label: "Batch Tagger",    icon: Layers,     color: "#10b981" },
-  { href: "/content/copy",     label: "Copy Studio",     icon: Copy,       color: "#10b981" },
+  { href: "/content",          label: "Dashboard",    icon: BarChart3, color: "#f59e0b", exact: true },
+  { href: "/content/assets",   label: "Content",      icon: Film,      color: "#38bdf8" },
+  { href: "/content/generate", label: "Image Studio", icon: Wand2,     color: "#a78bfa" },
+  { href: "/content/products", label: "Products",     icon: Pin,       color: "#f59e0b" },
+  { href: "/content/tags",     label: "Tag Library",  icon: Tag,       color: "#a78bfa" },
+  { href: "/content/batch",    label: "Batch Tagger", icon: Layers,    color: "#10b981" },
+  { href: "/content/copy",     label: "Copy Studio",  icon: Copy,      color: "#10b981" },
 ];
 
 export default function ContentLayout({ children }: { children: React.ReactNode }) {
