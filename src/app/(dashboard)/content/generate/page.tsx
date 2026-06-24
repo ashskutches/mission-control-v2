@@ -388,7 +388,7 @@ function RefImageZone({
   images: { url: string; name: string }[];
   onAdd: (imgs: { url: string; name: string }[]) => void;
   onRemove: (i: number) => void;
-  onProductSelect: (urls: string[], title: string) => void;
+  onProductSelect: (imgs: { url: string; name: string }[]) => void;
 }) {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -408,9 +408,7 @@ function RefImageZone({
           Reference Images <span style={{ color: "#334155", fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(optional, max 3)</span>
         </p>
         <ProductRefPicker onSelect={(urls, title) => {
-          // Replace all current refs with product refs (up to 3)
           const next = urls.slice(0, 3).map((url, i) => ({ url, name: `${title} ref ${i + 1}` }));
-          // Clear existing and set product refs
           onProductSelect(next);
         }} />
       </div>
