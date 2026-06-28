@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Tag, FolderOpen, Search, RefreshCw, CheckSquare,
   Image as ImageIcon, Film, FileText, Package, X, Plus,
@@ -643,29 +645,74 @@ function DocTypeBadge({ type }: { type: string }) {
   );
 }
 
-// ── Doc Viewer Modal ──────────────────────────────────────────────────────────
+// ── Markdown styles injected once ────────────────────────────────────────────
+
+const MD_STYLES = `
+.doc-md { color: #cbd5e1; font-size: 13px; line-height: 1.8; word-break: break-word; }
+.doc-md h1 { font-size: 1.35rem; font-weight: 800; color: #f1f5f9; margin: 1.5rem 0 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.4rem; }
+.doc-md h2 { font-size: 1.1rem; font-weight: 700; color: #e2e8f0; margin: 1.25rem 0 0.6rem; }
+.doc-md h3 { font-size: 0.95rem; font-weight: 700; color: #cbd5e1; margin: 1rem 0 0.5rem; }
+.doc-md h4,.doc-md h5,.doc-md h6 { font-size: 0.875rem; font-weight: 700; color: #94a3b8; margin: 0.75rem 0 0.4rem; }
+.doc-md p { margin: 0 0 0.85rem; }
+.doc-md ul,.doc-md ol { padding-left: 1.5rem; margin: 0 0 0.85rem; }
+.doc-md li { margin-bottom: 0.3rem; }
+.doc-md blockquote { border-left: 3px solid rgba(56,189,248,0.4); padding: 0.4rem 1rem; margin: 0.75rem 0; color: #94a3b8; background: rgba(56,189,248,0.04); border-radius: 0 6px 6px 0; }
+.doc-md code { font-family: 'Menlo','Monaco','Consolas',monospace; font-size: 11px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.09); border-radius: 4px; padding: 1px 5px; color: #7dd3fc; }
+.doc-md pre { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 0.75rem 0; }
+.doc-md pre code { background: none; border: none; padding: 0; color: #94a3b8; font-size: 12px; }
+.doc-md table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 12px; }
+.doc-md th { background: rgba(56,189,248,0.08); color: #7dd3fc; font-weight: 700; text-align: left; padding: 0.45rem 0.75rem; border-bottom: 1px solid rgba(56,189,248,0.2); }
+.doc-md td { padding: 0.4rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: top; }
+.doc-md tr:hover td { background: rgba(255,255,255,0.02); }
+.doc-md a { color: #38bdf8; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.doc-md a:hover { color: #7dd3fc; }
+.doc-md hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 1.25rem 0; }
+.doc-md strong { color: #e2e8f0; font-weight: 700; }
+.doc-md em { color: #94a3b8; }
+`;
+
+function injectMdStyles() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById("doc-md-styles")) return;
+  const s = document.createElement("style");
+  s.id = "doc-md-styles";
+  s.textContent = MD_STYLES;
+  document.head.appendChild(s);
+}
+
+// ── DocViewerModal (markdown-aware, Drive-link-resolving) ─────────────────────
 
 function DocViewerModal({ docId, onClose }: { docId: string; onClose: () => void }) {
+  const [stack, setStack] = useState<string[]>([docId]);
+  const currentId = stack[stack.length - 1];
+
   const [doc, setDoc] = useState<AgentDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  useEffect(() => { injectMdStyles(); }, []);
+
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch(`${BOT_URL}/admin/agents/documents/${docId}`)
+    setDoc(null);
+    fetch(`${BOT_URL}/admin/agents/documents/${currentId}`)
       .then(r => r.ok ? r.json() : r.json().then((e: any) => Promise.reject(new Error(e.error ?? `HTTP ${r.status}`))))
       .then(data => { setDoc(data); setLoading(false); })
       .catch((e: Error) => { setError(e.message); setLoading(false); });
-  }, [docId]);
+  }, [currentId]);
 
-  // Close on Escape
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (stack.length > 1) setStack(s => s.slice(0, -1));
+        else onClose();
+      }
+    };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
+  }, [stack, onClose]);
 
   const handleCopy = () => {
     if (!doc?.content) return;
@@ -675,14 +722,48 @@ function DocViewerModal({ docId, onClose }: { docId: string; onClose: () => void
     });
   };
 
+  const handleDriveLink = useCallback(async (href: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    const fileIdMatch = href.match(/\/d\/([-\w]{20,})/);
+    if (!fileIdMatch) { window.open(href, "_blank"); return; }
+    const driveFileId = fileIdMatch[1];
+    const canonicalUrl = `https://docs.google.com/document/d/${driveFileId}/edit`;
+    try {
+      const res = await fetch(`${BOT_URL}/admin/agents/documents?drive_url=${encodeURIComponent(canonicalUrl)}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (data.id) {
+        setStack(s => [...s, data.id]);
+      } else {
+        alert("This Google Drive document is no longer accessible. It may have been deleted.");
+      }
+    } catch {
+      window.open(href, "_blank");
+    }
+  }, []);
+
+  const LinkRenderer = useCallback(({ href, children }: { href?: string; children?: React.ReactNode }) => {
+    if (!href) return <span>{children}</span>;
+    const isDriveDoc = href.includes("docs.google.com/document") || href.includes("docs.google.com/spreadsheets");
+    if (isDriveDoc) {
+      return (
+        <a href={href} onClick={e => handleDriveLink(href, e)} style={{ color: "#38bdf8", cursor: "pointer" }}>
+          {children}
+        </a>
+      );
+    }
+    return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
+  }, [handleDriveLink]);
+
   function fmtDate(d: string | null) {
-    if (!d) return "—";
+    if (!d) return "\u2014";
     return new Date(d).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
+  const isTombstone = doc?.content?.startsWith("[This document was stored in Google Drive");
+
   return (
     <AnimatePresence>
-      {/* Backdrop */}
       <motion.div
         key="backdrop"
         initial={{ opacity: 0 }}
@@ -694,7 +775,6 @@ function DocViewerModal({ docId, onClose }: { docId: string; onClose: () => void
           background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)",
         }}
       />
-      {/* Panel */}
       <motion.div
         key="panel"
         initial={{ opacity: 0, y: 24, scale: 0.97 }}
@@ -717,7 +797,18 @@ function DocViewerModal({ docId, onClose }: { docId: string; onClose: () => void
         aria-modal="true"
         aria-label={doc?.title ?? "Document viewer"}
       >
-        {/* Header */}
+        {stack.length > 1 && (
+          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.5rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.02)" }}>
+            <button
+              onClick={() => setStack(s => s.slice(0, -1))}
+              style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 700, color: ACCENT, background: `${ACCENT}10`, border: `1px solid ${ACCENT}20`, borderRadius: 6, padding: "3px 8px", cursor: "pointer" }}
+              aria-label="Go back"
+            >
+              \u2190 Back
+            </button>
+            <span style={{ fontSize: 10, color: "#475569" }}>Following link from previous document</span>
+          </div>
+        )}
         <div style={{
           display: "flex", alignItems: "flex-start", gap: "0.85rem",
           padding: "1.25rem 1.5rem",
@@ -731,7 +822,7 @@ function DocViewerModal({ docId, onClose }: { docId: string; onClose: () => void
             {loading ? (
               <div style={{ height: 20, width: "40%", background: "rgba(255,255,255,0.06)", borderRadius: 6, animation: "pulse 1.5s infinite" }} />
             ) : (
-              <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "#f1f5f9", lineHeight: 1.3 }}>
+              <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "#f1f5f9", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {doc?.title ?? "Untitled Document"}
               </h2>
             )}
@@ -748,61 +839,25 @@ function DocViewerModal({ docId, onClose }: { docId: string; onClose: () => void
             </div>
           </div>
           <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0, alignItems: "center" }}>
-            {doc?.content && (
-              <button
-                onClick={handleCopy}
-                title="Copy content"
-                aria-label="Copy document content"
-                style={{
-                  display: "flex", alignItems: "center", gap: 5,
-                  fontSize: 11, fontWeight: 700,
-                  color: copied ? "#10b981" : "#64748b",
-                  background: copied ? "rgba(16,185,129,0.08)" : "rgba(255,255,255,0.05)",
-                  border: `1px solid ${copied ? "rgba(16,185,129,0.25)" : "rgba(255,255,255,0.09)"}`,
-                  borderRadius: 8, padding: "5px 10px", cursor: "pointer", transition: "all 0.2s",
-                }}
-              >
+            {doc?.content && !isTombstone && (
+              <button onClick={handleCopy} title="Copy content" aria-label="Copy document content"
+                style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: copied ? "#10b981" : "#64748b", background: copied ? "rgba(16,185,129,0.08)" : "rgba(255,255,255,0.05)", border: `1px solid ${copied ? "rgba(16,185,129,0.25)" : "rgba(255,255,255,0.09)"}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", transition: "all 0.2s" }}>
                 {copied ? <Check size={12} /> : <Copy size={12} />}
                 {copied ? "Copied!" : "Copy"}
               </button>
             )}
             {doc?.url && (
-              <a
-                href={doc.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Open in Drive (if available)"
-                aria-label="Open in Google Drive"
-                style={{
-                  display: "flex", alignItems: "center", gap: 5,
-                  fontSize: 11, fontWeight: 700, color: "#64748b",
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.09)",
-                  borderRadius: 8, padding: "5px 10px",
-                  textDecoration: "none", transition: "all 0.15s",
-                }}
-              >
+              <a href={doc.url} target="_blank" rel="noopener noreferrer" title="Open in Drive" aria-label="Open in Google Drive"
+                style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#64748b", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 8, padding: "5px 10px", textDecoration: "none", transition: "all 0.15s" }}>
                 <ExternalLink size={12} /> Drive
               </a>
             )}
-            <button
-              onClick={onClose}
-              aria-label="Close document viewer"
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                width: 30, height: 30,
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.09)",
-                borderRadius: 8, cursor: "pointer", color: "#64748b",
-                transition: "all 0.15s",
-              }}
-            >
+            <button onClick={onClose} aria-label="Close document viewer"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 8, cursor: "pointer", color: "#64748b", transition: "all 0.15s" }}>
               <X size={14} />
             </button>
           </div>
         </div>
-
-        {/* Body */}
         <div style={{ flex: 1, overflowY: "auto", padding: "1.5rem" }}>
           {loading && (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
@@ -818,14 +873,28 @@ function DocViewerModal({ docId, onClose }: { docId: string; onClose: () => void
             </div>
           )}
           {!loading && !error && doc && (
-            doc.content ? (
-              <pre style={{
-                margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word",
-                fontFamily: "'Geist Mono', 'Menlo', 'Monaco', monospace",
-                fontSize: 13, lineHeight: 1.75, color: "#cbd5e1",
-              }}>
-                {doc.content}
-              </pre>
+            isTombstone ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0.75rem", padding: "3rem 1rem", textAlign: "center" }}>
+                <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <FileText size={24} color="#f59e0b" />
+                </div>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "#f59e0b", margin: "0 0 0.4rem" }}>Document no longer in Google Drive</p>
+                <p style={{ fontSize: 12, color: "#64748b", margin: 0, maxWidth: 440 }}>
+                  This document was written to Google Drive but the file has since been deleted.
+                </p>
+                {doc.url && (
+                  <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                    style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#f59e0b", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 8, padding: "6px 12px", textDecoration: "none", marginTop: "0.5rem" }}>
+                    <ExternalLink size={11} /> Try Drive link anyway
+                  </a>
+                )}
+              </div>
+            ) : doc.content ? (
+              <div className="doc-md">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: (props) => <LinkRenderer href={props.href} children={props.children} /> }}>
+                  {doc.content}
+                </ReactMarkdown>
+              </div>
             ) : (
               <div style={{ textAlign: "center", padding: "3rem", opacity: 0.45 }}>
                 <FileText size={36} color="#475569" style={{ marginBottom: "0.75rem" }} />
