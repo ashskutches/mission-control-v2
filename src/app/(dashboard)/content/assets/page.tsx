@@ -6,7 +6,7 @@ import {
   Image as ImageIcon, Film, FileText, Package, X, Plus,
   ChevronDown, ChevronLeft, ChevronRight, Database,
   AlertCircle, Loader2, BookmarkPlus, Check, UploadCloud,
-  Bot, ExternalLink, Link2, HardDrive, Sparkles, Wand2,
+  Bot, ExternalLink, Link2, HardDrive, Sparkles, Wand2, Eye, Copy,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -605,6 +605,7 @@ interface AgentDoc {
   agent_id: string;
   title: string;
   description: string | null;
+  content: string | null;
   url: string | null;
   doc_type: string;
   routine_id: string | null;
@@ -642,6 +643,205 @@ function DocTypeBadge({ type }: { type: string }) {
   );
 }
 
+// ── Doc Viewer Modal ──────────────────────────────────────────────────────────
+
+function DocViewerModal({ docId, onClose }: { docId: string; onClose: () => void }) {
+  const [doc, setDoc] = useState<AgentDoc | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    fetch(`${BOT_URL}/admin/agents/documents/${docId}`)
+      .then(r => r.ok ? r.json() : r.json().then((e: any) => Promise.reject(new Error(e.error ?? `HTTP ${r.status}`))))
+      .then(data => { setDoc(data); setLoading(false); })
+      .catch((e: Error) => { setError(e.message); setLoading(false); });
+  }, [docId]);
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const handleCopy = () => {
+    if (!doc?.content) return;
+    navigator.clipboard.writeText(doc.content).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  function fmtDate(d: string | null) {
+    if (!d) return "—";
+    return new Date(d).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+
+  return (
+    <AnimatePresence>
+      {/* Backdrop */}
+      <motion.div
+        key="backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        style={{
+          position: "fixed", inset: 0, zIndex: 200,
+          background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)",
+        }}
+      />
+      {/* Panel */}
+      <motion.div
+        key="panel"
+        initial={{ opacity: 0, y: 24, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 12, scale: 0.97 }}
+        transition={{ type: "spring", stiffness: 340, damping: 32 }}
+        onClick={e => e.stopPropagation()}
+        style={{
+          position: "fixed", top: "5vh", left: "50%", transform: "translateX(-50%)",
+          width: "min(860px, 94vw)", maxHeight: "88vh",
+          background: "rgba(10,14,26,0.98)",
+          backdropFilter: "blur(24px)",
+          border: "1px solid rgba(56,189,248,0.18)",
+          borderRadius: 18,
+          boxShadow: "0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(56,189,248,0.06)",
+          display: "flex", flexDirection: "column",
+          zIndex: 201, overflow: "hidden",
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={doc?.title ?? "Document viewer"}
+      >
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "flex-start", gap: "0.85rem",
+          padding: "1.25rem 1.5rem",
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          flexShrink: 0,
+        }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Bot size={17} color={ACCENT} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {loading ? (
+              <div style={{ height: 20, width: "40%", background: "rgba(255,255,255,0.06)", borderRadius: 6, animation: "pulse 1.5s infinite" }} />
+            ) : (
+              <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "#f1f5f9", lineHeight: 1.3 }}>
+                {doc?.title ?? "Untitled Document"}
+              </h2>
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "0.3rem", flexWrap: "wrap" }}>
+              {doc && <DocTypeBadge type={doc.doc_type} />}
+              {doc?.agent_id && (
+                <span style={{ fontSize: 10, color: "#475569" }}>
+                  <span style={{ color: "#64748b", fontWeight: 600 }}>agent:</span> {doc.agent_id}
+                </span>
+              )}
+              {doc?.last_updated_at && (
+                <span style={{ fontSize: 10, color: "#475569" }}>Updated {fmtDate(doc.last_updated_at)}</span>
+              )}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0, alignItems: "center" }}>
+            {doc?.content && (
+              <button
+                onClick={handleCopy}
+                title="Copy content"
+                aria-label="Copy document content"
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  fontSize: 11, fontWeight: 700,
+                  color: copied ? "#10b981" : "#64748b",
+                  background: copied ? "rgba(16,185,129,0.08)" : "rgba(255,255,255,0.05)",
+                  border: `1px solid ${copied ? "rgba(16,185,129,0.25)" : "rgba(255,255,255,0.09)"}`,
+                  borderRadius: 8, padding: "5px 10px", cursor: "pointer", transition: "all 0.2s",
+                }}
+              >
+                {copied ? <Check size={12} /> : <Copy size={12} />}
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            )}
+            {doc?.url && (
+              <a
+                href={doc.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open in Drive (if available)"
+                aria-label="Open in Google Drive"
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  fontSize: 11, fontWeight: 700, color: "#64748b",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.09)",
+                  borderRadius: 8, padding: "5px 10px",
+                  textDecoration: "none", transition: "all 0.15s",
+                }}
+              >
+                <ExternalLink size={12} /> Drive
+              </a>
+            )}
+            <button
+              onClick={onClose}
+              aria-label="Close document viewer"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 30, height: 30,
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.09)",
+                borderRadius: 8, cursor: "pointer", color: "#64748b",
+                transition: "all 0.15s",
+              }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "1.5rem" }}>
+          {loading && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              {[...Array(6)].map((_, i) => (
+                <div key={i} style={{ height: 16, width: `${85 - i * 8}%`, background: "rgba(255,255,255,0.05)", borderRadius: 5, animation: "pulse 1.5s infinite" }} />
+              ))}
+            </div>
+          )}
+          {error && (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.2)", borderRadius: 10, padding: "1rem" }}>
+              <AlertCircle size={15} color="#f43f5e" />
+              <span style={{ fontSize: 13, color: "#f43f5e" }}>Failed to load: {error}</span>
+            </div>
+          )}
+          {!loading && !error && doc && (
+            doc.content ? (
+              <pre style={{
+                margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word",
+                fontFamily: "'Geist Mono', 'Menlo', 'Monaco', monospace",
+                fontSize: 13, lineHeight: 1.75, color: "#cbd5e1",
+              }}>
+                {doc.content}
+              </pre>
+            ) : (
+              <div style={{ textAlign: "center", padding: "3rem", opacity: 0.45 }}>
+                <FileText size={36} color="#475569" style={{ marginBottom: "0.75rem" }} />
+                <p style={{ fontSize: 13, color: "#475569" }}>
+                  This document has no stored content.
+                  {doc.url && " Try opening it in Drive using the button above."}
+                </p>
+              </div>
+            )
+          )}
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 function DocumentsPanel() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -650,6 +850,7 @@ function DocumentsPanel() {
   const [data, setData] = useState<DocsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewingDocId, setViewingDocId] = useState<string | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -808,7 +1009,9 @@ function DocumentsPanel() {
                 ...CARD,
                 display: "flex", alignItems: "flex-start", gap: "0.85rem",
                 transition: "border-color 0.12s, background 0.12s",
+                cursor: "pointer",
               }}
+              onClick={() => setViewingDocId(doc.id)}
               onMouseEnter={e => {
                 (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}25`;
                 (e.currentTarget as HTMLElement).style.background = `${ACCENT}05`;
@@ -855,24 +1058,20 @@ function DocumentsPanel() {
               </div>
 
               {/* Actions */}
-              {doc.url && (
-                <a
-                  href={doc.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: "flex", alignItems: "center", gap: 5,
-                    fontSize: 10, fontWeight: 700, color: ACCENT,
-                    background: `${ACCENT}10`, border: `1px solid ${ACCENT}25`,
-                    borderRadius: 8, padding: "5px 10px",
-                    textDecoration: "none", flexShrink: 0, whiteSpace: "nowrap",
-                    transition: "background 0.12s",
-                  }}
-                  aria-label={`Open ${doc.title}`}
-                >
-                  <ExternalLink size={11} /> Open
-                </a>
-              )}
+              <button
+                onClick={e => { e.stopPropagation(); setViewingDocId(doc.id); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  fontSize: 10, fontWeight: 700, color: ACCENT,
+                  background: `${ACCENT}10`, border: `1px solid ${ACCENT}25`,
+                  borderRadius: 8, padding: "5px 10px",
+                  cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap",
+                  transition: "background 0.12s", fontFamily: "inherit",
+                }}
+                aria-label={`View ${doc.title}`}
+              >
+                <Eye size={11} /> View
+              </button>
             </motion.div>
           ))}
         </motion.div>
@@ -895,6 +1094,11 @@ function DocumentsPanel() {
             Next <ChevronRight size={13} />
           </button>
         </div>
+      )}
+
+      {/* Inline Document Viewer Modal */}
+      {viewingDocId && (
+        <DocViewerModal docId={viewingDocId} onClose={() => setViewingDocId(null)} />
       )}
     </div>
   );
