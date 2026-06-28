@@ -451,14 +451,28 @@ function JobComposer({ agents, onJobCreated }: { agents: AgentDef[]; onJobCreate
 }
 
 // ── Job Card ──────────────────────────────────────────────────────────────────
-function JobCard({ job, onCancel, onDelete }: {
+function JobCard({ job, jobs, onCancel, onDelete }: {
   job: AgentJob;
+  jobs: AgentJob[];
   onCancel: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const catCfg = CATEGORIES[job.category ?? "general"] ?? CATEGORIES.general;
   const CatIcon = catCfg.icon;
+
+  // Determine if this stage job is the final step in its pipeline
+  const isFinalStage = (() => {
+    if (!job.pipeline_id || job.stage_index == null) return false;
+    // Look up parent job's stage_plan
+    const parent = jobs.find(j => j.id === job.pipeline_id);
+    if (!parent?.stage_plan?.length) return false;
+    // is_final flag takes precedence if set
+    const planEntry = parent.stage_plan.find(s => s.index === job.stage_index);
+    if (planEntry) return planEntry.is_final;
+    // Fallback: last index
+    return job.stage_index === parent.stage_plan.length - 1;
+  })();
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
@@ -495,13 +509,27 @@ function JobCard({ job, onCancel, onDelete }: {
             )}
             {/* Stage badge on child stage jobs */}
             {job.pipeline_id && job.stage_index != null && (
-              <span style={{
-                fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5,
-                background: "rgba(168,85,247,0.07)", border: "1px solid rgba(168,85,247,0.2)",
-                color: "#a78bfa",
-              }}>
-                Stage {job.stage_index}
-              </span>
+              isFinalStage ? (
+                /* Final stage — distinct gold accent with crown */
+                <span style={{
+                  fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 5,
+                  background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.4)",
+                  color: "#fbbf24",
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  boxShadow: "0 0 8px rgba(251,191,36,0.15)",
+                }}>
+                  ⭐ Final Stage
+                </span>
+              ) : (
+                /* Regular stage */
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5,
+                  background: "rgba(168,85,247,0.07)", border: "1px solid rgba(168,85,247,0.2)",
+                  color: "#a78bfa",
+                }}>
+                  Stage {job.stage_index}
+                </span>
+              )
             )}
             {/* Open Document button — visible when pipeline_doc_url is set */}
             {job.pipeline_doc_url && (
@@ -714,7 +742,7 @@ function JobsBoard({ jobs, loading, onCancel, onDelete }: {
         </div>
       ) : (
         <AnimatePresence>
-          {active.map(j => <JobCard key={j.id} job={j} onCancel={onCancel} onDelete={onDelete} />)}
+          {active.map(j => <JobCard key={j.id} job={j} jobs={jobs} onCancel={onCancel} onDelete={onDelete} />)}
         </AnimatePresence>
       )}
 
@@ -731,7 +759,7 @@ function JobsBoard({ jobs, loading, onCancel, onDelete }: {
           <AnimatePresence>
             {showHistory && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                {history.map(j => <JobCard key={j.id} job={j} onCancel={onCancel} onDelete={onDelete} />)}
+                {history.map(j => <JobCard key={j.id} job={j} jobs={jobs} onCancel={onCancel} onDelete={onDelete} />)}
               </motion.div>
             )}
           </AnimatePresence>
