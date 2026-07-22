@@ -50,6 +50,12 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-    // Run on all routes except Next.js internals and static files
-    matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+    // Run on all routes except Next.js internals and static files.
+    // The trailing extension group excludes public/ assets (hero banner,
+    // wordmark, icons, svgs) so they aren't 307-redirected to /login for
+    // logged-out visitors — otherwise the login page's own background and
+    // logo fail to load.
+    matcher: [
+        "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpe?g|gif|svg|ico|webp|avif|txt|xml|json|woff2?)$).*)",
+    ],
 };
