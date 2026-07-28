@@ -84,6 +84,9 @@ export const APP_CONFIG = {
 
         // ── Agentic ─────────────────────────────────────────────────────────────────────────
         { id: 'pipeline', group: 'agentic', href: '/pipeline', icon: GitMerge,      label: 'Pipeline',   color: '#e98d20' },
+        // Research and Tasks are the same underlying queue split by agent_work.type.
+        // Research is a library you read; Tasks is a queue you clear.
+        { id: 'research', group: 'agentic', href: '/research', icon: FlaskConical,  label: 'Research',   color: '#a78bfa' },
         { id: 'tasks',    group: 'agentic', href: '/work',     icon: ClipboardList, label: 'Tasks',      color: '#4a9eff' },
         { id: 'agents',   group: 'agentic', href: '/agents',   icon: Bot,           label: 'Agents',     color: '#6b7280' },
         { id: 'north-star', group: 'agentic', href: '/north-star', icon: TrendingUp, label: 'North Star', color: '#a78bfa' },
