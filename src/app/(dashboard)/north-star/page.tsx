@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   TrendingUp, Zap, AlertTriangle, DollarSign, BarChart3,
   RefreshCw, ArrowUpRight, Flame,
-  Target, Activity, ChevronRight,
+  Target, Activity, ChevronRight, Info,
 } from "lucide-react";
 import SectionAgentPanel from "@/components/SectionAgentPanel";
 import ChatBox from "@/components/ChatBox";
@@ -29,6 +29,26 @@ interface Insight {
 }
 interface CostRow { agent_name: string; total_cost_usd: string; total_calls: number; }
 interface AgentRequest { id: string; type: string; title: string; priority: number; status: string; agent_name: string | null; }
+
+/**
+ * The business KPIs that replaced the old stat strip.
+ *
+ * The previous four cards were "revenue opportunity" (the sum of the agents' own
+ * estimated_monthly_value guesses, so it grew whenever they filed more notes),
+ * new insight count, open request count, and 30-day LLM spend. Three of the four
+ * measured the agent network rather than the company, and the first actively
+ * rewarded verbosity.
+ *
+ * LLM spend moved to /costs, where it belongs. Insight and request counts still
+ * appear on this page — in the digest and the ops sidebar — because they are
+ * workload, not performance.
+ */
+interface ProfitSummary {
+  netRevenue: number; netMarginPct: number | null; netProfit: number | null;
+  grossMarginPct: number | null; mer: number | null; cac: number | null;
+  cogsCoverage: number; coverageSufficient: boolean; orders: number; aov: number;
+}
+interface ProfitPacing { target: number; projectedTotal: number; varianceToPace: number; pctOfTarget: number }
 
 const TYPE_COLOR: Record<string, string> = {
   critical_issue: "#f43f5e", suggestion: "#f59e0b",
@@ -231,18 +251,21 @@ export default function NorthStarPage() {
   const [assignedAgent, setAssignedAgent] = useState<{ id: string; name: string; emoji?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [profit, setProfit] = useState<{ summary: ProfitSummary; pacing: ProfitPacing | null; blockers: any[] } | null>(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [insRes, costRes, reqRes] = await Promise.all([
+      const [insRes, costRes, reqRes, profitRes] = await Promise.all([
         fetch(`${BOT_URL}/admin/insights?limit=150`),
         fetch(`${BOT_URL}/admin/costs/by-agent?limit=30`),
         fetch(`${BOT_URL}/admin/agent-requests?status=open`),
+        fetch(`${BOT_URL}/admin/profitability?period=qtd`),
       ]);
       if (insRes.ok) setInsights(await insRes.json());
       if (costRes.ok) setCosts(await costRes.json());
       if (reqRes.ok) setRequests(await reqRes.json());
+      if (profitRes.ok) setProfit(await profitRes.json());
     } catch { /* silent */ } finally { setLoading(false); }
   }, []);
 
@@ -286,12 +309,87 @@ export default function NorthStarPage() {
         />
       </div>
 
-      {/* ── KPI Strip ──────────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "0.75rem", marginBottom: "1.25rem" }}>
-        <StatCard label="Revenue Opportunity" value={`$${totalRevOpp.toLocaleString()}`} sub="across all new insights" icon={Target} color="#22c55e" />
-        <StatCard label="New Insights" value={newInsights.length} sub={`${criticalCount} critical`} icon={BarChart3} color={ACCENT} alert={criticalCount > 0} />
-        <StatCard label="Agent Requests" value={criticalRequests.length} sub="priority 8+ open" icon={Zap} color="#f59e0b" alert={criticalRequests.length > 0} />
-        <StatCard label="30-Day LLM Spend" value={`$${totalSpend.toFixed(2)}`} sub={`${costs.length} agents`} icon={DollarSign} color="#38bdf8" />
+      {/* ── KPI Strip — the company, not the agent network ──────────────── */}
+      {/* A withheld figure renders as "—" with the reason underneath. It is never
+          filled with a placeholder: see /profitability for the full provenance. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "0.75rem", marginBottom: "0.6rem" }}>
+        <StatCard
+          label="Net Margin"
+          value={profit?.summary.netMarginPct != null ? `${profit.summary.netMarginPct.toFixed(1)}%` : "—"}
+          sub={profit?.summary.netProfit != null
+            ? `$${Math.round(profit.summary.netProfit).toLocaleString()} QTD`
+            : "needs unit costs + overhead"}
+          icon={Target}
+          color={profit?.summary.netMarginPct == null ? "#475569" : profit.summary.netMarginPct >= 0 ? "#22c55e" : "#f43f5e"}
+          alert={profit?.summary.netMarginPct != null && profit.summary.netMarginPct < 0}
+        />
+        <StatCard
+          label="Q Pace"
+          value={profit?.pacing ? `$${Math.round(profit.pacing.projectedTotal / 1000)}K` : "—"}
+          sub={profit?.pacing ? `of $${Math.round(profit.pacing.target / 1000)}K target` : "no target set"}
+          icon={TrendingUp}
+          color={!profit?.pacing ? "#475569" : profit.pacing.varianceToPace >= 0 ? "#22c55e" : "#f59e0b"}
+          alert={!!profit?.pacing && profit.pacing.varianceToPace < 0}
+        />
+        <StatCard
+          label="MER"
+          value={profit?.summary.mer != null ? `${profit.summary.mer.toFixed(2)}×` : "—"}
+          sub={profit?.summary.mer != null ? "revenue ÷ ad spend" : "no ad spend recorded"}
+          icon={Activity}
+          color={profit?.summary.mer == null ? "#475569" : profit.summary.mer >= 2.8 ? "#22c55e" : "#f43f5e"}
+          alert={profit?.summary.mer != null && profit.summary.mer < 2.5}
+        />
+        <StatCard
+          label="Gross Margin"
+          value={profit?.summary.grossMarginPct != null ? `${profit.summary.grossMarginPct.toFixed(1)}%` : "—"}
+          sub={profit?.summary.grossMarginPct != null
+            ? "healthy ≥ 48%"
+            : `only ${((profit?.summary.cogsCoverage ?? 0) * 100).toFixed(0)}% cost coverage`}
+          icon={DollarSign}
+          color={profit?.summary.grossMarginPct == null ? "#475569" : profit.summary.grossMarginPct >= 48 ? "#22c55e" : "#f59e0b"}
+        />
+      </div>
+
+      {/* Any withheld KPI above has a fix; say so rather than leaving a dash. */}
+      {profit && profit.blockers?.some((b: any) => b.severity === "critical") && (
+        <a href="/profitability?tab=costs" style={{
+          display: "flex", alignItems: "center", gap: 8, marginBottom: "1.25rem", textDecoration: "none",
+          background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.25)",
+          borderRadius: 10, padding: "0.6rem 0.85rem",
+        }}>
+          <AlertTriangle size={13} color="#f43f5e" />
+          <span style={{ fontSize: "11.5px", color: "#e2e8f0" }}>
+            {profit.blockers.filter((b: any) => b.severity === "critical").length} blocker(s) are keeping the figures above from being real —{" "}
+            <strong style={{ color: "#f43f5e" }}>{profit.blockers.find((b: any) => b.severity === "critical")?.fix}</strong>
+          </span>
+          <ChevronRight size={12} color="#f43f5e" style={{ marginLeft: "auto", flexShrink: 0 }} />
+        </a>
+      )}
+      {(!profit || !profit.blockers?.some((b: any) => b.severity === "critical")) && <div style={{ marginBottom: "0.65rem" }} />}
+
+      {/* Agent-network workload — moved below the business KPIs, where it belongs.
+          "Revenue opportunity" is deliberately gone: it summed the agents' own
+          guesses, so filing more notes raised it. LLM spend now lives on /costs. */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem 1.1rem", alignItems: "center", marginBottom: "1.25rem", padding: "0 0.15rem" }}>
+        <span style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#334155" }}>Agent workload</span>
+        <span style={{ fontSize: "11.5px", color: "#64748b" }}>
+          <strong style={{ color: "#94a3b8" }}>{newInsights.length}</strong> new insights
+          {criticalCount > 0 && <span style={{ color: "#f43f5e" }}> · {criticalCount} critical</span>}
+        </span>
+        <span style={{ fontSize: "11.5px", color: "#64748b" }}>
+          <strong style={{ color: "#94a3b8" }}>{criticalRequests.length}</strong> requests at P8+
+        </span>
+        <a href="/costs" style={{ fontSize: "11.5px", color: "#64748b", textDecoration: "none" }}>
+          <strong style={{ color: "#94a3b8" }}>${totalSpend.toFixed(2)}</strong> LLM spend (30d) →
+        </a>
+        {totalRevOpp > 0 && (
+          <span style={{ fontSize: "11.5px", color: "#475569", display: "flex", alignItems: "center", gap: 4 }}>
+            ${totalRevOpp.toLocaleString()} of self-estimated opportunity
+            <span title="This is the sum of the agents' own estimated_monthly_value guesses, not a measured figure. It rises when agents file more notes, which is why it is no longer a headline KPI.">
+              <Info size={10} />
+            </span>
+          </span>
+        )}
       </div>
 
       {/* ── The Whale ──────────────────────────────────────────────────── */}
@@ -358,8 +456,46 @@ export default function NorthStarPage() {
               context={{
                 sectionId: "north-star",
                 sectionName: "North Star",
-                metrics: [],
-                insights: [],
+                // Real P&L figures, each carrying whether it is measured or
+                // withheld. Previously this was `metrics: []`, so the commander
+                // chat had no financial grounding at all and would reason about
+                // the business from the insight titles alone.
+                metrics: profit ? [
+                  { label: "Net revenue (QTD)", value: `$${Math.round(profit.summary.netRevenue).toLocaleString()}`, sub: `${profit.summary.orders} orders, AOV $${profit.summary.aov.toFixed(2)}` },
+                  {
+                    label: "Net margin",
+                    value: profit.summary.netMarginPct != null ? `${profit.summary.netMarginPct.toFixed(1)}%` : "UNAVAILABLE",
+                    sub: profit.summary.netMarginPct != null ? "estimated — overhead is hand-entered" : "overhead not entered; do not estimate it",
+                  },
+                  {
+                    label: "Gross margin",
+                    value: profit.summary.grossMarginPct != null ? `${profit.summary.grossMarginPct.toFixed(1)}%` : "WITHHELD",
+                    sub: profit.summary.coverageSufficient
+                      ? "cost coverage sufficient"
+                      : `only ${(profit.summary.cogsCoverage * 100).toFixed(1)}% of revenue has a known unit cost — do not compute a margin from a guessed COGS`,
+                  },
+                  {
+                    label: "MER (revenue ÷ ad spend)",
+                    value: profit.summary.mer != null ? `${profit.summary.mer.toFixed(2)}x` : "UNAVAILABLE",
+                    sub: "the non-double-counting efficiency ratio; prefer it over per-platform ROAS",
+                  },
+                  {
+                    label: "CAC",
+                    value: profit.summary.cac != null ? `$${profit.summary.cac.toFixed(2)}` : "UNAVAILABLE",
+                    sub: "ad spend ÷ customers created in the period",
+                  },
+                  ...(profit.pacing ? [{
+                    label: "Quarter pacing",
+                    value: `$${Math.round(profit.pacing.projectedTotal).toLocaleString()} projected of $${Math.round(profit.pacing.target).toLocaleString()}`,
+                    sub: `${profit.pacing.varianceToPace >= 0 ? "ahead of" : "behind"} pace by $${Math.abs(Math.round(profit.pacing.varianceToPace)).toLocaleString()}`,
+                  }] : []),
+                  ...profit.blockers.filter((b: any) => b.severity === "critical").map((b: any) => ({
+                    label: "BLOCKER",
+                    value: b.message,
+                    sub: `Fix: ${b.fix}`,
+                  })),
+                ] : [],
+                insights: newInsights.slice(0, 6),
               }}
             />
           ) : (

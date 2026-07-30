@@ -1,10 +1,13 @@
 "use client";
 /**
- * Master Bot Overview — /
+ * Command Center — /
  *
- * The primary interface between the human owner and the entire agent system.
- * Shows: revenue strip, department health scorecards, pending actions inbox,
- * agent wins feed, and a persistent Master Bot chat.
+ * The primary interface between the human owner and the entire agent system,
+ * organised as tabs. Overview is the agent-system view: revenue strip, department
+ * health, pending actions, wins feed, Master Bot chat. Profitability is the P&L.
+ *
+ * Tabs are deep-linkable via ?tab=<id>. See the note on CommandCenterPage for why
+ * the query is read on mount rather than through useSearchParams.
  */
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -17,6 +20,8 @@ import {
 } from "lucide-react";
 import { MarkdownMessage } from "@/components/MarkdownMessage";
 import CostAlerts from "@/components/CostAlerts";
+import ProfitDashboard from "@/components/ProfitDashboard";
+import { LayoutDashboard, PiggyBank } from "lucide-react";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 const BOT_URL  = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
@@ -104,21 +109,53 @@ function DeptCard({ dept, health, onNav }: { dept: typeof DEPARTMENTS[number]; h
   );
 }
 
+// Risk tier drives the colour — it is now a real assessed value rather than a
+// self-reported priority, so it is the honest thing to lead with.
+const TIER_COLOR: Record<string, string> = {
+  critical: "#f43f5e",
+  high:     "#fb923c",
+  medium:   "#f59e0b",
+  low:      "#6b7280",
+};
+
 function PendingActionRow({ action }: { action: any }) {
-  const typeColor: Record<string, string> = { integration_request: "#fb923c", suggestion: "#f59e0b", critical_issue: "#f43f5e" };
-  const color = typeColor[action.type] ?? "#6366f1";
+  const color = TIER_COLOR[action.risk_tier] ?? "#6366f1";
+  const value = action.estimated_monthly_value;
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-      <div style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
+    <div
+      onClick={() => action.id && window.location.assign(`/pipeline/${action.id}`)}
+      style={{
+        display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 0",
+        borderBottom: "1px solid rgba(255,255,255,0.04)",
+        cursor: action.id ? "pointer" : "default",
+      }}
+    >
+      <div style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0, marginTop: 5 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: 11, fontWeight: 700, color: "#ccc", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {action.section && <span style={{ color, fontSize: 9, fontWeight: 800, textTransform: "uppercase", marginRight: 6, letterSpacing: "0.08em" }}>{action.section}</span>}
-          Priority {action.priority}/10
+        {/* The title is the whole point — this row used to read "Priority 9/10" with
+            no indication of what the insight actually was. */}
+        <p style={{ fontSize: 11, fontWeight: 700, color: "#ddd", margin: 0, lineHeight: 1.4 }}>
+          {action.section && (
+            <span style={{ color, fontSize: 9, fontWeight: 800, textTransform: "uppercase", marginRight: 6, letterSpacing: "0.08em" }}>
+              {action.section}
+            </span>
+          )}
+          {action.title ?? "Untitled insight"}
         </p>
-        <p style={{ fontSize: 10, color: "#555", margin: 0 }}>{action.agent ?? "Agent"} · {new Date(action.created_at).toLocaleDateString()}</p>
+        <p style={{ fontSize: 10, color: "#555", margin: "2px 0 0" }}>
+          {action.agent ?? "Agent"}
+          {action.occurrences > 1 && <span style={{ color: "#fb923c", fontWeight: 700 }}> · reported {action.occurrences}×</span>}
+          {value != null && (
+            <span style={{ color: value < 0 ? "#f43f5e" : "#22c55e", fontWeight: 700 }}>
+              {" · "}{value < 0 ? "−" : "+"}${Math.abs(value).toLocaleString()}/mo
+            </span>
+          )}
+          {" · "}{new Date(action.created_at).toLocaleDateString()}
+        </p>
       </div>
-      <span style={{ fontSize: 9, fontWeight: 800, color, background: `${color}15`, border: `1px solid ${color}30`, borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>
-        {action.type?.replace("_", " ")}
+      <span style={{ fontSize: 9, fontWeight: 800, color, background: `${color}15`, border: `1px solid ${color}30`, borderRadius: 4, padding: "1px 6px", flexShrink: 0, textTransform: "uppercase" }}>
+        {action.risk_tier ?? action.type?.replace("_", " ")}
       </span>
     </div>
   );
@@ -261,8 +298,86 @@ function MasterBotChat({ masterAgentId }: { masterAgentId: string | null }) {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
-export default function OverviewPage() {
+// ── Tab shell ─────────────────────────────────────────────────────────────────
+const CC_TABS = [
+  { id: "overview",      label: "Overview",      icon: LayoutDashboard, color: "var(--accent-orange)" },
+  { id: "profitability", label: "Profitability", icon: PiggyBank,       color: "#22c55e" },
+] as const;
+
+type CcTab = typeof CC_TABS[number]["id"];
+
+const readTab = (): CcTab => {
+  const t = new URLSearchParams(window.location.search).get("tab");
+  return CC_TABS.some(x => x.id === t) ? t as CcTab : "overview";
+};
+
+/**
+ * Deliberately NOT useSearchParams.
+ *
+ * useSearchParams opts a statically-prerendered route into client-only rendering,
+ * which turned the whole of `/` into a "Loading…" fallback in the server HTML —
+ * measured, not assumed. Reading the query on mount keeps the Overview tab
+ * server-rendered as before.
+ *
+ * A mount-only read is safe here because nothing inside the app pushes `?tab=`
+ * without a full load: the sidebar's Profit item points at /profitability, a real
+ * route. Reaching /?tab=profitability means a fresh page load, and back/forward is
+ * covered by the popstate listener.
+ */
+export default function CommandCenterPage() {
+  const [tab, setTab] = useState<CcTab>("overview");
+
+  useEffect(() => {
+    setTab(readTab());
+    const onPop = () => setTab(readTab());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const switchTab = (t: CcTab) => {
+    setTab(t);
+    const url = new URL(window.location.href);
+    if (t === "overview") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", t);
+    // The Profit dashboard's own dashboard/costs sub-tab belongs to the tab being
+    // left, so it does not travel with the switch.
+    url.searchParams.delete("sub");
+    window.history.pushState(null, "", url);
+  };
+
+  return (
+    <div className="px-4 pb-8 pt-4" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 4,
+        background: "rgba(0,0,0,.25)", border: "1px solid rgba(255,255,255,.08)",
+        borderRadius: 12, padding: 3, alignSelf: "flex-start",
+      }}>
+        {CC_TABS.map(t => {
+          const Icon = t.icon;
+          const on = tab === t.id;
+          return (
+            <button key={t.id} onClick={() => switchTab(t.id)} aria-pressed={on} style={{
+              display: "flex", alignItems: "center", gap: 6,
+              background: on ? "rgba(255,255,255,.06)" : "none",
+              border: 0, borderRadius: 9, padding: ".4rem .85rem", cursor: "pointer",
+              fontFamily: "inherit", fontSize: 12, fontWeight: on ? 800 : 600,
+              color: on ? t.color : "#777", transition: "all .15s",
+            }}>
+              <Icon size={13} /> {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === "overview"
+        ? <OverviewTab />
+        : <ProfitDashboard subTabParam="sub" showHeading={false} />}
+    </div>
+  );
+}
+
+// ── Overview tab ──────────────────────────────────────────────────────────────
+function OverviewTab() {
   const [overview, setOverview] = useState<any>(null);
   const [agents, setAgents] = useState<any[]>([]);
   const [masterAgentId, setMasterAgentId] = useState<string | null>(null);
@@ -292,7 +407,8 @@ export default function OverviewPage() {
   const deptHealthMap = Object.fromEntries((overview?.departmentHealth ?? []).map((h: any) => [h.dept, h]));
 
   return (
-    <div className="px-4 pb-8 pt-4" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+    // No px-4/pt-4 here — the Command Center shell above supplies the gutter.
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
 
       {/* ── L&R Hero banner ── */}
       <section style={{ position: "relative", borderRadius: 16, overflow: "hidden", border: "1px solid rgba(233,141,32,0.2)" }}>
@@ -406,27 +522,27 @@ export default function OverviewPage() {
               <div style={{ width: 22, height: 22, borderRadius: 6, background: "rgba(245,158,11,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <AlertCircle size={12} color="#f59e0b" />
               </div>
-              <p style={{ fontSize: 11, fontWeight: 800, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Pending Actions</p>
+              <p style={{ fontSize: 11, fontWeight: 800, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Needs Your Decision</p>
               {overview?.insights?.total > 0 && (
                 <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 800, color: "#f59e0b", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 5, padding: "1px 7px" }}>
-                  {overview.insights.total} new
+                  top 5 of {overview.insights.total}
                 </span>
               )}
             </div>
             {overview?.insights?.pendingActions?.length > 0 ? (
               <div>
                 {overview.insights.pendingActions.map((action: any, i: number) => (
-                  <PendingActionRow key={i} action={action} />
+                  <PendingActionRow key={action.id ?? i} action={action} />
                 ))}
                 <button
-                  onClick={() => router_fn("/intelligence")}
+                  onClick={() => router_fn("/pipeline")}
                   style={{ marginTop: 10, fontSize: 10, color: "#555", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
                 >
-                  View all insights <ChevronRight size={10} />
+                  View the full board <ChevronRight size={10} />
                 </button>
               </div>
             ) : (
-              <p style={{ fontSize: 11, color: "#555", fontStyle: "italic" }}>No high-priority pending actions. Agents are watching.</p>
+              <p style={{ fontSize: 11, color: "#555", fontStyle: "italic" }}>Nothing needs a decision right now. Agents are watching.</p>
             )}
           </div>
 
