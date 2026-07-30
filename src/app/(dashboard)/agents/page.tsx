@@ -3,10 +3,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { AgentCRUD } from "@/components/AgentCRUD";
-import JobsTab from "@/components/JobsTab";
 
 import {
-  LayoutDashboard, Users, Bot, ListTodo,
+  LayoutDashboard, Users, Bot,
   Zap, MessageSquare, BarChart2, Clock,
   ArrowRight, RefreshCw, ChevronRight,
 } from "lucide-react";
@@ -49,11 +48,14 @@ function deriveCategory(a: AgentDef): string {
 }
 
 // ── Tab bar ───────────────────────────────────────────────────────────────────
+// A "Tasks" tab used to live here, rendering JobsTab. It sat next to a left-nav item
+// also called "Tasks" that meant a different table with a different lifecycle, so the
+// same word pointed at two unrelated things depending on where you clicked. That tab
+// is now the Quick Run page; this page is about the agents themselves.
 const TABS = [
   { id: "overview", label: "Overview",  icon: LayoutDashboard },
   { id: "leads",    label: "Leads",     icon: Users },
   { id: "agents",   label: "Agents",    icon: Bot },
-  { id: "tasks",    label: "Tasks",     icon: ListTodo },
 ] as const;
 type TabId = typeof TABS[number]["id"];
 
@@ -308,7 +310,6 @@ export default function AgentsPage() {
           {tab === "overview" && <OverviewTab agents={agents} metrics={metricsWithRoutines} />}
           {tab === "leads"    && <LeadsTab agents={agents} allAgents={agents} />}
           {tab === "agents"   && <AgentCRUD hideLeads />}
-          {tab === "tasks"    && <JobsTab agents={agents} />}
         </motion.div>
       </AnimatePresence>
     </div>

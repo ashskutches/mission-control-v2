@@ -1,4 +1,25 @@
 "use client";
+
+/**
+ * Quick Run — one-off agent actions.
+ *
+ * A single-shot dispatch console: describe something in plain language, the router
+ * picks the agent, it runs once and returns. Seconds to minutes, no milestones, no
+ * scheduling.
+ *
+ * This is deliberately NOT the other two surfaces:
+ *   - /research runs staged investigations that end in a cited report. This file used
+ *     to reach that mode through a "Pipeline" toggle; the toggle is gone, because the
+ *     surface is now the choice. Pipeline jobs are filtered out of the list below —
+ *     they belong in the research library, not in a run log.
+ *   - /work is the tracked queue for work with milestones, blockages and human
+ *     assignment, mostly promoted off the insights board. Nothing here is scheduled.
+ *
+ * Quick Run is where world-mutating actions get dispatched (send the email, publish
+ * the page). Unlike research, these are not safe to re-run — a retried send sends
+ * twice. There is no automatic retry anywhere in this path; keep it that way.
+ */
+
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -72,13 +93,15 @@ const CATEGORIES: Record<string, { icon: React.ElementType; color: string; label
   general:   { icon: Zap,       color: "#94a3b8", label: "General"   },
 };
 
+// Actions, not investigations. The two research-shaped prompts that used to be here
+// ("research our top 3 competitors", "audit our SEO") now belong on /research, where
+// they get staged and produce a cited report instead of one pass of tool calls.
 const QUICK_PROMPTS = [
-  { icon: "🔍", text: "Research our top 3 competitors and compare their value props vs ours" },
-  { icon: "🎨", text: "Generate 10 lifestyle images of our rebounder in a lake/outdoor setting" },
   { icon: "📧", text: "Send San Fran Fitness an email to schedule a meeting" },
+  { icon: "🎨", text: "Generate 10 lifestyle images of our rebounder in a lake/outdoor setting" },
   { icon: "📊", text: "Pull last week's Klaviyo performance and give me a report" },
   { icon: "💬", text: "Send all team members a progress update with their metrics" },
-  { icon: "🔍", text: "Audit our SEO — check rankings, find gaps, recommend 5 quick wins" },
+  { icon: "🧹", text: "Find duplicate contacts in our Klaviyo list and flag them" },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -164,7 +187,6 @@ function JobComposer({ agents, onJobCreated }: { agents: AgentDef[]; onJobCreate
   const [createError, setCreateError] = useState<string | null>(null);
   const [discordMembers, setDiscordMembers] = useState<DiscordMember[]>([]);
   const [notifyUserId, setNotifyUserId] = useState<string>("");
-  const [pipelineMode, setPipelineMode] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Load Discord members once on mount
@@ -212,7 +234,6 @@ function JobComposer({ agents, onJobCreated }: { agents: AgentDef[]; onJobCreate
         body: JSON.stringify({
           title: parsed.title, request, prompt: parsed.prompt,
           agent_id: agentId, agent_name: agentName, category: parsed.category,
-          pipeline: pipelineMode,
           notify_discord_user_id:  notifyMember?.id ?? null,
           notify_discord_username: notifyMember?.displayName ?? null,
         }),
@@ -236,8 +257,8 @@ function JobComposer({ agents, onJobCreated }: { agents: AgentDef[]; onJobCreate
           <Sparkles size={15} color="#e98d20" />
         </div>
         <div>
-          <p style={{ color: "#fff", fontWeight: 800, fontSize: 14, margin: 0 }}>New Job</p>
-          <p style={{ color: "#475569", fontSize: 11, margin: 0 }}>Describe what you need done — AI selects the right agent</p>
+          <p style={{ color: "#fff", fontWeight: 800, fontSize: 14, margin: 0 }}>New quick run</p>
+          <p style={{ color: "#475569", fontSize: 11, margin: 0 }}>One action, once. For an investigation that produces a report, use Research.</p>
         </div>
       </div>
 
@@ -271,33 +292,14 @@ function JobComposer({ agents, onJobCreated }: { agents: AgentDef[]; onJobCreate
           <span style={{ fontSize: 10, color: "#34d399" }}>✓ DM on complete</span>
         )}
 
-        {/* Pipeline mode toggle */}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-          <button
-            id="pipeline-mode-toggle"
-            onClick={() => setPipelineMode(v => !v)}
-            title="Pipeline mode: LLM plans research → analysis → deliverable stages automatically"
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 5,
-              fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 7, cursor: "pointer",
-              background: pipelineMode ? "rgba(168,85,247,0.18)" : "rgba(255,255,255,0.04)",
-              border: `1px solid ${pipelineMode ? "rgba(168,85,247,0.45)" : "rgba(255,255,255,0.08)"}`,
-              color: pipelineMode ? "#c084fc" : "#475569",
-              transition: "all 0.15s",
-            }}>
-            <Zap size={10} />
-            Pipeline{pipelineMode ? " ON" : ""}
-          </button>
-          {pipelineMode && (
-            <span style={{ fontSize: 10, color: "#a78bfa" }}>Auto-planned stages</span>
-          )}
-        </div>
+        {/* No pipeline toggle. Staged research runs live on /research — see the
+            note at the top of this file. */}
       </div>
 
       {/* Textarea */}
       <textarea ref={textareaRef} value={request} onChange={e => { setRequest(e.target.value); if (parsed) { setParsed(null); setParseError(null); } }}
         onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); handleAnalyze(); } }}
-        rows={3} placeholder='Describe the job in plain language, e.g. "Research our competitors and build a comparison doc"'
+        rows={3} placeholder='Describe the action in plain language, e.g. "Send San Fran Fitness an email to schedule a meeting"'
         style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10,
           color: "#fff", padding: "10px 12px", fontSize: 13, lineHeight: 1.6, resize: "vertical",
           fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
@@ -719,7 +721,7 @@ function JobsBoard({ jobs, loading, onCancel, onDelete }: {
   if (loading && !jobs.length) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#334155", fontSize: 13, padding: "2rem 0" }}>
-        <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Loading jobs…
+        <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Loading runs…
       </div>
     );
   }
@@ -738,7 +740,7 @@ function JobsBoard({ jobs, loading, onCancel, onDelete }: {
         <div style={{ textAlign: "center", padding: "1.5rem", color: "#334155", fontSize: 13,
           background: "rgba(255,255,255,0.015)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)",
           marginBottom: "1rem" }}>
-          No active jobs — submit one above ↑
+          Nothing running — describe an action above ↑
         </div>
       ) : (
         <AnimatePresence>
@@ -774,28 +776,47 @@ export default function JobsTab({ agents }: { agents: AgentDef[] }) {
   const [jobs, setJobs] = useState<AgentJob[]>([]);
   const [loading, setLoading] = useState(true);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+  // Read by the polling loop without making it a dependency — see the effect below.
+  const hasActive = useRef(false);
 
   const fetchJobs = useCallback(async () => {
     try {
       const res = await fetch(`${BOT_URL}/admin/jobs?limit=80`);
       if (!res.ok) return;
       const data = await res.json();
-      setJobs(Array.isArray(data) ? data : []);
+      // Pipeline runs and their stage children are research; they render in the
+      // research library with their stages and deliverable. Showing them here too
+      // would put the same run in two places with two different meanings.
+      const singleShot: AgentJob[] = (Array.isArray(data) ? data : [])
+        .filter((j: AgentJob) => !j.is_pipeline && !j.pipeline_id);
+      setJobs(singleShot);
+      hasActive.current = singleShot.some(j => j.status === "queued" || j.status === "running");
     } catch { /* silent */ }
     finally { setLoading(false); }
   }, []);
 
+  // Poll every 4s while something is running, else every 15s.
+  //
+  // `jobs` used to be in this effect's dependency array while fetchJobs sets `jobs`,
+  // so every successful poll tore down and rebuilt the timer — and the effect body
+  // scheduled a fresh tick each time it ran, compounding into an ever-growing pile of
+  // overlapping timers hammering /admin/jobs. The cadence now reads from a ref, so the
+  // effect mounts exactly once.
   useEffect(() => {
+    let cancelled = false;
     fetchJobs();
-    // Poll every 4s while there are running/queued jobs, else every 15s
+
     const tick = () => {
-      fetchJobs();
-      const hasActive = jobs.some(j => j.status === "queued" || j.status === "running");
-      pollRef.current = setTimeout(tick, hasActive ? 4000 : 15000);
+      pollRef.current = setTimeout(async () => {
+        if (cancelled) return;
+        await fetchJobs();
+        if (!cancelled) tick();
+      }, hasActive.current ? 4000 : 15000);
     };
-    pollRef.current = setTimeout(tick, 4000);
-    return () => { if (pollRef.current) clearTimeout(pollRef.current); };
-  }, [fetchJobs, jobs]);
+    tick();
+
+    return () => { cancelled = true; if (pollRef.current) clearTimeout(pollRef.current); };
+  }, [fetchJobs]);
 
   const handleCancel = async (id: string) => {
     try {

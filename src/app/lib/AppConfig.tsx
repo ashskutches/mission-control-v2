@@ -37,6 +37,7 @@ import {
     Cpu,
     GitMerge,
     ClipboardList,
+    PiggyBank,
 } from 'lucide-react';
 
 export const SQUADS = [
@@ -76,20 +77,35 @@ export const APP_CONFIG = {
     author: 'L&R Intelligence',
     navigation: [
         // ── Core (ungrouped) ───────────────────────────────────────────────────
-        { id: 'overview',      group: 'core', href: '/',                       icon: LayoutDashboard, label: 'Overview'                   },
+        // Command Center is tabbed — Overview and Profitability today, more to come.
+        // Deep-link a tab with /?tab=profitability.
+        { id: 'overview',      group: 'core', href: '/',                       icon: LayoutDashboard, label: 'Command Center'             },
         { id: 'audience',      group: 'core', href: '/website',                icon: Layers,          label: 'Website',    color: '#4a9eff' },
         { id: 'content',       group: 'core', href: '/content',                icon: Film,            label: 'Content',    color: '#e98d20' },
         { id: 'customer',      group: 'core', href: '/customer',               icon: UserCheck,       label: 'Orders',     color: '#4a9eff' },
         { id: 'landing-pages', group: 'core', href: '/commerce/landing-pages', icon: Layout,          label: 'Landing Pages', color: '#818cf8' },
 
         // ── Agentic ─────────────────────────────────────────────────────────────────────────
-        { id: 'pipeline', group: 'agentic', href: '/pipeline', icon: GitMerge,      label: 'Pipeline',   color: '#e98d20' },
-        // Research and Tasks are the same underlying queue split by agent_work.type.
-        // Research is a library you read; Tasks is a queue you clear.
-        { id: 'research', group: 'agentic', href: '/research', icon: FlaskConical,  label: 'Research',   color: '#a78bfa' },
-        { id: 'tasks',    group: 'agentic', href: '/work',     icon: ClipboardList, label: 'Tasks',      color: '#4a9eff' },
+        // Four ways work reaches an agent, in the order you'd use them:
+        //   Pipeline  — insights → approve → assign to an agent or a human
+        //   Research  — ask a question → staged investigation → a cited report
+        //   Quick Run — describe an action → one agent → one pass → done
+        //   Tasks     — the tracked queue of assigned work (milestones, blockages)
+        // Research and Tasks share agent_work, split by its `type` discriminator;
+        // Research additionally shows pipeline runs from agent_jobs. Quick Run is the
+        // single-shot half of agent_jobs. Research is a library you read, Tasks is a
+        // queue you clear, Quick Run is a console you fire.
+        { id: 'pipeline',  group: 'agentic', href: '/pipeline',  icon: GitMerge,      label: 'Pipeline',  color: '#e98d20' },
+        { id: 'research',  group: 'agentic', href: '/research',  icon: FlaskConical,  label: 'Research',  color: '#a78bfa' },
+        { id: 'quick-run', group: 'agentic', href: '/quick-run', icon: Zap,           label: 'Quick Run', color: '#4a9eff' },
+        { id: 'tasks',     group: 'agentic', href: '/work',      icon: ClipboardList, label: 'Tasks',     color: '#4a9eff' },
         { id: 'agents',   group: 'agentic', href: '/agents',   icon: Bot,           label: 'Agents',     color: '#6b7280' },
         { id: 'north-star', group: 'agentic', href: '/north-star', icon: TrendingUp, label: 'North Star', color: '#a78bfa' },
+        // Profit renders in two places from one component: this full-width route,
+        // and the Profitability tab of Command Center (/?tab=profitability).
+        // The href stays a real path — Sidebar's activeId matches on pathname only,
+        // so a query-string href would never highlight.
+        { id: 'profit',   group: 'agentic', href: '/profitability', icon: PiggyBank, label: 'Profit',     color: '#22c55e' },
         { id: 'store',    group: 'agentic', href: '/commerce', icon: ShoppingBag,   label: 'Commerce',   color: '#e98d20' },
         { id: 'chats',    group: 'agentic', href: '/chats',    icon: MessageSquare, label: 'Chats',      color: '#6b7280' },
 
