@@ -940,9 +940,12 @@ export default function WorkPage() {
     if (!silent) setLoading(true);
     try {
       const [wRes, hRes, sRes, rRes] = await Promise.all([
-        fetch(`${BOT_URL}/admin/work?limit=150`),
+        // ?kind=task — research investigations live at /research now. Mixing them
+        // here meant recurring SEO audits and market analyses crowded out the
+        // one-off actions this queue exists to clear.
+        fetch(`${BOT_URL}/admin/work?kind=task&limit=150`),
         fetch(`${BOT_URL}/admin/work/human?limit=100`),
-        fetch(`${BOT_URL}/admin/work/summary`),
+        fetch(`${BOT_URL}/admin/work/summary?kind=task`),
         fetch(`${BOT_URL}/admin/work/runner/status`),
       ]);
       if (wRes.ok) setWork(await wRes.json());

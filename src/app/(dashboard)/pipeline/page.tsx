@@ -1076,6 +1076,10 @@ export default function PipelinePage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sectionFilter, setSectionFilter] = useState("");
+  // Which lane the board shows. Defaults to business decisions; "ops" is the
+  // system-maintenance queue (missing APIs, tool bugs, capability gaps), which
+  // previously made up 46% of the board and buried everything else.
+  const [laneFilter, setLaneFilter] = useState<"business" | "ops" | "all">("business");
   const [agentFilter, setAgentFilter] = useState("");
   const [humanFilter, setHumanFilter] = useState("");
   const [reassignItem, setReassignItem] = useState<PipelineItem | null>(null);
@@ -1096,7 +1100,7 @@ export default function PipelinePage() {
     setError(null);
     try {
       const [plRes, agRes, tmRes] = await Promise.all([
-        fetch(`${BOT_URL}/admin/pipeline${sectionFilter ? `?section=${sectionFilter}` : ""}`),
+        fetch(`${BOT_URL}/admin/pipeline?lane=${laneFilter}${sectionFilter ? `&section=${sectionFilter}` : ""}`),
         fetch(`${BOT_URL}/admin/agents`),
         fetch(`${BOT_URL}/admin/team`),
       ]);
@@ -1120,7 +1124,7 @@ export default function PipelinePage() {
     } finally {
       setLoading(false);
     }
-  }, [sectionFilter]);
+  }, [sectionFilter, laneFilter]);
 
   useEffect(() => {
     fetchData();
@@ -1301,6 +1305,33 @@ export default function PipelinePage() {
                 placeholder="Search items…"
                 style={{ paddingLeft: 28, paddingRight: 10, height: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#e2e8f0", fontSize: "12px", outline: "none", width: 180 }}
               />
+            </div>
+
+            {/* Lane toggle — business decisions vs system maintenance */}
+            <div style={{ display: "flex", height: 34, borderRadius: 8, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
+              {([
+                { key: "business", label: "Business", color: "#e98d20" },
+                { key: "ops",      label: "Ops",      color: "#94a3b8" },
+                { key: "all",      label: "All",      color: "#64748b" },
+              ] as const).map(l => (
+                <button
+                  key={l.key}
+                  onClick={() => setLaneFilter(l.key)}
+                  title={l.key === "ops"
+                    ? "System plumbing: tool bugs, missing integrations, capability gaps"
+                    : l.key === "business"
+                      ? "Findings that need a business decision"
+                      : "Everything"}
+                  style={{
+                    padding: "0 11px", fontSize: 11, fontWeight: 800, textTransform: "uppercase",
+                    letterSpacing: "0.05em", cursor: "pointer", border: "none",
+                    background: laneFilter === l.key ? `${l.color}22` : "rgba(255,255,255,0.03)",
+                    color: laneFilter === l.key ? l.color : "#64748b",
+                  }}
+                >
+                  {l.label}
+                </button>
+              ))}
             </div>
 
             {/* Section filter */}
