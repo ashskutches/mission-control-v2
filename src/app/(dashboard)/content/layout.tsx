@@ -2,10 +2,11 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Tag, Layers, Copy, Film, Pin, Wand2 } from "lucide-react";
+import { BarChart3, Tag, Layers, Copy, Film, Pin, Wand2, BookOpen } from "lucide-react";
 
 const NAV = [
   { href: "/content",          label: "Dashboard",    icon: BarChart3, color: "#f59e0b", exact: true },
+  { href: "/content/blog",     label: "Blog",         icon: BookOpen,  color: "#e98d20" },
   { href: "/content/assets",   label: "Content",      icon: Film,      color: "#38bdf8" },
   { href: "/content/generate", label: "Image Studio", icon: Wand2,     color: "#a78bfa" },
   { href: "/content/products", label: "Products",     icon: Pin,       color: "#f59e0b" },
