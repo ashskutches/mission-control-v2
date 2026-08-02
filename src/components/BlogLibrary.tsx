@@ -3,13 +3,16 @@
 /**
  * Blog Library — the interface over /admin/blog on gravity-claw.
  *
- * Three views over ~785 existing Shopify articles:
+ * Four views:
  *   Overview   — library health plus the audit findings, worst first
  *   Duplicates — republished titles and topic clusters competing for one query
- *   Articles   — the searchable mirror
+ *   Articles   — the searchable mirror of the ~785 existing posts
+ *   Drafts     — the writing pipeline for new posts, from brief to published
  *
- * Read-only, like the API behind it. Nothing here edits or publishes an article;
- * the only write is "sync", which pulls Shopify into our mirror.
+ * Only two things here change anything: "sync" pulls Shopify into our mirror, and
+ * "publish" on an approved draft creates an article. Everything else reads. Existing
+ * articles are never edited from this screen — the pencil icon deep-links into
+ * Shopify's own editor instead.
  *
  * The mirror starts empty and the Shopify token currently lacks the `read_content`
  * scope, so the states that matter most are the unhappy ones: an empty mirror has to
@@ -23,6 +26,7 @@ import {
   RefreshCw, Loader2, AlertTriangle, ExternalLink, Edit3, Search,
   ChevronDown, ChevronRight, Copy, Layers, FileText, CheckCircle2,
   Database, ShieldAlert, Link2, Image as ImageIcon, Clock,
+  PenLine, Sparkles, Send, Plus, XCircle,
   type LucideIcon,
 } from "lucide-react";
 
@@ -108,6 +112,47 @@ interface Stats {
   sync_in_flight: boolean;
 }
 
+type DraftState = "draft" | "in_review" | "approved" | "scheduled" | "published" | "rejected" | "archived";
+
+interface GateCheck {
+  code: string;
+  goal: "revenue" | "reader" | "discovery";
+  blocking: boolean;
+  label: string;
+  detail: string;
+  overriddenWith?: string;
+}
+
+interface GateResult {
+  ready: boolean;
+  blocking: GateCheck[];
+  advisory: GateCheck[];
+  overridden: GateCheck[];
+  metrics: { word_count: number; internal_link_count: number; product_link_count: number };
+}
+
+interface Draft {
+  id: string;
+  state: DraftState;
+  topic: string;
+  angle: string | null;
+  target_keyword: string | null;
+  blog_handle: string;
+  title: string | null;
+  handle: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  tags: string[];
+  product_handles: string[];
+  gate: GateResult | Record<string, never>;
+  generated_by: string | null;
+  repaired: boolean;
+  generation_error: string | null;
+  shopify_article_id: string | null;
+  published_at: string | null;
+  updated_at: string;
+}
+
 interface MirrorArticle extends ArticleRef {
   author: string | null;
   tags: string[];
@@ -128,6 +173,16 @@ const SEVERITY = {
   medium: { color: "#f59e0b", label: "Medium" },
   low:    { color: "#64748b", label: "Low" },
 } as const;
+
+const DRAFT_STATE: Record<DraftState, { label: string; color: string }> = {
+  draft:     { label: "Draft",     color: "#64748b" },
+  in_review: { label: "In review", color: "#38bdf8" },
+  approved:  { label: "Approved",  color: "#34d399" },
+  scheduled: { label: "Scheduled", color: "#a78bfa" },
+  published: { label: "Published", color: "#e98d20" },
+  rejected:  { label: "Rejected",  color: "#f43f5e" },
+  archived:  { label: "Archived",  color: "#475569" },
+};
 
 const PANEL: React.CSSProperties = {
   background: "rgba(255,255,255,0.02)",
@@ -273,7 +328,7 @@ function FindingCard({ f }: { f: Finding }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "duplicates" | "articles";
+type Tab = "overview" | "duplicates" | "articles" | "drafts";
 
 export default function BlogLibrary() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -285,6 +340,7 @@ export default function BlogLibrary() {
   const [syncElapsed, setSyncElapsed] = useState(0);
   const [syncErr, setSyncErr] = useState<{ error: string; hint?: string } | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
+  const [draftCount, setDraftCount] = useState(0);
 
   // ── Loaders ────────────────────────────────────────────────────────────────
 
@@ -366,6 +422,7 @@ export default function BlogLibrary() {
     { key: "duplicates" as Tab, label: "Duplicates", icon: Copy,
       count: (audit?.duplicate_titles.length ?? 0) + (audit?.clusters.length ?? 0) },
     { key: "articles" as Tab, label: "Articles", icon: FileText, count: mirrored },
+    { key: "drafts" as Tab, label: "Drafts", icon: PenLine, count: draftCount },
   ];
 
   return (
@@ -485,7 +542,7 @@ export default function BlogLibrary() {
         <div style={{ ...PANEL, padding: "48px", display: "flex", justifyContent: "center" }}>
           <Loader2 size={22} color="#475569" className="spin" />
         </div>
-      ) : mirrored === 0 ? (
+      ) : mirrored === 0 && tab !== "drafts" ? (
         <div style={{ ...PANEL, padding: "44px 30px", textAlign: "center" }}>
           <Database size={30} color="#334155" style={{ marginBottom: 14 }} />
           <p style={{ fontSize: 15, fontWeight: 800, color: "#e2e8f0", margin: 0 }}>
@@ -496,6 +553,14 @@ export default function BlogLibrary() {
               ? `Shopify is holding ${liveTotal.toLocaleString()} articles. Sync pulls them in and runs the audit — no article is edited or published.`
               : "Sync pulls every article from Shopify into the local mirror and audits it. Nothing is edited or published."}
           </p>
+          <button onClick={() => setTab("drafts")} style={{
+            marginTop: 16, padding: "8px 16px", borderRadius: 9,
+            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)",
+            color: "#94a3b8", fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+            fontFamily: "inherit", textTransform: "uppercase", letterSpacing: "0.06em",
+          }}>
+            Write a post anyway
+          </button>
         </div>
       ) : (
         <>
@@ -574,6 +639,10 @@ export default function BlogLibrary() {
 
           {tab === "articles" && (
             <ArticlesView blogs={stats ? Object.keys(stats.by_blog) : []} />
+          )}
+
+          {tab === "drafts" && (
+            <DraftsView blogs={blogs} onCountChange={setDraftCount} />
           )}
         </>
       )}
@@ -837,6 +906,341 @@ function ArticlesView({ blogs }: { blogs: string[] }) {
                 opacity: offset + PAGE_SIZE >= total ? 0.4 : 1, fontWeight: 700,
               }}>Next</button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── Drafts ────────────────────────────────────────────────────────────────────
+
+/**
+ * The writing pipeline. A brief becomes a draft, a draft gets generated, reviewed,
+ * approved, and only then can it be published.
+ *
+ * The gate is the organising idea: every draft shows whether it would pass, and the
+ * publish button is disabled until it does. That keeps the failure visible while it
+ * is still cheap to fix, rather than at the moment someone tries to ship.
+ */
+function DraftsView({ blogs, onCountChange }: {
+  blogs: BlogSummary[] | null;
+  onCountChange: (n: number) => void;
+}) {
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [showNew, setShowNew] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const [topic, setTopic] = useState("");
+  const [keyword, setKeyword] = useState("");
+  const [blogHandle, setBlogHandle] = useState("news");
+  const [products, setProducts] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`${BOT_URL}/admin/blog/drafts`, { signal: AbortSignal.timeout(20_000) });
+      if (res.ok) {
+        const body = await res.json();
+        setDrafts(body.drafts ?? []);
+        onCountChange((body.drafts ?? []).length);
+      }
+    } catch { /* keep whatever is on screen */ }
+    finally { setLoading(false); }
+  }, [onCountChange]);
+
+  useEffect(() => { load(); }, [load]);
+
+  /** Every mutating action funnels through here so errors surface the same way. */
+  const act = async (id: string, path: string, body?: unknown, method = "POST") => {
+    setBusy(id); setErr(null);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/blog/drafts/${id}${path}`, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: AbortSignal.timeout(300_000),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const blocking = (payload.blocking ?? []) as GateCheck[];
+        setErr(blocking.length
+          ? `${payload.error} — ${blocking.map(c => c.label).join("; ")}`
+          : (payload.error || `Request failed (${res.status})`));
+        return;
+      }
+      await load();
+    } catch (e) {
+      setErr(errMessage(e));
+    } finally { setBusy(null); }
+  };
+
+  const createBrief = async () => {
+    if (!topic.trim()) return;
+    setBusy("new"); setErr(null);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/blog/drafts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic,
+          target_keyword: keyword || null,
+          blog_handle: blogHandle,
+          product_handles: products.split(",").map(p => p.trim()).filter(Boolean),
+        }),
+      });
+      if (!res.ok) { setErr((await res.json().catch(() => ({}))).error ?? "Could not create the brief"); return; }
+      setTopic(""); setKeyword(""); setProducts(""); setShowNew(false);
+      await load();
+    } catch (e) { setErr(errMessage(e)); }
+    finally { setBusy(null); }
+  };
+
+  const input: React.CSSProperties = {
+    background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+    borderRadius: 8, padding: "8px 11px", color: "#e2e8f0", fontSize: 12,
+    fontFamily: "inherit", outline: "none", width: "100%",
+  };
+
+  const btn = (color: string, disabled = false): React.CSSProperties => ({
+    display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px",
+    borderRadius: 8, background: disabled ? "rgba(255,255,255,0.03)" : `${color}18`,
+    border: `1px solid ${disabled ? "rgba(255,255,255,0.06)" : color + "35"}`,
+    color: disabled ? "#475569" : color, fontSize: 10.5, fontWeight: 800,
+    cursor: disabled ? "default" : "pointer", fontFamily: "inherit",
+    textTransform: "uppercase", letterSpacing: "0.06em",
+  });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.5, maxWidth: 620 }}>
+          A brief becomes a draft, a draft gets written and reviewed, and only an approved
+          draft can be published. The gate checks the things the existing library got wrong:
+          a product link, internal links, an image, a meta description, enough substance.
+        </p>
+        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+          onClick={() => setShowNew(v => !v)} style={btn("#e98d20")}>
+          <Plus size={12} /> New brief
+        </motion.button>
+      </div>
+
+      {showNew && (
+        <div style={{ ...PANEL, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div>
+            <p style={{ ...LABEL, marginBottom: 5 }}>Topic</p>
+            <input value={topic} onChange={e => setTopic(e.target.value)} style={input}
+              placeholder="What should this post be about?" />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <div>
+              <p style={{ ...LABEL, marginBottom: 5 }}>Target search term</p>
+              <input value={keyword} onChange={e => setKeyword(e.target.value)} style={input}
+                placeholder="optional" />
+            </div>
+            <div>
+              <p style={{ ...LABEL, marginBottom: 5 }}>Blog</p>
+              <select value={blogHandle} onChange={e => setBlogHandle(e.target.value)} style={input}>
+                {(blogs ?? [{ handle: "news" } as BlogSummary]).map(b => (
+                  <option key={b.handle} value={b.handle}>{b.handle}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <p style={{ ...LABEL, marginBottom: 5 }}>Product handles</p>
+              <input value={products} onChange={e => setProducts(e.target.value)} style={input}
+                placeholder="comma separated" />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={createBrief} disabled={!topic.trim() || busy === "new"}
+              style={btn("#34d399", !topic.trim() || busy === "new")}>
+              {busy === "new" ? <Loader2 size={12} className="spin" /> : <Plus size={12} />} Create
+            </button>
+            <button onClick={() => setShowNew(false)} style={btn("#64748b")}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {err && (
+        <div style={{
+          background: "rgba(244,63,94,0.07)", border: "1px solid rgba(244,63,94,0.22)",
+          borderRadius: 10, padding: "11px 14px", display: "flex", gap: 10, alignItems: "flex-start",
+        }}>
+          <XCircle size={14} color="#f43f5e" style={{ flexShrink: 0, marginTop: 1 }} />
+          <p style={{ fontSize: 12, color: "#fda4af", margin: 0, lineHeight: 1.5 }}>{err}</p>
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ ...PANEL, padding: 40, display: "flex", justifyContent: "center" }}>
+          <Loader2 size={18} color="#475569" className="spin" />
+        </div>
+      ) : drafts.length === 0 ? (
+        <div style={{ ...PANEL, padding: "40px 28px", textAlign: "center" }}>
+          <PenLine size={26} color="#334155" style={{ marginBottom: 12 }} />
+          <p style={{ fontSize: 14, fontWeight: 800, color: "#e2e8f0", margin: 0 }}>No drafts yet</p>
+          <p style={{ fontSize: 12.5, color: "#64748b", margin: "7px auto 0", maxWidth: 420, lineHeight: 1.6 }}>
+            Start with a brief. Nothing reaches the storefront until you approve it and press publish.
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {drafts.map(d => {
+            const st = DRAFT_STATE[d.state];
+            const gate = ("ready" in d.gate ? d.gate : null) as GateResult | null;
+            const isBusy = busy === d.id;
+            const open = expanded === d.id;
+            const written = Boolean(d.title);
+
+            return (
+              <div key={d.id} style={{ ...PANEL, borderLeft: `2px solid ${st.color}`, overflow: "hidden" }}>
+                <div style={{ padding: "13px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                  <button onClick={() => setExpanded(open ? null : d.id)}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex" }}>
+                    {open ? <ChevronDown size={14} color="#475569" /> : <ChevronRight size={14} color="#475569" />}
+                  </button>
+
+                  <span style={{
+                    fontSize: 9, fontWeight: 800, color: st.color, background: `${st.color}18`,
+                    border: `1px solid ${st.color}30`, borderRadius: 4, padding: "2px 6px",
+                    textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0,
+                  }}>{st.label}</span>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{
+                      fontSize: 13, fontWeight: 700, color: written ? "#e2e8f0" : "#64748b", margin: 0,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {d.title || d.topic}
+                    </p>
+                    <p style={{ fontSize: 10.5, color: "#475569", margin: "2px 0 0" }}>
+                      {d.blog_handle}
+                      {gate && ` · ${gate.metrics.word_count.toLocaleString()} words`}
+                      {d.generated_by && ` · ${d.generated_by}`}
+                      {d.repaired && " · repaired"}
+                      {` · ${timeAgo(d.updated_at)}`}
+                    </p>
+                  </div>
+
+                  {gate && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 800,
+                      color: gate.ready ? "#34d399" : "#f43f5e", flexShrink: 0,
+                    }}>
+                      {gate.ready ? "GATE PASSES" : `${gate.blocking.length} BLOCKING`}
+                    </span>
+                  )}
+
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    {isBusy && <Loader2 size={13} color="#e98d20" className="spin" />}
+                    {!written && d.state === "draft" && (
+                      <button onClick={() => act(d.id, "/generate")} disabled={isBusy}
+                        style={btn("#a78bfa", isBusy)}>
+                        <Sparkles size={11} /> Write it
+                      </button>
+                    )}
+                    {written && d.state === "draft" && (
+                      <button onClick={() => act(d.id, "/transition", { to: "in_review" })} disabled={isBusy}
+                        style={btn("#38bdf8", isBusy)}>Send to review</button>
+                    )}
+                    {d.state === "in_review" && (
+                      <>
+                        <button onClick={() => act(d.id, "/transition", { to: "approved" })} disabled={isBusy}
+                          style={btn("#34d399", isBusy)}>Approve</button>
+                        <button onClick={() => act(d.id, "/transition", { to: "rejected" })} disabled={isBusy}
+                          style={btn("#f43f5e", isBusy)}>Reject</button>
+                      </>
+                    )}
+                    {(d.state === "approved" || d.state === "scheduled") && (
+                      <button onClick={() => act(d.id, "/publish", {})}
+                        disabled={isBusy || !gate?.ready}
+                        title={gate?.ready ? "Create this article in Shopify" : "The gate must pass first"}
+                        style={btn("#e98d20", isBusy || !gate?.ready)}>
+                        <Send size={11} /> Publish
+                      </button>
+                    )}
+                    {d.shopify_article_id && (
+                      <a href={`${STOREFRONT}/blogs/${d.blog_handle}/${d.handle}`} target="_blank" rel="noreferrer"
+                        style={{ color: "#475569", padding: 4, display: "flex" }} title="View on the storefront">
+                        <ExternalLink size={13} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                <AnimatePresence initial={false}>
+                  {open && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }} style={{ overflow: "hidden" }}>
+                      <div style={{ padding: "0 16px 14px 42px", display: "flex", flexDirection: "column", gap: 10 }}>
+                        <div>
+                          <p style={LABEL}>Brief</p>
+                          <p style={{ fontSize: 12, color: "#94a3b8", margin: "4px 0 0", lineHeight: 1.55 }}>
+                            {d.topic}
+                            {d.target_keyword && <span style={{ color: "#64748b" }}> · targeting “{d.target_keyword}”</span>}
+                            {d.product_handles.length > 0 && (
+                              <span style={{ color: "#64748b" }}> · selling {d.product_handles.join(", ")}</span>
+                            )}
+                          </p>
+                        </div>
+
+                        {d.generation_error && (
+                          <p style={{ fontSize: 11.5, color: "#fda4af", margin: 0, fontFamily: "monospace" }}>
+                            Generation failed: {d.generation_error}
+                          </p>
+                        )}
+
+                        {d.seo_description && (
+                          <div>
+                            <p style={LABEL}>Meta description · {d.seo_description.length} chars</p>
+                            <p style={{ fontSize: 12, color: "#94a3b8", margin: "4px 0 0" }}>{d.seo_description}</p>
+                          </div>
+                        )}
+
+                        {gate && gate.blocking.length > 0 && (
+                          <div>
+                            <p style={{ ...LABEL, color: "#f43f5e" }}>Blocking the publish</p>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 6 }}>
+                              {gate.blocking.map(c => (
+                                <p key={c.code} style={{ fontSize: 12, color: "#94a3b8", margin: 0, lineHeight: 1.5 }}>
+                                  <strong style={{ color: "#fda4af" }}>{c.label}.</strong> {c.detail}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {gate && gate.advisory.length > 0 && (
+                          <div>
+                            <p style={{ ...LABEL, color: "#f59e0b" }}>Worth a look</p>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 6 }}>
+                              {gate.advisory.map(c => (
+                                <p key={c.code} style={{ fontSize: 12, color: "#94a3b8", margin: 0, lineHeight: 1.5 }}>
+                                  <strong style={{ color: "#fcd34d" }}>{c.label}.</strong> {c.detail}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {gate?.ready && (
+                          <p style={{ fontSize: 12, color: "#34d399", margin: 0 }}>
+                            Every check passes. {gate.metrics.word_count.toLocaleString()} words,{" "}
+                            {gate.metrics.internal_link_count} internal links,{" "}
+                            {gate.metrics.product_link_count} to products.
+                          </p>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
