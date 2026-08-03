@@ -3,11 +3,17 @@
 /**
  * Blog Library — the interface over /admin/blog on gravity-claw.
  *
- * Four views:
- *   Overview   — library health plus the audit findings, worst first
- *   Duplicates — republished titles and topic clusters competing for one query
- *   Articles   — the searchable mirror of the ~785 existing posts
- *   Drafts     — the writing pipeline for new posts, from brief to published
+ * Seven views:
+ *   Overview     — library health plus the audit findings, worst first
+ *   Duplicates   — republished titles and topic clusters competing for one query
+ *   Articles     — the searchable mirror of the ~785 existing posts
+ *   Performance  — each article joined to what search and analytics say it earns
+ *   Improve      — ranked, risk-tiered fixes for the articles we already have
+ *   New posts    — search demand with no article behind it, checked against the library
+ *   Drafts       — the writing pipeline for new posts, from brief to published
+ *
+ * The last three live in ./BlogSeo and read /admin/blog/{performance,recommendations,
+ * opportunities}. They apply nothing — every action is a deep link into Shopify.
  *
  * Only two things here change anything: "sync" pulls Shopify into our mirror, and
  * "publish" on an approved draft creates an article. Everything else reads. Existing
@@ -27,8 +33,10 @@ import {
   ChevronDown, ChevronRight, Copy, Layers, FileText, CheckCircle2,
   Database, ShieldAlert, Link2, Image as ImageIcon, Clock,
   PenLine, Sparkles, Send, Plus, XCircle,
+  TrendingUp, Wrench, Lightbulb,
   type LucideIcon,
 } from "lucide-react";
+import { BlogPerformanceView, BlogImproveView, BlogOpportunitiesView } from "./BlogSeo";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
@@ -328,7 +336,7 @@ function FindingCard({ f }: { f: Finding }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "duplicates" | "articles" | "drafts";
+type Tab = "overview" | "duplicates" | "articles" | "performance" | "improve" | "opportunities" | "drafts";
 
 export default function BlogLibrary() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -422,6 +430,9 @@ export default function BlogLibrary() {
     { key: "duplicates" as Tab, label: "Duplicates", icon: Copy,
       count: (audit?.duplicate_titles.length ?? 0) + (audit?.clusters.length ?? 0) },
     { key: "articles" as Tab, label: "Articles", icon: FileText, count: mirrored },
+    { key: "performance" as Tab, label: "Performance", icon: TrendingUp, count: null },
+    { key: "improve" as Tab, label: "Improve", icon: Wrench, count: null },
+    { key: "opportunities" as Tab, label: "New posts", icon: Lightbulb, count: null },
     { key: "drafts" as Tab, label: "Drafts", icon: PenLine, count: draftCount },
   ];
 
@@ -582,7 +593,7 @@ export default function BlogLibrary() {
                   }}>
                   <Icon size={13} />
                   {t.label}
-                  <span style={{ opacity: 0.65, fontWeight: 700 }}>{t.count}</span>
+                  {t.count !== null && <span style={{ opacity: 0.65, fontWeight: 700 }}>{t.count}</span>}
                 </motion.button>
               );
             })}
@@ -640,6 +651,12 @@ export default function BlogLibrary() {
           {tab === "articles" && (
             <ArticlesView blogs={stats ? Object.keys(stats.by_blog) : []} />
           )}
+
+          {tab === "performance" && <BlogPerformanceView />}
+
+          {tab === "improve" && <BlogImproveView />}
+
+          {tab === "opportunities" && <BlogOpportunitiesView />}
 
           {tab === "drafts" && (
             <DraftsView blogs={blogs} onCountChange={setDraftCount} />
