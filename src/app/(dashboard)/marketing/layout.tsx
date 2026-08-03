@@ -2,44 +2,35 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Tag, Layers, Copy, Film, Pin, Wand2, BookOpen } from "lucide-react";
+import { BarChart3, Megaphone, Radar } from "lucide-react";
 
 const NAV = [
-  { href: "/content",          label: "Dashboard",    icon: BarChart3, color: "#f59e0b", exact: true },
-  // Blog lives under SEO now — it is judged on search performance, and the SEO
-  // dashboard reads the same /admin/blog/* endpoints. Kept in this strip because
-  // people still reach for it from Content; /content/blog redirects to /seo/blog.
-  { href: "/seo/blog",         label: "Blog",         icon: BookOpen,  color: "#e98d20" },
-  { href: "/content/assets",   label: "Content",      icon: Film,      color: "#38bdf8" },
-  { href: "/content/generate", label: "Image Studio", icon: Wand2,     color: "#a78bfa" },
-  { href: "/content/products", label: "Products",     icon: Pin,       color: "#f59e0b" },
-  { href: "/content/tags",     label: "Tag Library",  icon: Tag,       color: "#a78bfa" },
-  { href: "/content/batch",    label: "Batch Tagger", icon: Layers,    color: "#10b981" },
-  { href: "/content/copy",     label: "Copy Studio",  icon: Copy,      color: "#10b981" },
+  { href: "/marketing",      label: "Dashboard", icon: BarChart3, color: "#e98d20", exact: true },
+  { href: "/marketing/ads",  label: "Ads",       icon: Megaphone, color: "#f43f5e" },
 ];
 
-export default function ContentLayout({ children }: { children: React.ReactNode }) {
+export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="px-5 py-5" style={{ maxWidth: 1200, margin: "0 auto" }}>
+    <div className="px-5 py-5" style={{ maxWidth: 1020, margin: "0 auto" }}>
       {/* Page header */}
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.3rem" }}>
         <div style={{
           width: 36, height: 36, borderRadius: 10,
-          background: "linear-gradient(135deg, rgba(245,158,11,0.2), rgba(16,185,129,0.15))",
+          background: "linear-gradient(135deg, rgba(233,141,32,0.2), rgba(244,63,94,0.2))",
           display: "flex", alignItems: "center", justifyContent: "center",
-          border: "1px solid rgba(245,158,11,0.25)",
+          border: "1px solid rgba(233,141,32,0.2)",
         }}>
-          <Film size={18} color="#f59e0b" />
+          <Radar size={18} color="#e98d20" />
         </div>
-        <h1 className="has-text-white" style={{ fontWeight: 800, fontSize: "1.5rem" }}>Content</h1>
+        <h1 className="has-text-white" style={{ fontWeight: 800, fontSize: "1.5rem" }}>Marketing</h1>
       </div>
       <p style={{ color: "#64748b", fontSize: 13, marginBottom: "1.25rem" }}>
-        Create, tag, and manage all content — video, assets, Shopify sections, and copy.
+        Every channel on one scoreboard — paid, organic, email — measured against spend and new customers.
       </p>
 
-      {/* Tab nav */}
+      {/* Sub-nav */}
       <div style={{
         display: "flex", gap: "0.4rem", flexWrap: "wrap",
         borderBottom: "1px solid rgba(255,255,255,0.05)",
@@ -51,7 +42,7 @@ export default function ContentLayout({ children }: { children: React.ReactNode 
             <Link
               key={href}
               href={href}
-              id={`content-nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
+              id={`marketing-nav-${label.toLowerCase()}`}
               style={{
                 display: "inline-flex", alignItems: "center", gap: "0.4rem",
                 background: active ? `${color}18` : "rgba(255,255,255,0.04)",

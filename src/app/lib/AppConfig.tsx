@@ -81,7 +81,18 @@ export const APP_CONFIG = {
         // Deep-link a tab with /?tab=profitability.
         { id: 'overview',      group: 'core', href: '/',                       icon: LayoutDashboard, label: 'Command Center'             },
         { id: 'audience',      group: 'core', href: '/website',                icon: Layers,          label: 'Website',    color: '#4a9eff' },
+        // Marketing sits directly under Website: the same funnel, one step earlier.
+        // Website is what a visitor sees once they arrive; Marketing is every channel
+        // that got them there, scored against spend. Its Ads tab is the media-buyer
+        // view of /admin/profitability/ads — Profit's Campaigns tab reads the same
+        // endpoint through the P&L lens. Same data, two questions; don't merge them.
+        { id: 'marketing',     group: 'core', href: '/marketing',              icon: Megaphone,       label: 'Marketing',  color: '#e98d20' },
         { id: 'content',       group: 'core', href: '/content',                icon: Film,            label: 'Content',    color: '#e98d20' },
+        // SEO sits under Content because the blog is its main asset — the Blog Library
+        // moved from /content/blog to /seo/blog, since everything it is judged on
+        // (impressions, position, topic overlap, thin posts) is measured in Search
+        // Console. /content/blog redirects rather than 404s.
+        { id: 'seo',           group: 'core', href: '/seo',                    icon: SearchCheck,     label: 'SEO',        color: '#34d399' },
         { id: 'customer',      group: 'core', href: '/customer',               icon: UserCheck,       label: 'Orders',     color: '#4a9eff' },
         { id: 'landing-pages', group: 'core', href: '/commerce/landing-pages', icon: Layout,          label: 'Landing Pages', color: '#818cf8' },
 
