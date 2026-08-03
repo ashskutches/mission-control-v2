@@ -237,7 +237,7 @@ interface PerfResponse {
   period_days: number;
   coverage: {
     total_articles: number; with_search_data: number; with_engagement_data: number;
-    with_clicks: number; unmatched_search_rows: number;
+    with_clicks: number; with_attributed_revenue: number; unmatched_search_rows: number;
   };
   totals: { clicks: number; impressions: number; sessions: number; ctr_pct: number | null; measured_revenue: number | null };
   articles: ArticlePerf[];
@@ -305,10 +305,14 @@ export function BlogPerformanceView() {
         <Tile label="Blog CTR" value={data.totals.ctr_pct === null ? "—" : `${data.totals.ctr_pct}%`}
           color="#818cf8" sub="clicks ÷ impressions" />
         <Tile label="Sessions" value={data.totals.sessions.toLocaleString()} color="#a78bfa" sub="GA4" />
+        {/* Null means GA4 was not read, which is not a $0. A figure here is purchase
+            revenue from sessions that started on an article — single-touch, so a floor. */}
         <Tile label="Attributed revenue"
           value={data.totals.measured_revenue === null ? "Unknown" : money(data.totals.measured_revenue)}
           color={data.totals.measured_revenue === null ? "#64748b" : "#34d399"}
-          sub={data.totals.measured_revenue === null ? "GA4 attributes none — not the same as $0" : "GA4 purchase revenue"} />
+          sub={data.totals.measured_revenue === null
+            ? "GA4 not read — unknown, not $0"
+            : `from ${c.with_attributed_revenue.toLocaleString()} article${c.with_attributed_revenue === 1 ? "" : "s"}, same-session`} />
       </div>
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
@@ -366,8 +370,11 @@ export function BlogPerformanceView() {
                     <span style={{ color: a.value === null ? "#475569" : "#34d399", fontWeight: 700 }}>
                       {money(a.value)}
                     </span>
-                    {a.value_basis === "modelled" && (
-                      <span style={{ fontSize: 9.5, color: "#64748b", display: "block" }}>modelled</span>
+                    {a.value_basis !== "unavailable" && (
+                      <span style={{
+                        fontSize: 9.5, display: "block",
+                        color: a.value_basis === "measured" ? "#34d399" : "#64748b",
+                      }}>{a.value_basis}</span>
                     )}
                   </td>
                   <td style={{ padding: "10px 13px", textAlign: "right", color: "#94a3b8" }}>{a.content_score}</td>
