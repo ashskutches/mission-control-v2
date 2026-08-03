@@ -124,6 +124,30 @@ function StatCard({ label, value, color }: { label: string; value: number; color
 }
 
 /**
+ * A deliverable is a link only when it has somewhere to go.
+ *
+ * These used to render `href={url ?? "#"}`, which produced a link to /research# —
+ * indistinguishable from a working one until you clicked it, and it hid the actual
+ * problem (the report address never made it onto the document row). A document with no
+ * address is now visibly inert and says why on hover.
+ */
+function DocLink({ url, style, inertHint, children }: {
+  url: string | null;
+  style: React.CSSProperties;
+  inertHint: string;
+  children: React.ReactNode;
+}) {
+  if (url) {
+    return <a href={url} target="_blank" rel="noopener noreferrer" style={style}>{children}</a>;
+  }
+  return (
+    <span style={{ ...style, opacity: 0.45, cursor: "default" }} title={inertHint}>
+      {children}
+    </span>
+  );
+}
+
+/**
  * The self-grade the agent gave its own report.
  *
  * Shown because a grade nobody reads is decoration. Anything under 0.6 is called out
@@ -269,10 +293,9 @@ function ResearchCard({ item }: { item: ResearchItem }) {
           {/* Deliverables */}
           {primary ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 11 }}>
-              <a
-                href={primary.url ?? "#"}
-                target="_blank"
-                rel="noopener noreferrer"
+              <DocLink
+                url={primary.url}
+                inertHint="No stored report for this run — it finished before reports were published, or the report upload failed."
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11,
                   fontWeight: 600, color: ACCENT, textDecoration: "none",
@@ -284,8 +307,8 @@ function ResearchCard({ item }: { item: ResearchItem }) {
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {primary.title ?? "Untitled report"}
                 </span>
-                <ExternalLink size={10} style={{ flexShrink: 0, opacity: 0.7 }} />
-              </a>
+                {primary.url && <ExternalLink size={10} style={{ flexShrink: 0, opacity: 0.7 }} />}
+              </DocLink>
 
               {open && notes.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 2 }}>
@@ -293,11 +316,10 @@ function ResearchCard({ item }: { item: ResearchItem }) {
                     Working notes
                   </span>
                   {notes.map(d => (
-                    <a
+                    <DocLink
                       key={d.id}
-                      href={d.url ?? "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      url={d.url}
+                      inertHint="Working note kept in the database — its content was compiled into the report above."
                       style={{
                         fontSize: 10.5, color: "#64748b", textDecoration: "none",
                         display: "inline-flex", alignItems: "center", gap: 5,
@@ -305,7 +327,7 @@ function ResearchCard({ item }: { item: ResearchItem }) {
                     >
                       <FileText size={10} />
                       {d.stage_index != null ? `Stage ${d.stage_index} — ` : ""}{d.title ?? "Untitled"}
-                    </a>
+                    </DocLink>
                   ))}
                 </div>
               )}
@@ -602,11 +624,10 @@ export default function ResearchPage() {
           </p>
           <div style={{ ...card, padding: "6px 14px" }}>
             {data.unattachedDocuments.map(d => (
-              <a
+              <DocLink
                 key={d.id}
-                href={d.url ?? "#"}
-                target="_blank"
-                rel="noopener noreferrer"
+                url={d.url}
+                inertHint="This document has no stored link — its text lives in the database only."
                 style={{
                   display: "flex", alignItems: "center", gap: 9, padding: "9px 0",
                   borderBottom: "1px solid rgba(255,255,255,0.04)", textDecoration: "none",
@@ -619,8 +640,8 @@ export default function ResearchPage() {
                 <span style={{ fontSize: 10, color: "#475569", flexShrink: 0 }}>
                   {new Date(d.created_at).toLocaleDateString()}
                 </span>
-                <ExternalLink size={10} color="#475569" style={{ flexShrink: 0 }} />
-              </a>
+                {d.url && <ExternalLink size={10} color="#475569" style={{ flexShrink: 0 }} />}
+              </DocLink>
             ))}
           </div>
         </div>
