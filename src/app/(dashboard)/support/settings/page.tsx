@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { Mail, Send, Download, ShieldAlert, Save, Calculator, CheckCircle2 } from "lucide-react";
+import { Mail, Send, Download, ShieldAlert, Save, Calculator, CheckCircle2, PenLine, User, Users } from "lucide-react";
 import { Panel, Pill, Btn, SUPPORT_ACCENT, Loading, ErrorBox } from "../ui";
-import { getSettings, saveSettings, saveAssumption, getMailboxes } from "../api";
+import { getSettings, saveSettings, saveAssumption, getMailboxes, saveSignature } from "../api";
 
 const ASSUMPTION_META: Record<string, { label: string; unit: string; help: string }> = {
   baseline_minutes_per_reply: {
@@ -27,6 +27,7 @@ export default function SupportSettings() {
   const [agentId, setAgentId] = useState("");
   const [mailQuery, setMailQuery] = useState("");
   const [mailboxes, setMailboxes] = useState<any[]>([]);
+  const [sig, setSig] = useState<any>(null);
 
   const load = useCallback(async () => {
     setErr(null);
@@ -41,6 +42,7 @@ export default function SupportSettings() {
       setAgentId(d.mail?.agentId ?? "");
       setMailQuery(d.mail?.mailQuery ?? "");
       setMailboxes(boxes);
+      setSig(d.signature ?? null);
     } catch (e: any) { setErr(e.message); }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -175,6 +177,9 @@ export default function SupportSettings() {
           )}
         </Panel>
 
+        <SignaturePanel sig={sig} setSig={setSig} busy={busy} setBusy={setBusy}
+                        onSaved={(m: string) => { setNote(m); load(); }} onError={setErr} />
+
         <Panel title="Money assumptions"
                subtitle="Every figure needs a basis — a dollar number with no stated calculation is decoration">
           <div style={{ display: "grid", gap: "0.9rem" }}>
@@ -192,6 +197,111 @@ export default function SupportSettings() {
         </Panel>
       </div>
     </>
+  );
+}
+
+/**
+ * The signature is a setting, not a document.
+ *
+ * It used to be a doc, and six reply scripts each carried their own sign-off that
+ * contradicted it — the model was handed two signatures and picked one. Now the
+ * model is told not to sign off at all and this exact block is appended to every
+ * draft, so there is one place it can differ.
+ */
+function SignaturePanel({ sig, setSig, busy, setBusy, onSaved, onError }: any) {
+  if (!sig) return null;
+
+  const set = (k: string, v: any) => setSig({ ...sig, [k]: v });
+
+  const preview = (() => {
+    if (!sig.enabled) return "(no signature — replies end wherever the agent stops)";
+    const out = [sig.closing?.trim() || "", ""];
+    if (sig.mode === "person") {
+      out.push(sig.name?.trim() || "");
+      if (sig.role?.trim()) out.push(sig.role.trim());
+      if (sig.company?.trim()) out.push(sig.company.trim());
+    } else {
+      out.push(sig.teamName?.trim() || "");
+    }
+    if (sig.email?.trim()) out.push(sig.email.trim());
+    return out.filter((l, i) => !(l === "" && i === out.length - 1)).join("\n");
+  })();
+
+  return (
+    <Panel
+      title="Email signature"
+      subtitle="Appended to every draft automatically — the agent is told not to write one"
+      right={
+        <Btn size="sm" color={SUPPORT_ACCENT} disabled={busy}
+             onClick={async () => {
+               setBusy(true);
+               try { await saveSignature(sig); onSaved("Signature saved — it applies from the next draft."); }
+               catch (e: any) { onError(e.message); }
+               finally { setBusy(false); }
+             }}>
+          <Save size={11} /> Save
+        </Btn>
+      }
+    >
+      <div style={{ display: "flex", gap: "0.35rem", marginBottom: "0.9rem", flexWrap: "wrap" }}>
+        <Pill color={SUPPORT_ACCENT} active={sig.enabled} onClick={() => set("enabled", !sig.enabled)}>
+          {sig.enabled ? "On" : "Off"}
+        </Pill>
+        <Pill color="#a78bfa" active={sig.mode === "person"} onClick={() => set("mode", "person")}>
+          <User size={9} /> Named person
+        </Pill>
+        <Pill color="#4a9eff" active={sig.mode === "team"} onClick={() => set("mode", "team")}>
+          <Users size={9} /> The team
+        </Pill>
+      </div>
+
+      {sig.enabled && (
+        <>
+          <div style={{ display: "grid", gap: "0.5rem", marginBottom: "0.9rem",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+            <Field label="Closing" value={sig.closing} onChange={(v: string) => set("closing", v)} />
+            {sig.mode === "person" ? (
+              <>
+                <Field label="Name" value={sig.name} onChange={(v: string) => set("name", v)} />
+                <Field label="Role" value={sig.role} onChange={(v: string) => set("role", v)} />
+                <Field label="Company" value={sig.company} onChange={(v: string) => set("company", v)} />
+              </>
+            ) : (
+              <Field label="Team name" value={sig.teamName} onChange={(v: string) => set("teamName", v)} />
+            )}
+            <Field label="Reply-to address" value={sig.email} onChange={(v: string) => set("email", v)} />
+          </div>
+
+          <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase",
+                        letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: 6 }}>
+            Every reply ends like this
+          </div>
+          <pre style={{
+            background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 9, padding: "0.8rem 0.9rem", margin: 0,
+            fontSize: 12, lineHeight: 1.7, color: "var(--text-secondary)",
+            fontFamily: "inherit", whiteSpace: "pre-wrap",
+          }}>{preview}</pre>
+        </>
+      )}
+
+      <div style={{ display: "flex", gap: 7, alignItems: "flex-start", marginTop: "0.9rem",
+                    fontSize: 10.5, color: "var(--text-muted)", lineHeight: 1.55 }}>
+        <PenLine size={12} style={{ marginTop: 1, flexShrink: 0 }} />
+        {sig.mode === "person"
+          ? "A named person implies someone read the email. That's a promise worth keeping — it's also what was being sent before this became a setting."
+          : "Signing as the team is honest about an AI-drafted reply, and needs no real person to stand behind it."}
+      </div>
+    </Panel>
+  );
+}
+
+function Field({ label: text, value, onChange }: any) {
+  return (
+    <div>
+      <label style={label}>{text}</label>
+      <input value={value ?? ""} onChange={e => onChange(e.target.value)} style={input} />
+    </div>
   );
 }
 

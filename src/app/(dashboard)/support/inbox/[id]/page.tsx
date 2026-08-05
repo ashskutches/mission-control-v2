@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
-  ArrowLeft, Send, XCircle, RefreshCw, ArrowUpRight, Bot, User, FileText,
+  ArrowLeft, Send, XCircle, RefreshCw, Bot, User, FileText,
   ShoppingBag, Sparkles, AlertTriangle, Info, CheckCircle2, Pencil, History,
 } from "lucide-react";
 import {
@@ -11,7 +11,7 @@ import {
   STATUS_COLOR, STATUS_LABEL, SUPPORT_ACCENT,
 } from "../../ui";
 import {
-  getTicket, approveTicket, rejectTicket, escalateTicket, generateDraft,
+  getTicket, approveTicket, rejectTicket, generateDraft,
   REASON_LABELS, REASON_CODES,
 } from "../../api";
 
@@ -198,7 +198,6 @@ export default function ApprovalInterface() {
               <Empty icon={Bot} title="Nothing is waiting for approval"
                      body={t.status === "needs_human_only"
                        ? "The classifier routed this straight to a human — it needs authority the agent doesn't have."
-                       : t.status === "escalated" ? "This was escalated."
                        : t.status === "sent" ? "A reply has already been sent."
                        : "No pending draft."} />
               <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.8rem", flexWrap: "wrap" }}>
@@ -240,8 +239,9 @@ export default function ApprovalInterface() {
                   }}>
                     <AlertTriangle size={12} color="#f5a840" style={{ marginTop: 1, flexShrink: 0 }} />
                     <span style={{ fontSize: 11.5, color: "#f5a840", lineHeight: 1.5 }}>
-                      The agent flagged this for escalation — it wrote a reply but doesn't think it
-                      should be the one answering.
+                      <strong>The agent thinks you should write this one.</strong> It drafted
+                      something, but the documents don't settle what the customer is asking.
+                      Reject &amp; rewrite — your reply becomes a training pair.
                     </span>
                   </div>
                 )}
@@ -283,11 +283,6 @@ export default function ApprovalInterface() {
                          onClick={() => run("draft", () => generateDraft(t.id),
                            () => "Regenerated. No correction pair — a regenerate isn't a correction.")}>
                       <RefreshCw size={13} /> {busy === "draft" ? "Regenerating…" : "Regenerate"}
-                    </Btn>
-                    <Btn variant="ghost" disabled={!!busy}
-                         onClick={() => run("escalate", () => escalateTicket(t.id),
-                           () => "Escalated. No email sent.")}>
-                      <ArrowUpRight size={13} /> Escalate
                     </Btn>
                   </div>
                 </Panel>

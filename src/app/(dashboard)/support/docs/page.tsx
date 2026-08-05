@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   BookOpen, Lock, Sparkles, Mic, FileText, History, Plus, Search, Shield,
   BarChart3, Save, RotateCcw, X, Trash2, Archive, ArchiveRestore, Pencil,
-  AlertTriangle, Eye, Check, Coins,
+  AlertTriangle, Eye, Check, Coins, Folder, List, BookMarked,
 } from "lucide-react";
 import { Panel, Pill, Btn, Empty, SUPPORT_ACCENT, Loading, ErrorBox } from "../ui";
 import {
@@ -51,6 +51,9 @@ export default function DocsPage() {
 
   const [preview, setPreview]   = useState<any>(null);
   const [previewCat, setPreviewCat] = useState("");
+  /** "list" edits one doc; "playbook" reads them all as one page. */
+  const [view, setView] = useState<"list" | "playbook">("list");
+  const [folderDraft, setFolderDraft] = useState("");
 
   const load = useCallback(async (keepId?: string) => {
     setErr(null);
@@ -78,7 +81,7 @@ export default function DocsPage() {
   const pick = (d: any) => {
     setSel(d); setContent(d.content ?? ""); setTitleDraft(d.title ?? "");
     setEditing(false); setVersions(null); setNote(null); setErr(null);
-    setRenaming(false); setConfirmDelete(false);
+    setRenaming(false); setConfirmDelete(false); setFolderDraft(d.folder ?? "");
   };
 
   const act = async (fn: () => Promise<any>, msg: string | ((r: any) => string), keepId?: string) => {
@@ -103,6 +106,13 @@ export default function DocsPage() {
   const SelIcon = meta.icon;
   const catLabel = (slug: string) => cats.find(c => c.slug === slug)?.label ?? slug;
   const needsReview = docs.filter(d => d.needs_review && d.is_active);
+
+  // Folders are a human affordance only. The agent still loads documents
+  // individually, because the document is the unit of scoping.
+  const grouped: Record<string, any[]> = {};
+  list.forEach(d => (grouped[d.folder || "Uncategorised"] ??= []).push(d));
+  const folderNames = Object.keys(grouped).sort();
+  const knownFolders = Array.from(new Set(docs.map(d => d.folder).filter(Boolean))) as string[];
 
   return (
     <>
@@ -193,6 +203,55 @@ export default function DocsPage() {
 
       <div style={{ height: "0.9rem" }} />
 
+      <div style={{ display: "flex", gap: "0.35rem", marginBottom: "0.9rem" }}>
+        <Pill color={SUPPORT_ACCENT} active={view === "list"} onClick={() => setView("list")}>
+          <List size={9} /> Edit
+        </Pill>
+        <Pill color="#a78bfa" active={view === "playbook"} onClick={() => setView("playbook")}>
+          <BookMarked size={9} /> Read the playbook
+        </Pill>
+      </div>
+
+      {view === "playbook" ? (
+        /* The whole thing as one page, in folder order. Same documents the agent
+           loads — this is a reading view, not a second copy that can drift. */
+        <Panel title="The playbook"
+               subtitle="Everything active, in order. Click any heading to edit it.">
+          {folderNames.length === 0 ? (
+            <Empty icon={BookOpen} title="Nothing to read yet" />
+          ) : folderNames.map(folderName => (
+            <div key={folderName} style={{ marginBottom: "1.6rem" }}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 7, marginBottom: "0.7rem",
+                paddingBottom: "0.4rem", borderBottom: "1px solid rgba(255,255,255,0.07)",
+              }}>
+                <Folder size={13} color={SUPPORT_ACCENT} />
+                <span style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase",
+                               letterSpacing: "0.08em", color: SUPPORT_ACCENT }}>{folderName}</span>
+              </div>
+              {grouped[folderName].filter((d: any) => d.is_active).map((d: any) => (
+                <div key={d.id} style={{ marginBottom: "1.1rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5,
+                                cursor: "pointer" }}
+                       onClick={() => { pick(d); setView("list"); }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 700 }}>{d.title}</span>
+                    <Pill color={KIND_META[d.kind]?.color ?? "#6b7280"}>{d.kind}</Pill>
+                    {(d.scope ?? []).length === 0
+                      ? <Pill color="#f5a840">every draft</Pill>
+                      : <Pill>{d.scope.length} categor{d.scope.length === 1 ? "y" : "ies"}</Pill>}
+                    {d.needs_review && <AlertTriangle size={11} color="#f5a840" />}
+                  </div>
+                  <div style={{
+                    fontSize: 12.5, lineHeight: 1.75, color: "var(--text-secondary)",
+                    whiteSpace: "pre-wrap", paddingLeft: "0.9rem",
+                    borderLeft: "2px solid rgba(255,255,255,0.06)",
+                  }}>{d.content || "(empty)"}</div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </Panel>
+      ) : (
       <div style={{ display: "grid", gap: "0.9rem",
                     gridTemplateColumns: "minmax(280px, 0.85fr) minmax(400px, 1.6fr)",
                     alignItems: "start" }}>
@@ -249,33 +308,49 @@ export default function DocsPage() {
 
           {list.length === 0 ? (
             <Empty icon={BookOpen} title={docs.length ? "No documents match" : "No documents yet"} />
-          ) : list.map((d, i) => {
-            const m = KIND_META[d.kind] ?? KIND_META.reference;
-            const Icon = m.icon;
-            const active = d.id === sel?.id;
-            return (
-              <div key={d.id} onClick={() => pick(d)}
-                style={{
-                  padding: "0.7rem 0.9rem", cursor: "pointer",
-                  borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)",
-                  background: active ? `${m.color}12` : "transparent",
-                  borderLeft: `2px solid ${active ? m.color : "transparent"}`,
-                  opacity: d.is_active ? 1 : 0.5,
-                }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-                  <Icon size={11} color={m.color} />
-                  <span style={{ fontSize: 12.5, fontWeight: 700 }}>{d.title}</span>
-                  {d.needs_review && d.is_active && <AlertTriangle size={10} color="#f5a840" />}
-                </div>
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                  <Pill color={m.color}>v{d.version}</Pill>
-                  <Pill><BarChart3 size={8} /> {d.used_in_drafts}</Pill>
-                  {!d.is_active && <Pill color="#6b7280" solid>archived</Pill>}
-                  {d.is_active && (d.scope ?? []).length === 0 && <Pill color="#f5a840">always</Pill>}
-                </div>
+          ) : folderNames.map(folderName => (
+            <div key={folderName}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "0.5rem 0.9rem", background: "rgba(255,255,255,0.025)",
+                borderTop: "1px solid rgba(255,255,255,0.05)",
+                borderBottom: "1px solid rgba(255,255,255,0.04)",
+              }}>
+                <Folder size={11} color="var(--text-muted)" />
+                <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase",
+                               letterSpacing: "0.08em", color: "var(--text-secondary)" }}>
+                  {folderName}
+                </span>
+                <span style={{ fontSize: 10, color: "var(--text-dim)" }}>{grouped[folderName].length}</span>
               </div>
-            );
-          })}
+              {grouped[folderName].map((d: any) => {
+                const m = KIND_META[d.kind] ?? KIND_META.reference;
+                const Icon = m.icon;
+                const active = d.id === sel?.id;
+                return (
+                  <div key={d.id} onClick={() => pick(d)}
+                    style={{
+                      padding: "0.6rem 0.9rem 0.6rem 1.5rem", cursor: "pointer",
+                      background: active ? `${m.color}12` : "transparent",
+                      borderLeft: `2px solid ${active ? m.color : "transparent"}`,
+                      opacity: d.is_active ? 1 : 0.5,
+                    }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                      <Icon size={11} color={m.color} />
+                      <span style={{ fontSize: 12.5, fontWeight: 700 }}>{d.title}</span>
+                      {d.needs_review && d.is_active && <AlertTriangle size={10} color="#f5a840" />}
+                    </div>
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                      <Pill color={m.color}>v{d.version}</Pill>
+                      <Pill><BarChart3 size={8} /> {d.used_in_drafts}</Pill>
+                      {!d.is_active && <Pill color="#6b7280" solid>archived</Pill>}
+                      {d.is_active && (d.scope ?? []).length === 0 && <Pill color="#f5a840">always</Pill>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </Panel>
 
         {!sel ? (
@@ -347,6 +422,20 @@ export default function DocsPage() {
                 <Btn size="sm" variant="ghost" onClick={() => setRenaming(true)}>
                   <Pencil size={11} /> Rename
                 </Btn>
+
+                <select
+                  value={sel.folder ?? ""}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v === "__new") { setFolderDraft(""); return; }
+                    act(() => saveDoc(sel.id, { folder: v || null }),
+                      v ? `Moved to ${v}.` : "Removed from its folder.", sel.id);
+                  }}
+                  style={{ ...inputStyle, width: "auto", cursor: "pointer" }}
+                >
+                  <option value="">No folder</option>
+                  {knownFolders.sort().map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
 
                 {/* Kind */}
                 {Object.keys(KIND_META).map(k => (
@@ -526,6 +615,7 @@ export default function DocsPage() {
           </Panel>
         )}
       </div>
+      )}
     </>
   );
 }

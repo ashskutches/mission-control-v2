@@ -45,11 +45,18 @@ const qs = (o: Record<string, any>) => {
   return s ? `?${s}` : "";
 };
 
+const post = <T,>(path: string, body?: any) =>
+  req<T>(path, { method: "POST", body: JSON.stringify(body ?? {}) });
+const put = <T,>(path: string, body?: any) =>
+  req<T>(path, { method: "PUT", body: JSON.stringify(body ?? {}) });
+
 // ── Reads ───────────────────────────────────────────────────────────────────
 
 export const getSummary   = () => req<any>("/summary");
 export const getMetrics   = (days = 7) => req<any>(`/metrics${qs({ days })}`);
 export const getSettings  = () => req<any>("/settings");
+export const getSignature = () => req<any>("/signature");
+export const saveSignature = (p: any) => put<any>("/signature", p);
 export const getCategories = () => req<any[]>("/categories");
 /** Agents with a Gmail account connected — the options for "which mailbox". */
 export const getMailboxes = () => req<{
@@ -76,11 +83,6 @@ export const getCorrections = (o: { category?: string; reasonCode?: string } = {
 
 // ── Writes ──────────────────────────────────────────────────────────────────
 
-const post = <T>(path: string, body?: any) =>
-  req<T>(path, { method: "POST", body: JSON.stringify(body ?? {}) });
-const put = <T>(path: string, body?: any) =>
-  req<T>(path, { method: "PUT", body: JSON.stringify(body ?? {}) });
-
 export const generateDraft = (id: string, hint?: string) => post<any>(`/tickets/${id}/draft`, { hint });
 
 export const approveTicket = (id: string, p: {
@@ -94,11 +96,12 @@ export const rejectTicket = (id: string, p: {
 export const escalateTicket = (id: string, note?: string) => post<any>(`/tickets/${id}/escalate`, { note });
 export const setTicketStatus = (id: string, status: string) => post<any>(`/tickets/${id}/status`, { status });
 
-export const createDoc = (p: { title: string; kind?: string; content?: string; scope?: string[] }) =>
+export const createDoc = (p: { title: string; kind?: string; content?: string; scope?: string[]; folder?: string }) =>
   post<any>("/docs", p);
 export const saveDoc = (id: string, p: {
   content?: string; title?: string; scope?: string[]; kind?: string; note?: string;
   force?: boolean; isActive?: boolean; reviewNote?: string | null; needsReview?: boolean;
+  folder?: string | null;
 }) => put<any>(`/docs/${id}`, p);
 /** Archive by default (recoverable); purge is permanent. */
 export const deleteDoc = (id: string, purge = false) =>
