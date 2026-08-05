@@ -1,74 +1,104 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Send, XCircle, RefreshCw, ArrowUpRight, Bot, User, FileText,
   ShoppingBag, Sparkles, AlertTriangle, Info, CheckCircle2, Pencil, History,
 } from "lucide-react";
 import {
-  SampleBanner, Panel, Pill, Btn, Confidence, Empty, fmtDate, ago,
+  Panel, Pill, Btn, Confidence, Empty, ago, Loading, ErrorBox,
   STATUS_COLOR, STATUS_LABEL, SUPPORT_ACCENT,
 } from "../../ui";
-import { TICKETS, DOCS, CORRECTIONS, categoryLabel } from "../../fixtures";
-import { REASON_LABELS } from "../../types";
-import type { ReasonCode } from "../../types";
-
-const REASON_CODES = Object.keys(REASON_LABELS) as ReasonCode[];
+import {
+  getTicket, approveTicket, rejectTicket, escalateTicket, generateDraft,
+  REASON_LABELS, REASON_CODES,
+} from "../../api";
 
 export default function ApprovalInterface() {
   const params = useParams();
+  const router = useRouter();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const ticket = TICKETS.find(t => t.id === id);
 
-  const [body, setBody]       = useState(ticket?.draft?.body ?? "");
+  const [t, setT] = useState<any>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  const [body, setBody]       = useState("");
   const [mode, setMode]       = useState<"review" | "reject">("review");
-  const [reason, setReason]   = useState<ReasonCode | null>(null);
+  const [reason, setReason]   = useState<string | null>(null);
   const [note, setNote]       = useState("");
   const [rewrite, setRewrite] = useState("");
-  const [done, setDone]       = useState<string | null>(null);
 
-  const edited = !!ticket?.draft && body.trim() !== ticket.draft.body.trim();
+  const load = useCallback(async () => {
+    if (!id) return;
+    setErr(null);
+    try {
+      const data = await getTicket(id);
+      setT(data);
+      setBody(data.draft?.body ?? "");
+    } catch (e: any) { setErr(e.message); }
+  }, [id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (err && !t) return <ErrorBox error={err} onRetry={load} />;
+  if (!t) return <Loading label="Loading ticket" />;
+
+  const draft = t.draft && t.draft.status === "pending" ? t.draft : null;
+  const edited = !!draft && body.trim() !== String(draft.body).trim();
   const canReject = !!reason && note.trim().length >= 15 && rewrite.trim().length >= 20;
 
-  const citedDocs = useMemo(
-    () => DOCS.filter(d => ticket?.draft?.citedDocIds.includes(d.id)),
-    [ticket],
-  );
+  const run = async (key: string, fn: () => Promise<any>, after?: (r: any) => string) => {
+    setBusy(key); setErr(null); setDone(null);
+    try {
+      const r = await fn();
+      setDone(after ? after(r) : "Done.");
+      await load();
+    } catch (e: any) { setErr(e.message); }
+    finally { setBusy(null); }
+  };
 
-  // The past corrections that went into this draft's prompt as exemplars. Showing
-  // them is the only way a reviewer can tell "it applied the lesson" apart from
-  // "it happened to get this one right".
-  const exemplars = useMemo(
-    () => CORRECTIONS.filter(c => ticket?.draft?.exemplarCorrectionIds.includes(c.id)),
-    [ticket],
-  );
+  const onApprove = () => run("approve",
+    () => approveTicket(t.id, { body }),
+    r => r.edited
+      ? "Sent with your edits. Correction pair recorded as edited_on_approve."
+      : "Approved and sent. Counted as a clean approval.");
 
-  if (!ticket) {
-    return <Empty icon={AlertTriangle} title="Ticket not found" body="This ticket doesn't exist in the sample set." />;
-  }
+  const onReject = () => run("reject",
+    () => rejectTicket(t.id, {
+      reasonCode: reason!, reasonNote: note, humanBody: rewrite,
+      severity: reason === "policy_violation" || reason === "wrong_facts" ? 4 : 3,
+    }),
+    r => {
+      setMode("review"); setReason(null); setNote(""); setRewrite("");
+      return r.sendError
+        ? `Training pair stored, but nothing was sent: ${r.sendError}`
+        : "Your reply was sent and the training pair was stored.";
+    });
 
   return (
     <>
-      <SampleBanner />
-
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem",
                     flexWrap: "wrap", marginBottom: "1rem" }}>
         <Link href="/support/inbox" style={{ textDecoration: "none" }}>
           <Btn variant="ghost" size="sm"><ArrowLeft size={12} /> Queue</Btn>
         </Link>
         <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text-dim)",
-                       fontFamily: "'JetBrains Mono', monospace" }}>{ticket.ref}</span>
-        <h2 style={{ fontSize: "1.05rem", fontWeight: 800, margin: 0 }}>{ticket.subject}</h2>
-        <Pill color={STATUS_COLOR[ticket.status]} solid>{STATUS_LABEL[ticket.status]}</Pill>
-        {ticket.status === "awaiting_approval" && (
-          <Pill color={ticket.awaitingMinutes > 60 ? "#f43f5e" : "#6b7280"}>
-            waiting {ago(ticket.awaitingMinutes)}
+                       fontFamily: "'JetBrains Mono', monospace" }}>#{t.ref}</span>
+        <h2 style={{ fontSize: "1.05rem", fontWeight: 800, margin: 0 }}>{t.subject}</h2>
+        <Pill color={STATUS_COLOR[t.status] ?? "#6b7280"} solid>
+          {STATUS_LABEL[t.status] ?? t.status}
+        </Pill>
+        {t.status === "awaiting_approval" && (
+          <Pill color={t.awaitingMinutes > 60 ? "#f43f5e" : "#6b7280"}>
+            waiting {ago(t.awaitingMinutes)}
           </Pill>
         )}
       </div>
 
+      {err && <ErrorBox error={err} />}
       {done && (
         <div style={{
           display: "flex", alignItems: "center", gap: 8, marginBottom: "1rem",
@@ -80,39 +110,42 @@ export default function ApprovalInterface() {
         </div>
       )}
 
-      {/* ── Metrics strip. The index stays one line per ticket; everything
-             quantitative lives here, on the drill-down. ─────────────────── */}
-      {ticket.draft && (
+      {/* Metrics strip — the index stays one line per ticket; everything
+          quantitative lives here, on the drill-down. */}
+      {t.draft && (
         <div style={{
           display: "grid", gap: "1px", marginBottom: "0.9rem",
           gridTemplateColumns: "repeat(auto-fit, minmax(122px, 1fr))",
           background: "rgba(255,255,255,0.05)",
           border: "1px solid var(--glass-border)", borderRadius: 12, overflow: "hidden",
         }}>
-          <Stat label="Draft confidence" value={`${Math.round(ticket.draft.confidence * 100)}%`}
-                color={ticket.draft.confidence >= 0.8 ? "#22c55e" : ticket.draft.confidence >= 0.6 ? "#f5a840" : "#f43f5e"} />
-          <Stat label="Category confidence" value={`${Math.round(ticket.classifierConfidence * 100)}%`}
+          <Stat label="Draft confidence" value={`${Math.round(Number(t.draft.confidence ?? 0) * 100)}%`}
+                color={Number(t.draft.confidence) >= 0.8 ? "#22c55e"
+                     : Number(t.draft.confidence) >= 0.6 ? "#f5a840" : "#f43f5e"} />
+          <Stat label="Category confidence"
+                value={t.classifier_confidence == null ? "—" : `${Math.round(Number(t.classifier_confidence) * 100)}%`}
                 hint="A confident reply on a miscategorised ticket reads fine and is wrong."
-                color={ticket.classifierConfidence >= 0.8 ? "var(--text-primary)" : "#f5a840"} />
-          <Stat label="Drafted after" value={`${ticket.draft.draftedAfterMinutes}m`} hint="From the email landing" />
-          <Stat label="Waiting for you" value={ago(ticket.awaitingMinutes)}
-                color={ticket.awaitingMinutes > 60 ? "#f43f5e" : "var(--text-primary)"} />
-          <Stat label="Attempt" value={`#${ticket.draft.attempt}`}
-                hint={ticket.draft.attempt > 1 ? "Someone regenerated this" : undefined}
-                color={ticket.draft.attempt > 1 ? "#f5a840" : "var(--text-primary)"} />
-          <Stat label="Tokens" value={`${(ticket.draft.tokensIn / 1000).toFixed(1)}k in`}
-                hint={`${ticket.draft.tokensOut} out · ${(ticket.draft.latencyMs / 1000).toFixed(1)}s`} />
-          <Stat label="Cost" value={`${ticket.draft.costCents}¢`} />
-          <Stat label="Docs cited" value={String(ticket.draft.citedDocIds.length)} />
-          <Stat label="Past lessons used" value={String(ticket.draft.exemplarCorrectionIds.length)}
-                hint="Corrections fed in as exemplars"
-                color={ticket.draft.exemplarCorrectionIds.length ? "#a78bfa" : "var(--text-dim)"} />
-          {ticket.history && (
-            <Stat label="Prior tickets" value={String(ticket.history.priorTickets)}
-                  hint={ticket.history.priorCorrections > 0
-                    ? `${ticket.history.priorCorrections} drafts to them were corrected`
+                color={Number(t.classifier_confidence ?? 1) >= 0.8 ? "var(--text-primary)" : "#f5a840"} />
+          <Stat label="Drafted after"
+                value={`${t.draft.context_snapshot?.draftedAfterMinutes ?? 0}m`} hint="From the email landing" />
+          <Stat label="Waiting for you" value={ago(t.awaitingMinutes)}
+                color={t.awaitingMinutes > 60 ? "#f43f5e" : "var(--text-primary)"} />
+          <Stat label="Attempt" value={`#${t.draft.attempt ?? 1}`}
+                hint={(t.draft.attempt ?? 1) > 1 ? "Someone regenerated this" : undefined}
+                color={(t.draft.attempt ?? 1) > 1 ? "#f5a840" : "var(--text-primary)"} />
+          <Stat label="Tokens" value={`${((t.draft.tokens_in ?? 0) / 1000).toFixed(1)}k in`}
+                hint={`${t.draft.tokens_out ?? 0} out · ${((t.draft.latency_ms ?? 0) / 1000).toFixed(1)}s`} />
+          <Stat label="Cost" value={`${Number(t.draft.cost_cents ?? 0).toFixed(2)}¢`} />
+          <Stat label="Docs cited" value={String(t.citedDocs?.length ?? 0)} />
+          <Stat label="Past lessons used" value={String(t.exemplars?.length ?? 0)}
+                hint={t.exemplars?.length ? "Corrections fed in as exemplars" : "No corrections exist yet to learn from"}
+                color={t.exemplars?.length ? "#a78bfa" : "var(--text-dim)"} />
+          {t.history && (
+            <Stat label="Prior tickets" value={String(t.history.priorTickets)}
+                  hint={t.history.priorCorrections > 0
+                    ? `${t.history.priorCorrections} drafts to them were corrected`
                     : "No corrections on this customer"}
-                  color={ticket.history.priorCorrections > 0 ? "#f5a840" : "var(--text-primary)"} />
+                  color={t.history.priorCorrections > 0 ? "#f5a840" : "var(--text-primary)"} />
           )}
         </div>
       )}
@@ -122,9 +155,9 @@ export default function ApprovalInterface() {
                     alignItems: "start" }}>
 
         {/* ── Pane 1: the conversation ─────────────────────────────────── */}
-        <Panel title="Conversation" subtitle={`${ticket.customerName} · ${ticket.customerEmail}`}>
+        <Panel title="Conversation" subtitle={`${t.customer_name || "Unknown"} · ${t.customer_email || "—"}`}>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {ticket.messages.map(msg => {
+            {(t.messages ?? []).map((msg: any) => {
               const inbound = msg.direction === "inbound";
               return (
                 <div key={msg.id} style={{
@@ -139,14 +172,18 @@ export default function ApprovalInterface() {
                     <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase",
                                    letterSpacing: "0.06em",
                                    color: inbound ? "var(--text-muted)" : SUPPORT_ACCENT }}>
-                      {inbound ? ticket.customerName : msg.author === "ai" ? "AI (sent)" : "Human"}
+                      {inbound ? (t.customer_name || "Customer")
+                               : msg.author === "ai" ? "AI (sent)" : "Human"}
                     </span>
                     <span style={{ flex: 1 }} />
-                    <span style={{ fontSize: 10, color: "var(--text-dim)" }}>{fmtDate(msg.sentAt)}</span>
+                    <span style={{ fontSize: 10, color: "var(--text-dim)" }}>
+                      {new Date(msg.sent_at).toLocaleString("en-US", {
+                        month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    </span>
                   </div>
                   <div style={{ fontSize: 12.5, lineHeight: 1.65, whiteSpace: "pre-wrap",
                                 color: "var(--text-secondary)" }}>
-                    {msg.body}
+                    {msg.body_text}
                   </div>
                 </div>
               );
@@ -156,35 +193,58 @@ export default function ApprovalInterface() {
 
         {/* ── Pane 2: the draft and the decision ───────────────────────── */}
         <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
-          {!ticket.draft ? (
+          {!draft ? (
             <Panel title="No draft">
-              <Empty icon={Bot} title="Nothing was drafted for this ticket"
-                     body={ticket.status === "escalated"
-                       ? "It was routed straight to a human. Wholesale enquiries have no reference doc behind them, so the agent escalated rather than guessing."
-                       : "This ticket is closed."} />
+              <Empty icon={Bot} title="Nothing is waiting for approval"
+                     body={t.status === "needs_human_only"
+                       ? "The classifier routed this straight to a human — it needs authority the agent doesn't have."
+                       : t.status === "escalated" ? "This was escalated."
+                       : t.status === "sent" ? "A reply has already been sent."
+                       : "No pending draft."} />
+              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.8rem", flexWrap: "wrap" }}>
+                <Btn variant="outline" color={SUPPORT_ACCENT} disabled={busy === "draft"}
+                     onClick={() => run("draft", () => generateDraft(t.id), () => "Draft generated.")}>
+                  <RefreshCw size={13} /> {busy === "draft" ? "Drafting…" : "Draft a reply"}
+                </Btn>
+              </div>
             </Panel>
           ) : (
             <>
               <Panel
                 title="AI draft"
-                subtitle={`${ticket.draft.model} · ${fmtDate(ticket.draft.generatedAt)}`}
-                right={<Confidence value={ticket.draft.confidence} />}
+                subtitle={`${draft.model ?? "?"} · ${new Date(draft.generated_at).toLocaleString("en-US", {
+                  month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`}
+                right={<Confidence value={Number(draft.confidence ?? 0)} />}
               >
-                {/* Why it wrote this — visible by default, not behind a toggle.
-                    A reviewer who can't see the reasoning can only check the prose. */}
-                <div style={{
-                  background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.2)",
-                  borderRadius: 9, padding: "0.6rem 0.75rem", marginBottom: "0.8rem",
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                    <Sparkles size={11} color="#a78bfa" />
-                    <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase",
-                                   letterSpacing: "0.07em", color: "#a78bfa" }}>Agent's reasoning</span>
+                {draft.reasoning && (
+                  <div style={{
+                    background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.2)",
+                    borderRadius: 9, padding: "0.6rem 0.75rem", marginBottom: "0.8rem",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <Sparkles size={11} color="#a78bfa" />
+                      <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase",
+                                     letterSpacing: "0.07em", color: "#a78bfa" }}>Agent's reasoning</span>
+                    </div>
+                    <div style={{ fontSize: 11.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>
+                      {draft.reasoning}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 11.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>
-                    {ticket.draft.reasoning}
+                )}
+
+                {draft.suggested_escalation && (
+                  <div style={{
+                    display: "flex", gap: 7, alignItems: "flex-start",
+                    background: "rgba(245,168,64,0.07)", border: "1px solid rgba(245,168,64,0.28)",
+                    borderRadius: 9, padding: "0.55rem 0.7rem", marginBottom: "0.8rem",
+                  }}>
+                    <AlertTriangle size={12} color="#f5a840" style={{ marginTop: 1, flexShrink: 0 }} />
+                    <span style={{ fontSize: 11.5, color: "#f5a840", lineHeight: 1.5 }}>
+                      The agent flagged this for escalation — it wrote a reply but doesn't think it
+                      should be the one answering.
+                    </span>
                   </div>
-                </div>
+                )}
 
                 <textarea
                   value={body}
@@ -209,23 +269,24 @@ export default function ApprovalInterface() {
                 )}
               </Panel>
 
-              {/* Decision */}
               {mode === "review" ? (
                 <Panel title="Decision">
                   <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                    <Btn color={edited ? "#f5a840" : "#22c55e"}
-                         onClick={() => setDone(edited
-                           ? "Sent with edits. Correction pair recorded (kind: edited_on_approve)."
-                           : "Approved and sent. Counted as a clean approval.")}>
-                      <Send size={13} /> {edited ? "Send with edits" : "Approve & send"}
+                    <Btn color={edited ? "#f5a840" : "#22c55e"} disabled={!!busy} onClick={onApprove}>
+                      <Send size={13} />
+                      {busy === "approve" ? "Sending…" : edited ? "Send with edits" : "Approve & send"}
                     </Btn>
-                    <Btn variant="outline" color="#f43f5e" onClick={() => setMode("reject")}>
+                    <Btn variant="outline" color="#f43f5e" disabled={!!busy} onClick={() => setMode("reject")}>
                       <XCircle size={13} /> Reject & rewrite
                     </Btn>
-                    <Btn variant="ghost" onClick={() => setDone("Regenerated. No correction pair — a regenerate isn't a correction.")}>
-                      <RefreshCw size={13} /> Regenerate
+                    <Btn variant="ghost" disabled={!!busy}
+                         onClick={() => run("draft", () => generateDraft(t.id),
+                           () => "Regenerated. No correction pair — a regenerate isn't a correction.")}>
+                      <RefreshCw size={13} /> {busy === "draft" ? "Regenerating…" : "Regenerate"}
                     </Btn>
-                    <Btn variant="ghost" onClick={() => setDone("Escalated. No email sent.")}>
+                    <Btn variant="ghost" disabled={!!busy}
+                         onClick={() => run("escalate", () => escalateTicket(t.id),
+                           () => "Escalated. No email sent.")}>
                       <ArrowUpRight size={13} /> Escalate
                     </Btn>
                   </div>
@@ -234,11 +295,7 @@ export default function ApprovalInterface() {
                 <Panel title="Reject & rewrite"
                        subtitle="One form, one submit — a rejection without your replacement is a training pair with half of it missing">
                   <div style={{ marginBottom: "0.9rem" }}>
-                    <label style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase",
-                                    letterSpacing: "0.08em", color: "var(--text-muted)",
-                                    display: "block", marginBottom: 7 }}>
-                      What was wrong? <span style={{ color: "#f43f5e" }}>*</span>
-                    </label>
+                    <label style={labelStyle}>What was wrong? <span style={{ color: "#f43f5e" }}>*</span></label>
                     <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
                       {REASON_CODES.map(rc => (
                         <Pill key={rc} color="#f43f5e" active={reason === rc} onClick={() => setReason(rc)}>
@@ -249,9 +306,7 @@ export default function ApprovalInterface() {
                   </div>
 
                   <div style={{ marginBottom: "0.9rem" }}>
-                    <label style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase",
-                                    letterSpacing: "0.08em", color: "var(--text-muted)",
-                                    display: "block", marginBottom: 7 }}>
+                    <label style={labelStyle}>
                       What should it have done? <span style={{ color: "#f43f5e" }}>*</span>
                     </label>
                     <textarea
@@ -259,16 +314,14 @@ export default function ApprovalInterface() {
                       placeholder="The reason code says which bucket. This says what the agent should have known — it's the actual training signal."
                       style={fieldStyle}
                     />
-                    <div style={{ fontSize: 10, color: note.trim().length >= 15 ? "var(--text-dim)" : "#f5a840",
-                                  marginTop: 4 }}>
+                    <div style={{ fontSize: 10, marginTop: 4,
+                                  color: note.trim().length >= 15 ? "var(--text-dim)" : "#f5a840" }}>
                       {note.trim().length}/15 characters minimum
                     </div>
                   </div>
 
                   <div style={{ marginBottom: "0.9rem" }}>
-                    <label style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase",
-                                    letterSpacing: "0.08em", color: "var(--text-muted)",
-                                    display: "block", marginBottom: 7 }}>
+                    <label style={labelStyle}>
                       Your reply — this is what gets sent <span style={{ color: "#f43f5e" }}>*</span>
                     </label>
                     <textarea
@@ -279,9 +332,8 @@ export default function ApprovalInterface() {
                   </div>
 
                   <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-                    <Btn color="#f43f5e" disabled={!canReject}
-                         onClick={() => { setDone("Rejected. Your reply was sent and the training pair was stored."); setMode("review"); }}>
-                      <Send size={13} /> Send mine & store the pair
+                    <Btn color="#f43f5e" disabled={!canReject || !!busy} onClick={onReject}>
+                      <Send size={13} /> {busy === "reject" ? "Sending…" : "Send mine & store the pair"}
                     </Btn>
                     <Btn variant="ghost" onClick={() => setMode("review")}>Cancel</Btn>
                     {!canReject && (
@@ -299,23 +351,21 @@ export default function ApprovalInterface() {
         {/* ── Pane 3: context ──────────────────────────────────────────── */}
         <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
           <Panel title="Customer">
-            <Row k="Name"      v={ticket.customerName} />
-            <Row k="Email"     v={ticket.customerEmail} />
-            <Row k="Category"  v={categoryLabel(ticket.category)} />
-            <Row k="Sentiment" v={ticket.sentiment} />
-            <Row k="Priority"  v={ticket.priority} />
-            {ticket.tags.length > 0 && (
+            <Row k="Name"      v={t.customer_name || "—"} />
+            <Row k="Email"     v={t.customer_email || "—"} />
+            <Row k="Category"  v={t.category?.label ?? "Unclassified"} />
+            <Row k="Sentiment" v={t.sentiment} />
+            <Row k="Priority"  v={t.priority} />
+            {(t.tags ?? []).length > 0 && (
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 8 }}>
-                {ticket.tags.map(t => <Pill key={t} color="#a78bfa">{t}</Pill>)}
+                {t.tags.map((tag: string) => <Pill key={tag} color="#a78bfa">{tag}</Pill>)}
               </div>
             )}
           </Panel>
 
-          {ticket.orderRef && (
+          {t.shopify_order_id && (
             <Panel title="Linked order" right={<ShoppingBag size={13} color="var(--text-muted)" />}>
-              <Row k="Order"   v={ticket.orderRef} mono />
-              <Row k="Status"  v="Fulfilled" />
-              <Row k="Placed"  v="Jul 28, 2026" />
+              <Row k="Order" v={t.shopify_order_id} mono />
               <div style={{ fontSize: 10.5, color: "var(--text-muted)", marginTop: 8, lineHeight: 1.5 }}>
                 A snapshot of what the agent saw is stored with the draft — order data changes,
                 and six weeks later you can't reconstruct why it said what it said.
@@ -324,11 +374,12 @@ export default function ApprovalInterface() {
           )}
 
           <Panel title="Docs the draft used" pad={false}>
-            {citedDocs.length === 0 ? (
+            {!(t.citedDocs ?? []).length ? (
               <div style={{ padding: "1rem", fontSize: 11.5, color: "var(--text-muted)" }}>
-                No documents cited.
+                No documents cited. If the knowledge base is empty, that's why — and it's also why
+                confidence will be low.
               </div>
-            ) : citedDocs.map((d, i) => (
+            ) : t.citedDocs.map((d: any, i: number) => (
               <Link key={d.id} href="/support/docs" style={{ textDecoration: "none", color: "inherit" }}>
                 <div style={{ padding: "0.65rem 1rem",
                               borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)" }}>
@@ -355,20 +406,18 @@ export default function ApprovalInterface() {
             </div>
           </Panel>
 
-          {exemplars.length > 0 && (
+          {(t.exemplars ?? []).length > 0 && (
             <Panel title="Past lessons in this draft" pad={false}>
-              {exemplars.map((c, i) => (
+              {t.exemplars.map((c: any, i: number) => (
                 <Link key={c.id} href="/support/learning" style={{ textDecoration: "none", color: "inherit" }}>
                   <div style={{ padding: "0.65rem 1rem",
                                 borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                       <History size={11} color="#a78bfa" />
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)",
-                                     fontFamily: "'JetBrains Mono', monospace" }}>{c.ticketRef}</span>
-                      <Pill color="#a78bfa">{REASON_LABELS[c.reasonCode]}</Pill>
+                      <Pill color="#a78bfa">{REASON_LABELS[c.reason_code] ?? c.reason_code}</Pill>
                     </div>
                     <div style={{ fontSize: 11, lineHeight: 1.55, color: "var(--text-muted)" }}>
-                      {c.reasonNote}
+                      {c.reason_note}
                     </div>
                   </div>
                 </Link>
@@ -384,13 +433,12 @@ export default function ApprovalInterface() {
             </Panel>
           )}
 
-          {ticket.history && (
+          {t.history && (
             <Panel title="Customer history">
-              <Row k="Prior tickets"    v={String(ticket.history.priorTickets)} />
-              <Row k="Drafts corrected" v={String(ticket.history.priorCorrections)} />
-              <Row k="Orders"           v={String(ticket.history.lifetimeOrders)} />
-              <Row k="Lifetime value"   v={ticket.history.lifetimeValue} mono />
-              <Row k="First seen"       v={new Date(ticket.history.firstSeen).toLocaleDateString("en-US", { month: "short", year: "numeric" })} />
+              <Row k="Prior tickets"    v={String(t.history.priorTickets)} />
+              <Row k="Drafts corrected" v={String(t.history.priorCorrections)} />
+              <Row k="First seen"       v={new Date(t.history.firstSeen).toLocaleDateString("en-US",
+                                            { month: "short", year: "numeric" })} />
             </Panel>
           )}
         </div>
@@ -399,7 +447,18 @@ export default function ApprovalInterface() {
   );
 }
 
-/** One cell of the drill-down metrics strip. */
+const labelStyle: React.CSSProperties = {
+  fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em",
+  color: "var(--text-muted)", display: "block", marginBottom: 7,
+};
+
+const fieldStyle: React.CSSProperties = {
+  width: "100%", background: "rgba(255,255,255,0.03)",
+  border: "1px solid rgba(255,255,255,0.08)", borderRadius: 9,
+  padding: "0.6rem 0.7rem", fontSize: 12.5, lineHeight: 1.65,
+  color: "var(--text-primary)", fontFamily: "inherit", resize: "vertical", outline: "none",
+};
+
 function Stat({ label, value, hint, color = "var(--text-primary)" }: {
   label: string; value: string; hint?: string; color?: string;
 }) {
@@ -418,13 +477,6 @@ function Stat({ label, value, hint, color = "var(--text-primary)" }: {
     </div>
   );
 }
-
-const fieldStyle: React.CSSProperties = {
-  width: "100%", background: "rgba(255,255,255,0.03)",
-  border: "1px solid rgba(255,255,255,0.08)", borderRadius: 9,
-  padding: "0.6rem 0.7rem", fontSize: 12.5, lineHeight: 1.65,
-  color: "var(--text-primary)", fontFamily: "inherit", resize: "vertical", outline: "none",
-};
 
 function Row({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
   return (

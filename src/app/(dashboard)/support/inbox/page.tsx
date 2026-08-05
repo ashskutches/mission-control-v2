@@ -1,18 +1,18 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
-  Search, Inbox as InboxIcon, AlertTriangle, Flame, ChevronRight, Bot, UserCheck,
+  Search, Inbox as InboxIcon, AlertTriangle, Flame, ChevronRight, Bot, UserCheck, RefreshCw,
 } from "lucide-react";
 import {
-  SampleBanner, Panel, Pill, Confidence, Empty, ago,
+  Panel, Pill, Confidence, Empty, ago, Btn, Loading, ErrorBox, NotConnected,
   STATUS_COLOR, STATUS_LABEL, SUPPORT_ACCENT,
 } from "../ui";
-import { TICKETS, categoryLabel } from "../fixtures";
-import type { TicketStatus } from "../types";
+import { getTickets, getSummary, runIngest } from "../api";
 
-const FILTERS: { key: TicketStatus | "all"; label: string }[] = [
+const FILTERS = [
   { key: "awaiting_approval", label: "Awaiting approval" },
+  { key: "needs_human_only",  label: "Human only" },
   { key: "escalated",         label: "Escalated" },
   { key: "sent",              label: "Sent" },
   { key: "resolved",          label: "Resolved" },
@@ -24,28 +24,54 @@ const SENTIMENT_COLOR: Record<string, string> = {
 };
 
 export default function SupportInbox() {
-  const [filter, setFilter] = useState<TicketStatus | "all">("awaiting_approval");
+  const [filter, setFilter] = useState("awaiting_approval");
   const [q, setQ] = useState("");
+  const [rows, setRows] = useState<any[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [summary, setSummary] = useState<any>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
 
-  const rows = useMemo(() => {
-    return TICKETS
-      .filter(t => filter === "all" || t.status === filter)
-      .filter(t => !q.trim() ||
-        `${t.ref} ${t.subject} ${t.customerName} ${t.customerEmail}`.toLowerCase().includes(q.toLowerCase()))
-      // Oldest-waiting first. A queue sorted newest-first quietly starves the
-      // ticket that's been sitting for two hours.
-      .sort((a, b) => b.awaitingMinutes - a.awaitingMinutes);
+  const load = useCallback(async () => {
+    setErr(null);
+    try {
+      const [res, sum] = await Promise.all([
+        getTickets({ status: filter, q: q.trim() || undefined, limit: 200 }),
+        getSummary(),
+      ]);
+      setRows(res.tickets); setTotal(res.total); setSummary(sum);
+    } catch (e: any) { setErr(e.message); setRows([]); }
   }, [filter, q]);
 
-  const counts = useMemo(() => {
-    const c: Record<string, number> = { all: TICKETS.length };
-    TICKETS.forEach(t => { c[t.status] = (c[t.status] ?? 0) + 1; });
-    return c;
-  }, []);
+  // Debounced so typing in the search box doesn't fire a request per keystroke.
+  useEffect(() => {
+    const t = setTimeout(load, q ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [load, q]);
+
+  const poll = async () => {
+    setBusy(true); setNote(null);
+    try {
+      const r = await runIngest();
+      setNote(r.skipped
+        ? `Nothing fetched — ${r.skipped}.`
+        : `Fetched ${r.fetched}: ${r.created} new, ${r.reopened} reopened, ${r.duplicates} already seen, ${r.drafted} drafted.` +
+          (r.errors?.length ? ` ${r.errors.length} error(s).` : ""));
+      await load();
+    } catch (e: any) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
 
   return (
     <>
-      <SampleBanner />
+      {summary?.mail?.blockers?.length > 0 && <NotConnected blockers={summary.mail.blockers} />}
+      {err && <ErrorBox error={err} onRetry={load} />}
+      {note && (
+        <div style={{ background: "rgba(0,201,215,0.08)", border: "1px solid rgba(0,201,215,0.28)",
+                      borderRadius: 10, padding: "0.6rem 0.9rem", marginBottom: "1rem",
+                      fontSize: 12, color: SUPPORT_ACCENT, fontWeight: 600 }}>{note}</div>
+      )}
 
       <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap",
                     alignItems: "center", marginBottom: "1rem" }}>
@@ -53,7 +79,7 @@ export default function SupportInbox() {
           {FILTERS.map(f => (
             <Pill key={f.key} color={f.key === "all" ? SUPPORT_ACCENT : (STATUS_COLOR[f.key] ?? SUPPORT_ACCENT)}
                   active={filter === f.key} onClick={() => setFilter(f.key)}>
-              {f.label}{counts[f.key] ? ` ${counts[f.key]}` : ""}
+              {f.label}
             </Pill>
           ))}
         </div>
@@ -63,7 +89,7 @@ export default function SupportInbox() {
                                      transform: "translateY(-50%)", color: "var(--text-dim)" }} />
           <input
             value={q} onChange={e => setQ(e.target.value)}
-            placeholder="Search subject, customer, ref…"
+            placeholder="Search subject, customer…"
             style={{
               width: "100%", background: "rgba(255,255,255,0.04)",
               border: "1px solid rgba(255,255,255,0.08)", borderRadius: 9,
@@ -72,6 +98,9 @@ export default function SupportInbox() {
             }}
           />
         </div>
+        <Btn size="sm" variant="ghost" onClick={poll} disabled={busy}>
+          <RefreshCw size={12} /> {busy ? "Checking…" : "Check mail"}
+        </Btn>
       </div>
 
       <Panel pad={false}>
@@ -93,16 +122,23 @@ export default function SupportInbox() {
           <span style={{ width: 14, flexShrink: 0 }} />
         </div>
 
-        {rows.length === 0 ? (
+        {rows === null ? <Loading label="Loading tickets" />
+         : rows.length === 0 ? (
           <Empty icon={InboxIcon} title="Nothing here"
-                 body="No tickets match this filter." />
+                 body={q ? "No tickets match that search."
+                   : summary?.mail?.configured
+                     ? "No tickets in this view. Hit “Check mail” to poll the mailbox."
+                     : "No tickets yet — and no mailbox is connected, so none will arrive."} />
         ) : rows.map((t, i) => {
           const overdue = t.status === "awaiting_approval" && t.awaitingMinutes > 60;
           return (
             <Link key={t.id} href={`/support/inbox/${t.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+              {/* One line per ticket. At 20–60/day the whole queue fits on one
+                  screen, which it doesn't if every row is a two-line card.
+                  Everything else lives on the drill-down. */}
               <div
                 style={{
-                  display: "flex", alignItems: "center", gap: "0.9rem",
+                  display: "flex", alignItems: "center", gap: "0.75rem",
                   padding: "0.45rem 1.1rem", height: 38,
                   borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)",
                   transition: "background .15s", cursor: "pointer",
@@ -110,9 +146,6 @@ export default function SupportInbox() {
                 onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
               >
-                {/* One line per ticket. At 20–60/day the whole queue fits on one
-                    screen, which it doesn't if every row is a two-line card.
-                    Everything else lives on the drill-down. */}
                 <div style={{
                   width: 3, height: 16, borderRadius: 2, flexShrink: 0,
                   background: SENTIMENT_COLOR[t.sentiment] ?? "transparent",
@@ -121,35 +154,37 @@ export default function SupportInbox() {
 
                 <span style={{ width: 40, flexShrink: 0, fontSize: 10.5, fontWeight: 800,
                                color: "var(--text-dim)", fontFamily: "'JetBrains Mono', monospace" }}>
-                  {t.ref}
+                  #{t.ref}
                 </span>
 
                 <span style={{ fontSize: 12.5, fontWeight: 700, flex: 1, minWidth: 0,
                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {t.subject}
-                  {t.priority === "high" && (
+                  {(t.priority === "high" || t.priority === "urgent") && (
                     <Flame size={10} color="#f43f5e" style={{ marginLeft: 6, verticalAlign: -1 }} />
                   )}
                 </span>
 
                 <span style={{ width: 116, flexShrink: 0, fontSize: 11, color: "var(--text-muted)",
                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {t.customerName}
+                  {t.customer_name || t.customer_email || "—"}
                 </span>
 
                 <span style={{ width: 112, flexShrink: 0, fontSize: 11, color: "var(--text-dim)",
                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {categoryLabel(t.category)}
+                  {t.category?.label ?? "—"}
                 </span>
 
                 <span style={{ width: 82, flexShrink: 0, display: "flex", justifyContent: "flex-end" }}>
-                  {t.draft
-                    ? <Confidence value={t.draft.confidence} />
+                  {t.draftConfidence != null
+                    ? <Confidence value={t.draftConfidence} />
                     : <Pill color="#a78bfa"><UserCheck size={9} /> none</Pill>}
                 </span>
 
                 <span style={{ width: 124, flexShrink: 0, display: "flex", justifyContent: "flex-end" }}>
-                  <Pill color={STATUS_COLOR[t.status]} solid>{STATUS_LABEL[t.status]}</Pill>
+                  <Pill color={STATUS_COLOR[t.status] ?? "#6b7280"} solid>
+                    {STATUS_LABEL[t.status] ?? t.status}
+                  </Pill>
                 </span>
 
                 <span style={{ width: 58, flexShrink: 0, textAlign: "right", fontSize: 11,
@@ -169,7 +204,7 @@ export default function SupportInbox() {
       <div style={{ marginTop: "0.8rem", display: "flex", alignItems: "center", gap: 8,
                     fontSize: 11, color: "var(--text-muted)" }}>
         <Bot size={12} />
-        Sorted oldest-waiting first. Bulk approve is deliberately capped — see the plan doc.
+        {rows?.length ?? 0} of {total} shown. Awaiting-approval is sorted oldest-first so nothing starves.
       </div>
     </>
   );

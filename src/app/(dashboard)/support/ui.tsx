@@ -1,27 +1,9 @@
 "use client";
 import React from "react";
 import { motion } from "framer-motion";
-import { LucideIcon, Info, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { LucideIcon, Info, TrendingUp, TrendingDown, Minus, AlertTriangle, PlugZap } from "lucide-react";
 
 export const SUPPORT_ACCENT = "#00c9d7";
-
-// ── Sample-data banner ───────────────────────────────────────────────────────
-// Loud on purpose. This whole section renders fixtures; nothing is wired up yet.
-export function SampleBanner() {
-  return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: "0.6rem",
-      background: "rgba(245,168,64,0.08)", border: "1px solid rgba(245,168,64,0.28)",
-      borderRadius: 10, padding: "0.6rem 0.9rem", marginBottom: "1.25rem",
-    }}>
-      <Info size={15} color="#f5a840" style={{ flexShrink: 0 }} />
-      <span style={{ fontSize: 12, color: "#f5a840", fontWeight: 600 }}>
-        Interface preview — every number, ticket and document on this page is sample data.
-        Nothing is connected, nothing sends. Review the shape, then we wire it up.
-      </span>
-    </div>
-  );
-}
 
 // ── Panel ────────────────────────────────────────────────────────────────────
 export function Panel({
@@ -265,4 +247,75 @@ export function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("en-US", {
     month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
   });
+}
+
+// ── Async states ─────────────────────────────────────────────────────────────
+// The three things every page needs and that fixtures never made us build.
+
+export function Loading({ label = "Loading" }: { label?: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
+                  gap: 10, padding: "3rem 1rem", color: "var(--text-muted)" }}>
+      <span style={{
+        width: 14, height: 14, borderRadius: "50%",
+        border: `2px solid ${SUPPORT_ACCENT}33`, borderTopColor: SUPPORT_ACCENT,
+        animation: "support-spin 0.7s linear infinite", display: "inline-block",
+      }} />
+      <span style={{ fontSize: 12, fontWeight: 600 }}>{label}…</span>
+      <style>{`@keyframes support-spin { to { transform: rotate(360deg) } }`}</style>
+    </div>
+  );
+}
+
+export function ErrorBox({ error, onRetry }: { error: string; onRetry?: () => void }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "flex-start", gap: 10,
+      background: "rgba(244,63,94,0.07)", border: "1px solid rgba(244,63,94,0.3)",
+      borderRadius: 10, padding: "0.8rem 1rem", marginBottom: "1rem",
+    }}>
+      <AlertTriangle size={15} color="#f43f5e" style={{ marginTop: 1, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, color: "#f43f5e", fontWeight: 700, marginBottom: 2 }}>
+          Something went wrong
+        </div>
+        <div style={{ fontSize: 11.5, color: "var(--text-secondary)", lineHeight: 1.55 }}>{error}</div>
+      </div>
+      {onRetry && <Btn size="sm" variant="ghost" onClick={onRetry}>Retry</Btn>}
+    </div>
+  );
+}
+
+/**
+ * Banner shown when the mailbox isn't connected — which, until someone answers
+ * the Gmail-vs-Gorgias question, is the expected state. It explains why the page
+ * is empty rather than letting it look broken.
+ */
+export function NotConnected({ blockers }: { blockers: string[] }) {
+  if (!blockers?.length) return null;
+  return (
+    <div style={{
+      display: "flex", alignItems: "flex-start", gap: 10,
+      background: "rgba(245,168,64,0.07)", border: "1px solid rgba(245,168,64,0.28)",
+      borderRadius: 10, padding: "0.75rem 1rem", marginBottom: "1.25rem",
+    }}>
+      <PlugZap size={15} color="#f5a840" style={{ marginTop: 1, flexShrink: 0 }} />
+      <div>
+        <div style={{ fontSize: 12, color: "#f5a840", fontWeight: 700, marginBottom: 4 }}>
+          Not connected yet — nothing will arrive and nothing can send
+        </div>
+        <ul style={{ margin: 0, paddingLeft: "1rem" }}>
+          {blockers.map((b, i) => (
+            <li key={i} style={{ fontSize: 11.5, color: "var(--text-secondary)", lineHeight: 1.6 }}>{b}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+export function relTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  return ago(mins);
 }

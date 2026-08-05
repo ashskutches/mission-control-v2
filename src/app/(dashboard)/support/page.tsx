@@ -1,44 +1,87 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Mail, Bot, CheckCircle2, Timer, TrendingUp, TrendingDown, ChevronDown,
   ChevronRight, Minus, HelpCircle, Inbox, AlertTriangle, Smile, ArrowRight, Brain,
 } from "lucide-react";
 import {
-  SampleBanner, Panel, Metric, Sparkline, Pill, Btn, SUPPORT_ACCENT, ago,
+  Panel, Metric, Sparkline, Pill, Btn, SUPPORT_ACCENT, ago,
+  Loading, ErrorBox, NotConnected, Empty,
 } from "./ui";
-import { METRICS, OBSERVATIONS, LAST_REFLECTION, UNREFLECTED_COUNT } from "./fixtures";
+import { getMetrics, getSummary, runReflection } from "./api";
 
-const RANGES = ["7 days", "30 days", "This month"];
+const RANGES = [
+  { label: "7 days", days: 7 },
+  { label: "30 days", days: 30 },
+  { label: "90 days", days: 90 },
+];
 
 export default function SupportDashboard() {
-  const [range, setRange] = useState("7 days");
+  const [days, setDays] = useState(7);
   const [showBasis, setShowBasis] = useState(false);
-  const m = METRICS;
+  const [m, setM] = useState<any>(null);
+  const [summary, setSummary] = useState<any>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
 
-  // Ranked observations. evidenceCount × confidence, accepted boosted, dismissed out.
-  // The evidence count is shown on the card — it's what separates a credible insight
-  // from a well-written thin one.
-  const topInsights = [...OBSERVATIONS]
-    .filter(o => o.status !== "dismissed" && o.kind !== "category_proposal")
-    .sort((a, b) =>
-      (b.evidenceCount * b.confidence + (b.status === "accepted" ? 1 : 0)) -
-      (a.evidenceCount * a.confidence + (a.status === "accepted" ? 1 : 0)))
-    .slice(0, 5);
+  const load = useCallback(async () => {
+    setErr(null);
+    try {
+      const [metrics, sum] = await Promise.all([getMetrics(days), getSummary()]);
+      setM(metrics); setSummary(sum);
+    } catch (e: any) { setErr(e.message); }
+  }, [days]);
 
-  const pct = (v: number | null) => v == null ? "—" : `${Math.round(v * 100)}%`;
+  useEffect(() => { load(); }, [load]);
+
+  const reflect = async () => {
+    setBusy(true); setNote(null);
+    try {
+      const r = await runReflection();
+      setNote(r.skipped ? `Nothing to reflect on — ${r.skipped}.` : `Reflection done: ${r.created} new items.`);
+      await load();
+    } catch (e: any) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+
+  if (err && !m) return <ErrorBox error={err} onRetry={load} />;
+  if (!m) return <Loading label="Loading metrics" />;
+
+  const pct = (v: number | null) => v == null ? "Not measured" : `${Math.round(v * 100)}%`;
+  const rangeLabel = RANGES.find(r => r.days === days)?.label ?? `${days} days`;
 
   return (
     <>
-      <SampleBanner />
+      {summary?.mail?.blockers?.length > 0 && <NotConnected blockers={summary.mail.blockers} />}
+      {err && <ErrorBox error={err} onRetry={load} />}
+      {note && (
+        <div style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.3)",
+                      borderRadius: 10, padding: "0.6rem 0.9rem", marginBottom: "1rem",
+                      fontSize: 12, color: "#22c55e", fontWeight: 600 }}>{note}</div>
+      )}
 
-      {/* Range selector */}
+      {/* A sampled rate looks identical to a real one, so say it out loud. */}
+      {m.sampled && (
+        <div style={{
+          background: "rgba(245,168,64,0.07)", border: "1px solid rgba(245,168,64,0.28)",
+          borderRadius: 10, padding: "0.6rem 0.9rem", marginBottom: "1rem",
+          fontSize: 11.5, color: "#f5a840", lineHeight: 1.55,
+        }}>
+          <strong>Rates below are sampled.</strong> {m.ticketsIn.toLocaleString()} tickets landed in
+          this window; the percentages and the volume chart are computed from the most recent{" "}
+          {m.sampleSize?.toLocaleString()}. The ticket count itself is exact.
+        </div>
+      )}
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
                     gap: "1rem", flexWrap: "wrap", marginBottom: "1rem" }}>
         <div style={{ display: "flex", gap: "0.35rem" }}>
           {RANGES.map(r => (
-            <Pill key={r} color={SUPPORT_ACCENT} active={range === r} onClick={() => setRange(r)}>{r}</Pill>
+            <Pill key={r.days} color={SUPPORT_ACCENT} active={days === r.days} onClick={() => setDays(r.days)}>
+              {r.label}
+            </Pill>
           ))}
         </div>
         {m.reviewQueueDepth > 0 && (
@@ -60,13 +103,18 @@ export default function SupportDashboard() {
       <div style={{ display: "grid", gap: "0.9rem", marginBottom: "0.9rem",
                     gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
         <Metric label="Emails in" value={String(m.ticketsIn)} trend={m.ticketsInTrend}
-                sub={`over ${range.toLowerCase()}`} icon={Mail} color="#4a9eff" />
-        <Metric label="Automation rate" value={pct(m.automationRate)} trend={m.automationRateTrend}
-                sub="approved without edits" icon={Bot} color={SUPPORT_ACCENT} />
-        <Metric label="First contact resolution" value={pct(m.fcrRate)} trend={m.fcrRateTrend}
-                sub="no customer follow-up" icon={CheckCircle2} color="#22c55e" />
+                sub={`over ${rangeLabel.toLowerCase()}`} icon={Mail} color="#4a9eff" />
+        <Metric label="Automation rate" value={pct(m.automationRate)}
+                unmeasured={m.automationRate == null} trend={m.automationRateTrend}
+                sub={m.automationRate == null ? "no drafts reviewed yet" : "approved without edits"}
+                icon={Bot} color={SUPPORT_ACCENT} />
+        <Metric label="First contact resolution" value={pct(m.fcrRate)}
+                unmeasured={m.fcrRate == null} trend={m.fcrRateTrend}
+                sub={m.fcrRate == null ? "no resolved tickets yet" : "no customer follow-up"}
+                icon={CheckCircle2} color="#22c55e" />
         <Metric label="Median first response"
-                value={m.medianFirstResponseMinutes == null ? "—" : `${m.medianFirstResponseMinutes}m`}
+                value={m.medianFirstResponseMinutes == null ? "Not measured" : `${m.medianFirstResponseMinutes}m`}
+                unmeasured={m.medianFirstResponseMinutes == null}
                 trend={m.medianFirstResponseTrend} invertTrend sub="inbound → sent"
                 icon={Timer} color="#a78bfa" />
         <Metric label="CSAT" value="Not measured" unmeasured icon={Smile} color="#6b7280"
@@ -76,47 +124,49 @@ export default function SupportDashboard() {
       {/* Row 2 — volume + money */}
       <div style={{ display: "grid", gap: "0.9rem", marginBottom: "0.9rem",
                     gridTemplateColumns: "minmax(260px, 1fr) minmax(340px, 1.4fr)" }}>
-        <Panel title="Volume" subtitle={`Tickets per day · ${range.toLowerCase()}`}>
+        <Panel title="Volume" subtitle={`Tickets per day · ${rangeLabel.toLowerCase()}`}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 10 }}>
             <span style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.02em" }}>{m.ticketsIn}</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#22c55e",
-                           display: "inline-flex", alignItems: "center", gap: 3 }}>
-              <TrendingUp size={11} />+{m.ticketsInTrend}%
-            </span>
+            {m.ticketsInTrend != null && (
+              <span style={{ fontSize: 11, fontWeight: 700,
+                             color: m.ticketsInTrend > 0 ? "#22c55e" : "#f43f5e",
+                             display: "inline-flex", alignItems: "center", gap: 3 }}>
+                {m.ticketsInTrend > 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                {m.ticketsInTrend > 0 ? "+" : ""}{m.ticketsInTrend}%
+              </span>
+            )}
           </div>
-          <Sparkline data={m.volumeSeries} />
+          {m.volumeSeries?.some((v: number) => v > 0)
+            ? <Sparkline data={m.volumeSeries} />
+            : <div style={{ fontSize: 11.5, color: "var(--text-muted)", padding: "0.6rem 0" }}>
+                No tickets in this window yet.
+              </div>}
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6,
                         fontSize: 10, color: "var(--text-dim)" }}>
-            <span>7d ago</span><span>today</span>
+            <span>{days}d ago</span><span>today</span>
           </div>
         </Panel>
 
-        {/* Money stays one line per figure. The calculation is one click away,
-            not gone — a dollar number you can't audit is decoration, but it
-            doesn't need to shout its arithmetic at you every morning. */}
+        {/* Money stays one line per figure; the calculation is one click away. A
+            dollar number you can't audit is decoration — but it doesn't need to
+            shout its arithmetic at you every morning. */}
         <Panel
           title="Money"
-          subtitle={showBasis ? "Every figure shows the calculation behind it" : "Click any figure to see how it was calculated"}
+          subtitle="Every figure shows what it was calculated from — or why it can't be"
           right={
-            <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
-              <Pill color={SUPPORT_ACCENT} active={showBasis} onClick={() => setShowBasis(!showBasis)}>
-                {showBasis ? "Hide maths" : "Show maths"}
-              </Pill>
-              <Pill color="#22c55e" solid>{m.moneySavedTotal} saved</Pill>
-            </div>
+            <Pill color={SUPPORT_ACCENT} active={showBasis} onClick={() => setShowBasis(!showBasis)}>
+              {showBasis ? "Hide maths" : "Show maths"}
+            </Pill>
           }
         >
           <div style={{ display: "grid", gap: "0.4rem" }}>
-            {m.moneySavedBreakdown.map(b => (
+            {m.moneyLines?.map((b: any) => (
               <MoneyRow key={b.label} label={b.label} value={b.value} basis={b.basis}
                         color="#22c55e" open={showBasis} />
             ))}
-            <MoneyRow
-              label="Revenue attributed"
-              value={m.revenueAttributed ?? "Not attributable"}
-              basis={m.revenueBasis}
-              color="#4a9eff" open={showBasis} tint
-            />
+            <MoneyRow label={m.revenue?.label ?? "Revenue attributed"}
+                      value={m.revenue?.value} basis={m.revenue?.basis ?? ""}
+                      color="#4a9eff" open={showBasis} tint />
           </div>
         </Panel>
       </div>
@@ -124,73 +174,74 @@ export default function SupportDashboard() {
       {/* Row 3 — top issues + top insights */}
       <div style={{ display: "grid", gap: "0.9rem",
                     gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))" }}>
-        <Panel title="Top 5 issues" subtitle="From the fixed category taxonomy" pad={false}>
-          <div>
-            {m.topIssues.map((c, i) => {
-              const T = c.trendPct == null ? Minus : c.trendPct === 0 ? Minus : c.trendPct > 0 ? TrendingUp : TrendingDown;
-              const tc = c.trendPct == null || c.trendPct === 0 ? "var(--text-muted)" : c.trendPct > 0 ? "#f5a840" : "#22c55e";
-              return (
-                <div key={c.slug} style={{
-                  display: "flex", alignItems: "center", gap: "0.75rem",
-                  padding: "0.7rem 1.1rem",
-                  borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)",
-                }}>
-                  <span style={{ fontSize: 11, fontWeight: 900, color: "var(--text-dim)", width: 14 }}>{i + 1}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12.5, fontWeight: 700 }}>{c.label}</div>
-                    <div style={{ height: 3, borderRadius: 2, background: "rgba(255,255,255,0.06)", marginTop: 5 }}>
-                      <div style={{ width: `${(c.count / m.topIssues[0].count) * 100}%`, height: "100%",
-                                    background: SUPPORT_ACCENT, borderRadius: 2, opacity: 0.75 }} />
-                    </div>
-                  </div>
-                  <span style={{ fontSize: 13, fontWeight: 800, width: 30, textAlign: "right" }}>{c.count}</span>
-                  <span style={{ fontSize: 10.5, color: "var(--text-muted)", width: 42, textAlign: "right" }}>
-                    {c.pctOfTotal}%
-                  </span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 2, width: 46,
-                                 justifyContent: "flex-end", fontSize: 10.5, fontWeight: 700, color: tc }}>
-                    <T size={10} />{c.trendPct == null ? "—" : `${Math.abs(c.trendPct)}%`}
-                  </span>
+        <Panel title="Top issues" subtitle="From the fixed category taxonomy" pad={false}>
+          {!m.topIssues?.length ? (
+            <Empty icon={Inbox} title="No tickets yet"
+                   body="Categories appear here once mail starts arriving." />
+          ) : m.topIssues.map((c: any, i: number) => (
+            <div key={c.slug} style={{
+              display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.7rem 1.1rem",
+              borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)",
+            }}>
+              <span style={{ fontSize: 11, fontWeight: 900, color: "var(--text-dim)", width: 14 }}>{i + 1}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700 }}>{c.label}</div>
+                <div style={{ height: 3, borderRadius: 2, background: "rgba(255,255,255,0.06)", marginTop: 5 }}>
+                  <div style={{ width: `${(c.count / (m.topIssues[0]?.count || 1)) * 100}%`, height: "100%",
+                                background: SUPPORT_ACCENT, borderRadius: 2, opacity: 0.75 }} />
                 </div>
-              );
-            })}
-          </div>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 800, width: 30, textAlign: "right" }}>{c.count}</span>
+              <span style={{ fontSize: 10.5, color: "var(--text-muted)", width: 46, textAlign: "right" }}>
+                {c.pctOfTotal}%
+              </span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 2, width: 46,
+                             justifyContent: "flex-end", fontSize: 10.5, fontWeight: 700,
+                             color: "var(--text-dim)" }}
+                    title={c.trendPct == null ? "No comparable prior period yet" : ""}>
+                <Minus size={10} />{c.trendPct == null ? "—" : `${Math.abs(c.trendPct)}%`}
+              </span>
+            </div>
+          ))}
         </Panel>
 
         <Panel
-          title="Top 5 insights"
+          title="Top insights"
           subtitle="Ranked by evidence × confidence — never by how well they're written"
           right={<Link href="/support/learning" style={{ textDecoration: "none" }}>
             <Pill color={SUPPORT_ACCENT}>View all</Pill>
           </Link>}
           pad={false}
         >
-          <div>
-            {topInsights.map((o, i) => (
-              <Link key={o.id} href="/support/learning" style={{ textDecoration: "none", color: "inherit" }}>
-                <div style={{
-                  padding: "0.7rem 1.1rem",
-                  borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)",
-                  display: "flex", gap: "0.7rem", alignItems: "flex-start",
-                }}>
-                  <span style={{ fontSize: 11, fontWeight: 900, color: "var(--text-dim)", width: 14, paddingTop: 2 }}>{i + 1}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12.5, fontWeight: 700, lineHeight: 1.45, marginBottom: 5 }}>
-                      {o.title}
-                    </div>
-                    <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
-                      {o.kind === "question"
-                        ? <Pill color="#a78bfa" solid><HelpCircle size={9} /> Question</Pill>
-                        : <Pill color={SUPPORT_ACCENT}>Observation</Pill>}
-                      <Pill color="#f5a840">{o.evidenceCount} corrections</Pill>
-                      <Pill>{Math.round(o.confidence * 100)}% conf</Pill>
-                      {o.status === "accepted" && <Pill color="#22c55e" solid>Accepted</Pill>}
-                    </div>
+          {!m.topInsights?.length ? (
+            <Empty icon={Brain} title="Nothing learned yet"
+                   body="Insights appear after the agent reflects on real corrections. Correct a draft, then run a reflection." />
+          ) : m.topInsights.map((o: any, i: number) => (
+            <Link key={o.id} href="/support/learning" style={{ textDecoration: "none", color: "inherit" }}>
+              <div style={{
+                padding: "0.7rem 1.1rem",
+                borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)",
+                display: "flex", gap: "0.7rem", alignItems: "flex-start",
+              }}>
+                <span style={{ fontSize: 11, fontWeight: 900, color: "var(--text-dim)", width: 14, paddingTop: 2 }}>
+                  {i + 1}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, lineHeight: 1.45, marginBottom: 5 }}>
+                    {o.title}
+                  </div>
+                  <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
+                    {o.kind === "question"
+                      ? <Pill color="#a78bfa" solid><HelpCircle size={9} /> Question</Pill>
+                      : <Pill color={SUPPORT_ACCENT}>Observation</Pill>}
+                    <Pill color="#f5a840">{o.evidence_count} corrections</Pill>
+                    <Pill>{Math.round(Number(o.confidence) * 100)}% conf</Pill>
+                    {o.status === "accepted" && <Pill color="#22c55e" solid>Accepted</Pill>}
                   </div>
                 </div>
-              </Link>
-            ))}
-          </div>
+              </div>
+            </Link>
+          ))}
         </Panel>
       </div>
 
@@ -201,16 +252,27 @@ export default function SupportDashboard() {
             <div>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em",
                             textTransform: "uppercase", color: "var(--text-muted)" }}>Last reflection</div>
-              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 3 }}>
-                Aug 3, 2:04 AM · {LAST_REFLECTION.correctionsConsidered} corrections read
-              </div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>
-                {LAST_REFLECTION.observationsCreated} observations · {LAST_REFLECTION.questionsCreated} questions ·
-                {" "}{LAST_REFLECTION.docProposalsCreated} doc proposals
-              </div>
+              {m.lastReflection ? (
+                <>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginTop: 3 }}>
+                    {new Date(m.lastReflection.started_at).toLocaleString("en-US", {
+                      month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    {" · "}{m.lastReflection.corrections_considered} corrections read
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>
+                    {m.lastReflection.observations_created} observations ·{" "}
+                    {m.lastReflection.questions_created} questions ·{" "}
+                    {m.lastReflection.doc_proposals_created} doc proposals
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 3 }}>
+                  Never run. It needs corrections to reflect on.
+                </div>
+              )}
             </div>
             <div style={{ flex: 1 }} />
-            {UNREFLECTED_COUNT > 0 && (
+            {m.unreflectedCount > 0 && (
               <div style={{
                 display: "flex", alignItems: "center", gap: 8,
                 background: "rgba(245,168,64,0.08)", border: "1px solid rgba(245,168,64,0.25)",
@@ -218,11 +280,15 @@ export default function SupportDashboard() {
               }}>
                 <AlertTriangle size={13} color="#f5a840" />
                 <span style={{ fontSize: 12, color: "#f5a840", fontWeight: 600 }}>
-                  {UNREFLECTED_COUNT} new corrections not yet reflected on
+                  {m.unreflectedCount} new correction{m.unreflectedCount === 1 ? "" : "s"} not yet reflected on
                 </span>
               </div>
             )}
-            <Btn variant="outline" color={SUPPORT_ACCENT}><Brain size={13} /> Reflect now</Btn>
+            <Btn variant="outline" color={SUPPORT_ACCENT} onClick={reflect}
+                 disabled={busy || !m.unreflectedCount}
+                 title={!m.unreflectedCount ? "Nothing new to reflect on" : ""}>
+              <Brain size={13} /> {busy ? "Reflecting…" : "Reflect now"}
+            </Btn>
           </div>
         </Panel>
       </div>
@@ -230,13 +296,14 @@ export default function SupportDashboard() {
   );
 }
 
-/** One money figure. Collapsed by default; the calculation is one click away.
- *  Never remove the basis entirely — an unauditable dollar number is decoration. */
+/** One money figure. Collapsed by default; a null value means not calculable,
+ *  and the basis then explains what's missing rather than showing $0. */
 function MoneyRow({ label, value, basis, color, open, tint }: {
-  label: string; value: string; basis: string; color: string; open: boolean; tint?: boolean;
+  label: string; value: string | null; basis: string; color: string; open: boolean; tint?: boolean;
 }) {
   const [self, setSelf] = useState(false);
   const shown = open || self;
+  const unavailable = value == null;
   return (
     <div
       onClick={() => setSelf(!self)}
@@ -252,7 +319,12 @@ function MoneyRow({ label, value, basis, color, open, tint }: {
                  : <ChevronRight size={11} color="var(--text-dim)" />}
           {label}
         </span>
-        <span style={{ fontSize: 15, fontWeight: 800, color }}>{value}</span>
+        <span style={{
+          fontSize: unavailable ? 11.5 : 15, fontWeight: 800,
+          color: unavailable ? "var(--text-dim)" : color,
+        }}>
+          {value ?? "Not calculable"}
+        </span>
       </div>
       {shown && (
         <div style={{ fontSize: 10.5, color: "var(--text-muted)", marginTop: 5,

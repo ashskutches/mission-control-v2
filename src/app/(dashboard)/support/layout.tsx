@@ -1,20 +1,41 @@
 "use client";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Inbox, BookOpen, Brain, LifeBuoy } from "lucide-react";
+import { LayoutDashboard, Inbox, BookOpen, Brain, LifeBuoy, Settings } from "lucide-react";
 import { SUPPORT_ACCENT } from "./ui";
-import { PENDING_APPROVAL_COUNT, OPEN_QUESTION_COUNT } from "./fixtures";
+import { getSummary } from "./api";
 
-const NAV = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number }>;
+  exact?: boolean;
+  /** Key on the /summary payload to render as a badge. */
+  badge?: "awaitingApproval" | "openQuestions";
+}
+
+const NAV: NavItem[] = [
   { href: "/support",          label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/support/inbox",    label: "Inbox",     icon: Inbox,  badge: PENDING_APPROVAL_COUNT },
-  { href: "/support/learning", label: "Learning",  icon: Brain,  badge: OPEN_QUESTION_COUNT },
+  { href: "/support/inbox",    label: "Inbox",     icon: Inbox,    badge: "awaitingApproval" },
+  { href: "/support/learning", label: "Learning",  icon: Brain,    badge: "openQuestions" },
   { href: "/support/docs",     label: "Knowledge", icon: BookOpen },
+  { href: "/support/settings", label: "Settings",  icon: Settings },
 ];
 
 export default function SupportLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [counts, setCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let alive = true;
+    const tick = () => getSummary()
+      .then(s => { if (alive) setCounts({ awaitingApproval: s.awaitingApproval, openQuestions: s.openQuestions }); })
+      .catch(() => {});
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
 
   return (
     <div className="px-5 py-5" style={{ maxWidth: 1400, margin: "0 auto" }}>
@@ -40,6 +61,7 @@ export default function SupportLayout({ children }: { children: React.ReactNode 
       }}>
         {NAV.map(({ href, label, icon: Icon, exact, badge }) => {
           const active = exact ? pathname === href : pathname.startsWith(href);
+          const n = badge ? counts[badge] ?? 0 : 0;
           return (
             <Link
               key={href}
@@ -57,13 +79,13 @@ export default function SupportLayout({ children }: { children: React.ReactNode 
             >
               <Icon size={12} />
               {label}
-              {!!badge && (
+              {n > 0 && (
                 <span style={{
                   background: active ? SUPPORT_ACCENT : "rgba(255,255,255,0.1)",
                   color: active ? "#0f0f10" : "var(--text-secondary)",
                   borderRadius: 999, padding: "0 5px", fontSize: 9, fontWeight: 900,
                   minWidth: 15, textAlign: "center",
-                }}>{badge}</span>
+                }}>{n}</span>
               )}
             </Link>
           );
