@@ -86,6 +86,7 @@ interface Metric {
   benchmarkLow: number | null; benchmarkHigh: number | null; confidence: string | null;
   valueBasis: string | null; delta: number | null; series: number[];
   notes: string | null; impact: string; dimensionedOnly: boolean;
+  grain: string; periodStart: string | null; periodEnd: string | null;
 }
 interface Lever {
   key: string; title: string; mechanism: string; quarterlyValue: number | null;
@@ -969,20 +970,27 @@ function KpiCard({ m }: { m: Metric }) {
   );
 }
 
-function Scorecard() {
+// The scorecard is period-scoped like every other panel. It used to fetch with no
+// period at all and render whatever the warehouse called "latest" — which was
+// always the single-day row — with no window label, directly beside a
+// quarter-to-date P&L that disagreed with it on ROAS, CAC and gross margin.
+function Scorecard({ period, nonce }: { period: string; nonce: number }) {
   const [d, setD] = useState<any>(null);
   useEffect(() => {
     let alive = true;
-    fetch(`${BOT_URL}/admin/profitability/scorecard`).then(r => r.json())
+    setD(null);
+    fetch(`${BOT_URL}/admin/profitability/scorecard?period=${period}`).then(r => r.json())
       .then(j => alive && setD(j)).catch(() => {});
     return () => { alive = false; };
-  }, []);
+  }, [period, nonce]);
 
   if (!d) return <Panel title="Scorecard"><Skeleton rows={4} /></Panel>;
 
   return (
     <Panel title="Scorecard" right={
-      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{d.withData} of {d.total} metrics have data</span>
+      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+        {d.period?.label ? `${d.period.label} · ` : ""}{d.withData} of {d.total} metrics have data
+      </span>
     }>
       <p style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: ".11em", textTransform: "uppercase", color: "var(--text-dim)", margin: "0 0 .5rem" }}>
         The five decision-drivers
@@ -1532,7 +1540,7 @@ export default function ProfitDashboard({
           <Platforms period={period} nonce={nonce} />
           <Campaigns period={period} nonce={nonce} />
           <Products period={period} nonce={nonce} onGoToCosts={() => switchTab("costs")} />
-          <Scorecard />
+          <Scorecard period={period} nonce={nonce} />
           <Levers />
           <Connections onGoToCosts={() => switchTab("costs")} />
         </>
