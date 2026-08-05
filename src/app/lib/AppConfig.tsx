@@ -33,7 +33,6 @@ import {
     Film,
     Copy,
     Layout,
-    UserCheck,
     Cpu,
     GitMerge,
     ClipboardList,
@@ -93,11 +92,22 @@ export const APP_CONFIG = {
         // (impressions, position, topic overlap, thin posts) is measured in Search
         // Console. /content/blog redirects rather than 404s.
         { id: 'seo',           group: 'core', href: '/seo',                    icon: SearchCheck,     label: 'SEO',        color: '#34d399' },
-        { id: 'customer',      group: 'core', href: '/customer',               icon: UserCheck,       label: 'Orders',     color: '#4a9eff' },
+        // Orders is one section with three tabs (see (dashboard)/orders/layout.tsx):
+        //   /orders             Queue       — the exception queue: every order needing a
+        //                                     human today, ranked. Healthy orders never
+        //                                     appear; cloning Shopify's own order list
+        //                                     would be duplication with staler data.
+        //   /orders/backorders  Backorders  — the _BACKORDERED slice + its SMS script
+        //   /orders/sms         Testing     — hand-send a real SMS
+        // This replaced a second top-level entry at /customer that held the last two and
+        // was itself labelled "Orders". /customer/* still redirects — it was in the
+        // sidebar for months, so it's in bookmarks and agent-written links.
+        { id: 'orders',        group: 'core', href: '/orders',                 icon: Truck,           label: 'Orders',     color: '#fb923c' },
         // Support is the inbound half of the relationship Orders covers outbound: AI drafts
         // every reply, a human approves it, and every correction is kept as a training pair
-        // the agent reflects on. Deliberately NOT merged into /customer — that surface is
-        // order-shaped (backorders, SMS), this one is conversation-shaped.
+        // the agent reflects on. Deliberately NOT merged into /orders — that section is
+        // order-shaped (a queue you clear), this one is conversation-shaped (a thread you
+        // answer). They meet on shopify_order_id, not in the navigation.
         { id: 'support',       group: 'core', href: '/support',                icon: LifeBuoy,        label: 'Support',    color: '#00c9d7' },
         { id: 'landing-pages', group: 'core', href: '/commerce/landing-pages', icon: Layout,          label: 'Landing Pages', color: '#818cf8' },
 
