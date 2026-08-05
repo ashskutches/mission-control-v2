@@ -4,6 +4,7 @@ import {
   BookOpen, Lock, Sparkles, Mic, FileText, History, Plus, Search, Shield,
   BarChart3, Save, RotateCcw, X, Trash2, Archive, ArchiveRestore, Pencil,
   AlertTriangle, Eye, Check, Coins, Folder, List, BookMarked,
+  ChevronRight, ChevronDown,
 } from "lucide-react";
 import { Panel, Pill, Btn, Empty, SUPPORT_ACCENT, Loading, ErrorBox } from "../ui";
 import {
@@ -54,6 +55,9 @@ export default function DocsPage() {
   /** "list" edits one doc; "playbook" reads them all as one page. */
   const [view, setView] = useState<"list" | "playbook">("list");
   const [folderDraft, setFolderDraft] = useState("");
+  /** Collapsed folders, persisted — a sidebar that forgets is worse than one
+   *  that never collapsed. Absent key = expanded. */
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async (keepId?: string) => {
     setErr(null);
@@ -72,6 +76,21 @@ export default function DocsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("support-docs-collapsed");
+      if (raw) setCollapsed(JSON.parse(raw));
+    } catch { /* a corrupt value just means everything starts expanded */ }
+  }, []);
+
+  const toggleFolder = (name: string) => {
+    setCollapsed(prev => {
+      const next = { ...prev, [name]: !prev[name] };
+      try { localStorage.setItem("support-docs-collapsed", JSON.stringify(next)); } catch { /* private mode */ }
+      return next;
+    });
+  };
+
   const refreshPreview = useCallback(async (cat: string) => {
     try { setPreview(await getDocPreview(cat || undefined)); }
     catch { setPreview(null); }
@@ -79,6 +98,10 @@ export default function DocsPage() {
   useEffect(() => { refreshPreview(previewCat); }, [previewCat, refreshPreview, docs]);
 
   const pick = (d: any) => {
+    // Picking from the needs-decision banner or the load preview can target a doc
+    // inside a collapsed folder. Open it rather than appearing to do nothing.
+    const folder = d.folder || "Uncategorised";
+    if (collapsed[folder]) toggleFolder(folder);
     setSel(d); setContent(d.content ?? ""); setTitleDraft(d.title ?? "");
     setEditing(false); setVersions(null); setNote(null); setErr(null);
     setRenaming(false); setConfirmDelete(false); setFolderDraft(d.folder ?? "");
@@ -210,6 +233,16 @@ export default function DocsPage() {
         <Pill color="#a78bfa" active={view === "playbook"} onClick={() => setView("playbook")}>
           <BookMarked size={9} /> Read the playbook
         </Pill>
+        <div style={{ flex: 1 }} />
+        <Pill onClick={() => {
+          const allShut = folderNames.every(f => collapsed[f]);
+          const next: Record<string, boolean> = {};
+          if (!allShut) folderNames.forEach(f => { next[f] = true; });
+          setCollapsed(next);
+          try { localStorage.setItem("support-docs-collapsed", JSON.stringify(next)); } catch { /* private mode */ }
+        }}>
+          {folderNames.every(f => collapsed[f]) ? "Expand all" : "Collapse all"}
+        </Pill>
       </div>
 
       {view === "playbook" ? (
@@ -219,17 +252,27 @@ export default function DocsPage() {
                subtitle="Everything active, in order. Click any heading to edit it.">
           {folderNames.length === 0 ? (
             <Empty icon={BookOpen} title="Nothing to read yet" />
-          ) : folderNames.map(folderName => (
-            <div key={folderName} style={{ marginBottom: "1.6rem" }}>
-              <div style={{
-                display: "flex", alignItems: "center", gap: 7, marginBottom: "0.7rem",
-                paddingBottom: "0.4rem", borderBottom: "1px solid rgba(255,255,255,0.07)",
-              }}>
+          ) : folderNames.map(folderName => {
+            const isShut = !!collapsed[folderName];
+            const live = grouped[folderName].filter((d: any) => d.is_active);
+            return (
+            <div key={folderName} style={{ marginBottom: isShut ? "0.7rem" : "1.6rem" }}>
+              <div
+                onClick={() => toggleFolder(folderName)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 7, marginBottom: "0.7rem",
+                  paddingBottom: "0.4rem", borderBottom: "1px solid rgba(255,255,255,0.07)",
+                  cursor: "pointer", userSelect: "none",
+                }}
+              >
+                {isShut ? <ChevronRight size={12} color={SUPPORT_ACCENT} />
+                        : <ChevronDown size={12} color={SUPPORT_ACCENT} />}
                 <Folder size={13} color={SUPPORT_ACCENT} />
                 <span style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase",
                                letterSpacing: "0.08em", color: SUPPORT_ACCENT }}>{folderName}</span>
+                <span style={{ fontSize: 11, color: "var(--text-dim)" }}>{live.length}</span>
               </div>
-              {grouped[folderName].filter((d: any) => d.is_active).map((d: any) => (
+              {!isShut && live.map((d: any) => (
                 <div key={d.id} style={{ marginBottom: "1.1rem" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5,
                                 cursor: "pointer" }}
@@ -249,7 +292,8 @@ export default function DocsPage() {
                 </div>
               ))}
             </div>
-          ))}
+            );
+          })}
         </Panel>
       ) : (
       <div style={{ display: "grid", gap: "0.9rem",
@@ -308,22 +352,42 @@ export default function DocsPage() {
 
           {list.length === 0 ? (
             <Empty icon={BookOpen} title={docs.length ? "No documents match" : "No documents yet"} />
-          ) : folderNames.map(folderName => (
+          ) : folderNames.map(folderName => {
+            const isShut = !!collapsed[folderName];
+            const holdsSelected = grouped[folderName].some((d: any) => d.id === sel?.id);
+            const flagged = grouped[folderName].filter((d: any) => d.needs_review && d.is_active).length;
+            return (
             <div key={folderName}>
-              <div style={{
-                display: "flex", alignItems: "center", gap: 6,
-                padding: "0.5rem 0.9rem", background: "rgba(255,255,255,0.025)",
-                borderTop: "1px solid rgba(255,255,255,0.05)",
-                borderBottom: "1px solid rgba(255,255,255,0.04)",
-              }}>
+              <div
+                onClick={() => toggleFolder(folderName)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "0.5rem 0.9rem", background: "rgba(255,255,255,0.025)",
+                  borderTop: "1px solid rgba(255,255,255,0.05)",
+                  borderBottom: isShut ? "none" : "1px solid rgba(255,255,255,0.04)",
+                  cursor: "pointer", userSelect: "none",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.025)")}
+              >
+                {isShut ? <ChevronRight size={11} color="var(--text-muted)" />
+                        : <ChevronDown size={11} color="var(--text-muted)" />}
                 <Folder size={11} color="var(--text-muted)" />
                 <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase",
                                letterSpacing: "0.08em", color: "var(--text-secondary)" }}>
                   {folderName}
                 </span>
                 <span style={{ fontSize: 10, color: "var(--text-dim)" }}>{grouped[folderName].length}</span>
+                <div style={{ flex: 1 }} />
+                {/* Collapsed folders must still show what's inside them, or a
+                    flagged doc or the open one becomes invisible. */}
+                {isShut && flagged > 0 && <AlertTriangle size={10} color="#f5a840" />}
+                {isShut && holdsSelected && (
+                  <span style={{ width: 5, height: 5, borderRadius: "50%",
+                                 background: SUPPORT_ACCENT, display: "block" }} />
+                )}
               </div>
-              {grouped[folderName].map((d: any) => {
+              {!isShut && grouped[folderName].map((d: any) => {
                 const m = KIND_META[d.kind] ?? KIND_META.reference;
                 const Icon = m.icon;
                 const active = d.id === sel?.id;
@@ -350,7 +414,8 @@ export default function DocsPage() {
                 );
               })}
             </div>
-          ))}
+            );
+          })}
         </Panel>
 
         {!sel ? (
