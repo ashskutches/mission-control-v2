@@ -61,7 +61,11 @@ export const getTickets = (o: { status?: string; category?: string; q?: string; 
 
 export const getTicket = (id: string) => req<any>(`/tickets/${id}`);
 
-export const getDocs = (kind?: string) => req<any[]>(`/docs${qs({ kind })}`);
+export const getDocs = (kind?: string, includeArchived = false) =>
+  req<any[]>(`/docs${qs({ kind, all: includeArchived ? "1" : undefined })}`);
+/** Exactly which docs the agent loads for a category, and the token bill. */
+export const getDocPreview = (category?: string) =>
+  req<{ category: string | null; totalTokens: number; docs: any[] }>(`/docs/preview${qs({ category })}`);
 export const getDocVersions = (id: string) => req<any[]>(`/docs/${id}/versions`);
 
 export const getObservations = (o: { kind?: string; status?: string } = {}) =>
@@ -93,8 +97,12 @@ export const setTicketStatus = (id: string, status: string) => post<any>(`/ticke
 export const createDoc = (p: { title: string; kind?: string; content?: string; scope?: string[] }) =>
   post<any>("/docs", p);
 export const saveDoc = (id: string, p: {
-  content?: string; title?: string; scope?: string[]; kind?: string; note?: string; force?: boolean;
+  content?: string; title?: string; scope?: string[]; kind?: string; note?: string;
+  force?: boolean; isActive?: boolean; reviewNote?: string | null; needsReview?: boolean;
 }) => put<any>(`/docs/${id}`, p);
+/** Archive by default (recoverable); purge is permanent. */
+export const deleteDoc = (id: string, purge = false) =>
+  req<any>(`/docs/${id}${purge ? "?purge=1" : ""}`, { method: "DELETE" });
 export const revertDoc = (id: string, version: number) => post<any>(`/docs/${id}/revert`, { version });
 
 export const acceptObservation  = (id: string) => post<any>(`/observations/${id}/accept`);
