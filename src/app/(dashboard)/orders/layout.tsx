@@ -2,14 +2,18 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AlertTriangle, MessageSquare, Package, Truck } from "lucide-react";
+import { AlertTriangle, MessageSquare, Package, TrendingUp, Truck } from "lucide-react";
 
 /**
- * The Orders section. Three surfaces that all answer "what is happening to an order",
+ * The Orders section. Four surfaces that all answer "what is happening to an order",
  * merged from what used to be two separate sidebar entries (/orders and /customer).
  *
  * Queue is the general case; Backorders is a narrower slice kept separate because its
  * SMS script is tuned to the "switch variant or keep waiting?" conversation.
+ *
+ * Patterns is the odd one out and deliberately last: the other three are about a
+ * single order right now, it is about what all of them together add up to. It reads
+ * months of history rather than today's exceptions, so it is slow by nature.
  */
 const TABS = [
   { href: "/orders",             label: "Queue",       icon: AlertTriangle,  color: "#fb923c", exact: true,
@@ -18,6 +22,8 @@ const TABS = [
     blurb: "Orders tagged _BACKORDERED, with the variant-or-wait SMS follow-up." },
   { href: "/orders/sms",         label: "Text Message (Testing)", icon: MessageSquare, color: "#a78bfa",
     blurb: "Send a real SMS by hand. Every send here goes to a live phone." },
+  { href: "/orders/patterns",    label: "Buying Patterns", icon: TrendingUp, color: "#34d399",
+    blurb: "What months of orders add up to: what gets bought together, what only looks like it does, and where the money is actually being left. Every figure shows its arithmetic." },
 ];
 
 export default function OrdersLayout({ children }: { children: React.ReactNode }) {
