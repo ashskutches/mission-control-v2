@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft, Send, XCircle, RefreshCw, ArrowUpRight, Bot, User, FileText,
-  ShoppingBag, Sparkles, AlertTriangle, Info, CheckCircle2, Pencil,
+  ShoppingBag, Sparkles, AlertTriangle, Info, CheckCircle2, Pencil, History,
 } from "lucide-react";
 import {
   SampleBanner, Panel, Pill, Btn, Confidence, Empty, fmtDate, ago,
   STATUS_COLOR, STATUS_LABEL, SUPPORT_ACCENT,
 } from "../../ui";
-import { TICKETS, DOCS, categoryLabel } from "../../fixtures";
+import { TICKETS, DOCS, CORRECTIONS, categoryLabel } from "../../fixtures";
 import { REASON_LABELS } from "../../types";
 import type { ReasonCode } from "../../types";
 
@@ -33,6 +33,14 @@ export default function ApprovalInterface() {
 
   const citedDocs = useMemo(
     () => DOCS.filter(d => ticket?.draft?.citedDocIds.includes(d.id)),
+    [ticket],
+  );
+
+  // The past corrections that went into this draft's prompt as exemplars. Showing
+  // them is the only way a reviewer can tell "it applied the lesson" apart from
+  // "it happened to get this one right".
+  const exemplars = useMemo(
+    () => CORRECTIONS.filter(c => ticket?.draft?.exemplarCorrectionIds.includes(c.id)),
     [ticket],
   );
 
@@ -69,6 +77,43 @@ export default function ApprovalInterface() {
         }}>
           <CheckCircle2 size={15} color="#22c55e" />
           <span style={{ fontSize: 12, color: "#22c55e", fontWeight: 600 }}>{done}</span>
+        </div>
+      )}
+
+      {/* ── Metrics strip. The index stays one line per ticket; everything
+             quantitative lives here, on the drill-down. ─────────────────── */}
+      {ticket.draft && (
+        <div style={{
+          display: "grid", gap: "1px", marginBottom: "0.9rem",
+          gridTemplateColumns: "repeat(auto-fit, minmax(122px, 1fr))",
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid var(--glass-border)", borderRadius: 12, overflow: "hidden",
+        }}>
+          <Stat label="Draft confidence" value={`${Math.round(ticket.draft.confidence * 100)}%`}
+                color={ticket.draft.confidence >= 0.8 ? "#22c55e" : ticket.draft.confidence >= 0.6 ? "#f5a840" : "#f43f5e"} />
+          <Stat label="Category confidence" value={`${Math.round(ticket.classifierConfidence * 100)}%`}
+                hint="A confident reply on a miscategorised ticket reads fine and is wrong."
+                color={ticket.classifierConfidence >= 0.8 ? "var(--text-primary)" : "#f5a840"} />
+          <Stat label="Drafted after" value={`${ticket.draft.draftedAfterMinutes}m`} hint="From the email landing" />
+          <Stat label="Waiting for you" value={ago(ticket.awaitingMinutes)}
+                color={ticket.awaitingMinutes > 60 ? "#f43f5e" : "var(--text-primary)"} />
+          <Stat label="Attempt" value={`#${ticket.draft.attempt}`}
+                hint={ticket.draft.attempt > 1 ? "Someone regenerated this" : undefined}
+                color={ticket.draft.attempt > 1 ? "#f5a840" : "var(--text-primary)"} />
+          <Stat label="Tokens" value={`${(ticket.draft.tokensIn / 1000).toFixed(1)}k in`}
+                hint={`${ticket.draft.tokensOut} out · ${(ticket.draft.latencyMs / 1000).toFixed(1)}s`} />
+          <Stat label="Cost" value={`${ticket.draft.costCents}¢`} />
+          <Stat label="Docs cited" value={String(ticket.draft.citedDocIds.length)} />
+          <Stat label="Past lessons used" value={String(ticket.draft.exemplarCorrectionIds.length)}
+                hint="Corrections fed in as exemplars"
+                color={ticket.draft.exemplarCorrectionIds.length ? "#a78bfa" : "var(--text-dim)"} />
+          {ticket.history && (
+            <Stat label="Prior tickets" value={String(ticket.history.priorTickets)}
+                  hint={ticket.history.priorCorrections > 0
+                    ? `${ticket.history.priorCorrections} drafts to them were corrected`
+                    : "No corrections on this customer"}
+                  color={ticket.history.priorCorrections > 0 ? "#f5a840" : "var(--text-primary)"} />
+          )}
         </div>
       )}
 
@@ -309,9 +354,68 @@ export default function ApprovalInterface() {
               </span>
             </div>
           </Panel>
+
+          {exemplars.length > 0 && (
+            <Panel title="Past lessons in this draft" pad={false}>
+              {exemplars.map((c, i) => (
+                <Link key={c.id} href="/support/learning" style={{ textDecoration: "none", color: "inherit" }}>
+                  <div style={{ padding: "0.65rem 1rem",
+                                borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <History size={11} color="#a78bfa" />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)",
+                                     fontFamily: "'JetBrains Mono', monospace" }}>{c.ticketRef}</span>
+                      <Pill color="#a78bfa">{REASON_LABELS[c.reasonCode]}</Pill>
+                    </div>
+                    <div style={{ fontSize: 11, lineHeight: 1.55, color: "var(--text-muted)" }}>
+                      {c.reasonNote}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+              <div style={{ padding: "0.7rem 1rem", borderTop: "1px solid rgba(255,255,255,0.04)",
+                            display: "flex", gap: 7, alignItems: "flex-start" }}>
+                <Sparkles size={12} color="var(--text-dim)" style={{ marginTop: 1, flexShrink: 0 }} />
+                <span style={{ fontSize: 10.5, color: "var(--text-muted)", lineHeight: 1.55 }}>
+                  Corrections you made before, fed into this draft as exemplars. Check whether it
+                  actually applied them — that's the loop working or not working.
+                </span>
+              </div>
+            </Panel>
+          )}
+
+          {ticket.history && (
+            <Panel title="Customer history">
+              <Row k="Prior tickets"    v={String(ticket.history.priorTickets)} />
+              <Row k="Drafts corrected" v={String(ticket.history.priorCorrections)} />
+              <Row k="Orders"           v={String(ticket.history.lifetimeOrders)} />
+              <Row k="Lifetime value"   v={ticket.history.lifetimeValue} mono />
+              <Row k="First seen"       v={new Date(ticket.history.firstSeen).toLocaleDateString("en-US", { month: "short", year: "numeric" })} />
+            </Panel>
+          )}
         </div>
       </div>
     </>
+  );
+}
+
+/** One cell of the drill-down metrics strip. */
+function Stat({ label, value, hint, color = "var(--text-primary)" }: {
+  label: string; value: string; hint?: string; color?: string;
+}) {
+  return (
+    <div title={hint} style={{ background: "var(--bg-darker)", padding: "0.6rem 0.75rem" }}>
+      <div style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: "0.08em",
+                    textTransform: "uppercase", color: "var(--text-dim)", marginBottom: 4 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 15, fontWeight: 800, color, letterSpacing: "-0.01em" }}>{value}</div>
+      {hint && (
+        <div style={{ fontSize: 9.5, color: "var(--text-muted)", marginTop: 3, lineHeight: 1.4 }}>
+          {hint}
+        </div>
+      )}
+    </div>
   );
 }
 

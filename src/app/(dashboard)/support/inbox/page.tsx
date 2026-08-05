@@ -5,7 +5,7 @@ import {
   Search, Inbox as InboxIcon, AlertTriangle, Flame, ChevronRight, Bot, UserCheck,
 } from "lucide-react";
 import {
-  SampleBanner, Panel, Pill, Confidence, Empty, ago, fmtDate,
+  SampleBanner, Panel, Pill, Confidence, Empty, ago,
   STATUS_COLOR, STATUS_LABEL, SUPPORT_ACCENT,
 } from "../ui";
 import { TICKETS, categoryLabel } from "../fixtures";
@@ -75,6 +75,24 @@ export default function SupportInbox() {
       </div>
 
       <Panel pad={false}>
+        {/* Column header — the price of one-line rows is that they need labels. */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: "0.75rem",
+          padding: "0.4rem 1.1rem", borderBottom: "1px solid rgba(255,255,255,0.06)",
+          fontSize: 9, fontWeight: 800, letterSpacing: "0.09em",
+          textTransform: "uppercase", color: "var(--text-dim)",
+        }}>
+          <span style={{ width: 3, flexShrink: 0 }} />
+          <span style={{ width: 40, flexShrink: 0 }}>Ref</span>
+          <span style={{ flex: 1, minWidth: 0 }}>Subject</span>
+          <span style={{ width: 116, flexShrink: 0 }}>Customer</span>
+          <span style={{ width: 112, flexShrink: 0 }}>Category</span>
+          <span style={{ width: 82, flexShrink: 0, textAlign: "right" }}>Conf.</span>
+          <span style={{ width: 124, flexShrink: 0, textAlign: "right" }}>Status</span>
+          <span style={{ width: 58, flexShrink: 0, textAlign: "right" }}>Waiting</span>
+          <span style={{ width: 14, flexShrink: 0 }} />
+        </div>
+
         {rows.length === 0 ? (
           <Empty icon={InboxIcon} title="Nothing here"
                  body="No tickets match this filter." />
@@ -85,66 +103,63 @@ export default function SupportInbox() {
               <div
                 style={{
                   display: "flex", alignItems: "center", gap: "0.9rem",
-                  padding: "0.85rem 1.1rem",
+                  padding: "0.45rem 1.1rem", height: 38,
                   borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)",
                   transition: "background .15s", cursor: "pointer",
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.025)")}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
               >
-                {/* priority / sentiment marker */}
+                {/* One line per ticket. At 20–60/day the whole queue fits on one
+                    screen, which it doesn't if every row is a two-line card.
+                    Everything else lives on the drill-down. */}
                 <div style={{
-                  width: 3, alignSelf: "stretch", borderRadius: 2, flexShrink: 0,
+                  width: 3, height: 16, borderRadius: 2, flexShrink: 0,
                   background: SENTIMENT_COLOR[t.sentiment] ?? "transparent",
-                  opacity: t.sentiment === "neutral" ? 0.2 : 0.9,
+                  opacity: t.sentiment === "neutral" ? 0.18 : 0.9,
                 }} />
 
-                <div style={{ width: 46, flexShrink: 0, fontSize: 11, fontWeight: 800,
-                              color: "var(--text-dim)", fontFamily: "'JetBrains Mono', monospace" }}>
+                <span style={{ width: 40, flexShrink: 0, fontSize: 10.5, fontWeight: 800,
+                               color: "var(--text-dim)", fontFamily: "'JetBrains Mono', monospace" }}>
                   {t.ref}
-                </div>
+                </span>
 
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, overflow: "hidden",
-                                   textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {t.subject}
-                    </span>
-                    {t.priority === "high" && <Flame size={11} color="#f43f5e" />}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
-                                fontSize: 11, color: "var(--text-muted)" }}>
-                    <span>{t.customerName}</span>
-                    <span style={{ opacity: 0.4 }}>·</span>
-                    <span>{categoryLabel(t.category)}</span>
-                    {t.orderRef && <>
-                      <span style={{ opacity: 0.4 }}>·</span>
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{t.orderRef}</span>
-                    </>}
-                    <span style={{ opacity: 0.4 }}>·</span>
-                    <span>{fmtDate(t.firstInboundAt)}</span>
-                  </div>
-                </div>
+                <span style={{ fontSize: 12.5, fontWeight: 700, flex: 1, minWidth: 0,
+                               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {t.subject}
+                  {t.priority === "high" && (
+                    <Flame size={10} color="#f43f5e" style={{ marginLeft: 6, verticalAlign: -1 }} />
+                  )}
+                </span>
 
-                {/* who's drafting */}
-                <div style={{ width: 86, flexShrink: 0, display: "flex", justifyContent: "flex-end" }}>
+                <span style={{ width: 116, flexShrink: 0, fontSize: 11, color: "var(--text-muted)",
+                               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {t.customerName}
+                </span>
+
+                <span style={{ width: 112, flexShrink: 0, fontSize: 11, color: "var(--text-dim)",
+                               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {categoryLabel(t.category)}
+                </span>
+
+                <span style={{ width: 82, flexShrink: 0, display: "flex", justifyContent: "flex-end" }}>
                   {t.draft
                     ? <Confidence value={t.draft.confidence} />
-                    : <Pill color="#a78bfa"><UserCheck size={9} /> No draft</Pill>}
-                </div>
+                    : <Pill color="#a78bfa"><UserCheck size={9} /> none</Pill>}
+                </span>
 
-                <div style={{ width: 132, flexShrink: 0, display: "flex", justifyContent: "flex-end" }}>
+                <span style={{ width: 124, flexShrink: 0, display: "flex", justifyContent: "flex-end" }}>
                   <Pill color={STATUS_COLOR[t.status]} solid>{STATUS_LABEL[t.status]}</Pill>
-                </div>
+                </span>
 
-                <div style={{ width: 76, flexShrink: 0, textAlign: "right", fontSize: 11,
-                              fontWeight: 700, color: overdue ? "#f43f5e" : "var(--text-muted)",
-                              display: "inline-flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
-                  {overdue && <AlertTriangle size={11} />}
+                <span style={{ width: 58, flexShrink: 0, textAlign: "right", fontSize: 11,
+                               fontWeight: 700, color: overdue ? "#f43f5e" : "var(--text-muted)",
+                               display: "inline-flex", alignItems: "center", gap: 3, justifyContent: "flex-end" }}>
+                  {overdue && <AlertTriangle size={10} />}
                   {t.status === "awaiting_approval" ? ago(t.awaitingMinutes) : "—"}
-                </div>
+                </span>
 
-                <ChevronRight size={15} style={{ color: "var(--text-dim)", flexShrink: 0 }} />
+                <ChevronRight size={14} style={{ color: "var(--text-dim)", flexShrink: 0 }} />
               </div>
             </Link>
           );

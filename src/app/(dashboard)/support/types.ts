@@ -63,11 +63,30 @@ export interface Draft {
   body:          string;
   model:         string;
   confidence:    number;          // 0–1, the agent's own
-  reasoning:     string;          // why it wrote what it wrote — shown to the reviewer
+  reasoning:     string;          // why it wrote what it wrote — shown on drill-down
   citedDocIds:   string[];
+  /** Past correction pairs that went into this draft's prompt as exemplars.
+   *  Lets the reviewer see whether it actually applied a lesson it was taught. */
+  exemplarCorrectionIds: string[];
   status:        "pending" | "approved" | "approved_with_edits" | "rejected" | "superseded" | "sent";
   generatedAt:   string;
   costCents:     number;
+  tokensIn:      number;
+  tokensOut:     number;
+  latencyMs:     number;
+  /** Minutes from the customer's email landing to this draft existing. */
+  draftedAfterMinutes: number;
+  /** Which attempt this is. >1 means someone hit Regenerate. */
+  attempt:       number;
+}
+
+/** What we know about this person before reading the ticket. Drill-down only. */
+export interface CustomerHistory {
+  priorTickets:      number;
+  priorCorrections:  number;   // times a draft to THIS customer was rejected/edited
+  lifetimeOrders:    number;
+  lifetimeValue:     string;
+  firstSeen:         string;
 }
 
 export interface Ticket {
@@ -86,6 +105,11 @@ export interface Ticket {
   messages:        Message[];
   draft:           Draft | null;
   tags:            string[];
+  /** How sure the classifier was about `category`. Low here is its own kind of
+   *  warning — a confident reply built on a miscategorised ticket reads fine and
+   *  is wrong. Drill-down only. */
+  classifierConfidence: number;
+  history:         CustomerHistory | null;
 }
 
 /** A training pair. The heart of the whole feature. */

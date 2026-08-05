@@ -103,6 +103,7 @@ export const TICKETS: Ticket[] = [
     sentiment: "neutral", orderRef: "#LR-20418",
     firstInboundAt: "2026-08-04T14:22:00Z", awaitingMinutes: 43,
     tags: ["first-purchase"],
+    classifierConfidence: 0.93, history: { priorTickets: 0, priorCorrections: 0, lifetimeOrders: 1, lifetimeValue: "$249.00", firstSeen: "2026-07-28T00:00:00Z" },
     messages: [{
       id: "m-1", direction: "inbound", author: "customer",
       fromAddr: "jane.alvarez@example.com", sentAt: "2026-08-04T14:22:00Z",
@@ -131,6 +132,8 @@ export const TICKETS: Ticket[] = [
         "promise a replacement.",
       citedDocIds: ["doc-assembly", "doc-voice"],
       status: "pending", generatedAt: "2026-08-04T14:24:00Z", costCents: 3,
+      exemplarCorrectionIds: ["c-3"], tokensIn: 1180, tokensOut: 210,
+      latencyMs: 4200, draftedAfterMinutes: 2, attempt: 1,
     },
   },
   {
@@ -141,6 +144,7 @@ export const TICKETS: Ticket[] = [
     sentiment: "neutral", orderRef: "#LR-20390",
     firstInboundAt: "2026-08-04T14:51:00Z", awaitingMinutes: 14,
     tags: [],
+    classifierConfidence: 0.97, history: { priorTickets: 1, priorCorrections: 0, lifetimeOrders: 2, lifetimeValue: "$518.00", firstSeen: "2025-11-03T00:00:00Z" },
     messages: [{
       id: "m-2", direction: "inbound", author: "customer",
       fromAddr: "bnkemelu@example.com", sentAt: "2026-08-04T14:51:00Z",
@@ -160,6 +164,8 @@ export const TICKETS: Ticket[] = [
       reasoning: "Pulled fulfilment status and tracking directly from the linked Shopify order. High confidence — this is a lookup, not a judgement.",
       citedDocIds: ["doc-shipping", "doc-voice"],
       status: "pending", generatedAt: "2026-08-04T14:52:00Z", costCents: 2,
+      exemplarCorrectionIds: [], tokensIn: 940, tokensOut: 140,
+      latencyMs: 3100, draftedAfterMinutes: 1, attempt: 1,
     },
   },
   {
@@ -170,6 +176,7 @@ export const TICKETS: Ticket[] = [
     sentiment: "angry", orderRef: "#LR-20355",
     firstInboundAt: "2026-08-04T13:10:00Z", awaitingMinutes: 115,
     tags: ["repeat-customer", "photo-attached"],
+    classifierConfidence: 0.88, history: { priorTickets: 4, priorCorrections: 2, lifetimeOrders: 2, lifetimeValue: "$612.00", firstSeen: "2025-04-17T00:00:00Z" },
     messages: [{
       id: "m-3", direction: "inbound", author: "customer",
       fromAddr: "alice.chen@example.com", sentAt: "2026-08-04T13:10:00Z",
@@ -196,6 +203,8 @@ export const TICKETS: Ticket[] = [
         "one specifically. I have hedged rather than promised. Recommend a human reads this.",
       citedDocIds: ["doc-returns"],
       status: "pending", generatedAt: "2026-08-04T13:12:00Z", costCents: 4,
+      exemplarCorrectionIds: ["c-2","c-5"], tokensIn: 1520, tokensOut: 190,
+      latencyMs: 5600, draftedAfterMinutes: 2, attempt: 2,
     },
   },
   {
@@ -206,6 +215,7 @@ export const TICKETS: Ticket[] = [
     sentiment: "positive", orderRef: null,
     firstInboundAt: "2026-08-04T11:02:00Z", awaitingMinutes: 0,
     tags: ["b2b"],
+    classifierConfidence: 0.61, history: null,
     messages: [{
       id: "m-4", direction: "inbound", author: "customer",
       fromAddr: "m.webb@fitcollective.example", sentAt: "2026-08-04T11:02:00Z",
@@ -221,6 +231,7 @@ export const TICKETS: Ticket[] = [
     sentiment: "frustrated", orderRef: "#LR-20201",
     firstInboundAt: "2026-08-04T09:30:00Z", awaitingMinutes: 0,
     tags: [],
+    classifierConfidence: 0.95, history: { priorTickets: 3, priorCorrections: 1, lifetimeOrders: 1, lifetimeValue: "$0.00", firstSeen: "2026-05-02T00:00:00Z" },
     messages: [
       {
         id: "m-5", direction: "inbound", author: "customer",
@@ -248,6 +259,7 @@ export const TICKETS: Ticket[] = [
     sentiment: "neutral", orderRef: "#LR-19877",
     firstInboundAt: "2026-08-03T16:40:00Z", awaitingMinutes: 0,
     tags: [],
+    classifierConfidence: 0.90, history: { priorTickets: 2, priorCorrections: 0, lifetimeOrders: 3, lifetimeValue: "$744.00", firstSeen: "2024-09-11T00:00:00Z" },
     messages: [{
       id: "m-7", direction: "inbound", author: "customer",
       fromAddr: "tridley@example.com", sentAt: "2026-08-03T16:40:00Z",

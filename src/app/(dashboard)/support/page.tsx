@@ -2,8 +2,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import {
-  Mail, Bot, CheckCircle2, Timer, PiggyBank, TrendingUp, TrendingDown,
-  Minus, HelpCircle, Inbox, AlertTriangle, Smile, ArrowRight, Brain,
+  Mail, Bot, CheckCircle2, Timer, TrendingUp, TrendingDown, ChevronDown,
+  ChevronRight, Minus, HelpCircle, Inbox, AlertTriangle, Smile, ArrowRight, Brain,
 } from "lucide-react";
 import {
   SampleBanner, Panel, Metric, Sparkline, Pill, Btn, SUPPORT_ACCENT, ago,
@@ -14,6 +14,7 @@ const RANGES = ["7 days", "30 days", "This month"];
 
 export default function SupportDashboard() {
   const [range, setRange] = useState("7 days");
+  const [showBasis, setShowBasis] = useState(false);
   const m = METRICS;
 
   // Ranked observations. evidenceCount × confidence, accepted boosted, dismissed out.
@@ -90,43 +91,32 @@ export default function SupportDashboard() {
           </div>
         </Panel>
 
-        {/* Money saved — every figure carries its basis. A dollar number with no
-            stated calculation is decoration, so the calculation is on the card. */}
+        {/* Money stays one line per figure. The calculation is one click away,
+            not gone — a dollar number you can't audit is decoration, but it
+            doesn't need to shout its arithmetic at you every morning. */}
         <Panel
           title="Money"
-          subtitle="Every figure shows the calculation behind it"
-          right={<Pill color="#22c55e" solid>{m.moneySavedTotal} saved</Pill>}
-        >
-          <div style={{ display: "grid", gap: "0.6rem" }}>
-            {m.moneySavedBreakdown.map(b => (
-              <div key={b.label} style={{
-                background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.05)",
-                borderRadius: 9, padding: "0.6rem 0.75rem",
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700 }}>{b.label}</span>
-                  <span style={{ fontSize: 15, fontWeight: 800, color: "#22c55e" }}>{b.value}</span>
-                </div>
-                <div style={{ fontSize: 10.5, color: "var(--text-muted)", marginTop: 4, lineHeight: 1.5 }}>
-                  {b.basis}
-                </div>
-              </div>
-            ))}
-
-            <div style={{
-              background: "rgba(74,158,255,0.05)", border: "1px solid rgba(74,158,255,0.2)",
-              borderRadius: 9, padding: "0.6rem 0.75rem",
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
-                <span style={{ fontSize: 12, fontWeight: 700 }}>Revenue attributed</span>
-                <span style={{ fontSize: 15, fontWeight: 800, color: "#4a9eff" }}>
-                  {m.revenueAttributed ?? "Not attributable"}
-                </span>
-              </div>
-              <div style={{ fontSize: 10.5, color: "var(--text-muted)", marginTop: 4, lineHeight: 1.5 }}>
-                {m.revenueBasis}
-              </div>
+          subtitle={showBasis ? "Every figure shows the calculation behind it" : "Click any figure to see how it was calculated"}
+          right={
+            <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+              <Pill color={SUPPORT_ACCENT} active={showBasis} onClick={() => setShowBasis(!showBasis)}>
+                {showBasis ? "Hide maths" : "Show maths"}
+              </Pill>
+              <Pill color="#22c55e" solid>{m.moneySavedTotal} saved</Pill>
             </div>
+          }
+        >
+          <div style={{ display: "grid", gap: "0.4rem" }}>
+            {m.moneySavedBreakdown.map(b => (
+              <MoneyRow key={b.label} label={b.label} value={b.value} basis={b.basis}
+                        color="#22c55e" open={showBasis} />
+            ))}
+            <MoneyRow
+              label="Revenue attributed"
+              value={m.revenueAttributed ?? "Not attributable"}
+              basis={m.revenueBasis}
+              color="#4a9eff" open={showBasis} tint
+            />
           </div>
         </Panel>
       </div>
@@ -237,5 +227,39 @@ export default function SupportDashboard() {
         </Panel>
       </div>
     </>
+  );
+}
+
+/** One money figure. Collapsed by default; the calculation is one click away.
+ *  Never remove the basis entirely — an unauditable dollar number is decoration. */
+function MoneyRow({ label, value, basis, color, open, tint }: {
+  label: string; value: string; basis: string; color: string; open: boolean; tint?: boolean;
+}) {
+  const [self, setSelf] = useState(false);
+  const shown = open || self;
+  return (
+    <div
+      onClick={() => setSelf(!self)}
+      style={{
+        background: tint ? "rgba(74,158,255,0.05)" : "rgba(255,255,255,0.025)",
+        border: `1px solid ${tint ? "rgba(74,158,255,0.2)" : "rgba(255,255,255,0.05)"}`,
+        borderRadius: 9, padding: "0.5rem 0.75rem", cursor: "pointer",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 5 }}>
+          {shown ? <ChevronDown size={11} color="var(--text-dim)" />
+                 : <ChevronRight size={11} color="var(--text-dim)" />}
+          {label}
+        </span>
+        <span style={{ fontSize: 15, fontWeight: 800, color }}>{value}</span>
+      </div>
+      {shown && (
+        <div style={{ fontSize: 10.5, color: "var(--text-muted)", marginTop: 5,
+                      lineHeight: 1.55, paddingLeft: 16 }}>
+          {basis}
+        </div>
+      )}
+    </div>
   );
 }
