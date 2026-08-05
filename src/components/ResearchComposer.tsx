@@ -11,10 +11,15 @@
  * Agent selection goes through /admin/ai/parse-job, the same router the job composer
  * uses, so a question lands on the agent whose specialisation actually fits it. The
  * user can override — the router is a default, not a verdict.
+ *
+ * "Send report to" DMs the finished report to a Discord user. A run takes minutes and
+ * you are told to leave the page, so the notification is the only thing that closes
+ * that loop. The roster comes from the guild rather than a text field because
+ * sendDiscordDm resolves a snowflake reliably and a typed name only sometimes.
  */
 
-import React, { useState, useCallback } from "react";
-import { FlaskConical, Loader2, Send, Bot, ChevronDown, AlertCircle } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { FlaskConical, Loader2, Send, Bot, ChevronDown, AlertCircle, Bell } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3000";
 
@@ -25,6 +30,13 @@ export interface AgentDef {
   specialization?: string;
   mission?: string;
   category?: string;
+}
+
+interface DiscordMember {
+  id: string;
+  username: string;
+  displayName: string;
+  avatar?: string;
 }
 
 /**
@@ -64,9 +76,20 @@ export default function ResearchComposer({
   const [question, setQuestion] = useState("");
   const [depth, setDepth] = useState<string>("standard");
   const [agentId, setAgentId] = useState<string>("");   // "" = let the router pick
+  const [notifyUserId, setNotifyUserId] = useState<string>(""); // "" = no DM
+  const [members, setMembers] = useState<DiscordMember[]>([]);
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+
+  // The roster is best-effort: the endpoint answers with [] when the bot is offline
+  // or DISCORD_GUILD_ID is unset, and the control simply doesn't render.
+  useEffect(() => {
+    fetch(`${BOT_URL}/admin/agents/discord-members`)
+      .then(r => (r.ok ? r.json() : []))
+      .then((m: DiscordMember[]) => setMembers(Array.isArray(m) ? m : []))
+      .catch(() => {});
+  }, []);
 
   const launch = useCallback(async () => {
     const q = question.trim();
@@ -96,16 +119,26 @@ export default function ResearchComposer({
       }
 
       setPhase("Starting the run…");
+      const notify = members.find(m => m.id === notifyUserId);
       const res = await fetch(`${BOT_URL}/admin/research`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q, agent_id: chosenId, agent_name: chosenName, depth }),
+        body: JSON.stringify({
+          question: q,
+          agent_id: chosenId,
+          agent_name: chosenName,
+          depth,
+          notify_discord_user_id:  notify?.id ?? null,
+          notify_discord_username: notify?.displayName ?? null,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Launch failed (${res.status})`);
 
       setQuestion("");
       setAgentId("");
+      // The recipient is deliberately kept — launching a second question usually
+      // means the same person wants that report too.
       onLaunched();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -113,7 +146,7 @@ export default function ResearchComposer({
       setBusy(false);
       setPhase("");
     }
-  }, [question, depth, agentId, agents, busy, onLaunched]);
+  }, [question, depth, agentId, agents, busy, onLaunched, members, notifyUserId]);
 
   return (
     <div style={{ ...card, padding: "16px 18px", marginBottom: 18 }}>
@@ -211,6 +244,38 @@ export default function ResearchComposer({
           />
         </div>
 
+        {/* Send the finished report to someone on Discord. Only rendered when the
+            bot can actually see a guild roster — an empty picker is a dead control. */}
+        {members.length > 0 && (
+          <>
+            <Bell size={12} color="#475569" style={{ marginLeft: 4 }} />
+            <div style={{ position: "relative" }}>
+              <select
+                value={notifyUserId}
+                onChange={e => setNotifyUserId(e.target.value)}
+                disabled={busy}
+                title="DM the finished report to this person on Discord"
+                style={{
+                  appearance: "none", height: 32, paddingLeft: 10, paddingRight: 26, borderRadius: 8,
+                  border: `1px solid ${notifyUserId ? "rgba(52,211,153,0.35)" : "rgba(255,255,255,0.08)"}`,
+                  background: notifyUserId ? "rgba(52,211,153,0.08)" : "rgba(255,255,255,0.04)",
+                  color: notifyUserId ? "#34d399" : "#64748b",
+                  fontSize: 11.5, outline: "none", cursor: "pointer", maxWidth: 200,
+                }}
+              >
+                <option value="">Send report to… (nobody)</option>
+                {members.map(m => (
+                  <option key={m.id} value={m.id}>{m.displayName}</option>
+                ))}
+              </select>
+              <ChevronDown
+                size={11}
+                style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }}
+              />
+            </div>
+          </>
+        )}
+
         <button
           onClick={launch}
           disabled={busy || !question.trim()}
@@ -231,6 +296,12 @@ export default function ResearchComposer({
 
       <p style={{ fontSize: 10, color: "#475569", margin: "8px 0 0" }}>
         Runs in stages and takes a few minutes. You can leave this page — it keeps going.
+        {notifyUserId && (
+          <span style={{ color: "#34d399" }}>
+            {" "}The report will be DM&rsquo;d to{" "}
+            {members.find(m => m.id === notifyUserId)?.displayName} on Discord when it finishes.
+          </span>
+        )}
       </p>
 
       {error && (
