@@ -142,6 +142,32 @@ export interface OrderDetail {
   adminUrl:   string;
 }
 
+/**
+ * Response from POST /admin/orders/:id/support — the exception → support bridge.
+ *
+ * `sent` is always false and is part of the contract rather than an oversight: this
+ * endpoint can only ever produce a draft for review. Sending stays behind
+ * Support → Settings, so the UI must never imply an email left the building.
+ */
+export interface SupportEscalation {
+  orderId:   string;
+  orderName: string;
+  ticketId:  string | null;
+  ticketRef: number | null;
+  status:    string | null;
+  /** True when the order was already escalated — the ticket was reused, not created. */
+  reused:    boolean;
+  note:      string;
+  draft: {
+    id: string; subject: string; body: string;
+    confidence: number | null; attempt: number;
+    suggestedEscalation: boolean;
+  } | null;
+  /** The ticket exists but drafting failed — it's still in the queue for a human. */
+  draftError: string | null;
+  sent:       false;
+}
+
 // ── Shared display helpers ────────────────────────────────────────────────────
 
 /**

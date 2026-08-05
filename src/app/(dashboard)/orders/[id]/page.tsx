@@ -5,10 +5,11 @@ import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, CreditCard, ExternalLink,
-  Loader2, MapPin, MessageSquare, Package, RefreshCw, Send, Tag as TagIcon, Truck, User,
+  Loader2, Mail, MapPin, MessageSquare, Package, RefreshCw, Send, Sparkles,
+  Tag as TagIcon, Truck, User,
 } from "lucide-react";
 import {
-  type OrderDetail, type Address,
+  type OrderDetail, type Address, type SupportEscalation,
   errMessage, money, severityColor, statusLabel,
 } from "../types";
 
@@ -96,6 +97,9 @@ export default function OrderDetailPage() {
   const [newTag,  setNewTag]  = useState("");
   const [tagging, setTagging] = useState(false);
 
+  const [drafting,   setDrafting]   = useState(false);
+  const [escalation, setEscalation] = useState<SupportEscalation | null>(null);
+
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 5000);
@@ -147,6 +151,41 @@ export default function OrderDetailPage() {
       showToast(errMessage(err, "Send failed"), "error");
     } finally {
       setSending(false);
+    }
+  };
+
+  /**
+   * Escalate into the support pipeline: opens a ticket and drafts a first outbound
+   * email for review. Deliberately NOT a send — the reply is approved from the
+   * support inbox, where the correction/learning loop lives.
+   */
+  const draftEmail = async () => {
+    if (!order) return;
+    setDrafting(true);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/orders/${encodeURIComponent(order.legacyId)}/support`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({}),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+
+      setEscalation(json as SupportEscalation);
+      // A ticket with no draft is a partial success, not a success — the ticket is
+      // real and queued, but nothing was written. Say which happened.
+      showToast(
+        json.draftError
+          ? `⚠ Ticket opened for ${json.orderName}, but drafting failed`
+          : json.reused
+            ? `✓ ${json.orderName} was already escalated`
+            : `✓ Draft ready for review — nothing sent`,
+        json.draftError ? "error" : "success",
+      );
+    } catch (err) {
+      showToast(errMessage(err, "Could not escalate this order"), "error");
+    } finally {
+      setDrafting(false);
     }
   };
 
@@ -413,6 +452,110 @@ export default function OrderDetailPage() {
                 {order.email ? <span style={{ color: "#94a3b8" }}>{order.email}</span> : "…no email either"}.
               </p>
             )}
+
+            {/* ── Email, via the support pipeline ────────────────────────── */}
+            <div style={{ marginTop: "1rem", paddingTop: "0.85rem", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              {order.email ? (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>
+                      Email {order.email}
+                    </div>
+                    <button
+                      onClick={draftEmail}
+                      disabled={drafting || exceptions.length === 0}
+                      title={exceptions.length === 0
+                        ? "This order has no open exceptions — there's nothing to tell the customer about."
+                        : "Opens a support ticket and drafts a first email for your review"}
+                      style={{
+                        display: "flex", alignItems: "center", gap: "0.4rem",
+                        padding: "0.4rem 1rem", borderRadius: 8,
+                        cursor: drafting || exceptions.length === 0 ? "not-allowed" : "pointer",
+                        background: "rgba(167,139,250,0.15)", border: "1px solid rgba(167,139,250,0.35)",
+                        color: "#a78bfa", fontSize: 12, fontWeight: 800,
+                        opacity: drafting || exceptions.length === 0 ? 0.5 : 1,
+                      }}
+                    >
+                      {drafting
+                        ? <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} />
+                        : <Sparkles size={12} />}
+                      {drafting ? "Drafting…" : escalation ? "Re-draft email" : "Draft an email"}
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 10.5, color: "#475569", marginTop: "0.35rem" }}>
+                    Writes a draft for review in Support — unlike SMS, this never sends.
+                  </div>
+                </>
+              ) : (
+                <p style={{ fontSize: 12.5, color: "#64748b" }}>
+                  No email address on this order, so there&apos;s nothing to draft an email against.
+                </p>
+              )}
+
+              {escalation && (
+                <div style={{
+                  marginTop: "0.75rem", padding: "0.75rem 0.85rem", borderRadius: 10,
+                  background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.22)",
+                }}>
+                  <div style={{ fontSize: 11.5, color: "#cbd5e1", marginBottom: "0.5rem", lineHeight: 1.5 }}>
+                    {escalation.note}
+                  </div>
+
+                  {escalation.draftError && (
+                    <div style={{
+                      fontSize: 11.5, color: "#f87171", marginBottom: "0.5rem",
+                      padding: "0.4rem 0.6rem", borderRadius: 6, background: "rgba(239,68,68,0.08)",
+                    }}>
+                      Drafting failed: {escalation.draftError}
+                    </div>
+                  )}
+
+                  {escalation.draft && (
+                    <>
+                      <div style={{ fontSize: 12.5, fontWeight: 800, color: "#f1f5f9", marginBottom: "0.3rem" }}>
+                        {escalation.draft.subject}
+                      </div>
+                      <div style={{
+                        fontSize: 12, color: "#cbd5e1", whiteSpace: "pre-wrap", lineHeight: 1.6,
+                        maxHeight: 200, overflowY: "auto",
+                      }}>
+                        {escalation.draft.body}
+                      </div>
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap",
+                        marginTop: "0.6rem", fontSize: 10.5, color: "#475569",
+                      }}>
+                        {escalation.draft.confidence != null && (
+                          <span>Confidence {Math.round(escalation.draft.confidence * 100)}%</span>
+                        )}
+                        <span>· Draft #{escalation.draft.attempt}</span>
+                        {escalation.draft.suggestedEscalation && (
+                          <span style={{ color: "#fb923c", fontWeight: 700 }}>
+                            · flagged for a human decision
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {escalation.ticketId && (
+                    <Link
+                      href={`/support/inbox/${escalation.ticketId}`}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: "0.35rem",
+                        marginTop: "0.65rem", padding: "0.35rem 0.75rem", borderRadius: 8,
+                        textDecoration: "none",
+                        background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)",
+                        color: "#a78bfa", fontSize: 11.5, fontWeight: 800,
+                      }}
+                    >
+                      <Mail size={11} />
+                      {escalation.draft ? "Review and send in Support" : "Open the ticket"}
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Tags */}
             <div style={{ marginTop: "1rem", paddingTop: "0.85rem", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
