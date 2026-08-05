@@ -94,6 +94,11 @@ export const APP_CONFIG = {
         // Console. /content/blog redirects rather than 404s.
         { id: 'seo',           group: 'core', href: '/seo',                    icon: SearchCheck,     label: 'SEO',        color: '#34d399' },
         { id: 'customer',      group: 'core', href: '/customer',               icon: UserCheck,       label: 'Orders',     color: '#4a9eff' },
+        // Support is the inbound half of the relationship Orders covers outbound: AI drafts
+        // every reply, a human approves it, and every correction is kept as a training pair
+        // the agent reflects on. Deliberately NOT merged into /customer — that surface is
+        // order-shaped (backorders, SMS), this one is conversation-shaped.
+        { id: 'support',       group: 'core', href: '/support',                icon: LifeBuoy,        label: 'Support',    color: '#00c9d7' },
         { id: 'landing-pages', group: 'core', href: '/commerce/landing-pages', icon: Layout,          label: 'Landing Pages', color: '#818cf8' },
 
         // ── Agentic ─────────────────────────────────────────────────────────────────────────
