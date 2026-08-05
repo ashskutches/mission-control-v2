@@ -51,6 +51,10 @@ export const getSummary   = () => req<any>("/summary");
 export const getMetrics   = (days = 7) => req<any>(`/metrics${qs({ days })}`);
 export const getSettings  = () => req<any>("/settings");
 export const getCategories = () => req<any[]>("/categories");
+/** Agents with a Gmail account connected — the options for "which mailbox". */
+export const getMailboxes = () => req<{
+  agentId: string; email: string; name: string; orphaned: boolean; connectedAt: string;
+}[]>("/mailboxes");
 
 export const getTickets = (o: { status?: string; category?: string; q?: string; limit?: number } = {}) =>
   req<{ total: number; tickets: any[] }>(`/tickets${qs(o)}`);
@@ -101,8 +105,9 @@ export const answerObservation  = (id: string, answer: string, docId?: string | 
 export const runReflection = () => post<any>("/reflect");
 export const runIngest     = () => post<any>("/ingest");
 
-export const saveSettings = (p: { mailAgentId?: string; sendEnabled?: boolean; ingestEnabled?: boolean }) =>
-  put<any>("/settings", p);
+export const saveSettings = (p: {
+  mailAgentId?: string; sendEnabled?: boolean; ingestEnabled?: boolean; mailQuery?: string;
+}) => put<any>("/settings", p);
 export const saveAssumption = (p: { key: string; value: number; basis: string; unit?: string }) =>
   put<any>("/assumptions", p);
 

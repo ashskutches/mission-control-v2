@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Mail, Send, Download, ShieldAlert, Save, Calculator, CheckCircle2 } from "lucide-react";
 import { Panel, Pill, Btn, SUPPORT_ACCENT, Loading, ErrorBox } from "../ui";
-import { getSettings, saveSettings, saveAssumption } from "../api";
+import { getSettings, saveSettings, saveAssumption, getMailboxes } from "../api";
 
 const ASSUMPTION_META: Record<string, { label: string; unit: string; help: string }> = {
   baseline_minutes_per_reply: {
@@ -25,11 +25,23 @@ export default function SupportSettings() {
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [agentId, setAgentId] = useState("");
+  const [mailQuery, setMailQuery] = useState("");
+  const [mailboxes, setMailboxes] = useState<any[]>([]);
 
   const load = useCallback(async () => {
     setErr(null);
-    try { const d = await getSettings(); setS(d); setAgentId(d.mail?.agentId ?? ""); }
-    catch (e: any) { setErr(e.message); }
+    try {
+      const [d, boxes] = await Promise.all([
+        getSettings(),
+        // A missing mailbox list shouldn't blank the whole page — the rest of
+        // settings still works without it.
+        getMailboxes().catch(() => []),
+      ]);
+      setS(d);
+      setAgentId(d.mail?.agentId ?? "");
+      setMailQuery(d.mail?.mailQuery ?? "");
+      setMailboxes(boxes);
+    } catch (e: any) { setErr(e.message); }
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -75,21 +87,61 @@ export default function SupportSettings() {
             </span>
           </div>
 
-          <label style={label}>Gmail agent id</label>
+          <label style={label}>Mailbox</label>
           <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.4rem" }}>
-            <input
+            <select
               value={agentId} onChange={e => setAgentId(e.target.value)}
-              placeholder="agent id with a connected Gmail account"
-              style={input}
-            />
-            <Btn size="sm" color={SUPPORT_ACCENT} disabled={busy}
+              style={{ ...input, cursor: "pointer" }}
+            >
+              <option value="">— none selected —</option>
+              {mailboxes.map(m => (
+                <option key={m.agentId} value={m.agentId}>
+                  {m.email} — {m.name}{m.orphaned ? " (agent deleted)" : ""}
+                </option>
+              ))}
+            </select>
+            <Btn size="sm" color={SUPPORT_ACCENT} disabled={busy || agentId === (mail.agentId ?? "")}
                  onClick={() => save({ mailAgentId: agentId }, "Mailbox updated.")}>
               <Save size={11} /> Save
             </Btn>
           </div>
-          <div style={{ fontSize: 10.5, color: "var(--text-muted)", lineHeight: 1.55, marginBottom: "1.1rem" }}>
-            Connect a Google account under Agents → Email first, then paste that agent's id here.
-            Support reuses the same per-agent OAuth as every other Gmail tool.
+
+          {mailboxes.length === 0 ? (
+            <div style={{ fontSize: 10.5, color: "#f5a840", lineHeight: 1.55, marginBottom: "1.1rem" }}>
+              No Google accounts are connected to any agent yet. Connect one under
+              Agents → Email, then come back — Support reuses that same per-agent OAuth.
+            </div>
+          ) : (
+            <div style={{ fontSize: 10.5, color: "var(--text-muted)", lineHeight: 1.55, marginBottom: "1.1rem" }}>
+              {mailboxes.length} connected account{mailboxes.length === 1 ? "" : "s"}, listed by address.
+              Several agents can share one address — picking any of them polls that inbox.
+            </div>
+          )}
+
+          {/* Most of the connected accounts point at info@, which is a general
+              inbox. Without a scope, every supplier email and marketing reply
+              becomes a support ticket with a drafted response waiting on you. */}
+          <label style={label}>Scope filter (Gmail search)</label>
+          <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.4rem" }}>
+            <input
+              value={mailQuery} onChange={e => setMailQuery(e.target.value)}
+              placeholder='e.g. to:support@leapsandrebounds.com   or   label:support'
+              style={input}
+            />
+            <Btn size="sm" variant="outline" color={SUPPORT_ACCENT}
+                 disabled={busy || mailQuery === (mail.mailQuery ?? "")}
+                 onClick={() => save({ mailQuery }, "Scope filter updated.")}>
+              <Save size={11} /> Save
+            </Btn>
+          </div>
+          <div style={{
+            fontSize: 10.5, lineHeight: 1.55, marginBottom: "1.1rem",
+            color: mailQuery.trim() ? "var(--text-muted)" : "#f5a840",
+          }}>
+            {mailQuery.trim()
+              ? "ANDed onto the poll. Only matching mail becomes a ticket."
+              : "Empty means every message in the inbox becomes a ticket — only right for an "
+                + "address that receives nothing but support. On a shared inbox like info@, set one."}
           </div>
 
           <Toggle
