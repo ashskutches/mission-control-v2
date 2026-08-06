@@ -63,10 +63,30 @@ export const getMailboxes = () => req<{
   agentId: string; email: string; name: string; orphaned: boolean; connectedAt: string;
 }[]>("/mailboxes");
 
-export const getTickets = (o: { status?: string; category?: string; q?: string; limit?: number } = {}) =>
-  req<{ total: number; tickets: any[] }>(`/tickets${qs(o)}`);
+export const getTickets = (o: {
+  status?: string; category?: string; q?: string; limit?: number; outcome?: string;
+} = {}) => req<{ total: number; tickets: any[] }>(`/tickets${qs(o)}`);
 
 export const getTicket = (id: string) => req<any>(`/tickets/${id}`);
+
+/**
+ * The action / outcome vocabularies, fetched rather than hardcoded.
+ *
+ * The server validates against the same list, so a copy here would fail on
+ * submit the first time either side changed.
+ */
+export interface ActionTypeDef {
+  key: string; label: string; external: boolean; system: string | null;
+}
+export const getVocabulary = () => req<{
+  actionGroups: { group: string; actions: ActionTypeDef[] }[];
+  outcomes: string[];
+  reasonCodes: string[];
+}>("/vocabulary");
+
+/** Open operational work across every ticket. */
+export const getFollowups = (o: { owner?: string; overdue?: string } = {}) =>
+  req<{ total: number; overdue: number; followups: any[] }>(`/followups${qs(o)}`);
 
 export const getDocs = (kind?: string, includeArchived = false) =>
   req<any[]>(`/docs${qs({ kind, all: includeArchived ? "1" : undefined })}`);
@@ -85,15 +105,60 @@ export const getCorrections = (o: { category?: string; reasonCode?: string } = {
 
 export const generateDraft = (id: string, hint?: string) => post<any>(`/tickets/${id}/draft`, { hint });
 
+/**
+ * What the rep did, in the shape the server takes.
+ *
+ * `status: "planned"` makes it a follow-up task and then `owner` is required —
+ * unfinished work with nobody's name on it is the row that rots in the queue.
+ */
+export interface ActionPayload {
+  actionType: string;
+  detail?: string;
+  status?: "done" | "planned";
+  externalSystem?: string | null;
+  owner?: string | null;
+  dueAt?: string | null;
+}
+
+/** Carried by approve, reject and resolve alike — one shape, one form. */
+export interface ResolutionPayload {
+  actions?: ActionPayload[];
+  followups?: (ActionPayload & { owner: string })[];
+  outcome?: string | null;
+  resolutionSummary?: string | null;
+  close?: boolean;
+}
+
 export const approveTicket = (id: string, p: {
   body?: string; reasonCode?: string; reasonNote?: string; severity?: number;
-}) => post<any>(`/tickets/${id}/approve`, p);
+} & ResolutionPayload) => post<any>(`/tickets/${id}/approve`, p);
 
 export const rejectTicket = (id: string, p: {
   reasonCode: string; reasonNote: string; humanBody: string; severity?: number;
-}) => post<any>(`/tickets/${id}/reject`, p);
+} & ResolutionPayload) => post<any>(`/tickets/${id}/reject`, p);
 
-export const escalateTicket = (id: string, note?: string) => post<any>(`/tickets/${id}/escalate`, { note });
+/** Close the ticket out: outcome + summary + whatever was done. */
+export const resolveTicket = (id: string, p: ResolutionPayload) =>
+  post<any>(`/tickets/${id}/resolve`, p);
+
+/** Resolved outside Mission Control. The explanation is mandatory server-side. */
+export const handledElsewhere = (id: string, p: ResolutionPayload & { resolutionSummary: string }) =>
+  post<any>(`/tickets/${id}/handled-elsewhere`, p);
+
+/** Log work without touching the conversation or closing anything. */
+export const logActions = (id: string, p: ResolutionPayload) =>
+  post<any>(`/tickets/${id}/actions`, p);
+
+export const completeAction = (actionId: string, note?: string) =>
+  post<any>(`/actions/${actionId}/complete`, { note });
+export const cancelAction = (actionId: string, reason: string) =>
+  post<any>(`/actions/${actionId}/cancel`, { reason });
+
+/** Retry a reply that was written but never delivered. */
+export const resendReply = (id: string) => post<any>(`/tickets/${id}/resend`);
+
+export const escalateTicket = (id: string, p: { note: string; owner?: string; dueAt?: string }) =>
+  post<any>(`/tickets/${id}/escalate`, p);
 export const setTicketStatus = (id: string, status: string) => post<any>(`/tickets/${id}/status`, { status });
 
 export const createDoc = (p: { title: string; kind?: string; content?: string; scope?: string[]; folder?: string }) =>
@@ -134,6 +199,35 @@ export const REASON_LABELS: Record<string, string> = {
   needs_human_judgment: "Needed a human",
   missing_context: "Missing context",
   formatting: "Formatting",
+  missed_an_action: "Missed an action",
   other: "Other",
 };
 export const REASON_CODES = Object.keys(REASON_LABELS);
+
+/** What we decided about what the customer asked for — the second axis. */
+export const OUTCOME_LABELS: Record<string, string> = {
+  answered: "Answered",
+  granted: "Granted",
+  partially_granted: "Partly granted",
+  denied: "Denied",
+  no_action_needed: "No action needed",
+  handled_elsewhere: "Handled elsewhere",
+  spam: "Spam",
+};
+
+export const OUTCOME_COLOR: Record<string, string> = {
+  answered: "#4a9eff",
+  granted: "#22c55e",
+  partially_granted: "#f5a840",
+  denied: "#f43f5e",
+  no_action_needed: "#6b7280",
+  handled_elsewhere: "#a78bfa",
+  spam: "#6b7280",
+};
+
+/** Whether the back-office work is finished — the third axis. */
+export const OPS_LABELS: Record<string, string> = {
+  none: "No ops work",
+  pending: "Work outstanding",
+  done: "Ops complete",
+};

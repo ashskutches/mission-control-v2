@@ -1,7 +1,9 @@
 "use client";
 import React from "react";
 import { motion } from "framer-motion";
-import { LucideIcon, Info, TrendingUp, TrendingDown, Minus, AlertTriangle, PlugZap } from "lucide-react";
+import {
+  LucideIcon, Info, TrendingUp, TrendingDown, Minus, AlertTriangle, PlugZap, Wrench, Check,
+} from "lucide-react";
 
 export const SUPPORT_ACCENT = "#00c9d7";
 
@@ -184,6 +186,9 @@ export const STATUS_COLOR: Record<string, string> = {
   sent: "#22c55e", awaiting_customer: "#00c9d7",
   escalated: "#f43f5e", resolved: "#6b7280",
   needs_human_only: "#a78bfa", spam: "#6b7280",
+  // `failed` existed in the state machine and in TICKET_STATUSES from the start
+  // but never here, so a ticket in it rendered as a grey unlabelled slug.
+  failed: "#f43f5e",
 };
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -192,7 +197,28 @@ export const STATUS_LABEL: Record<string, string> = {
   sent: "Sent", awaiting_customer: "Awaiting customer",
   escalated: "Escalated", resolved: "Resolved",
   needs_human_only: "Human only", spam: "Spam",
+  failed: "Not delivered",
 };
+
+/**
+ * Status says where the conversation is. This says whether anyone still owes
+ * work. Rendered as a separate mark rather than folded into the status pill,
+ * because "answered" and "finished" are genuinely different facts and a single
+ * pill claiming both is the thing that let operational work disappear.
+ */
+export function OpsMark({ state, open }: { state?: string; open?: number }) {
+  if (state === "pending") {
+    return (
+      <Pill color="#f5a840" title={`${open ?? 0} open follow-up${open === 1 ? "" : "s"}`}>
+        <Wrench size={9} /> {open ?? 0} open
+      </Pill>
+    );
+  }
+  if (state === "done") {
+    return <Pill color="#22c55e" title="All recorded operational work is complete"><Check size={9} /> ops done</Pill>;
+  }
+  return null;
+}
 
 // ── Button ───────────────────────────────────────────────────────────────────
 export function Btn({

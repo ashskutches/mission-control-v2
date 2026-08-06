@@ -5,15 +5,25 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Send, XCircle, RefreshCw, Bot, User, FileText,
   ShoppingBag, Sparkles, AlertTriangle, Info, CheckCircle2, Pencil, History,
+  Wrench, CheckSquare, ArrowUpRight, MailWarning, ListChecks, Clock,
 } from "lucide-react";
 import {
-  Panel, Pill, Btn, Confidence, Empty, ago, Loading, ErrorBox,
+  Panel, Pill, Btn, Confidence, Empty, ago, Loading, ErrorBox, OpsMark,
   STATUS_COLOR, STATUS_LABEL, SUPPORT_ACCENT,
 } from "../../ui";
 import {
-  getTicket, approveTicket, rejectTicket, generateDraft,
-  REASON_LABELS, REASON_CODES,
+  getTicket, approveTicket, rejectTicket, generateDraft, getVocabulary,
+  resolveTicket, handledElsewhere, logActions, completeAction, resendReply,
+  escalateTicket,
+  REASON_LABELS, REASON_CODES, OUTCOME_LABELS, OUTCOME_COLOR, ActionTypeDef,
 } from "../../api";
+import {
+  ResolutionFields, ResolutionState, emptyResolution, toPayload, resolutionProblems,
+  hasResolutionContent, ActionLog, Timeline, AddFollowupRow, newActionDraft,
+} from "../../resolution";
+
+/** The panel currently in charge of the middle column. */
+type Mode = "review" | "reject" | "closeout" | "elsewhere" | "escalate";
 
 export default function ApprovalInterface() {
   const params = useParams();
@@ -21,15 +31,25 @@ export default function ApprovalInterface() {
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const [t, setT] = useState<any>(null);
+  const [vocab, setVocab] = useState<{ group: string; actions: ActionTypeDef[] }[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
   const [body, setBody]       = useState("");
-  const [mode, setMode]       = useState<"review" | "reject">("review");
+  const [mode, setMode]       = useState<Mode>("review");
   const [reason, setReason]   = useState<string | null>(null);
   const [note, setNote]       = useState("");
   const [rewrite, setRewrite] = useState("");
+
+  // One resolution state for the whole page. Whichever button the rep presses,
+  // what they already ticked carries over — switching from Approve to Reject &
+  // rewrite must not silently discard the refund they just recorded.
+  const [res, setRes] = useState<ResolutionState>(emptyResolution());
+
+  // Escalation is its own tiny form; it produces a tracked follow-up, not a note.
+  const [escNote, setEscNote] = useState("");
+  const [escOwner, setEscOwner] = useState("");
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -43,12 +63,22 @@ export default function ApprovalInterface() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Fetched once, not hardcoded — the server validates against the same list.
+  useEffect(() => {
+    getVocabulary().then(v => setVocab(v.actionGroups)).catch(() => setVocab([]));
+  }, []);
+
   if (err && !t) return <ErrorBox error={err} onRetry={load} />;
   if (!t) return <Loading label="Loading ticket" />;
 
   const draft = t.draft && t.draft.status === "pending" ? t.draft : null;
   const edited = !!draft && body.trim() !== String(draft.body).trim();
   const canReject = !!reason && note.trim().length >= 15 && rewrite.trim().length >= 20;
+
+  const closed = !!t.outcome && t.status === "resolved";
+  const needsCloseOut = !!t.needsCloseOut;
+  const undelivered = t.undelivered ?? [];
+  const openFollowups = (t.actions ?? []).filter((a: any) => a.status === "planned");
 
   const run = async (key: string, fn: () => Promise<any>, after?: (r: any) => string) => {
     setBusy(key); setErr(null); setDone(null);
@@ -60,23 +90,74 @@ export default function ApprovalInterface() {
     finally { setBusy(null); }
   };
 
+  /** Appended to any success message so a swallowed resolution error is visible. */
+  const resNote = (r: any) => r?.resolutionError
+    ? ` ⚠️ The email went out, but the resolution was not recorded: ${r.resolutionError}`
+    : r?.resolution
+      ? ` Recorded ${r.resolution.actions.length} action(s) and ${r.resolution.followups.length} follow-up(s)${r.resolution.closed ? ", and closed the ticket" : ""}.`
+      : "";
+
   const onApprove = () => run("approve",
-    () => approveTicket(t.id, { body }),
-    r => r.edited
-      ? "Sent with your edits. Correction pair recorded as edited_on_approve."
-      : "Approved and sent. Counted as a clean approval.");
+    () => approveTicket(t.id, { body, ...toPayload(res, { close: false }) }),
+    r => {
+      setRes(emptyResolution());
+      return (r.edited
+        ? "Sent with your edits. Correction pair recorded as edited_on_approve."
+        : "Approved and sent. Counted as a clean approval.") + resNote(r);
+    });
 
   const onReject = () => run("reject",
     () => rejectTicket(t.id, {
       reasonCode: reason!, reasonNote: note, humanBody: rewrite,
       severity: reason === "policy_violation" || reason === "wrong_facts" ? 4 : 3,
+      ...toPayload(res, { close: false }),
     }),
     r => {
-      setMode("review"); setReason(null); setNote(""); setRewrite("");
-      return r.sendError
-        ? `Training pair stored, but nothing was sent: ${r.sendError}`
-        : "Your reply was sent and the training pair was stored.";
+      setMode("review"); setReason(null); setNote(""); setRewrite(""); setRes(emptyResolution());
+      return (r.sendError
+        // No longer a dead end: the text is parked on the thread and retryable.
+        ? `Training pair stored and your reply saved, but it could not be sent: ${r.sendError} ` +
+          `The ticket is marked "Not delivered" — use Retry send once the mailbox is fixed.`
+        : "Your reply was sent and the training pair was stored.") + resNote(r);
     });
+
+  const onCloseOut = () => run("closeout",
+    () => resolveTicket(t.id, toPayload(res, { close: true })),
+    () => {
+      setMode("review"); setRes(emptyResolution());
+      return openFollowupsAfter()
+        ? "Closed. It stays in the follow-up queue until the outstanding work is ticked off."
+        : "Closed. Fully resolved and out of the active inbox.";
+    });
+
+  const onHandledElsewhere = () => run("elsewhere",
+    () => handledElsewhere(t.id, {
+      ...toPayload(res, { close: true }),
+      resolutionSummary: res.summary.trim(),
+    }),
+    () => {
+      setMode("review"); setRes(emptyResolution());
+      return "Marked as handled elsewhere, with your account of how.";
+    });
+
+  const onLogOnly = () => run("log",
+    () => logActions(t.id, toPayload(res, { close: false })),
+    () => { setRes(emptyResolution()); return "Recorded. The conversation is untouched."; });
+
+  const onEscalate = () => run("escalate",
+    () => escalateTicket(t.id, { note: escNote, owner: escOwner.trim() || undefined }),
+    r => {
+      setMode("review"); setEscNote(""); setEscOwner("");
+      return r.ownerMissing
+        ? "Escalated. No owner given, so nothing is tracking it — add a follow-up if someone specific needs to act."
+        : "Escalated and assigned as a tracked follow-up.";
+    });
+
+  /** Will anything still be outstanding after this close-out? */
+  const openFollowupsAfter = () =>
+    openFollowups.length > 0 || res.actions.some(a => a.followup);
+
+  const closeProblems = resolutionProblems(res, { close: true });
 
   return (
     <>
@@ -91,6 +172,14 @@ export default function ApprovalInterface() {
         <Pill color={STATUS_COLOR[t.status] ?? "#6b7280"} solid>
           {STATUS_LABEL[t.status] ?? t.status}
         </Pill>
+        {/* The other two axes, shown alongside rather than folded in. A single
+            pill cannot say "answered, denied, still owes a warehouse call". */}
+        {t.outcome && (
+          <Pill color={OUTCOME_COLOR[t.outcome] ?? "#6b7280"} solid>
+            {OUTCOME_LABELS[t.outcome] ?? t.outcome}
+          </Pill>
+        )}
+        <OpsMark state={t.ops_state} open={t.openFollowups} />
         {t.status === "awaiting_approval" && (
           <Pill color={t.awaitingMinutes > 60 ? "#f43f5e" : "#6b7280"}>
             waiting {ago(t.awaitingMinutes)}
@@ -99,6 +188,53 @@ export default function ApprovalInterface() {
       </div>
 
       {err && <ErrorBox error={err} />}
+
+      {/* ── The two states that used to be invisible ─────────────────────── */}
+
+      {undelivered.length > 0 && (
+        <div style={{
+          display: "flex", gap: 10, alignItems: "flex-start", marginBottom: "1rem",
+          background: "rgba(244,63,94,0.07)", border: "1px solid rgba(244,63,94,0.3)",
+          borderRadius: 10, padding: "0.75rem 1rem",
+        }}>
+          <MailWarning size={15} color="#f43f5e" style={{ marginTop: 1, flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, color: "#f43f5e", fontWeight: 700, marginBottom: 3 }}>
+              A reply was written but never delivered
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--text-secondary)", lineHeight: 1.55 }}>
+              {undelivered[undelivered.length - 1].delivery_error} — the text is saved on the
+              thread below, marked as not delivered. The customer has not seen it.
+            </div>
+          </div>
+          <Btn size="sm" variant="outline" color="#f43f5e" disabled={!!busy}
+               onClick={() => run("resend", () => resendReply(t.id), () => "Sent.")}>
+            <Send size={11} /> {busy === "resend" ? "Sending…" : "Retry send"}
+          </Btn>
+        </div>
+      )}
+
+      {needsCloseOut && (
+        <div style={{
+          display: "flex", gap: 10, alignItems: "flex-start", marginBottom: "1rem",
+          background: "rgba(245,168,64,0.07)", border: "1px solid rgba(245,168,64,0.28)",
+          borderRadius: 10, padding: "0.75rem 1rem",
+        }}>
+          <ListChecks size={15} color="#f5a840" style={{ marginTop: 1, flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, color: "#f5a840", fontWeight: 700, marginBottom: 3 }}>
+              Replied, but never closed out
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--text-secondary)", lineHeight: 1.55 }}>
+              The customer has an answer. Nothing records what we decided or what was done —
+              so this ticket teaches the agent only how the email was worded.
+            </div>
+          </div>
+          <Btn size="sm" color="#f5a840" onClick={() => setMode("closeout")}>
+            <CheckSquare size={11} /> Close it out
+          </Btn>
+        </div>
+      )}
       {done && (
         <div style={{
           display: "flex", alignItems: "center", gap: 8, marginBottom: "1rem",
@@ -159,22 +295,35 @@ export default function ApprovalInterface() {
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
             {(t.messages ?? []).map((msg: any) => {
               const inbound = msg.direction === "inbound";
+              // Anything that did not reach the customer must not look like it
+              // did. An undelivered reply rendered identically to a sent one is
+              // how a rep concludes the customer has been answered.
+              const landed = inbound || msg.delivery === "delivered" || msg.delivery == null;
               return (
                 <div key={msg.id} style={{
-                  background: inbound ? "rgba(255,255,255,0.03)" : "rgba(0,201,215,0.06)",
-                  border: `1px solid ${inbound ? "rgba(255,255,255,0.06)" : "rgba(0,201,215,0.2)"}`,
+                  background: !landed ? "rgba(244,63,94,0.05)"
+                    : inbound ? "rgba(255,255,255,0.03)" : "rgba(0,201,215,0.06)",
+                  border: `1px solid ${!landed ? "rgba(244,63,94,0.32)"
+                    : inbound ? "rgba(255,255,255,0.06)" : "rgba(0,201,215,0.2)"}`,
                   borderRadius: 10, padding: "0.7rem 0.8rem",
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6,
+                                flexWrap: "wrap" }}>
                     {inbound ? <User size={11} color="var(--text-muted)" />
                              : msg.author === "ai" ? <Bot size={11} color={SUPPORT_ACCENT} />
                              : <User size={11} color={SUPPORT_ACCENT} />}
                     <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase",
                                    letterSpacing: "0.06em",
-                                   color: inbound ? "var(--text-muted)" : SUPPORT_ACCENT }}>
+                                   color: inbound ? "var(--text-muted)"
+                                     : !landed ? "#f43f5e" : SUPPORT_ACCENT }}>
                       {inbound ? (t.customer_name || "Customer")
-                               : msg.author === "ai" ? "AI (sent)" : "Human"}
+                               : msg.author === "ai" ? "AI" : "Human"}
                     </span>
+                    {!landed && (
+                      <Pill color={msg.delivery === "not_sent" ? "#6b7280" : "#f43f5e"}>
+                        {msg.delivery === "not_sent" ? "internal note" : "not delivered"}
+                      </Pill>
+                    )}
                     <span style={{ flex: 1 }} />
                     <span style={{ fontSize: 10, color: "var(--text-dim)" }}>
                       {new Date(msg.sent_at).toLocaleString("en-US", {
@@ -194,17 +343,40 @@ export default function ApprovalInterface() {
         {/* ── Pane 2: the draft and the decision ───────────────────────── */}
         <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
           {!draft ? (
-            <Panel title="No draft">
-              <Empty icon={Bot} title="Nothing is waiting for approval"
-                     body={t.status === "needs_human_only"
+            <Panel title={closed ? "Closed" : "No draft"}>
+              <Empty icon={closed ? CheckCircle2 : Bot}
+                     title={closed ? "This ticket is closed" : "Nothing is waiting for approval"}
+                     body={closed
+                       ? `Outcome: ${OUTCOME_LABELS[t.outcome] ?? t.outcome}. ${t.resolution_summary ?? ""}`
+                       : t.status === "needs_human_only"
                        ? "The classifier routed this straight to a human — it needs authority the agent doesn't have."
+                       : t.status === "failed"
+                       ? "A reply was written but not delivered. Retry it above, or close the ticket out if it was handled another way."
                        : t.status === "sent" ? "A reply has already been sent."
                        : "No pending draft."} />
               <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.8rem", flexWrap: "wrap" }}>
-                <Btn variant="outline" color={SUPPORT_ACCENT} disabled={busy === "draft"}
-                     onClick={() => run("draft", () => generateDraft(t.id), () => "Draft generated.")}>
-                  <RefreshCw size={13} /> {busy === "draft" ? "Drafting…" : "Draft a reply"}
-                </Btn>
+                {!closed && (
+                  <Btn variant="outline" color={SUPPORT_ACCENT} disabled={busy === "draft"}
+                       onClick={() => run("draft", () => generateDraft(t.id), () => "Draft generated.")}>
+                    <RefreshCw size={13} /> {busy === "draft" ? "Drafting…" : "Draft a reply"}
+                  </Btn>
+                )}
+                {/* The terminal actions, previously unreachable from any page:
+                    `setTicketStatus` and `escalateTicket` were exported in api.ts
+                    and never called, so nothing could ever leave `sent`. */}
+                {!closed && (
+                  <>
+                    <Btn color="#22c55e" onClick={() => setMode("closeout")}>
+                      <CheckSquare size={13} /> Close out
+                    </Btn>
+                    <Btn variant="outline" color="#a78bfa" onClick={() => setMode("elsewhere")}>
+                      <History size={13} /> Already handled
+                    </Btn>
+                    <Btn variant="ghost" onClick={() => setMode("escalate")}>
+                      <ArrowUpRight size={13} /> Escalate
+                    </Btn>
+                  </>
+                )}
               </div>
             </Panel>
           ) : (
@@ -268,9 +440,17 @@ export default function ApprovalInterface() {
                   </div>
                 )}
               </Panel>
+            </>
+          )}
 
-              {mode === "review" ? (
-                <Panel title="Decision">
+          {/* ── The decision panels ───────────────────────────────────────
+              At column level, not nested inside the draft branch. Close-out,
+              Already handled and Escalate all have to be reachable when there
+              is NO pending draft — which is most of a ticket's life, and was
+              exactly the state with no way out. */}
+          {draft && mode === "review" ? (
+                <Panel title="Decision"
+                       subtitle="Sending is one click. Record what else happened only if something else happened.">
                   <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                     <Btn color={edited ? "#f5a840" : "#22c55e"} disabled={!!busy} onClick={onApprove}>
                       <Send size={13} />
@@ -284,9 +464,171 @@ export default function ApprovalInterface() {
                            () => "Regenerated. No correction pair — a regenerate isn't a correction.")}>
                       <RefreshCw size={13} /> {busy === "draft" ? "Regenerating…" : "Regenerate"}
                     </Btn>
+                    <span style={{ flex: 1 }} />
+                    <Btn variant="ghost" disabled={!!busy} onClick={() => setMode("elsewhere")}
+                         title="Resolved outside Mission Control before you got here">
+                      <History size={13} /> Already handled
+                    </Btn>
+                    <Btn variant="ghost" disabled={!!busy} onClick={() => setMode("escalate")}>
+                      <ArrowUpRight size={13} /> Escalate
+                    </Btn>
+                  </div>
+
+                  {/* Collapsed by default. At 20–60 tickets a day a mandatory
+                      form per ticket guarantees junk data, so the fast path
+                      stays one click and this opens only when it applies. */}
+                  <details style={{ marginTop: "0.9rem" }}>
+                    <summary style={{
+                      cursor: "pointer", fontSize: 11, fontWeight: 700,
+                      color: hasResolutionContent(res) ? "#f5a840" : "var(--text-muted)",
+                      display: "flex", alignItems: "center", gap: 6,
+                    }}>
+                      <Wrench size={12} />
+                      {hasResolutionContent(res)
+                        ? `${res.actions.length} action(s) will be recorded with this send`
+                        : "Did you also do something? Refund, return sheet, warehouse call…"}
+                      {(t.suggestedActions ?? []).length > 0 && !hasResolutionContent(res) && (
+                        <Pill color="#a78bfa">
+                          <Sparkles size={9} /> {t.suggestedActions.length} suggested
+                        </Pill>
+                      )}
+                    </summary>
+                    <div style={{ marginTop: "0.9rem" }}>
+                      {vocab === null ? <Loading label="Loading actions" /> : (
+                        <>
+                          <ResolutionFields
+                            value={res} onChange={setRes} vocabulary={vocab}
+                            suggested={t.suggestedActions ?? []}
+                            showOutcome={false}
+                          />
+                          <div style={{ marginTop: "0.7rem", display: "flex", gap: "0.5rem",
+                                        alignItems: "center", flexWrap: "wrap" }}>
+                            <AddFollowupRow
+                              onAdd={a => setRes(r => ({ ...r, actions: [...r.actions, a] }))} />
+                            <span style={{ flex: 1 }} />
+                            {hasResolutionContent(res) && (
+                              <Btn size="sm" variant="ghost" disabled={!!busy} onClick={onLogOnly}>
+                                {busy === "log" ? "Saving…" : "Record without sending"}
+                              </Btn>
+                            )}
+                            <Btn size="sm" color="#22c55e" disabled={!!busy}
+                                 onClick={() => setMode("closeout")}>
+                              <CheckSquare size={11} /> Close out too
+                            </Btn>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </details>
+                </Panel>
+              ) : mode === "closeout" ? (
+                <Panel title="Close this ticket out"
+                       subtitle="The outcome and the summary are what make this a record rather than a cleared row">
+                  {vocab === null ? <Loading label="Loading actions" /> : (
+                    <>
+                      <ResolutionFields
+                        value={res} onChange={setRes} vocabulary={vocab}
+                        suggested={t.suggestedActions ?? []}
+                        showOutcome outcomeRequired
+                      />
+                      <div style={{ marginTop: "0.8rem" }}>
+                        <AddFollowupRow
+                          onAdd={a => setRes(r => ({ ...r, actions: [...r.actions, a] }))} />
+                      </div>
+
+                      {openFollowupsAfter() && (
+                        <div style={{
+                          display: "flex", gap: 7, alignItems: "flex-start", marginTop: "0.9rem",
+                          background: "rgba(245,168,64,0.07)", border: "1px solid rgba(245,168,64,0.28)",
+                          borderRadius: 9, padding: "0.55rem 0.7rem",
+                        }}>
+                          <Wrench size={12} color="#f5a840" style={{ marginTop: 1, flexShrink: 0 }} />
+                          <span style={{ fontSize: 11.5, color: "#f5a840", lineHeight: 1.5 }}>
+                            Closing is fine with work still outstanding — the customer is done with,
+                            the operation isn't. It stays in the <strong>Follow-up</strong> queue
+                            until every task is ticked off.
+                          </span>
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center",
+                                    flexWrap: "wrap", marginTop: "0.9rem" }}>
+                        <Btn color="#22c55e" disabled={!!closeProblems.length || !!busy} onClick={onCloseOut}>
+                          <CheckSquare size={13} /> {busy === "closeout" ? "Closing…" : "Close ticket"}
+                        </Btn>
+                        <Btn variant="ghost" onClick={() => setMode("review")}>Cancel</Btn>
+                        {closeProblems.length > 0 && (
+                          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                            {closeProblems[0]}
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </Panel>
+              ) : mode === "elsewhere" ? (
+                <Panel title="Already handled elsewhere"
+                       subtitle="For issues resolved off-platform — by phone, by someone else, or before you opened this">
+                  {vocab === null ? <Loading label="Loading actions" /> : (
+                    <>
+                      <div style={{ marginBottom: "0.9rem", fontSize: 11.5,
+                                    color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                        No email is sent and any pending draft is discarded. Say how it was handled and
+                        by whom — “already handled” with no account of how is the same as closing it to
+                        clear the queue, and it teaches the agent nothing.
+                      </div>
+                      <ResolutionFields
+                        value={res} onChange={setRes} vocabulary={vocab}
+                        suggested={t.suggestedActions ?? []}
+                        showOutcome={false}
+                      />
+                      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center",
+                                    flexWrap: "wrap", marginTop: "0.9rem" }}>
+                        <Btn color="#a78bfa" disabled={res.summary.trim().length < 20 || !!busy}
+                             onClick={onHandledElsewhere}>
+                          <History size={13} /> {busy === "elsewhere" ? "Saving…" : "Mark already handled"}
+                        </Btn>
+                        <Btn variant="ghost" onClick={() => setMode("review")}>Cancel</Btn>
+                        {res.summary.trim().length < 20 && (
+                          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                            The summary needs {20 - res.summary.trim().length} more character(s).
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </Panel>
+              ) : mode === "escalate" ? (
+                <Panel title="Escalate"
+                       subtitle="Name an owner and this becomes a tracked follow-up, not a note nobody sees">
+                  <label style={labelStyle}>Why? <span style={{ color: "#f43f5e" }}>*</span></label>
+                  <textarea
+                    value={escNote} onChange={e => setEscNote(e.target.value)} rows={3}
+                    placeholder="What does the next person need to know to pick this up?"
+                    style={fieldStyle}
+                  />
+                  <div style={{ marginTop: "0.7rem" }}>
+                    <label style={labelStyle}>Who's picking it up?</label>
+                    <input
+                      value={escOwner} onChange={e => setEscOwner(e.target.value)}
+                      placeholder="Name or team — leave blank and nothing will track it"
+                      style={fieldStyle}
+                    />
+                  </div>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center",
+                                flexWrap: "wrap", marginTop: "0.9rem" }}>
+                    <Btn color="#f43f5e" disabled={escNote.trim().length < 10 || !!busy} onClick={onEscalate}>
+                      <ArrowUpRight size={13} /> {busy === "escalate" ? "Escalating…" : "Escalate"}
+                    </Btn>
+                    <Btn variant="ghost" onClick={() => setMode("review")}>Cancel</Btn>
+                    {escNote.trim().length < 10 && (
+                      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                        Say why — at least 10 characters.
+                      </span>
+                    )}
                   </div>
                 </Panel>
-              ) : (
+              ) : draft && mode === "reject" ? (
                 <Panel title="Reject & rewrite"
                        subtitle="One form, one submit — a rejection without your replacement is a training pair with half of it missing">
                   <div style={{ marginBottom: "0.9rem" }}>
@@ -326,6 +668,29 @@ export default function ApprovalInterface() {
                     />
                   </div>
 
+                  {/* A rejection is very often a denial. Recording that here means
+                      "we answered them and said no" is a stored outcome rather
+                      than something only inferable from reading the email. */}
+                  {vocab && (
+                    <details style={{ marginBottom: "0.9rem" }}>
+                      <summary style={{ cursor: "pointer", fontSize: 11, fontWeight: 700,
+                                        color: hasResolutionContent(res) ? "#f5a840" : "var(--text-muted)",
+                                        display: "flex", alignItems: "center", gap: 6 }}>
+                        <Wrench size={12} />
+                        {hasResolutionContent(res)
+                          ? `${res.actions.length} action(s) and the outcome will be recorded`
+                          : "Record the outcome and anything you did (optional)"}
+                      </summary>
+                      <div style={{ marginTop: "0.8rem" }}>
+                        <ResolutionFields
+                          value={res} onChange={setRes} vocabulary={vocab}
+                          suggested={t.suggestedActions ?? []}
+                          showOutcome
+                        />
+                      </div>
+                    </details>
+                  )}
+
                   <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
                     <Btn color="#f43f5e" disabled={!canReject || !!busy} onClick={onReject}>
                       <Send size={13} /> {busy === "reject" ? "Sending…" : "Send mine & store the pair"}
@@ -338,9 +703,19 @@ export default function ApprovalInterface() {
                     )}
                   </div>
                 </Panel>
-              )}
-            </>
-          )}
+              ) : null}
+
+          {/* ── What was actually done ───────────────────────────────────── */}
+          <Panel title="Actions & follow-ups" pad={false}
+                 right={openFollowups.length > 0
+                   ? <Pill color="#f5a840"><Wrench size={9} /> {openFollowups.length} open</Pill>
+                   : undefined}>
+            <ActionLog
+              actions={t.actions ?? []}
+              busy={busy}
+              onComplete={aid => run(aid, () => completeAction(aid), () => "Marked done.")}
+            />
+          </Panel>
         </div>
 
         {/* ── Pane 3: context ──────────────────────────────────────────── */}
@@ -436,6 +811,12 @@ export default function ApprovalInterface() {
                                             { month: "short", year: "numeric" })} />
             </Panel>
           )}
+
+          {/* Append-only. Nothing here overwrites anything — a re-close records a
+              second outcome_set rather than editing the first. */}
+          <Panel title="Timeline" pad={false} right={<Clock size={13} color="var(--text-muted)" />}>
+            <Timeline events={t.events ?? []} />
+          </Panel>
         </div>
       </div>
     </>

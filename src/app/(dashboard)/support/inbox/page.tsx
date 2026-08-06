@@ -3,15 +3,26 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Search, Inbox as InboxIcon, AlertTriangle, Flame, ChevronRight, Bot, UserCheck, RefreshCw,
+  Wrench, MailWarning,
 } from "lucide-react";
 import {
-  Panel, Pill, Confidence, Empty, ago, Btn, Loading, ErrorBox, NotConnected,
+  Panel, Pill, Confidence, Empty, ago, Btn, Loading, ErrorBox, NotConnected, OpsMark,
   STATUS_COLOR, STATUS_LABEL, SUPPORT_ACCENT,
 } from "../ui";
-import { getTickets, getSummary, runIngest } from "../api";
+import { getTickets, getSummary, runIngest, OUTCOME_LABELS, OUTCOME_COLOR } from "../api";
 
+/**
+ * `followup` is a view, not a status.
+ *
+ * It is every ticket with outstanding operational work, whatever the
+ * conversation is doing — and it cannot be expressed as a status filter, which
+ * is precisely why work done outside the platform used to be invisible: a
+ * ticket that had been answered but not refunded sat in `sent` looking finished.
+ */
 const FILTERS = [
   { key: "awaiting_approval", label: "Awaiting approval" },
+  { key: "followup",          label: "Follow-up work",  color: "#f5a840" },
+  { key: "failed",            label: "Not delivered",   color: "#f43f5e" },
   { key: "needs_human_only",  label: "Human only" },
   { key: "escalated",         label: "Escalated" },
   { key: "sent",              label: "Sent" },
@@ -67,6 +78,35 @@ export default function SupportInbox() {
     <>
       {summary?.mail?.blockers?.length > 0 && <NotConnected blockers={summary.mail.blockers} />}
       {err && <ErrorBox error={err} onRetry={load} />}
+
+      {/* Two piles of work nobody was looking at, because nothing counted them. */}
+      {(summary?.openFollowups > 0 || summary?.undeliveredReplies > 0) && (
+        <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+          {summary.openFollowups > 0 && (
+            <div onClick={() => setFilter("followup")}
+                 style={{ ...bannerStyle("#f5a840"), cursor: "pointer" }}>
+              <Wrench size={13} color="#f5a840" />
+              <span>
+                <strong>{summary.openFollowups}</strong> open follow-up
+                {summary.openFollowups === 1 ? "" : "s"}
+                {summary.overdueFollowups > 0 && (
+                  <span style={{ color: "#f43f5e" }}> · {summary.overdueFollowups} overdue</span>
+                )}
+              </span>
+            </div>
+          )}
+          {summary.undeliveredReplies > 0 && (
+            <div onClick={() => setFilter("failed")}
+                 style={{ ...bannerStyle("#f43f5e"), cursor: "pointer" }}>
+              <MailWarning size={13} color="#f43f5e" />
+              <span>
+                <strong>{summary.undeliveredReplies}</strong> repl
+                {summary.undeliveredReplies === 1 ? "y was" : "ies were"} written but never delivered
+              </span>
+            </div>
+          )}
+        </div>
+      )}
       {note && (
         <div style={{ background: "rgba(0,201,215,0.08)", border: "1px solid rgba(0,201,215,0.28)",
                       borderRadius: 10, padding: "0.6rem 0.9rem", marginBottom: "1rem",
@@ -77,9 +117,11 @@ export default function SupportInbox() {
                     alignItems: "center", marginBottom: "1rem" }}>
         <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
           {FILTERS.map(f => (
-            <Pill key={f.key} color={f.key === "all" ? SUPPORT_ACCENT : (STATUS_COLOR[f.key] ?? SUPPORT_ACCENT)}
+            <Pill key={f.key}
+                  color={f.color ?? (f.key === "all" ? SUPPORT_ACCENT : (STATUS_COLOR[f.key] ?? SUPPORT_ACCENT))}
                   active={filter === f.key} onClick={() => setFilter(f.key)}>
               {f.label}
+              {f.key === "followup" && summary?.openFollowups > 0 && ` (${summary.openFollowups})`}
             </Pill>
           ))}
         </div>
@@ -114,11 +156,15 @@ export default function SupportInbox() {
           <span style={{ width: 3, flexShrink: 0 }} />
           <span style={{ width: 40, flexShrink: 0 }}>Ref</span>
           <span style={{ flex: 1, minWidth: 0 }}>Subject</span>
-          <span style={{ width: 116, flexShrink: 0 }}>Customer</span>
-          <span style={{ width: 112, flexShrink: 0 }}>Category</span>
-          <span style={{ width: 82, flexShrink: 0, textAlign: "right" }}>Conf.</span>
+          <span style={{ width: 100, flexShrink: 0 }}>Customer</span>
+          <span style={{ width: 100, flexShrink: 0 }}>Category</span>
+          <span style={{ width: 74, flexShrink: 0, textAlign: "right" }}>Conf.</span>
           <span style={{ width: 124, flexShrink: 0, textAlign: "right" }}>Status</span>
-          <span style={{ width: 58, flexShrink: 0, textAlign: "right" }}>Waiting</span>
+          {/* Outcome and ops are separate columns on purpose — "we replied" and
+              "we finished" are different facts and the status pill only holds one. */}
+          <span style={{ width: 108, flexShrink: 0, textAlign: "right" }}>Outcome</span>
+          <span style={{ width: 88, flexShrink: 0, textAlign: "right" }}>Ops</span>
+          <span style={{ width: 52, flexShrink: 0, textAlign: "right" }}>Waiting</span>
           <span style={{ width: 14, flexShrink: 0 }} />
         </div>
 
@@ -165,17 +211,17 @@ export default function SupportInbox() {
                   )}
                 </span>
 
-                <span style={{ width: 116, flexShrink: 0, fontSize: 11, color: "var(--text-muted)",
+                <span style={{ width: 100, flexShrink: 0, fontSize: 11, color: "var(--text-muted)",
                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {t.customer_name || t.customer_email || "—"}
                 </span>
 
-                <span style={{ width: 112, flexShrink: 0, fontSize: 11, color: "var(--text-dim)",
+                <span style={{ width: 100, flexShrink: 0, fontSize: 11, color: "var(--text-dim)",
                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {t.category?.label ?? "—"}
                 </span>
 
-                <span style={{ width: 82, flexShrink: 0, display: "flex", justifyContent: "flex-end" }}>
+                <span style={{ width: 74, flexShrink: 0, display: "flex", justifyContent: "flex-end" }}>
                   {t.draftConfidence != null
                     ? <Confidence value={t.draftConfidence} />
                     : <Pill color="#a78bfa"><UserCheck size={9} /> none</Pill>}
@@ -187,7 +233,25 @@ export default function SupportInbox() {
                   </Pill>
                 </span>
 
-                <span style={{ width: 58, flexShrink: 0, textAlign: "right", fontSize: 11,
+                <span style={{ width: 108, flexShrink: 0, display: "flex", justifyContent: "flex-end" }}>
+                  {t.outcome
+                    ? <Pill color={OUTCOME_COLOR[t.outcome] ?? "#6b7280"}>
+                        {OUTCOME_LABELS[t.outcome] ?? t.outcome}
+                      </Pill>
+                    // Answered but never closed out: the gap this feature exists
+                    // to close, so it is called out rather than left blank.
+                    : ["sent", "awaiting_customer", "failed"].includes(t.status)
+                      ? <Pill color="#f5a840" title="Replied, but nothing records what we decided">
+                          not closed
+                        </Pill>
+                      : <span style={{ fontSize: 11, color: "var(--text-dim)" }}>—</span>}
+                </span>
+
+                <span style={{ width: 88, flexShrink: 0, display: "flex", justifyContent: "flex-end" }}>
+                  <OpsMark state={t.ops_state} open={t.openFollowups} />
+                </span>
+
+                <span style={{ width: 52, flexShrink: 0, textAlign: "right", fontSize: 11,
                                fontWeight: 700, color: overdue ? "#f43f5e" : "var(--text-muted)",
                                display: "inline-flex", alignItems: "center", gap: 3, justifyContent: "flex-end" }}>
                   {overdue && <AlertTriangle size={10} />}
@@ -204,8 +268,18 @@ export default function SupportInbox() {
       <div style={{ marginTop: "0.8rem", display: "flex", alignItems: "center", gap: 8,
                     fontSize: 11, color: "var(--text-muted)" }}>
         <Bot size={12} />
-        {rows?.length ?? 0} of {total} shown. Awaiting-approval is sorted oldest-first so nothing starves.
+        {rows?.length ?? 0} of {total} shown.{" "}
+        {filter === "followup"
+          ? "Follow-up work is sorted by due date, soonest first."
+          : "Awaiting-approval is sorted oldest-first so nothing starves."}
       </div>
     </>
   );
 }
+
+const bannerStyle = (color: string): React.CSSProperties => ({
+  display: "inline-flex", alignItems: "center", gap: 8,
+  background: `${color}12`, border: `1px solid ${color}44`,
+  borderRadius: 10, padding: "0.5rem 0.85rem",
+  fontSize: 11.5, color: "var(--text-secondary)",
+});
