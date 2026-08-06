@@ -3,9 +3,10 @@ import React, { useState, useEffect, useCallback, useRef, Suspense } from "react
 import {
   ShieldAlert, AlertTriangle, Zap, Cpu, User, Shield, Bug, Wrench, ArrowRight,
   BrainCircuit, CheckCircle2, XCircle, ChevronDown, ChevronUp, Clock, RefreshCw,
-  ExternalLink, CheckCheck, Loader,
+  ExternalLink, CheckCheck, Loader, Sparkles,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import FeatureRequests from "@/components/FeatureRequests";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
 
@@ -55,6 +56,7 @@ const TYPE_ICON: Record<string, React.FC<{ size?: number; color?: string }>> = {
   tool_missing:         Wrench,
   external_dependency:  ArrowRight,
   waiting_on_decision:  BrainCircuit,
+  feature_request:      Sparkles,
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -66,12 +68,13 @@ const TYPE_LABEL: Record<string, string> = {
   tool_missing:         "TOOL MISSING",
   external_dependency:  "EXTERNAL DEPENDENCY",
   waiting_on_decision:  "WAITING ON DECISION",
+  feature_request:      "ASKED FOR",
 };
 
 const ALL_TYPES = [
   "api_key_needed", "integration_missing", "human_action",
   "permission_needed", "bug", "tool_missing", "external_dependency",
-  "waiting_on_decision",
+  "waiting_on_decision", "feature_request",
 ];
 
 const ALL_STATUSES = ["all", "open", "in_progress", "resolved", "wont_fix"] as const;
@@ -513,6 +516,8 @@ function BlockagesPageInner() {
   const [loading, setLoading]     = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("open");
   const [typeFilter, setTypeFilter]     = useState<string>("all");
+  const [tab, setTab]                   = useState<"queue" | "requests">("queue");
+  const [requestCount, setRequestCount] = useState(0);
   const autoRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
@@ -537,6 +542,16 @@ function BlockagesPageInner() {
     autoRefreshRef.current = setInterval(fetchBlockages, 60_000);
     return () => { if (autoRefreshRef.current) clearInterval(autoRefreshRef.current); };
   }, [fetchBlockages]);
+
+  // Badge count for the Requests tab — how many need a decision from a person.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${BOT_URL}/admin/feature-requests/meta`, { signal: AbortSignal.timeout(10_000) })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled && d) setRequestCount(d.awaitingDecision ?? 0); })
+      .catch(() => { /* the tab just shows no badge */ });
+    return () => { cancelled = true; };
+  }, [tab]);
 
   // ── Patch ──────────────────────────────────────────────────────────────────
   const patchBlockage = useCallback(async (id: string, patch: Partial<Blockage>) => {
@@ -596,7 +611,9 @@ function BlockagesPageInner() {
                 Blockages
               </h1>
               <p style={{ fontSize: "0.8rem", color: "#64748b", margin: 0 }}>
-                What's blocking agents and what needs your action
+                {tab === "queue"
+                  ? "What's blocking agents and what needs your action"
+                  : "What people have asked for, and what happened to it"}
               </p>
             </div>
           </div>
@@ -616,12 +633,55 @@ function BlockagesPageInner() {
         </div>
 
         {/* Stat pills */}
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.75rem" }}>
-          <StatPill label="Open"         count={stats.open}        color="#f59e0b" />
-          <StatPill label="In Progress"  count={stats.in_progress} color="#38bdf8" />
-          <StatPill label="Resolved Today" count={stats.resolved}  color="#22c55e" />
-        </div>
+        {tab === "queue" && (
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.75rem" }}>
+            <StatPill label="Open"         count={stats.open}        color="#f59e0b" />
+            <StatPill label="In Progress"  count={stats.in_progress} color="#38bdf8" />
+            <StatPill label="Resolved Today" count={stats.resolved}  color="#22c55e" />
+          </div>
+        )}
       </div>
+
+      {/* ── Tabs: the agents' queue, and what people have asked for ── */}
+      <div style={{
+        display: "flex", gap: "1.6rem", borderBottom: "1px solid rgba(255,255,255,0.07)",
+        marginBottom: "1.25rem",
+      }}>
+        {([
+          { key: "queue",    label: "Queue",    badge: stats.open },
+          { key: "requests", label: "Requests", badge: requestCount },
+        ] as const).map(t => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              style={{
+                border: 0, background: "transparent", cursor: "pointer",
+                padding: "0 0 10px", marginBottom: -1,
+                fontSize: "13px", fontWeight: active ? 800 : 600,
+                color: active ? "#e2e8f0" : "#475569",
+                borderBottom: `2px solid ${active ? "#f59e0b" : "transparent"}`,
+                display: "flex", alignItems: "center", gap: 7,
+              }}
+            >
+              {t.label}
+              {t.badge > 0 && (
+                <span style={{
+                  fontSize: "10px", fontWeight: 800, borderRadius: 20, padding: "1px 7px",
+                  fontVariantNumeric: "tabular-nums",
+                  background: active ? "rgba(245,158,11,0.16)" : "rgba(255,255,255,0.06)",
+                  color: active ? "#f59e0b" : "#475569",
+                }}>
+                  {t.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === "requests" ? <FeatureRequests /> : (<>
 
       {/* ── Filter bar ── */}
       <div style={{ marginBottom: "1.25rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
@@ -692,6 +752,8 @@ function BlockagesPageInner() {
           ))}
         </AnimatePresence>
       )}
+
+      </>)}
     </div>
   );
 }
