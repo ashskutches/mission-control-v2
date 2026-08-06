@@ -150,6 +150,10 @@ interface Draft {
   handle: string | null;
   seo_title: string | null;
   seo_description: string | null;
+  image_url: string | null;
+  image_alt: string | null;
+  featured_image_source: string | null;
+  product_suggestions: ProductSuggestion[] | null;
   tags: string[];
   product_handles: string[];
   gate: GateResult | Record<string, never>;
@@ -159,6 +163,66 @@ interface Draft {
   shopify_article_id: string | null;
   published_at: string | null;
   updated_at: string;
+}
+
+/** What the topic → catalogue resolver picked when the brief named no products. */
+interface ProductSuggestion {
+  handle: string;
+  title: string;
+  score: number;
+  fallback: boolean;
+  reason: string;
+}
+
+/** One featured-image option. Mirrors `blog_image_candidates`. */
+interface ImageCandidate {
+  id: string;
+  draft_id: string;
+  round: number;
+  rank: number;
+  source: "library" | "generated";
+  library_file_id: string | null;
+  drive_url: string | null;
+  image_url: string;
+  image_alt: string;
+  prompt: string | null;
+  model: string | null;
+  angle: string | null;
+  score: number;
+  relevance: number;
+  matched_terms: string[];
+  reasons: string[];
+  tags: string[];
+  image_type: string | null;
+  mood: string | null;
+  status: "offered" | "chosen" | "rejected";
+}
+
+interface FeatureWeight {
+  label: string;
+  weight: number;
+  picks: number;
+  rejects: number;
+}
+
+interface ImagePreference {
+  ready: boolean;
+  sampleSize: number;
+  tags: FeatureWeight[];
+  imageTypes: FeatureWeight[];
+  moods: FeatureWeight[];
+  sources: FeatureWeight[];
+}
+
+interface ProposeResult {
+  candidates: ImageCandidate[];
+  round: number;
+  from_library: number;
+  generated: number;
+  library_considered: number;
+  best_rejected_score: number | null;
+  preference: ImagePreference;
+  skipped: { source: string; reason: string }[];
 }
 
 interface MirrorArticle extends ArticleRef {
@@ -930,6 +994,227 @@ function ArticlesView({ blogs }: { blogs: string[] }) {
 }
 
 
+// ── Featured image picker ─────────────────────────────────────────────────────
+
+/**
+ * Four featured-image choices for one draft.
+ *
+ * `no_featured_image` is a blocking gate check and nothing used to fill the field in, so
+ * every generated draft was structurally unpublishable. The server searches the tagged
+ * photo library against the post's topic and generates only the shortfall; this is the
+ * screen where a human picks one.
+ *
+ * Every card shows why it was offered. That is deliberate: when the four suggestions are
+ * wrong, "matches rebound, cardio" is the only thing that tells you whether the topic
+ * was misread or the library is simply missing the photo. The same applies to the
+ * learned preference, which states how many past decisions it rests on and is not
+ * applied at all below the minimum.
+ */
+function FeaturedImagePicker({ draft, onChanged }: {
+  draft: Draft;
+  onChanged: () => Promise<void> | void;
+}) {
+  const [candidates, setCandidates] = useState<ImageCandidate[] | null>(null);
+  const [meta, setMeta] = useState<ProposeResult | null>(null);
+  const [busy, setBusy] = useState<null | "find" | "library" | string>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`${BOT_URL}/admin/blog/drafts/${draft.id}/images`, {
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (res.ok) setCandidates((await res.json()).candidates ?? []);
+    } catch { /* leave whatever is on screen */ }
+  }, [draft.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  /** Generation is slow — four images against an external provider. Hence the timeout. */
+  const propose = async (generate: boolean) => {
+    setBusy(generate ? "find" : "library"); setErr(null);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/blog/drafts/${draft.id}/images`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ generate }),
+        signal: AbortSignal.timeout(300_000),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) { setErr(payload.error || `Request failed (${res.status})`); return; }
+      setMeta(payload as ProposeResult);
+      setCandidates((payload.candidates ?? []) as ImageCandidate[]);
+    } catch (e) { setErr(errMessage(e)); }
+    finally { setBusy(null); }
+  };
+
+  const choose = async (candidateId: string) => {
+    setBusy(candidateId); setErr(null);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/blog/drafts/${draft.id}/images/${candidateId}/choose`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+        signal: AbortSignal.timeout(60_000),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) { setErr(payload.error || `Request failed (${res.status})`); return; }
+      await load();
+      // The gate result changed, so the row's badge and Publish button are now stale.
+      await onChanged();
+    } catch (e) { setErr(errMessage(e)); }
+    finally { setBusy(null); }
+  };
+
+  const latestRound = candidates?.length ? Math.max(...candidates.map(c => c.round)) : 0;
+  const showing = (candidates ?? []).filter(c => c.round === latestRound || c.status === "chosen");
+  const chosen = (candidates ?? []).find(c => c.status === "chosen");
+  const pref = meta?.preference;
+
+  const smallBtn = (color: string, disabled = false): React.CSSProperties => ({
+    display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px",
+    borderRadius: 7, background: disabled ? "rgba(255,255,255,0.03)" : `${color}18`,
+    border: `1px solid ${disabled ? "rgba(255,255,255,0.06)" : color + "35"}`,
+    color: disabled ? "#475569" : color, fontSize: 10, fontWeight: 800,
+    cursor: disabled ? "default" : "pointer", fontFamily: "inherit",
+    textTransform: "uppercase", letterSpacing: "0.06em",
+  });
+
+  const working = busy === "find" || busy === "library";
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <p style={{ ...LABEL, color: chosen ? "#34d399" : "#f43f5e" }}>
+          Featured image {chosen ? "· chosen" : "· required to publish"}
+        </p>
+        <button onClick={() => propose(true)} disabled={working} style={smallBtn("#a78bfa", working)}>
+          {busy === "find" ? <Loader2 size={10} className="spin" /> : <ImageIcon size={10} />}
+          {showing.length ? "More options" : "Find images"}
+        </button>
+        <button onClick={() => propose(false)} disabled={working} style={smallBtn("#64748b", working)}>
+          {busy === "library" ? <Loader2 size={10} className="spin" /> : <Search size={10} />}
+          Library only
+        </button>
+      </div>
+
+      {busy === "find" && (
+        <p style={{ fontSize: 11, color: "#64748b", margin: "8px 0 0" }}>
+          Searching the photo library, then generating whatever it cannot supply. This takes
+          up to a couple of minutes.
+        </p>
+      )}
+
+      {err && (
+        <p style={{ fontSize: 11.5, color: "#fda4af", margin: "8px 0 0", lineHeight: 1.5 }}>{err}</p>
+      )}
+
+      {meta && (
+        <p style={{ fontSize: 11, color: "#64748b", margin: "8px 0 0", lineHeight: 1.55 }}>
+          {meta.from_library > 0
+            ? `${meta.from_library} from the photo library`
+            : "Nothing in the photo library was on topic"}
+          {meta.generated > 0 && `, ${meta.generated} generated from the article's opening`}
+          {meta.from_library === 0 && meta.library_considered > 0 && (
+            <> — {meta.library_considered} photo{meta.library_considered === 1 ? "" : "s"} were
+              considered and the closest scored {meta.best_rejected_score?.toFixed(2) ?? "0.00"}</>
+          )}
+          .
+        </p>
+      )}
+
+      {pref && (
+        <p style={{ fontSize: 10.5, color: "#475569", margin: "5px 0 0", lineHeight: 1.5 }}>
+          {pref.ready
+            ? `Ordering is nudged by ${pref.sampleSize} past decisions. It never changes which images qualify, only their order.`
+            : `No learned preference yet — ${pref.sampleSize} past decision${pref.sampleSize === 1 ? "" : "s"} recorded, and it stays out of the ranking until there are more.`}
+        </p>
+      )}
+
+      {meta?.skipped?.length ? (
+        <div style={{ marginTop: 8 }}>
+          {meta.skipped.map((s, i) => (
+            <p key={i} style={{ fontSize: 11, color: "#fcd34d", margin: "0 0 3px", lineHeight: 1.5 }}>
+              <strong>{s.source}:</strong> {s.reason}
+            </p>
+          ))}
+        </div>
+      ) : null}
+
+      {showing.length > 0 && (
+        <div style={{
+          display: "grid", gap: 8, marginTop: 10,
+          gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+        }}>
+          {showing.map(c => {
+            const isChosen = c.status === "chosen";
+            return (
+              <div key={c.id} style={{
+                border: `1px solid ${isChosen ? "rgba(52,211,153,0.45)" : "rgba(255,255,255,0.08)"}`,
+                borderRadius: 10, overflow: "hidden",
+                background: isChosen ? "rgba(52,211,153,0.06)" : "rgba(255,255,255,0.02)",
+                display: "flex", flexDirection: "column",
+              }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={c.image_url} alt={c.image_alt}
+                  style={{ width: "100%", aspectRatio: "16 / 9", objectFit: "cover", display: "block" }} />
+
+                <div style={{ padding: "7px 9px", display: "flex", flexDirection: "column", gap: 5 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{
+                      fontSize: 8.5, fontWeight: 800, letterSpacing: "0.07em",
+                      textTransform: "uppercase",
+                      color: c.source === "library" ? "#38bdf8" : "#a78bfa",
+                    }}>
+                      {c.source === "library" ? "Photo library" : "Generated"}
+                    </span>
+                    <span style={{ fontSize: 9, color: "#475569", marginLeft: "auto" }}>
+                      {c.score.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                    {c.reasons.slice(0, 3).map((r, i) => (
+                      <span key={i} title={r} style={{
+                        fontSize: 8.5, color: "#64748b", background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.06)", borderRadius: 3,
+                        padding: "1px 4px", maxWidth: "100%", overflow: "hidden",
+                        textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>{r}</span>
+                    ))}
+                  </div>
+
+                  {isChosen ? (
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      fontSize: 9.5, fontWeight: 800, color: "#34d399",
+                      textTransform: "uppercase", letterSpacing: "0.06em",
+                    }}>
+                      <CheckCircle2 size={10} /> Featured
+                    </span>
+                  ) : (
+                    <button onClick={() => choose(c.id)} disabled={busy !== null}
+                      style={smallBtn("#34d399", busy !== null)}>
+                      {busy === c.id ? <Loader2 size={10} className="spin" /> : <CheckCircle2 size={10} />}
+                      Use this
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {chosen && (
+        <p style={{ fontSize: 11, color: "#64748b", margin: "8px 0 0", lineHeight: 1.5 }}>
+          Alt text: {chosen.image_alt || "—"}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Drafts ────────────────────────────────────────────────────────────────────
 
 /**
@@ -1038,6 +1323,8 @@ function DraftsView({ blogs, onCountChange }: {
           A brief becomes a draft, a draft gets written and reviewed, and only an approved
           draft can be published. The gate checks the things the existing library got wrong:
           a product link, internal links, an image, a meta description, enough substance.
+          Writing a draft also resolves the products it should link and offers four
+          featured-image choices — expand a draft to pick one.
         </p>
         <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
           onClick={() => setShowNew(v => !v)} style={btn("#e98d20")}>
@@ -1140,6 +1427,12 @@ function DraftsView({ blogs, onCountChange }: {
                       {d.generated_by && ` · ${d.generated_by}`}
                       {d.repaired && " · repaired"}
                       {` · ${timeAgo(d.updated_at)}`}
+                      {/* The featured image is the check most likely to be the only thing
+                          standing between a finished draft and publishing, and it is fixed
+                          in the panel below rather than anywhere else. */}
+                      {written && (d.image_url
+                        ? <span style={{ color: "#34d399" }}> · image set</span>
+                        : <span style={{ color: "#f43f5e" }}> · no image</span>)}
                     </p>
                   </div>
 
@@ -1203,7 +1496,21 @@ function DraftsView({ blogs, onCountChange }: {
                               <span style={{ color: "#64748b" }}> · selling {d.product_handles.join(", ")}</span>
                             )}
                           </p>
+                          {/* Where the handles came from when nobody typed them. A flagship
+                              standing in for a topic with no matching product is worth
+                              saying out loud — the writer was told to place it honestly, and
+                              the reviewer should know that is what happened. */}
+                          {(d.product_suggestions ?? []).some(s => s.fallback) && (
+                            <p style={{ fontSize: 11, color: "#fcd34d", margin: "5px 0 0", lineHeight: 1.5 }}>
+                              No product matches this topic. {d.product_suggestions!.find(s => s.fallback)!.handle}{" "}
+                              was linked so the post has a path to an order — check it reads honestly.
+                            </p>
+                          )}
                         </div>
+
+                        {written && (
+                          <FeaturedImagePicker draft={d} onChanged={load} />
+                        )}
 
                         {d.generation_error && (
                           <p style={{ fontSize: 11.5, color: "#fda4af", margin: 0, fontFamily: "monospace" }}>
