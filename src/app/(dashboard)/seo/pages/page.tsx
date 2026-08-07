@@ -106,7 +106,8 @@ interface PageDetail {
 interface FieldMetric { percentile: number | null; category: string | null }
 interface Technical {
   url: string;
-  unavailable?: boolean; reason?: string; quota_limited?: boolean; timed_out?: boolean; keyless?: boolean;
+  unavailable?: boolean; lab_unavailable?: boolean; reason?: string;
+  quota_limited?: boolean; timed_out?: boolean; keyless?: boolean;
   audit?: {
     scores: { performance: number | null; accessibility: number | null; best_practices: number | null; seo: number | null };
     core_web_vitals: { lcp_ms: number | null; cls: number | null; tbt_ms: number | null; ttfb_ms: number | null; fcp_ms: number | null };
@@ -751,7 +752,10 @@ function TechnicalTab({ tech, loading, onRetry }: { tech: Technical | null; load
   if (loading) return <p style={{ fontSize: 12, color: "#475569" }}>Running a live Lighthouse audit on Google’s hardware — a heavy page can take a minute…</p>;
   if (!tech) return <EmptyState reason="The technical endpoint did not respond." />;
 
-  if (tech.unavailable) {
+  // Only when there is nothing at all. A lab timeout with field data intact still has
+  // the number that matters, and bailing here would hide it — which is the exact failure
+  // this split was made to fix.
+  if (tech.unavailable && !tech.field) {
     return (
       <Panel title="PageSpeed unavailable" right={onRetry && (
         <button onClick={onRetry} style={{
@@ -813,7 +817,20 @@ function TechnicalTab({ tech, loading, onRetry }: { tech: Technical | null; load
         title="Lab run — Lighthouse"
         note="One simulated mid-tier phone on a throttled connection with a cold cache. Reproducible and diagnostic; not what your visitors experienced. A lab LCP many times the field LCP is the throttling profile, not a crisis."
       >
-        {!a ? <EmptyState reason="No Lighthouse result returned." /> : (
+        {!a ? (
+          <div>
+            <p style={{ fontSize: 12, color: "#b45309", lineHeight: 1.6 }}>
+              {tech.reason ?? "No Lighthouse result returned."}
+            </p>
+            {onRetry && (
+              <button onClick={onRetry} style={{
+                marginTop: "0.6rem", display: "inline-flex", alignItems: "center", gap: 4,
+                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 7, padding: "0.25rem 0.7rem", fontSize: 11, color: "#94a3b8", cursor: "pointer",
+              }}><RefreshCw size={11} /> Retry the lab run</button>
+            )}
+          </div>
+        ) : (
           <>
             <div style={{ display: "flex", gap: "1.75rem", flexWrap: "wrap", marginBottom: "1rem" }}>
               {[
@@ -846,7 +863,12 @@ function TechnicalTab({ tech, loading, onRetry }: { tech: Technical | null; load
       </Panel>
 
       <Panel title="Opportunities" note="Lighthouse's own estimated savings, largest first.">
-        {!tech.opportunities?.opportunities?.length ? (
+        {!a ? (
+          <p style={{ fontSize: 12, color: "#475569" }}>
+            The lab run did not complete, so there is nothing to list. Opportunities come from
+            Lighthouse, not from field data.
+          </p>
+        ) : !tech.opportunities?.opportunities?.length ? (
           <p style={{ fontSize: 12, color: "#22c55e" }}>Lighthouse flagged no savings opportunities.</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
