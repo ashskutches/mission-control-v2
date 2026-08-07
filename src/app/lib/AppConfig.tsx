@@ -37,6 +37,7 @@ import {
     GitMerge,
     ClipboardList,
     PiggyBank,
+    Warehouse,
 } from 'lucide-react';
 
 export const SQUADS = [
@@ -92,6 +93,14 @@ export const APP_CONFIG = {
         // (impressions, position, topic overlap, thin posts) is measured in Search
         // Console. /content/blog redirects rather than 404s.
         { id: 'seo',           group: 'core', href: '/seo',                    icon: SearchCheck,     label: 'SEO',        color: '#34d399' },
+        // Logistics is the inventory-and-supply side of the same store Orders covers
+        // order-by-order: what is in stock, what is about to run out, and what to buy.
+        // Its Tier 1 KPIs (stockout rate, reorder points, cycle time) come from Shopify
+        // alone; the freight-cost and warranty tabs are wired but blocked on Falcon and
+        // Gorgias credentials, and say so rather than rendering zeros.
+        // Not the same page as /commerce/ops/logistics — that is the squad's agent
+        // surface (chat, tasks, routines); this is the operational dashboard.
+        { id: 'logistics',     group: 'core', href: '/logistics',              icon: Warehouse,       label: 'Logistics',  color: '#22c55e' },
         // Orders is one section with three tabs (see (dashboard)/orders/layout.tsx):
         //   /orders             Queue       — the exception queue: every order needing a
         //                                     human today, ranked. Healthy orders never
