@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { AgentBrandGuide } from "@/components/AgentBrandGuide";
 import { BusinessContextEditor } from "@/components/BusinessContextEditor";
 import FacebookPageMonitor from "@/components/FacebookPageMonitor";
 
@@ -13,6 +14,9 @@ export default function BrandPage() {
       >
         Business context, voice, and brand identity
       </p>
+
+      {/* The paste-ready guide — what people actually come here to copy */}
+      <AgentBrandGuide />
 
       {/* Business context & brand voice */}
       <BusinessContextEditor />

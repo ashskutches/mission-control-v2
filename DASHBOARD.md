@@ -22,6 +22,20 @@ A glassmorphic business intelligence dashboard built with **Next.js**. Real-time
 | Section Builder | `/content/sections` | AI-generated Shopify Liquid snippets — deploy + register for UCB1 A/B testing |
 | Copy Studio | `/content/copy` | AI ad, email, product description, and SMS copy generation |
 
+### Logistics
+| Page | Route | Purpose |
+|---|---|---|
+| **Overview** | `/logistics` | Alerts banner, inventory health, revenue gauge, cycle-time trend |
+| Inventory | `/logistics/inventory` | Every tracked SKU with reorder point and days-to-stockout, filterable by urgency |
+| Reorder | `/logistics/reorder` | The purchase list, plus the supplier lead-time editor it is computed from |
+| Warranty & Returns | `/logistics/returns` | Blocked on Gorgias; shows Shopify returns-in-flight meanwhile |
+| Shipping Cost | `/logistics/shipping` | Blocked on `FALCON_API_TOKEN`; renders Falcon's cost analysis once set |
+
+Reads `/admin/logistics` (gravity-claw `routes/logistics.ts`). Sits under SEO in the
+sidebar. **Not** `/commerce/ops/logistics` — that is the squad's agent surface (chat,
+tasks, routines); this is the operational dashboard. Where a figure cannot be computed
+honestly the tab names the env var that would unblock it rather than rendering a zero.
+
 ### Commerce (by squad)
 **Acquisition**: Media Buying, Creator Outreach, Social Presence, Search Visibility
 **Conversion**: Experimentation, Pricing & Intel, Catalog Architect, Revenue Max
