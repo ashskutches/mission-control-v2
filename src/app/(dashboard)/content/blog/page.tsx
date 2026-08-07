@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
  *
  * This redirect stays rather than the route being deleted: /content/blog sat in the
  * Content tab strip for months, so it is in bookmarks and in agent-written links, and
- * turning those into 404s buys nothing.
+ * turning those into 404s buys nothing. The tab itself is gone now — Content no longer
+ * advertises the blog, it just still answers for the old URL.
  */
 export default function ContentBlogRedirect() {
   redirect("/seo/blog");

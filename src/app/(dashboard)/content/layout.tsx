@@ -2,14 +2,15 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Tag, Layers, Copy, Film, Pin, Wand2, BookOpen } from "lucide-react";
+import { BarChart3, Tag, Layers, Copy, Film, Pin, Wand2 } from "lucide-react";
 
+// Blog is not in this strip. It lives under SEO — /seo/blog — because it is judged on
+// search performance, and it was only ever a cross-link from here: the tab pointed at
+// /seo/blog and rendered the same BlogLibrary component. Two doors to one room made
+// the section look like it owned something it does not. /content/blog still redirects,
+// so old bookmarks and agent-written links keep working.
 const NAV = [
   { href: "/content",          label: "Dashboard",    icon: BarChart3, color: "#f59e0b", exact: true },
-  // Blog lives under SEO now — it is judged on search performance, and the SEO
-  // dashboard reads the same /admin/blog/* endpoints. Kept in this strip because
-  // people still reach for it from Content; /content/blog redirects to /seo/blog.
-  { href: "/seo/blog",         label: "Blog",         icon: BookOpen,  color: "#e98d20" },
   { href: "/content/assets",   label: "Content",      icon: Film,      color: "#38bdf8" },
   { href: "/content/generate", label: "Image Studio", icon: Wand2,     color: "#a78bfa" },
   { href: "/content/products", label: "Products",     icon: Pin,       color: "#f59e0b" },
