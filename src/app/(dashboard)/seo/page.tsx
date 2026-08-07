@@ -247,7 +247,13 @@ export default function SeoDashboardPage() {
         <p style={{ fontSize: 10, color: "#475569", marginBottom: "1.25rem", lineHeight: 1.5 }}>
           Totals are summed across the top 100 queries Search Console returned, not the whole property.
           Average position is a plain mean of those rows — a long tail of deep-ranking queries pulls it
-          down further than it pulls traffic down.
+          down further than it pulls traffic down. The gap is not small: the top-100 slice reads a far
+          healthier CTR than the property does, because the queries it excludes are the ones with
+          impressions and no clicks.{" "}
+          <Link href="/seo/pages" style={{ color: "#38bdf8", textDecoration: "none", fontWeight: 700 }}>
+            The Pages tab reads every URL, paged
+          </Link>{" "}
+          — use it for anything sitewide.
         </p>
 
         {/* ── Striking distance ── */}
@@ -452,7 +458,15 @@ export default function SeoDashboardPage() {
         </Panel>
 
         {/* ── Top pages ── */}
-        <Panel title="Top pages by clicks" note="Across the whole property, not just the blog.">
+        <Panel
+          title="Top pages by clicks"
+          note="Across the whole property, not just the blog. Click a row to open its drill-down — search, CTR verdict, engagement, on-page and technical."
+          right={
+            <Link href="/seo/pages" style={{ fontSize: 10, color: "#38bdf8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
+              All pages <ArrowRight size={11} />
+            </Link>
+          }
+        >
           {!pages ? (
             <p style={{ fontSize: 12, color: "#475569" }}>Loading…</p>
           ) : pages.length === 0 ? (
@@ -470,19 +484,25 @@ export default function SeoDashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pages.slice(0, 12).map(p => (
+                  {pages.slice(0, 12).map(p => {
+                    const path = (p.page ?? "").replace(/^https?:\/\/[^/]+/, "") || "/";
+                    return (
                     <tr key={p.page} style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
                       <td style={{ ...TD, textAlign: "left", maxWidth: 380, whiteSpace: "normal", wordBreak: "break-all" }}>
-                        <a href={p.page} target="_blank" rel="noreferrer" style={{ color: "#94a3b8", textDecoration: "none", fontSize: 11.5 }}>
-                          {(p.page ?? "").replace(/^https?:\/\/[^/]+/, "") || "/"}
-                        </a>
+                        <Link
+                          href={`/seo/pages?url=${encodeURIComponent(path)}&days=${days}`}
+                          style={{ color: "#94a3b8", textDecoration: "none", fontSize: 11.5 }}
+                        >
+                          {path}
+                        </Link>
                       </td>
                       <td style={TD}>{num(p.clicks)}</td>
                       <td style={TD}>{num(p.impressions)}</td>
                       <td style={TD}>{pct(p.ctr_pct, 1)}</td>
                       <td style={TD}>{p.position?.toFixed(1)}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
