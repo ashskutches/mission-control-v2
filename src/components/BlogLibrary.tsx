@@ -44,6 +44,31 @@ const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 const STOREFRONT = "https://leapsandrebounds.com";
 const STORE_HANDLE = "leaps-rebounds";
 
+/**
+ * A thumbnail URL for an image stored in Supabase Storage.
+ *
+ * The picker renders four candidates in ~180px cards and was pointing them at the
+ * originals: measured at 710 KB and 1792x1024 for a generated one. Four of those is
+ * roughly 3 MB downloaded so the browser can throw away 95% of every pixel, and the
+ * downscale runs again on each frame of the expand animation, which is where the
+ * dropped frames came from.
+ *
+ * Supabase serves resized derivatives from `/render/image/public/` instead of
+ * `/object/public/`. The same image at width 480 is ~25 KB and comes back with a real
+ * `max-age`, where the original is served `no-cache`.
+ *
+ * Returns the URL untouched when it is not a Supabase object URL — library photos and
+ * anything set by hand can be hosted anywhere, and a rewritten URL that 404s would be
+ * worse than a heavy one that loads. `<img onError>` falls back to the original too,
+ * so a project without image transformations still shows pictures.
+ */
+function thumbUrl(url: string, width = 480): string {
+  const marker = "/storage/v1/object/public/";
+  if (!url.includes(marker)) return url;
+  return url.replace(marker, "/storage/v1/render/image/public/")
+    + `?width=${width}&quality=70&resize=cover`;
+}
+
 // ── Types (mirror the API shapes in gravity-claw/src/utils/blog-audit.ts) ─────
 
 interface BlogSummary {
@@ -159,6 +184,8 @@ interface Draft {
   gate: GateResult | Record<string, never>;
   generated_by: string | null;
   repaired: boolean;
+  /** The writer left out the product link and one was placed for it. Worth a read. */
+  product_link_inserted?: boolean;
   generation_error: string | null;
   shopify_article_id: string | null;
   published_at: string | null;
@@ -1155,9 +1182,24 @@ function FeaturedImagePicker({ draft, onChanged }: {
                 background: isChosen ? "rgba(52,211,153,0.06)" : "rgba(255,255,255,0.02)",
                 display: "flex", flexDirection: "column",
               }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={c.image_url} alt={c.image_alt}
-                  style={{ width: "100%", aspectRatio: "16 / 9", objectFit: "cover", display: "block" }} />
+                {/* Thumbnail, not the original — see `thumbUrl`. The full image opens in
+                    a tab for anyone who wants to judge it properly, and `onError` puts
+                    the original back if the resize endpoint is unavailable.
+                    eslint-disable-next-line @next/next/no-img-element */}
+                <a href={c.image_url} target="_blank" rel="noreferrer" title="Open the full-size image">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={thumbUrl(c.image_url)} alt={c.image_alt}
+                    loading="lazy" decoding="async" width={480} height={270}
+                    onError={e => {
+                      const img = e.currentTarget;
+                      if (img.src !== c.image_url) img.src = c.image_url;
+                    }}
+                    style={{
+                      width: "100%", height: "auto", aspectRatio: "16 / 9",
+                      objectFit: "cover", display: "block",
+                      background: "rgba(255,255,255,0.03)",
+                    }} />
+                </a>
 
                 <div style={{ padding: "7px 9px", display: "flex", flexDirection: "column", gap: 5 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1210,6 +1252,177 @@ function FeaturedImagePicker({ draft, onChanged }: {
         <p style={{ fontSize: 11, color: "#64748b", margin: "8px 0 0", lineHeight: 1.5 }}>
           Alt text: {chosen.image_alt || "—"}
         </p>
+      )}
+    </div>
+  );
+}
+
+// ── Draft preview ─────────────────────────────────────────────────────────────
+
+/** What `GET /admin/blog/drafts/:id` adds over the list row. */
+interface FullDraft extends Draft {
+  body_html: string | null;
+  summary_html: string | null;
+}
+
+/**
+ * Read the article.
+ *
+ * The list endpoint excludes `body_html` on purpose — 785-row responses should not drag
+ * every HTML body along — and nothing ever fetched it back. So the pipeline could write
+ * a 1,343-word article, propose four images for it, gate it, and put an Approve button
+ * next to it, without anyone being able to read a word of what was written. Approving on
+ * a word count is not reviewing.
+ *
+ * Rendered in a fully sandboxed iframe rather than with `dangerouslySetInnerHTML`. The
+ * HTML is our own model's output out of our own database, so this is not a hostile-input
+ * problem; it is that a blog body carries headings, lists and links that would otherwise
+ * inherit and fight the dashboard's styles. The sandbox costs nothing and the isolation
+ * is the actual reason.
+ *
+ * The link list underneath is not decoration. `no_product_link` and `no_internal_link`
+ * are counted off exactly these hrefs, so when the gate says a post links no product,
+ * this is where you see that it linked /collections/all instead.
+ */
+function DraftPreview({ draft }: { draft: Draft }) {
+  const [open, setOpen] = useState(false);
+  const [full, setFull] = useState<FullDraft | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Fetched from the click, not from an effect on `open`, and only once. Opening a
+  // draft row should not pull an article body the reviewer may not want to read.
+  const toggle = useCallback(async () => {
+    if (open) { setOpen(false); return; }
+    setOpen(true);
+    if (full || loading) return;
+
+    setLoading(true); setErr(null);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/blog/drafts/${draft.id}`, {
+        signal: AbortSignal.timeout(20_000),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) { setErr(payload.error || `Request failed (${res.status})`); return; }
+      setFull(payload as FullDraft);
+    } catch (e) { setErr(errMessage(e)); }
+    finally { setLoading(false); }
+  }, [open, full, loading, draft.id]);
+
+  const body = full?.body_html ?? "";
+
+  const links = React.useMemo(() => {
+    const out: { href: string; text: string; kind: "product" | "internal" | "external" }[] = [];
+    for (const m of body.matchAll(/<a[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+      const href = (m[1] ?? "").trim();
+      const text = (m[2] ?? "").replace(/<[^>]*>/g, "").trim();
+      if (!href || href.startsWith("#")) continue;
+      const ours = href.startsWith("/") || href.includes("leapsandrebounds.com");
+      out.push({
+        href, text,
+        kind: ours ? (/\/products\//i.test(href) ? "product" : "internal") : "external",
+      });
+    }
+    return out;
+  }, [body]);
+
+  const srcDoc = full
+    ? `<!doctype html><meta charset="utf-8">
+<style>
+  body { margin:0; padding:18px 20px; background:#0b1220; color:#cbd5e1;
+         font: 14px/1.7 ui-sans-serif, system-ui, sans-serif; }
+  h1 { font-size:21px; line-height:1.3; color:#f1f5f9; margin:0 0 4px; }
+  h2 { font-size:16px; color:#e2e8f0; margin:26px 0 8px; }
+  h3 { font-size:14px; color:#e2e8f0; margin:20px 0 6px; }
+  p, li { color:#cbd5e1; }
+  a { color:#7dd3fc; }
+  ul, ol { padding-left:22px; }
+  img { max-width:100%; height:auto; border-radius:8px; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  td, th { border:1px solid rgba(255,255,255,0.12); padding:6px 9px; text-align:left; }
+  .lr-product-cta { margin-top:28px; padding:14px 16px; border-radius:10px;
+                    border:1px solid rgba(233,141,32,0.35); background:rgba(233,141,32,0.07); }
+  .lr-product-cta h2 { margin-top:0; }
+</style>
+<h1>${(full.title ?? draft.topic).replace(/[<>&]/g, "")}</h1>
+${full.summary_html ?? ""}
+${body}`
+    : "";
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <p style={{ ...LABEL, color: "#94a3b8" }}>The article</p>
+        <button
+          onClick={toggle}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px",
+            borderRadius: 7, background: "rgba(56,189,248,0.09)",
+            border: "1px solid rgba(56,189,248,0.3)", color: "#38bdf8",
+            fontSize: 10, fontWeight: 800, cursor: "pointer", fontFamily: "inherit",
+            textTransform: "uppercase", letterSpacing: "0.06em",
+          }}>
+          {loading ? <Loader2 size={10} className="spin" /> : <FileText size={10} />}
+          {open ? "Hide the draft" : "Read the draft"}
+        </button>
+        {full && (
+          <button
+            onClick={() => navigator.clipboard?.writeText(full.body_html ?? "")}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px",
+              borderRadius: 7, background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.08)", color: "#64748b",
+              fontSize: 10, fontWeight: 800, cursor: "pointer", fontFamily: "inherit",
+              textTransform: "uppercase", letterSpacing: "0.06em",
+            }}>
+            <Copy size={10} /> Copy HTML
+          </button>
+        )}
+      </div>
+
+      {err && (
+        <p style={{ fontSize: 11.5, color: "#fda4af", margin: "8px 0 0" }}>{err}</p>
+      )}
+
+      {open && full && (
+        <div style={{ marginTop: 9 }}>
+          <iframe
+            title={`Draft preview: ${full.title ?? draft.topic}`}
+            sandbox=""
+            srcDoc={srcDoc}
+            style={{
+              width: "100%", height: 520, border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 10, background: "#0b1220", display: "block",
+            }}
+          />
+
+          <div style={{ marginTop: 9 }}>
+            <p style={LABEL}>
+              Links in this post · {links.filter(l => l.kind === "product").length} to products,{" "}
+              {links.filter(l => l.kind === "internal").length} internal,{" "}
+              {links.filter(l => l.kind === "external").length} external
+            </p>
+            {links.length === 0 ? (
+              <p style={{ fontSize: 11.5, color: "#64748b", margin: "5px 0 0" }}>
+                This post links nothing at all.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 5 }}>
+                {links.map((l, i) => (
+                  <p key={i} style={{ fontSize: 11, margin: 0, lineHeight: 1.5, color: "#64748b" }}>
+                    <span style={{
+                      color: l.kind === "product" ? "#34d399" : l.kind === "internal" ? "#38bdf8" : "#94a3b8",
+                      fontWeight: 800, fontSize: 9, textTransform: "uppercase",
+                      letterSpacing: "0.06em", marginRight: 6,
+                    }}>{l.kind}</span>
+                    <code style={{ color: "#94a3b8" }}>{l.href}</code>
+                    {l.text && <span> · “{l.text.slice(0, 60)}”</span>}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -1508,8 +1721,17 @@ function DraftsView({ blogs, onCountChange }: {
                           )}
                         </div>
 
+                        {written && <DraftPreview draft={d} />}
+
                         {written && (
                           <FeaturedImagePicker draft={d} onChanged={load} />
+                        )}
+
+                        {d.product_link_inserted && (
+                          <p style={{ fontSize: 11, color: "#fcd34d", margin: 0, lineHeight: 1.5 }}>
+                            The writer produced no product link, so one was placed in a closing
+                            block. Read it and check the connection is stated honestly.
+                          </p>
                         )}
 
                         {d.generation_error && (
@@ -1535,6 +1757,18 @@ function DraftsView({ blogs, onCountChange }: {
                                 </p>
                               ))}
                             </div>
+                            {/* Placed rather than asked for. New drafts get this inside
+                                generation; the button is for the ones written before
+                                that existed, which are otherwise stuck on a check no
+                                human should be satisfying by hand. */}
+                            {gate.blocking.some(c => c.code === "no_product_link") && (
+                              <button onClick={() => act(d.id, "/product-link", {})} disabled={isBusy}
+                                title="Write a closing block that links a product, then re-run the gate"
+                                style={{ ...btn("#34d399", isBusy), marginTop: 8 }}>
+                                {isBusy ? <Loader2 size={11} className="spin" /> : <Link2 size={11} />}
+                                Place the product link
+                              </button>
+                            )}
                           </div>
                         )}
 
