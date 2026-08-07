@@ -28,10 +28,10 @@
  *
  * WHY TECHNICAL LOADS SEPARATELY
  * ------------------------------
- * PageSpeed runs a live Lighthouse audit — up to 30s, and on a shared keyless quota
- * until PAGESPEED_API_KEY is set in Railway. It is fetched on its own so the rest of the
- * page is not held hostage to its worst case, and it renders an explanation rather than
- * an error when it is rate-limited.
+ * PageSpeed runs a live Lighthouse audit on Google's hardware and can exceed a minute on
+ * a heavy page. It is fetched on its own so the rest of the view is not held hostage to
+ * its worst case, and when it fails it renders why — quota, timeout — with a retry,
+ * rather than an error. Each attempt is a fresh audit, so retrying genuinely helps.
  */
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
@@ -106,7 +106,7 @@ interface PageDetail {
 interface FieldMetric { percentile: number | null; category: string | null }
 interface Technical {
   url: string;
-  unavailable?: boolean; reason?: string; quota_limited?: boolean; keyless?: boolean;
+  unavailable?: boolean; reason?: string; quota_limited?: boolean; timed_out?: boolean; keyless?: boolean;
   audit?: {
     scores: { performance: number | null; accessibility: number | null; best_practices: number | null; seo: number | null };
     core_web_vitals: { lcp_ms: number | null; cls: number | null; tbt_ms: number | null; ttfb_ms: number | null; fcp_ms: number | null };
@@ -431,7 +431,7 @@ function PageDetailView({ path, days, onBack, onDays }: {
           {tab === "search" && <SearchTab data={data} days={days} />}
           {tab === "engagement" && <EngagementTab data={data} />}
           {tab === "onpage" && <OnPageTab data={data} />}
-          {tab === "technical" && <TechnicalTab tech={tech} loading={techLoading} />}
+          {tab === "technical" && <TechnicalTab tech={tech} loading={techLoading} onRetry={() => setTech(null)} />}
         </>
       )}
     </div>
@@ -747,13 +747,19 @@ function scoreColor(s: number | null | undefined) {
 }
 const CATEGORY_COLOR: Record<string, string> = { FAST: "#22c55e", AVERAGE: "#e98d20", SLOW: "#f43f5e" };
 
-function TechnicalTab({ tech, loading }: { tech: Technical | null; loading: boolean }) {
-  if (loading) return <p style={{ fontSize: 12, color: "#475569" }}>Running a live Lighthouse audit — this takes up to 30 seconds…</p>;
+function TechnicalTab({ tech, loading, onRetry }: { tech: Technical | null; loading: boolean; onRetry?: () => void }) {
+  if (loading) return <p style={{ fontSize: 12, color: "#475569" }}>Running a live Lighthouse audit on Google’s hardware — a heavy page can take a minute…</p>;
   if (!tech) return <EmptyState reason="The technical endpoint did not respond." />;
 
   if (tech.unavailable) {
     return (
-      <Panel title="PageSpeed unavailable">
+      <Panel title="PageSpeed unavailable" right={onRetry && (
+        <button onClick={onRetry} style={{
+          display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.08)", borderRadius: 7, padding: "0.2rem 0.6rem",
+          fontSize: 10.5, color: "#94a3b8", cursor: "pointer",
+        }}><RefreshCw size={10} /> Retry</button>
+      )}>
         <p style={{ fontSize: 12, color: "#b45309", lineHeight: 1.6 }}>{tech.reason}</p>
       </Panel>
     );
