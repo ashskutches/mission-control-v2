@@ -58,6 +58,9 @@ export default function DocsPage() {
   /** Collapsed folders, persisted — a sidebar that forgets is worse than one
    *  that never collapsed. Absent key = expanded. */
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  /** Which row the cursor is on, so the delete affordance can live on the row
+   *  without every row carrying a permanent trash icon. */
+  const [hoverId, setHoverId] = useState<string | null>(null);
 
   const load = useCallback(async (keepId?: string) => {
     setErr(null);
@@ -393,6 +396,8 @@ export default function DocsPage() {
                 const active = d.id === sel?.id;
                 return (
                   <div key={d.id} onClick={() => pick(d)}
+                    onMouseEnter={() => setHoverId(d.id)}
+                    onMouseLeave={() => setHoverId(prev => (prev === d.id ? null : prev))}
                     style={{
                       padding: "0.6rem 0.9rem 0.6rem 1.5rem", cursor: "pointer",
                       background: active ? `${m.color}12` : "transparent",
@@ -403,6 +408,34 @@ export default function DocsPage() {
                       <Icon size={11} color={m.color} />
                       <span style={{ fontSize: 12.5, fontWeight: 700 }}>{d.title}</span>
                       {d.needs_review && d.is_active && <AlertTriangle size={10} color="#f5a840" />}
+                      <div style={{ flex: 1 }} />
+                      {/* Removing a document used to require selecting it and then
+                          finding a ghost button at the far end of the detail
+                          toolbar, which read as "you can't delete these". The row
+                          is where people look, so the entry point lives here — it
+                          still opens the same archive-vs-purge confirmation,
+                          because those are not the same decision. */}
+                      {hoverId === d.id && (
+                        <span
+                          title={d.is_active ? "Remove this document" : "Remove permanently"}
+                          onClick={e => { e.stopPropagation(); pick(d); setConfirmDelete(true); }}
+                          style={{
+                            display: "inline-flex", alignItems: "center", justifyContent: "center",
+                            width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                            color: "var(--text-muted)", cursor: "pointer",
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = "rgba(244,63,94,0.14)";
+                            e.currentTarget.style.color = "#f43f5e";
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = "transparent";
+                            e.currentTarget.style.color = "var(--text-muted)";
+                          }}
+                        >
+                          <Trash2 size={11} />
+                        </span>
+                      )}
                     </div>
                     <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                       <Pill color={m.color}>v{d.version}</Pill>
@@ -525,12 +558,12 @@ export default function DocsPage() {
                       </Btn>
                       <Btn size="sm" color="#f43f5e" disabled={busy}
                            onClick={() => act(() => deleteDoc(sel.id, true), "Deleted permanently.")
-                             .then(() => { setConfirmDelete(false); setSel(null); })}>
+                             .then(() => setConfirmDelete(false))}>
                         <Trash2 size={11} /> Delete forever
                       </Btn>
                     </>
                   ) : (
-                    <Btn size="sm" variant="ghost" onClick={() => setConfirmDelete(true)}>
+                    <Btn size="sm" variant="outline" color="#f43f5e" onClick={() => setConfirmDelete(true)}>
                       <Trash2 size={11} /> Remove
                     </Btn>
                   )

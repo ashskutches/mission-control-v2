@@ -9,7 +9,7 @@
  * Tabs are deep-linkable via ?tab=<id>. See the note on CommandCenterPage for why
  * the query is read on mount rather than through useSearchParams.
  */
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -22,6 +22,8 @@ import { MarkdownMessage } from "@/components/MarkdownMessage";
 import CostAlerts from "@/components/CostAlerts";
 import ProfitDashboard from "@/components/ProfitDashboard";
 import { LayoutDashboard, PiggyBank } from "lucide-react";
+import { ADMIN_CC_TABS } from "@/app/lib/access";
+import { useRole } from "@/app/lib/useRole";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 const BOT_URL  = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
@@ -327,6 +329,18 @@ const readTab = (): CcTab => {
 export default function CommandCenterPage() {
   const [tab, setTab] = useState<CcTab>("overview");
 
+  // Profitability is admin-only. The middleware gates /profitability but cannot see
+  // "?tab=profitability", so the tab is filtered by role here and `shownTab` falls
+  // back to Overview for anyone who deep-links it. Until useRole resolves we render
+  // as a viewer, so the P&L never flashes up while the role is still unknown.
+  const { role } = useRole();
+  const isAdmin = role === "admin";
+  const visibleTabs = useMemo(
+    () => CC_TABS.filter(t => isAdmin || !(ADMIN_CC_TABS as readonly string[]).includes(t.id)),
+    [isAdmin],
+  );
+  const shownTab: CcTab = visibleTabs.some(t => t.id === tab) ? tab : "overview";
+
   useEffect(() => {
     setTab(readTab());
     const onPop = () => setTab(readTab());
@@ -347,14 +361,17 @@ export default function CommandCenterPage() {
 
   return (
     <div className="px-4 pb-8 pt-4" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      {/* A one-item tab strip is just a mystery button — for viewers, Overview is
+          the whole page, so the strip is dropped rather than shown with one tab. */}
+      {visibleTabs.length > 1 && (
       <div style={{
         display: "flex", alignItems: "center", gap: 4,
         background: "rgba(0,0,0,.25)", border: "1px solid rgba(255,255,255,.08)",
         borderRadius: 12, padding: 3, alignSelf: "flex-start",
       }}>
-        {CC_TABS.map(t => {
+        {visibleTabs.map(t => {
           const Icon = t.icon;
-          const on = tab === t.id;
+          const on = shownTab === t.id;
           return (
             <button key={t.id} onClick={() => switchTab(t.id)} aria-pressed={on} style={{
               display: "flex", alignItems: "center", gap: 6,
@@ -368,8 +385,9 @@ export default function CommandCenterPage() {
           );
         })}
       </div>
+      )}
 
-      {tab === "overview"
+      {shownTab === "overview"
         ? <OverviewTab />
         : <ProfitDashboard subTabParam="sub" showHeading={false} />}
     </div>

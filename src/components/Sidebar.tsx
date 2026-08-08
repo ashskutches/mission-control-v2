@@ -1,8 +1,10 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut, ShieldCheck } from "lucide-react";
+import { LogOut, ShieldCheck, Lock, Unlock } from "lucide-react";
 import { APP_CONFIG } from "@/app/lib/AppConfig";
+import { isAdminPath } from "@/app/lib/access";
+import { useRole } from "@/app/lib/useRole";
 import { cn } from "@/app/lib/utils";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3000";
@@ -15,6 +17,17 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router   = useRouter();
+
+  const { role, adminConfigured, loaded } = useRole();
+  const isAdmin = role === "admin";
+
+  // Admin-only entries are dropped from the list entirely rather than greyed out,
+  // so the nav reads as a complete menu instead of a wall of locks. Until /api/auth/me
+  // answers we render as a viewer — hide first, reveal after.
+  const navItems = useMemo(
+    () => APP_CONFIG.navigation.filter((item) => isAdmin || !isAdminPath(item.href)),
+    [isAdmin],
+  );
 
   const [pipelineBadge, setPipelineBadge] = useState<number>(0);   // inbox: new insights + pending approvals
   const [blockagesBadge, setBlockagesBadge] = useState<number>(0); // stuck agents → Blockages
@@ -46,7 +59,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   // Best-match active item — prefer longer href matches
   const activeId = (() => {
     if (pathname === "/") return "overview";
-    const matches = APP_CONFIG.navigation.filter((item: any) =>
+    const matches = navItems.filter((item: any) =>
       item.href && (pathname === item.href || pathname.startsWith(item.href + "/"))
     );
     if (!matches.length) return pathname.split("/")[1] ?? "overview";
@@ -107,7 +120,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* ── Grouped nav list ─────────────────────────────────────────────── */}
       <ul className="menu-list">
-        {APP_CONFIG.navigation.map((item: any, idx: number) => {
+        {navItems.map((item: any, idx: number) => {
           const isActive = activeId === item.id;
           const Icon = item.icon;
           const accent = item.color ?? "var(--accent-orange)";
@@ -119,7 +132,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           const showBlockagesBadge = item.id === "system" && blockagesBadge > 0;
 
           // Detect group change — show divider + label when group changes (core group is unlabeled)
-          const prevItem = APP_CONFIG.navigation[idx - 1] as any | undefined;
+          const prevItem = navItems[idx - 1] as any | undefined;
           const groupChanged = prevItem && prevItem.group !== item.group;
           const showGroupHeader = groupChanged && item.group !== "core";
 
@@ -214,6 +227,36 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             </div>
           </div>
         </div>
+        {/* ── Admin tier ─────────────────────────────────────────────────────
+            Exit Admin drops to a viewer session but keeps you signed in — that is
+            what separates it from Sign Out below. Both use a hard location change
+            so server components re-render against the new cookie. */}
+        {loaded && (isAdmin ? (
+          <button
+            onClick={async () => { await fetch("/api/auth/admin", { method: "DELETE" }); window.location.href = "/"; }}
+            className="button is-ghost is-fullwidth is-flex is-justify-content-start px-4"
+            style={{ gap: "0.75rem", textDecoration: "none", color: "#22c55e" }}
+            title="Return to the standard view — you stay signed in"
+          >
+            <Unlock size={16} />
+            <span className="is-uppercase has-text-weight-bold" style={{ fontSize: "11px", flex: 1, textAlign: "left" }}>Admin On</span>
+            <span style={{
+              fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em",
+              color: "var(--text-muted)",
+            }}>Exit</span>
+          </button>
+        ) : adminConfigured ? (
+          <button
+            onClick={() => navigate("/admin")}
+            className="button is-ghost is-fullwidth is-flex is-justify-content-start px-4 has-text-grey-light"
+            style={{ gap: "0.75rem", textDecoration: "none" }}
+            title="Unlock Profit, Costs, Agents and Quick Run"
+          >
+            <Lock size={16} />
+            <span className="is-uppercase has-text-weight-bold" style={{ fontSize: "11px" }}>Admin Login</span>
+          </button>
+        ) : null)}
+
         <button
           onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/login"; }}
           className="button is-ghost is-fullwidth is-flex is-justify-content-start px-4 has-text-danger-light"
