@@ -2,12 +2,14 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookOpen, SearchCheck, FileSearch } from "lucide-react";
+import { BarChart3, BookOpen, SearchCheck, FileSearch, Target, Gauge } from "lucide-react";
 
 const NAV = [
-  { href: "/seo",       label: "Dashboard", icon: BarChart3,  color: "#34d399", exact: true },
-  { href: "/seo/pages", label: "Pages",     icon: FileSearch, color: "#38bdf8" },
-  { href: "/seo/blog",  label: "Blog",      icon: BookOpen,   color: "#e98d20" },
+  { href: "/seo",               label: "Dashboard",     icon: BarChart3,  color: "#34d399", exact: true },
+  { href: "/seo/opportunities", label: "Opportunities", icon: Target,     color: "#f43f5e" },
+  { href: "/seo/pages",         label: "Pages",         icon: FileSearch, color: "#38bdf8" },
+  { href: "/seo/vitals",        label: "Vitals",        icon: Gauge,      color: "#a78bfa" },
+  { href: "/seo/blog",          label: "Blog",          icon: BookOpen,   color: "#e98d20" },
 ];
 
 export default function SeoLayout({ children }: { children: React.ReactNode }) {
