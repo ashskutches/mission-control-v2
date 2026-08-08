@@ -43,20 +43,27 @@ interface Field {
   fcp_ms: FieldMetric; ttfb_ms: FieldMetric;
   passes_cwv: boolean | null;
 }
+type Unavailable = "no_key" | "no_record" | "http_error" | "network_error" | null;
 interface VitalsRow {
   url: string; path: string;
   clicks: number; impressions: number; position: number;
-  field: Field | null; error: string | null;
+  field: Field | null;
+  /** Why `field` is null. "no_record" is about the page; the rest are about our access. */
+  unavailable: Unavailable;
+  reason: string | null;
+  error: string | null;
 }
 interface VitalsResponse {
   period_days: number; strategy: "mobile" | "desktop"; pages_checked: number;
   summary: {
     measured: number; passing: number; failing: number;
-    no_field_record: number; origin_fallback: number;
+    no_field_record: number; lookup_failed: number; origin_fallback: number;
     failing_impressions: number; total_impressions: number;
   };
   pages: VitalsRow[];
   keyless: boolean;
+  /** Set when the CrUX lookup itself failed — a credential problem, not a data problem. */
+  lookup_error: string | null;
   caveats: string[];
   fetched_at: string; cache_age_seconds: number;
   error?: string;
@@ -157,6 +164,16 @@ export default function SeoVitalsPage() {
         </div>
       )}
 
+      {/* A failed lookup is not an empty table — it is a broken credential wearing an
+          empty table's clothes, and it says so above the numbers rather than beneath them. */}
+      {data?.lookup_error && (
+        <div style={{ marginBottom: "1.25rem" }}>
+          <EmptyState
+            reason={`The Chrome UX Report lookup failed for ${data.summary.lookup_failed} of ${data.pages_checked} pages, so this table is empty for a reason that has nothing to do with the pages. ${data.lookup_error}`}
+          />
+        </div>
+      )}
+
       {/* ── Headline ── */}
       <div style={{ display: "flex", gap: "0.85rem", flexWrap: "wrap", marginBottom: "0.6rem" }}>
         <MetricCard
@@ -174,8 +191,12 @@ export default function SeoVitalsPage() {
           sub="Share of checked impressions on a failing page"
         />
         <MetricCard
-          label="No field record" icon={Gauge} color="#64748b"
-          value={s ? String(s.no_field_record) : "—"} sub="Too little traffic to measure — not slow"
+          label={s?.lookup_failed ? "Lookup failed" : "No field record"}
+          icon={Gauge} color={s?.lookup_failed ? "#f43f5e" : "#64748b"}
+          value={s ? String(s.lookup_failed || s.no_field_record) : "—"}
+          sub={s?.lookup_failed
+            ? "CrUX could not be reached — fix the credential"
+            : "Too little traffic to measure — not slow"}
         />
       </div>
 
@@ -242,7 +263,12 @@ export default function SeoVitalsPage() {
                     <MetricCell m={p.field?.ttfb_ms} unit="ms" />
                     <td style={TD}>
                       {p.field?.passes_cwv == null ? (
-                        <span style={{ fontSize: 10, color: "#475569" }}>{p.error ? "error" : "no record"}</span>
+                        <span
+                          title={p.reason ?? undefined}
+                          style={{ fontSize: 10, color: p.unavailable && p.unavailable !== "no_record" ? "#f43f5e" : "#475569" }}
+                        >
+                          {p.unavailable && p.unavailable !== "no_record" ? "lookup failed" : "no record"}
+                        </span>
                       ) : p.field.passes_cwv ? (
                         <CheckCircle2 size={14} color="#22c55e" />
                       ) : (
