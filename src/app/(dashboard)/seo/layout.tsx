@@ -2,12 +2,13 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookOpen, SearchCheck, FileSearch, Target, Gauge } from "lucide-react";
+import { BarChart3, BookOpen, SearchCheck, FileSearch, Target, Gauge, Bot } from "lucide-react";
 
 const NAV = [
   { href: "/seo",               label: "Dashboard",     icon: BarChart3,  color: "#34d399", exact: true },
   { href: "/seo/opportunities", label: "Opportunities", icon: Target,     color: "#f43f5e" },
   { href: "/seo/pages",         label: "Pages",         icon: FileSearch, color: "#38bdf8" },
+  { href: "/seo/ai",            label: "AI Visibility", icon: Bot,        color: "#22d3ee" },
   { href: "/seo/vitals",        label: "Vitals",        icon: Gauge,      color: "#a78bfa" },
   { href: "/seo/blog",          label: "Blog",          icon: BookOpen,   color: "#e98d20" },
 ];
@@ -30,7 +31,7 @@ export default function SeoLayout({ children }: { children: React.ReactNode }) {
         <h1 className="has-text-white" style={{ fontWeight: 800, fontSize: "1.5rem" }}>SEO</h1>
       </div>
       <p style={{ color: "#64748b", fontSize: 13, marginBottom: "1.25rem" }}>
-        Organic search — what ranks, what nearly ranks, and the article library behind it.
+        Organic search — what ranks, what nearly ranks, whether AI answers can cite us, and the article library behind it.
       </p>
 
       {/* Tab nav */}
@@ -45,7 +46,9 @@ export default function SeoLayout({ children }: { children: React.ReactNode }) {
             <Link
               key={href}
               href={href}
-              id={`seo-nav-${label.toLowerCase()}`}
+              // Slugified, not just lower-cased — a two-word label would otherwise put a
+              // space inside the id and break any selector reaching for it.
+              id={`seo-nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
               style={{
                 display: "inline-flex", alignItems: "center", gap: "0.4rem",
                 background: active ? `${color}18` : "rgba(255,255,255,0.04)",
