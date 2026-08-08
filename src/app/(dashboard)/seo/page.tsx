@@ -10,19 +10,28 @@
  *   5. Library coverage — how much of the blog Google actually sends traffic to
  *   6. Feed status — /admin/seo/status, the live GSC + GA4 credential check
  *
- * TWO THINGS ABOUT THE GSC NUMBERS THAT THE UI HAS TO SAY OUT LOUD
- * ---------------------------------------------------------------
- * `runGSCReport` sums the rows it returned, and its row limit is capped at 100. So
- * the totals here are "across the top 100 queries", never the whole property, and
- * asking for fewer rows would silently shrink them. `avg_position` is a plain mean
- * of those rows rather than impression-weighted, so a long tail of position-80
- * queries drags it down more than it drags real traffic down. Both are captioned
- * rather than quietly presented as sitewide truth.
+ * THE HEADLINE USED TO BE A TOP-100 SLICE. IT IS NOT ANY MORE.
+ * -----------------------------------------------------------
+ * `runGSCReport` sums the rows it returned and caps at 100, so the totals here were
+ * "across the top 100 queries" — never the property — and `avg_position` was a plain
+ * mean of those rows rather than impression-weighted. A caption said so, and the number
+ * got quoted as sitewide anyway, at roughly double the true CTR.
+ *
+ * So the headline now reads `/admin/seo/overview`, which is Search Console's own
+ * undimensioned total: nothing missing off the bottom, and Google does the impression
+ * weighting on position. The old slice is still fetched and rendered *beside* it as a
+ * ratio, because the wrong number is going to keep turning up in screenshots and
+ * agent reports, and the useful thing is to be able to see what it was measuring.
+ *
+ * Striking distance likewise reads `/admin/seo/queries`, bucketed server-side across
+ * every query in the property. A query at position 12 with 4,000 impressions and no
+ * clicks cannot appear in a top-100-by-clicks read, and that is the exact row the
+ * panel exists to surface.
  *
  * The blog panels read the same cached GSC+GA4 snapshot the Blog tab uses (15-minute
  * TTL, in-memory in gravity-claw), so opening both costs one round of Google calls.
  */
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -41,6 +50,27 @@ import {
 interface GscRow { keyword?: string; page?: string; clicks: number; impressions: number; ctr_pct: number; position: number }
 interface GscTotals { clicks: number; impressions: number; ctr_pct: number; avg_position: number }
 interface GscResponse { period: { start: string; end: string }; totals: GscTotals; keywords?: GscRow[]; pages?: GscRow[] }
+
+/** /admin/seo/overview — the property's own undimensioned totals. */
+interface OverviewResponse {
+  period_days: number;
+  period: { start: string; end: string };
+  site: { clicks: number; impressions: number; ctr_pct: number; position: number; basis: string };
+  property: {
+    pages_with_impressions: number; pages_with_clicks: number; pages_seen_not_clicked: number;
+    queries_ranked: number; pages_truncated: boolean; queries_truncated: boolean;
+  };
+  top_queries_slice: { clicks: number; impressions: number; ctr_pct: number; overstates_ctr_by: number | null };
+}
+
+/** /admin/seo/queries — every query, bucketed. */
+interface QueryRow { query: string; clicks: number; impressions: number; ctr_pct: number; position: number }
+interface QueriesResponse {
+  bucket: string;
+  counts: Record<string, number>;
+  total_queries: number;
+  queries: QueryRow[];
+}
 
 interface RecTarget { shopify_article_id: string; title: string; handle: string; blog_handle: string; path: string }
 interface Recommendation {
@@ -92,10 +122,18 @@ Your domain is organic search for leapsandrebounds.com:
 - Opportunities — search demand with no article behind it, checked against the whole mirror first
 
 Rules you must hold to:
-1. GSC totals on this page are summed over the top 100 queries, not the whole property,
-   and average position is an unweighted mean. Never quote them as sitewide figures.
+1. The headline totals are Search Console's undimensioned property totals — quote those.
+   The "top 100 queries" figure shown beside them is the capped slice, kept on screen only
+   so the discrepancy is visible; it overstates CTR and must never be quoted as sitewide.
 2. CTR "underperformance" is measured against our own median CTR per position band, not
-   a published industry curve. Say which baseline you are using.
+   a published industry curve. Say which baseline you are using, and split any shortfall
+   into the snippet gap (winnable now) and the rank gap (not) — /admin/seo/opportunities
+   returns both per page, already ranked.
+5. Core Web Vitals are read from field data (CrUX), never a Lighthouse lab score. A lab
+   run on our heaviest article reads LCP 51s against a field LCP of 1.3s; the lab number
+   is a diagnostic, not the user experience and not what page experience ranks on.
+6. A dollar figure requires a measured value per session for that specific page. Pages
+   GA4 cannot price are reported unpriced — never filled in from a site average.
 3. A recommendation tiered high_risk changes URLs. It needs a human decision per item —
    never describe it as safe to batch.
 4. An article with a high content score and no clicks is not a bad article. It is a good
@@ -130,7 +168,8 @@ export default function SeoDashboardPage() {
   const [days, setDays] = useState<Window>(28);
   const [loading, setLoading] = useState(true);
 
-  const [gsc, setGsc] = useState<GscResponse | null>(null);
+  const [overview, setOverview] = useState<OverviewResponse | null>(null);
+  const [queries, setQueries] = useState<QueriesResponse | null>(null);
   const [pages, setPages] = useState<GscRow[] | null>(null);
   const [recs, setRecs] = useState<RecResponse | null>(null);
   const [opps, setOpps] = useState<OppResponse | null>(null);
@@ -141,8 +180,13 @@ export default function SeoDashboardPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [k, p, r, o, pf, s] = await Promise.all([
-      getJson<GscResponse>(`${BOT_URL}/admin/gsc/keywords?days=${days}&limit=100`),
+    const [ov, q, p, r, o, pf, s] = await Promise.all([
+      // The property's own totals, not a sum of capped rows. See the note at the top.
+      getJson<OverviewResponse>(`${BOT_URL}/admin/seo/overview?days=${days}`),
+      // Striking distance across every query GSC reported, not the top 100 by clicks —
+      // a query with 4,000 impressions and no clicks cannot appear in a top-100-by-clicks
+      // read, and that is exactly the row this panel is for.
+      getJson<QueriesResponse>(`${BOT_URL}/admin/seo/queries?days=${days}&bucket=striking&limit=10`),
       getJson<GscResponse>(`${BOT_URL}/admin/gsc/pages?days=${days}&limit=25`),
       getJson<RecResponse>(`${BOT_URL}/admin/blog/recommendations?days=${days}&limit=8`),
       // Opportunities intentionally use a wider window than the rest of the page —
@@ -151,7 +195,8 @@ export default function SeoDashboardPage() {
       getJson<PerfResponse>(`${BOT_URL}/admin/blog/performance?days=${days}&limit=1`),
       getJson<SeoStatus>(`${BOT_URL}/admin/seo/status`),
     ]);
-    setGsc(k);
+    setOverview(ov);
+    setQueries(q);
     setPages(p?.pages ?? null);
     setRecs(r);
     setOpps(o);
@@ -166,24 +211,24 @@ export default function SeoDashboardPage() {
    * Striking distance: ranking on page one's tail or page two, with real impressions.
    * These are the cheapest wins on the page — the query already surfaces us, so the
    * work is a title/intro/internal-link fix rather than a new article.
+   *
+   * The bucketing is done server-side over the whole query set now; this is just the
+   * rows it returned. `strikingTotal` is the population, not the page size.
    */
-  const striking = useMemo(() => {
-    return (gsc?.keywords ?? [])
-      .filter(k => k.position >= 5 && k.position <= 20 && k.impressions >= 50)
-      .sort((a, b) => b.impressions - a.impressions)
-      .slice(0, 10);
-  }, [gsc]);
+  const striking = queries?.queries ?? [];
+  const strikingTotal = queries?.counts?.striking ?? 0;
 
-  const t = gsc?.totals;
+  const t = overview?.site;
   const cov = perf?.coverage;
   const covPct = cov && cov.total_articles > 0 ? (cov.with_clicks / cov.total_articles) * 100 : null;
 
   const agentMetrics = [
-    { label: "Clicks", value: num(t?.clicks), sub: `${days}d, top 100 queries` },
+    { label: "Clicks", value: num(t?.clicks), sub: `${days}d, whole property` },
     { label: "Impressions", value: num(t?.impressions) },
-    { label: "CTR", value: pct(t?.ctr_pct, 2) },
-    { label: "Avg position", value: t?.avg_position?.toFixed(1) ?? "—" },
-    { label: "Striking-distance queries", value: String(striking.length), sub: "position 5–20, 50+ impressions" },
+    { label: "CTR", value: pct(t?.ctr_pct, 2), sub: "Property-wide, not a top-N slice" },
+    { label: "Avg position", value: t?.position?.toFixed(1) ?? "—", sub: "Impression-weighted" },
+    { label: "Striking-distance queries", value: String(strikingTotal), sub: "position 5–20, 50+ impressions" },
+    ...(overview ? [{ label: "Pages seen and not clicked", value: num(overview.property.pages_seen_not_clicked) }] : []),
     ...(cov ? [{ label: "Articles earning clicks", value: `${cov.with_clicks} / ${cov.total_articles}` }] : []),
     ...(recs ? [{ label: "Open recommendations", value: String(recs.total) }] : []),
     ...(opps ? [{ label: "Uncovered topics", value: String(opps.counts?.create ?? 0) }] : []),
@@ -225,7 +270,7 @@ export default function SeoDashboardPage() {
           })}
           <div style={{ marginLeft: "auto", display: "flex", gap: "0.4rem", alignItems: "center" }}>
             <span style={{ fontSize: 10, color: "#475569" }}>
-              {gsc?.period ? `${gsc.period.start} → ${gsc.period.end}` : ""}
+              {overview?.period ? `${overview.period.start} → ${overview.period.end}` : ""}
             </span>
             <button onClick={load} className="button is-ghost is-small" style={{ color: "#475569" }} aria-label="Refresh SEO data">
               <RefreshCw size={12} className={loading ? "spin" : ""} />
@@ -237,37 +282,54 @@ export default function SeoDashboardPage() {
         <div style={{ display: "flex", gap: "0.85rem", flexWrap: "wrap", marginBottom: "0.6rem" }}>
           <MetricCard label="Clicks" icon={MousePointerClick} color="#34d399" value={num(t?.clicks)} sub={`${days} days`} />
           <MetricCard label="Impressions" icon={Eye} color="#38bdf8" value={num(t?.impressions)} />
-          <MetricCard label="CTR" icon={Percent} color="#e98d20" value={pct(t?.ctr_pct, 2)} sub="Clicks ÷ impressions" />
-          <MetricCard label="Avg Position" icon={Gauge} color="#a78bfa" value={t?.avg_position?.toFixed(1) ?? "—"} sub="Unweighted mean" />
+          <MetricCard label="CTR" icon={Percent} color="#e98d20" value={pct(t?.ctr_pct, 2)} sub="Property-wide" />
+          <MetricCard label="Avg Position" icon={Gauge} color="#a78bfa" value={t?.position?.toFixed(1) ?? "—"} sub="Impression-weighted" />
           <MetricCard
             label="Striking Distance" icon={Target} color="#f43f5e"
-            value={String(striking.length)} sub="Queries at position 5–20"
+            value={num(strikingTotal)} sub="Queries at position 5–20"
           />
         </div>
         <p style={{ fontSize: 10, color: "#475569", marginBottom: "1.25rem", lineHeight: 1.5 }}>
-          Totals are summed across the top 100 queries Search Console returned, not the whole property.
-          Average position is a plain mean of those rows — a long tail of deep-ranking queries pulls it
-          down further than it pulls traffic down. The gap is not small: the top-100 slice reads a far
-          healthier CTR than the property does, because the queries it excludes are the ones with
-          impressions and no clicks.{" "}
-          <Link href="/seo/pages" style={{ color: "#38bdf8", textDecoration: "none", fontWeight: 700 }}>
-            The Pages tab reads every URL, paged
-          </Link>{" "}
-          — use it for anything sitewide.
+          Search Console&apos;s own undimensioned total for the property — not a sum of rows, so nothing is
+          missing off the bottom and the average position is weighted by impressions the way Google weights it.
+          {overview?.top_queries_slice?.overstates_ctr_by != null && (
+            <>
+              {" "}Every earlier version of this dashboard led with the top 100 queries by clicks instead, which
+              reads {pct(overview.top_queries_slice.ctr_pct, 2)} CTR —{" "}
+              <strong style={{ color: "#e98d20" }}>{overview.top_queries_slice.overstates_ctr_by}×</strong> the
+              property&apos;s, because the rows it leaves out are the ones with impressions and no clicks.
+            </>
+          )}
+          {overview && (
+            <>
+              {" "}{num(overview.property.pages_seen_not_clicked)} of {num(overview.property.pages_with_impressions)} pages
+              took 100+ impressions and no click in this window.
+            </>
+          )}{" "}
+          <Link href="/seo/opportunities" style={{ color: "#34d399", textDecoration: "none", fontWeight: 700 }}>
+            The Opportunities tab ranks what that is worth
+          </Link>.
         </p>
 
         {/* ── Striking distance ── */}
         <Panel
           title="Striking distance — position 5 to 20"
-          note="Queries where we already surface but sit below the clicks. The fix is usually a title, an intro, or an internal link — not a new article. Minimum 50 impressions so the position figure means something."
+          note="Queries where we already surface but sit below the clicks. The fix is usually a title, an intro, or an internal link — not a new article. Minimum 50 impressions so the position figure means something. Bucketed across every query Search Console reported, not the top 100."
+          right={
+            queries && (
+              <span style={{ fontSize: 10, color: "#475569" }}>
+                {num(strikingTotal)} of {num(queries.total_queries)} queries
+              </span>
+            )
+          }
         >
-          {loading && !gsc ? (
+          {loading && !queries ? (
             <p style={{ fontSize: 12, color: "#475569" }}>Loading…</p>
-          ) : !gsc ? (
+          ) : !queries ? (
             <EmptyState reason="Search Console returned nothing. Check the Feed status panel at the bottom of this page." />
           ) : striking.length === 0 ? (
             <p style={{ fontSize: 12, color: "#475569" }}>
-              No query in the top 100 sits between position 5 and 20 with 50+ impressions in this window.
+              No query sits between position 5 and 20 with 50+ impressions in this window.
             </p>
           ) : (
             <div style={{ overflowX: "auto" }}>
@@ -284,11 +346,11 @@ export default function SeoDashboardPage() {
                 <tbody>
                   {striking.map((k, i) => (
                     <motion.tr
-                      key={k.keyword}
+                      key={k.query}
                       initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
                       style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
                     >
-                      <td style={{ ...TD, textAlign: "left", maxWidth: 320, whiteSpace: "normal" }}>{k.keyword}</td>
+                      <td style={{ ...TD, textAlign: "left", maxWidth: 320, whiteSpace: "normal" }}>{k.query}</td>
                       <td style={TD}>{num(k.impressions)}</td>
                       <td style={TD}>{num(k.clicks)}</td>
                       <td style={TD}>{pct(k.ctr_pct, 1)}</td>
@@ -543,8 +605,9 @@ export default function SeoDashboardPage() {
         {/* ── Jump-offs ── */}
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
           {[
+            { href: "/seo/opportunities", label: "Opportunities", icon: Target, color: "#f43f5e", sub: "Recoverable clicks, ranked" },
+            { href: "/seo/vitals", label: "Vitals", icon: Gauge, color: "#a78bfa", sub: "Field CWV, most-seen pages" },
             { href: "/seo/blog", label: "Blog Library", icon: BookOpen, color: "#e98d20", sub: "Audit, drafts, publish" },
-            { href: "/marketing", label: "Marketing", icon: Target, color: "#e98d20", sub: "All channels vs spend" },
             { href: "/content", label: "Content", icon: Wrench, color: "#38bdf8", sub: "Assets, copy, images" },
           ].map(({ href, label, icon: Icon, color, sub }) => (
             <Link key={href} href={href} style={{ ...CARD, flex: 1, minWidth: 160, textDecoration: "none", display: "block", border: `1px solid ${color}18` }}>
