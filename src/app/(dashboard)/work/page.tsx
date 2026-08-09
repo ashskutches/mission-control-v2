@@ -14,8 +14,10 @@ import {
   Zap, BarChart2, CircleDot, XCircle, PlayCircle,
   PauseCircle, AlertTriangle, CheckCheck, ExternalLink,
   Plus, X, Send, LayoutList, Columns, Maximize2,
+  Layers, FileText,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import TaskComposer, { type AgentDef } from "@/components/TaskComposer";
 
 const WorkDetailDrawer = dynamic(() => import("@/components/WorkDetailDrawer"), { ssr: false });
 
@@ -48,6 +50,20 @@ interface AgentWork {
   next_run_at: string | null;
   created_at: string;
   updated_at: string;
+  /**
+   * Which execution model produced this row.
+   *
+   * "work" — an agent_work row run by the work runner: scheduled, multi-run,
+   *          milestones, blockages. Everything promoted off the insights board.
+   * "job"  — a staged task launched from this page: planned into stages, run
+   *          immediately by the pipeline, ends in a run report you can open.
+   *
+   * Absent on responses from before the two were unioned, so treat it as "work".
+   */
+  origin?: "work" | "job";
+  /** Staged tasks only — the compiled run report. */
+  report_url?: string | null;
+  stages?: { index: number; name: string; status: "done" | "pending" }[] | null;
 }
 
 interface HumanTask {
@@ -337,6 +353,7 @@ function WorkCard({ work, onStatusChange, onOpenDrawer }: {
   const StatusIcon = statusCfg.icon;
   const milestones: { label: string; done?: boolean }[] = Array.isArray(work.milestones) ? work.milestones : [];
   const cardBg = WORK_BG[work.status] ?? "rgba(255,255,255,0.02)";
+  const staged = work.origin === "job";
 
   const act = async (status: WorkStatus) => {
     setActing(true);
@@ -414,9 +431,20 @@ function WorkCard({ work, onStatusChange, onOpenDrawer }: {
 
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
               {priorityBar(work.priority, statusCfg.color)}
-              <span style={{ fontSize: 9, color: "#475569" }}>
-                Run {work.run_count}/{work.max_runs}
-              </span>
+              {/* "Run 1/1" says nothing about a staged task — it never reruns. What
+                  you want to know is how far through the stages it is. */}
+              {staged ? (
+                <span style={{ fontSize: 9, color: "#a78bfa", display: "flex", alignItems: "center", gap: 3 }}>
+                  <Layers size={9} />
+                  {milestones.length > 0
+                    ? `Stage ${Math.min((work.current_milestone ?? 0) + 1, milestones.length)}/${milestones.length}`
+                    : "Staged"}
+                </span>
+              ) : (
+                <span style={{ fontSize: 9, color: "#475569" }}>
+                  Run {work.run_count}/{work.max_runs}
+                </span>
+              )}
               {work.last_run_at && (
                 <span style={{ fontSize: 9, color: "#334155", display: "flex", alignItems: "center", gap: 3 }}>
                   <Clock size={9} /> {timeAgo(work.last_run_at)}
@@ -428,6 +456,27 @@ function WorkCard({ work, onStatusChange, onOpenDrawer }: {
               <p style={{ fontSize: "10px", color: "#94a3b8", marginTop: 5, lineHeight: 1.5 }}>
                 {work.last_progress.slice(0, 180)}{work.last_progress.length > 180 ? "…" : ""}
               </p>
+            )}
+
+            {/* The run report — what it did, which tools, what changed, what's left.
+                Outside the expander because it is the reason to come back to a
+                finished task, and stopPropagation so opening it is not also a click
+                on the card underneath. */}
+            {work.report_url && (
+              <a
+                href={work.report_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{
+                  marginTop: 7, display: "inline-flex", alignItems: "center", gap: 6,
+                  fontSize: 10, fontWeight: 700, color: "#a78bfa", textDecoration: "none",
+                  background: "rgba(167,139,250,0.07)", border: "1px solid rgba(167,139,250,0.22)",
+                  borderRadius: 7, padding: "5px 9px", width: "fit-content",
+                }}
+              >
+                <FileText size={11} /> Run report <ExternalLink size={9} style={{ opacity: 0.7 }} />
+              </a>
             )}
           </div>
 
@@ -472,7 +521,7 @@ function WorkCard({ work, onStatusChange, onOpenDrawer }: {
                 {milestones.length > 0 && (
                   <div style={{ marginBottom: "0.75rem" }}>
                     <p style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", color: "#475569", letterSpacing: "0.08em", marginBottom: 5 }}>
-                      Milestones ({work.current_milestone}/{milestones.length})
+                      {staged ? "Stages" : "Milestones"} ({work.current_milestone}/{milestones.length})
                     </p>
                     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                       {milestones.map((m, i) => (
@@ -917,6 +966,7 @@ function WorkPipeline({ work, onStatusChange }: {
 
 export default function WorkPage() {
   const [work, setWork] = useState<AgentWork[]>([]);
+  const [agents, setAgents] = useState<AgentDef[]>([]);
   const [humanTasks, setHumanTasks] = useState<HumanTask[]>([]);
   const [summary, setSummary] = useState<WorkSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -962,6 +1012,16 @@ export default function WorkPage() {
   }, []);
 
   // Auto-refresh
+  // Once on mount, not on every poll — the roster does not change between ticks.
+  // Best-effort: without it the composer still works, it just falls back to
+  // "pick the agent automatically", so a failure here costs nothing.
+  useEffect(() => {
+    fetch(`${BOT_URL}/admin/agents`)
+      .then(r => (r.ok ? r.json() : []))
+      .then(a => setAgents(Array.isArray(a) ? a : []))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     fetchData();
 
@@ -1142,6 +1202,8 @@ export default function WorkPage() {
               </div>
             </div>
           </div>
+
+          <TaskComposer agents={agents} onLaunched={() => fetchData(true)} />
 
           {loading ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#475569", padding: "2rem 0" }}>
