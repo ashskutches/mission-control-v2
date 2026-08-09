@@ -23,6 +23,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import {
   FlaskConical, Search, FileText, ExternalLink, RefreshCw, ChevronDown, ChevronRight,
   AlertTriangle, CheckCircle2, Loader2, Clock, Bot, Link2, XCircle, ShieldCheck, Layers,
+  CornerDownRight,
 } from "lucide-react";
 import ResearchComposer, { type AgentDef } from "@/components/ResearchComposer";
 
@@ -74,6 +75,9 @@ interface ResearchItem {
   grade: Record<string, number> | null;
   stages: Stage[] | null;
   deliverables: Deliverable[];
+  /** Set when this run was launched with "Follow up" off another report. */
+  source_job_id: string | null;
+  source_title: string | null;
 }
 
 interface ResearchResponse {
@@ -214,7 +218,11 @@ function StageTrack({ stages }: { stages: Stage[] }) {
   );
 }
 
-function ResearchCard({ item }: { item: ResearchItem }) {
+function ResearchCard({ item, onFollowUp }: {
+  item: ResearchItem;
+  /** Seeds the composer with this report. Absent for runs that produced nothing to build on. */
+  onFollowUp: (item: ResearchItem) => void;
+}) {
   const [open, setOpen] = useState(false);
   const meta = STATUS_META[item.status] ?? STATUS_META.pending!;
   const StatusIcon = meta.icon;
@@ -240,6 +248,22 @@ function ResearchCard({ item }: { item: ResearchItem }) {
           <p style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", margin: 0, lineHeight: 1.4 }}>
             {item.title}
           </p>
+
+          {/* Provenance for a follow-up. Shown above the question because it changes
+              how you read the answer: these findings were built on top of another
+              run's, and the chain is the thing you want to be able to walk back. */}
+          {item.source_job_id && (
+            <p style={{
+              fontSize: 10, color: "#64748b", margin: "5px 0 0",
+              display: "inline-flex", alignItems: "center", gap: 4,
+            }}>
+              <CornerDownRight size={10} color={ACCENT} />
+              Follows up on{" "}
+              <span style={{ color: "#94a3b8" }}>
+                {item.source_title ?? "a previous run"}
+              </span>
+            </p>
+          )}
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 5 }}>
             <span style={{ fontSize: 10, fontWeight: 800, color: meta.color, textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -342,6 +366,26 @@ function ResearchCard({ item }: { item: ResearchItem }) {
             </p>
           )}
 
+          {/* Ask the next question with this report already in hand.
+              Only on finished pipeline runs: the server carries the report text into
+              the new run's prompt, and it can only read that off an agent_jobs row.
+              A work-origin item has no compiled report to hand over. */}
+          {item.origin === "job" && item.status === "done" && (primary || item.summary) && (
+            <button
+              onClick={() => onFollowUp(item)}
+              title="Start a new investigation with this report supplied as source material"
+              style={{
+                marginTop: 10, height: 26, padding: "0 10px", borderRadius: 7,
+                display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer",
+                background: "rgba(167,139,250,0.07)",
+                border: "1px solid rgba(167,139,250,0.24)",
+                color: ACCENT, fontSize: 10.5, fontWeight: 700,
+              }}
+            >
+              <CornerDownRight size={11} /> Follow up
+            </button>
+          )}
+
           {/* Self-grade, expanded only — it is a quality check, not a headline. */}
           {open && item.grade && <GradeStrip grade={item.grade} />}
 
@@ -402,6 +446,19 @@ export default function ResearchPage() {
   // Held in a ref so the polling effect can read the current cadence without
   // re-subscribing every time the data changes.
   const hasActive = useRef(false);
+
+  // The report a new run should build on, when one was chosen with "Follow up".
+  // Lifted to the page because the button lives on a card and the composer is at
+  // the top — the two are far apart in the tree and nothing else connects them.
+  const [followUp, setFollowUp] = useState<{ id: string; title: string } | null>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+
+  const startFollowUp = useCallback((item: ResearchItem) => {
+    setFollowUp({ id: item.id, title: item.title });
+    // The library is long and the composer is above the fold only on a short one.
+    // Without this the button appears to do nothing.
+    composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -498,7 +555,14 @@ export default function ResearchPage() {
         <a href="/work" style={{ color: "#4a9eff", textDecoration: "none" }}>Tasks</a>.
       </p>
 
-      <ResearchComposer agents={agents} onLaunched={() => fetchData(true)} />
+      <div ref={composerRef}>
+        <ResearchComposer
+          agents={agents}
+          followUp={followUp}
+          onClearFollowUp={() => setFollowUp(null)}
+          onLaunched={() => { setFollowUp(null); fetchData(true); }}
+        />
+      </div>
 
       {/* Counts */}
       {data && (
@@ -596,7 +660,7 @@ export default function ResearchPage() {
           <p style={{ fontSize: 10, fontWeight: 800, color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px" }}>
             In progress
           </p>
-          {active.map(item => <ResearchCard key={item.id} item={item} />)}
+          {active.map(item => <ResearchCard key={item.id} item={item} onFollowUp={startFollowUp} />)}
         </div>
       )}
 
@@ -607,7 +671,7 @@ export default function ResearchPage() {
               Library
             </p>
           )}
-          {finished.map(item => <ResearchCard key={item.id} item={item} />)}
+          {finished.map(item => <ResearchCard key={item.id} item={item} onFollowUp={startFollowUp} />)}
         </>
       )}
 

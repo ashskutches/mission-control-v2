@@ -32,7 +32,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   FlaskConical, Loader2, Send, Bot, ChevronDown, AlertCircle, Bell,
-  Sparkles, Check, Undo2, HelpCircle,
+  Sparkles, Check, Undo2, HelpCircle, CornerDownRight, FileText, X,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3000";
@@ -95,9 +95,22 @@ const ACCENT = "#a78bfa";
 export default function ResearchComposer({
   agents,
   onLaunched,
+  followUp = null,
+  onClearFollowUp,
 }: {
   agents: AgentDef[];
   onLaunched: () => void;
+  /**
+   * A finished run this question builds on, chosen with "Follow up" in the library.
+   *
+   * Only the id travels. The server reads that run's report out of the database and
+   * puts the text in the prompt itself — deliberately not a URL for the agent to go
+   * and fetch, which is what this replaced. That version failed silently: handed a
+   * link to its own report, an agent decided the /admin/ path was auth-gated (it is
+   * not), never called a tool, and invented the findings it could not read.
+   */
+  followUp?: { id: string; title: string } | null;
+  onClearFollowUp?: () => void;
 }) {
   const [question, setQuestion] = useState("");
   const [depth, setDepth] = useState<string>("standard");
@@ -204,6 +217,7 @@ export default function ResearchComposer({
           agent_id: chosenId,
           agent_name: chosenName,
           depth,
+          source_job_id: followUp?.id ?? null,
           notify_discord_user_id:  notify?.id ?? null,
           notify_discord_username: notify?.displayName ?? null,
         }),
@@ -224,15 +238,19 @@ export default function ResearchComposer({
       setBusy(false);
       setPhase("");
     }
-  }, [question, depth, agentId, agents, busy, onLaunched, members, notifyUserId]);
+  }, [question, depth, agentId, agents, busy, onLaunched, members, notifyUserId, followUp]);
 
   return (
     <div style={{ ...card, padding: "16px 18px", marginBottom: 18 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12 }}>
-        <FlaskConical size={14} color={ACCENT} />
-        <p style={{ fontSize: 13, fontWeight: 800, color: "#e2e8f0", margin: 0 }}>New investigation</p>
+        {followUp ? <CornerDownRight size={14} color={ACCENT} /> : <FlaskConical size={14} color={ACCENT} />}
+        <p style={{ fontSize: 13, fontWeight: 800, color: "#e2e8f0", margin: 0 }}>
+          {followUp ? "Follow-up investigation" : "New investigation"}
+        </p>
         <span style={{ fontSize: 10.5, color: "#475569" }}>
-          Ask a question. You get a cited report, not a chat reply.
+          {followUp
+            ? "The earlier report is supplied to the agent — ask what comes next."
+            : "Ask a question. You get a cited report, not a chat reply."}
         </span>
 
         {/* Sharpen before launching — the run is minutes long, so a weak question is
@@ -256,11 +274,48 @@ export default function ResearchComposer({
         </button>
       </div>
 
+      {/* What this run is built on. Always visible while it is set, because the
+          question you write means something different when the agent has already
+          been handed a report — and because it must be possible to change your mind
+          without reloading the page. */}
+      {followUp && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8, marginBottom: 8,
+          padding: "8px 11px", borderRadius: 10,
+          background: "rgba(167,139,250,0.06)",
+          border: "1px solid rgba(167,139,250,0.26)",
+        }}>
+          <FileText size={11} color={ACCENT} style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: 10.5, color: "#94a3b8", minWidth: 0 }}>
+            Building on{" "}
+            <span style={{ color: "#e2e8f0", fontWeight: 700 }}>{followUp.title}</span>
+            {" "}— its full report goes to the agent as source material.
+          </span>
+          {onClearFollowUp && (
+            <button
+              onClick={onClearFollowUp}
+              disabled={busy}
+              title="Ask this as a standalone question instead"
+              style={{
+                marginLeft: "auto", flexShrink: 0, background: "none", border: "none",
+                cursor: busy ? "not-allowed" : "pointer", color: "#64748b",
+                fontSize: 10.5, fontWeight: 700, padding: "2px 4px",
+                display: "inline-flex", alignItems: "center", gap: 4,
+              }}
+            >
+              <X size={11} /> Clear
+            </button>
+          )}
+        </div>
+      )}
+
       <textarea
         value={question}
         onChange={e => editQuestion(e.target.value)}
         onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) launch(); }}
-        placeholder="What do you need to find out? A specific question beats a topic — &ldquo;which competitors added financing since January&rdquo; will get you a better report than &ldquo;competitors&rdquo;."
+        placeholder={followUp
+          ? "What should the agent do with that report? e.g. “find every part it lists on Amazon or eBay and give me a bulleted buy list with a total cost”."
+          : "What do you need to find out? A specific question beats a topic — “which competitors added financing since January” will get you a better report than “competitors”."}
         rows={3}
         disabled={busy}
         style={{
