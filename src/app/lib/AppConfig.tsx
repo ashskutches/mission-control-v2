@@ -34,7 +34,6 @@ import {
     Copy,
     Layout,
     Cpu,
-    GitMerge,
     ClipboardList,
     PiggyBank,
     Warehouse,
@@ -122,7 +121,7 @@ export const APP_CONFIG = {
 
         // ── Agentic ─────────────────────────────────────────────────────────────────────────
         // Four ways work reaches an agent, in the order you'd use them:
-        //   Pipeline  — insights → approve → assign to an agent or a human
+        //   Insights  — what the agents found, sorted by money/effort/risk, assignable
         //   Research  — ask a question → staged investigation → a cited report
         //   Quick Run — describe an action → one agent → one pass → done
         //   Tasks     — the tracked queue of assigned work (milestones, blockages)
@@ -130,12 +129,16 @@ export const APP_CONFIG = {
         // Research additionally shows pipeline runs from agent_jobs. Quick Run is the
         // single-shot half of agent_jobs. Research is a library you read, Tasks is a
         // queue you clear, Quick Run is a console you fire.
-        { id: 'pipeline',  group: 'agentic', href: '/pipeline',  icon: GitMerge,      label: 'Pipeline',  color: '#e98d20' },
+        //
+        // North Star used to be a sixth entry here — a KPI strip over a read-only
+        // digest of these same insights, with no way to act on any of them. Its
+        // strip now sits on top of the Insights list, where the ranked findings it
+        // was summarising can actually be assigned. /north-star is gone.
+        { id: 'pipeline',  group: 'agentic', href: '/pipeline',  icon: Lightbulb,     label: 'Insights',  color: '#e98d20' },
         { id: 'research',  group: 'agentic', href: '/research',  icon: FlaskConical,  label: 'Research',  color: '#a78bfa' },
         { id: 'quick-run', group: 'agentic', href: '/quick-run', icon: Zap,           label: 'Quick Run', color: '#4a9eff' },
         { id: 'tasks',     group: 'agentic', href: '/work',      icon: ClipboardList, label: 'Tasks',     color: '#4a9eff' },
         { id: 'agents',   group: 'agentic', href: '/agents',   icon: Bot,           label: 'Agents',     color: '#6b7280' },
-        { id: 'north-star', group: 'agentic', href: '/north-star', icon: TrendingUp, label: 'North Star', color: '#a78bfa' },
         // Profit renders in two places from one component: this full-width route,
         // and the Profitability tab of Command Center (/?tab=profitability).
         // The href stays a real path — Sidebar's activeId matches on pathname only,

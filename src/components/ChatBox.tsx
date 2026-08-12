@@ -10,7 +10,7 @@
  *   "inline" — self-contained collapsible panel that expands to a fixed height.
  *              Renders a toggle header then animates open/closed.
  *              Does NOT affect the surrounding page layout.
- *              Use for: embedded section pages, north-star, blockages page.
+ *              Use for: embedded section pages, insights, blockages page.
  *
  * All chat logic (conversation create/load, polling, send, optimistic messages) lives
  * here exactly once. SectionChat and AgentDetailChat are now thin wrappers around this.

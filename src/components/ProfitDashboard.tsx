@@ -1373,7 +1373,7 @@ export default function ProfitDashboard({
   /**
    * Query parameter carrying the inner dashboard/costs tab.
    *
-   * Standalone at /profitability it is `tab`, which is what the North Star
+   * Standalone at /profitability it is `tab`, which is what the Insights page's
    * blocker banner already links to (`/profitability?tab=costs`). Embedded in
    * Command Center, `tab` is taken by the outer tab strip, so the host passes
    * `sub` instead and the two do not fight over the same key.

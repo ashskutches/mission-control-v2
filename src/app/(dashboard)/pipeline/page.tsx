@@ -1,658 +1,374 @@
 "use client";
-import React, { useState, useCallback, useEffect, useRef } from "react";
+/**
+ * Insights — one list, sorted however you need it.
+ *
+ * This replaced a four-column kanban (Inbox → Assigned → In Progress → Blocked)
+ * spread over three pages plus a separate North Star briefing: ~3,900 lines to
+ * render a board that holds ten items. The kanban's data source fanned four
+ * tables into polymorphic cards so a finding and the work it spawned could sit
+ * side by side, which duplicated /work and made "what should I do next?" a
+ * question you answered by reading four columns.
+ *
+ * What replaced it:
+ *  - **One row per insight.** Work items are not rows; an assigned insight
+ *    carries its agent's progress inline, so acting on something never makes it
+ *    disappear from the list you were reading.
+ *  - **Sort by what you care about** — money, effort, risk, age, section.
+ *  - **Assign to an agent or a person from the row**, which is the one part of
+ *    the old pipeline that was pulling its weight.
+ *  - **North Star's KPI strip on top**, because a ranked list of opportunities
+ *    means nothing without the margin they are supposed to move.
+ *
+ * On the money column, see GET /admin/insights/board: a figure is only shown
+ * with a stated basis, it is labelled measured or claimed, and the two are never
+ * added together.
+ */
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Inbox, Users, Zap, AlertTriangle, CheckCircle2, RefreshCw,
-  GitMerge, Filter, Search, X, ChevronDown, ChevronRight,
-  Bot, User, ArrowRight, Clock,
-  ExternalLink, RotateCcw, AlertCircle, Bell, BellOff,
-  Wrench, CheckCheck, XCircle, Sparkles, Trash2,
+  RefreshCw, X, ChevronDown, ChevronRight, Bot, User, Sparkles, CheckCircle2,
+  Search, AlertTriangle, TrendingUp, Target, Activity, DollarSign, Bell, BellOff,
+  Lightbulb, ArrowUpRight, Clock, Ban, Info,
 } from "lucide-react";
 
-
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
-const REFRESH_MS = 20_000;
+const REFRESH_MS = 30_000;
+const ACCENT = "#e98d20";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type ItemKind = "insight" | "work" | "human_task" | "agent_task";
-
-interface PipelineItem {
-  id: string;
-  _kind: ItemKind;
-  title: string;
-  priority?: number;
-  status?: string;
-  section?: string;
-  type?: string;
-  // Assignment
-  agent_id?: string | null;
-  agent_name?: string | null;
-  assigned_agent_id?: string | null;
-  assigned_agent_name?: string | null;
-  assigned_to?: string | null;
-  assigned_username?: string | null;
-  // Insight-specific
-  body?: string | null;
-  risk_tier?: string | null;
-  risk_score?: number | null;
-  estimated_monthly_value?: number | null;
-  occurrences?: number | null;
-  assigned_work_id?: string | null;
-  // Work / human_task parent link
-  insight_id?: string | null;
-  // Work-specific
-  milestones?: { label: string; done: boolean }[] | null;
-  current_milestone?: number | null;
-  last_progress?: string | null;
-  effort_tier?: string | null;
-  run_count?: number | null;
-  // Agent task-specific
-  tool_name?: string | null;
-  tool_input?: any;
-  human_note?: string | null;
-  // Human task
-  instructions?: string | null;
-  due_date?: string | null;
-  // Timestamps
-  created_at?: string;
-  updated_at?: string;
+interface BoardValue { amount: number; source: "measured" | "claimed"; basis: string }
+interface BoardWork {
+  id: string; status: string;
+  milestone_label: string | null; milestone_index: number; milestone_total: number;
+  percent: number; last_progress: string | null; next_run_at: string | null; runs: string;
 }
-
-interface PipelineData {
-  inbox: PipelineItem[];
-  assigned: PipelineItem[];
-  in_progress: PipelineItem[];
-  blocked: PipelineItem[];
-  summary: {
-    inbox_count: number;
-    assigned_count: number;
-    in_progress_count: number;
-    blocked_count: number;
-    total_active: number;
-  };
+interface BoardItem {
+  id: string; title: string; body: string | null;
+  section: string; lane: string; type: string; status: string;
+  priority: number; occurrences: number;
+  risk_score: number; risk_tier: string | null;
+  metrics: Record<string, unknown>;
+  filed_by: string | null;
+  value: BoardValue | null;
+  effort: { tier: "low" | "medium" | "high" | null; rank: number };
+  assignee: { kind: "agent" | "human"; id: string; name: string } | null;
+  work: BoardWork | null;
+  human_task: { id: string; status: string } | null;
+  created_at: string; updated_at: string; age_days: number;
 }
-
-interface Agent { id: string; name: string; }
-interface TeamMember { discord_id: string; username: string; display_name?: string | null; }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function timeAgo(iso?: string): string {
-  if (!iso) return "";
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60_000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+interface BoardResponse {
+  sort: string; lane: string; count: number;
+  value_summary: { measured_monthly: number; claimed_monthly: number; unpriced_count: number };
+  items: BoardItem[];
 }
-
-function priorityColor(p?: number): string {
-  if (!p) return "#475569";
-  if (p >= 9) return "#f43f5e";
-  if (p >= 7) return "#fb923c";
-  if (p >= 5) return "#e98d20";
-  return "#38bdf8";
+interface ProfitSummary {
+  netRevenue: number; netMarginPct: number | null; netProfit: number | null;
+  grossMarginPct: number | null; mer: number | null; cac: number | null;
+  cogsCoverage: number; coverageSufficient: boolean; orders: number; aov: number;
 }
+interface ProfitPacing { target: number; projectedTotal: number; varianceToPace: number; pctOfTarget: number }
+/** A figure the P&L is withholding, and the one thing that would unblock it. */
+interface ProfitBlocker { severity: string; message: string; fix: string }
+interface Profit { summary: ProfitSummary; pacing: ProfitPacing | null; blockers: ProfitBlocker[] }
+interface Agent { id: string; name: string }
+interface TeamMember { discord_id: string; username: string; display_name?: string | null }
 
-const KIND_BADGE: Record<ItemKind, { label: string; color: string; bg: string }> = {
-  insight:    { label: "Insight",    color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  work:       { label: "Work",       color: "#38bdf8", bg: "rgba(56,189,248,0.12)" },
-  human_task: { label: "Human Task", color: "#22c55e", bg: "rgba(34,197,94,0.12)" },
-  agent_task: { label: "Approval",   color: "#f43f5e", bg: "rgba(244,63,94,0.12)" },
-};
+type SortKey = "risk" | "value" | "effort" | "newest" | "section";
 
+// ── Display helpers ───────────────────────────────────────────────────────────
 const RISK_COLOR: Record<string, string> = {
   critical: "#f43f5e", high: "#fb923c", medium: "#e98d20", low: "#22c55e",
 };
+const SECTION_LABEL: Record<string, string> = {
+  seo: "SEO", email: "Email", content: "Content", ads: "Ads", product: "Product",
+  general: "General", influencing: "Influencing", support: "Support",
+  logistics: "Logistics", media: "Media", pricing: "Pricing", catalog: "Catalog",
+  revenue: "Revenue", brand: "Brand", profitability: "Profit", community: "Community",
+};
+const EFFORT_LABEL: Record<string, { label: string; color: string }> = {
+  low: { label: "Low", color: "#22c55e" },
+  medium: { label: "Medium", color: "#e98d20" },
+  high: { label: "High", color: "#f43f5e" },
+};
 
-function milestonePercent(item: PipelineItem): number {
-  const ms = item.milestones;
-  if (!ms?.length) return 0;
-  const done = ms.filter(m => m.done).length;
-  return Math.round((done / ms.length) * 100);
+function money(n: number): string {
+  const abs = Math.abs(n);
+  const s = abs >= 1000 ? `$${(abs / 1000).toFixed(abs >= 10_000 ? 0 : 1)}K` : `$${Math.round(abs)}`;
+  return n < 0 ? `−${s}` : s;
+}
+function ageLabel(days: number): string {
+  if (days === 0) return "today";
+  if (days === 1) return "1d";
+  if (days < 30) return `${days}d`;
+  return `${Math.floor(days / 30)}mo`;
 }
 
-function assigneeName(item: PipelineItem): string | null {
-  return item.agent_name ?? item.assigned_agent_name ??
-    item.assigned_to ?? item.assigned_username ?? null;
-}
-
-function isAgentAssigned(item: PipelineItem): boolean {
-  return !!(item.agent_id ?? item.assigned_agent_id);
-}
-
-// ── Toast ─────────────────────────────────────────────────────────────────────
-type Toast = { id: number; type: "ok" | "err"; msg: string };
-let _toastId = 0;
-
-function ToastStack({ toasts, dismiss }: { toasts: Toast[]; dismiss: (id: number) => void }) {
+// ── KPI strip ─────────────────────────────────────────────────────────────────
+// Carried over from North Star. A withheld figure renders as "—" with the reason
+// underneath and is never filled with a placeholder — see /profitability.
+function StatCard({ label, value, sub, icon: Icon, color = ACCENT, alert = false }: {
+  label: string; value: string; sub?: string; icon: React.ElementType; color?: string; alert?: boolean;
+}) {
   return (
-    <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 99999, display: "flex", flexDirection: "column", gap: 8, pointerEvents: "none" }}>
-      <AnimatePresence>
-        {toasts.map(t => (
-          <motion.div key={t.id}
-            initial={{ opacity: 0, y: 12, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.95 }}
-            style={{
-              pointerEvents: "all",
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "10px 14px", borderRadius: 10,
-              background: t.type === "ok" ? "rgba(34,197,94,0.15)" : "rgba(244,63,94,0.15)",
-              border: `1px solid ${t.type === "ok" ? "rgba(34,197,94,0.4)" : "rgba(244,63,94,0.4)"}`,
-              boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
-              backdropFilter: "blur(12px)",
-              maxWidth: 340,
-              cursor: "pointer",
-            }}
-            onClick={() => dismiss(t.id)}
-          >
-            {t.type === "ok"
-              ? <CheckCheck size={14} color="#22c55e" />
-              : <XCircle size={14} color="#f43f5e" />}
-            <span style={{ fontSize: "12px", fontWeight: 600, color: t.type === "ok" ? "#22c55e" : "#f87171", lineHeight: 1.4 }}>{t.msg}</span>
-          </motion.div>
-        ))}
-      </AnimatePresence>
+    <div style={{
+      background: alert ? "rgba(244,63,94,0.07)" : "rgba(255,255,255,0.03)",
+      border: `1px solid ${alert ? "rgba(244,63,94,0.25)" : `${color}20`}`,
+      borderRadius: 14, padding: "0.85rem 1.1rem", display: "flex", alignItems: "flex-start", gap: 12,
+    }}>
+      <div style={{ width: 32, height: 32, borderRadius: 9, background: `${alert ? "#f43f5e" : color}18`, border: `1px solid ${alert ? "#f43f5e" : color}30`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <Icon size={15} color={alert ? "#f43f5e" : color} />
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <p style={{ fontSize: "9.5px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.07em", margin: 0, fontWeight: 700 }}>{label}</p>
+        <p style={{ fontSize: "1.25rem", fontWeight: 900, color: alert ? "#f43f5e" : "#e2e8f0", margin: "2px 0 0", lineHeight: 1 }}>{value}</p>
+        {sub && <p style={{ fontSize: "9.5px", color: "#64748b", margin: "3px 0 0" }}>{sub}</p>}
+      </div>
     </div>
   );
 }
 
-
-// ── Purge Modal ───────────────────────────────────────────────────────────────
-const ALL_STATUSES = ["new", "acknowledged", "dismissed", "resolved"] as const;
-const ALL_TYPES    = ["observation", "opportunity", "bug", "blocker", "critical_issue", "feature_request", "integration_request", "win"] as const;
-
-type PurgeResult = { dry_run: boolean; would_purge?: number; purged?: number; sample?: any[]; message?: string };
-
-function PurgeModal({
-  allSections,
-  onClose,
-  onDone,
-}: {
-  allSections: string[];
-  onClose: () => void;
-  onDone: (msg: string) => void;
-}) {
-  const [olderThanDays, setOlderThanDays] = useState(30);
-  const [selectedSections, setSelectedSections] = useState<string[]>([]);
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["new", "dismissed"]);
-  const [hardDelete, setHardDelete] = useState(false);
-  const [preview, setPreview] = useState<PurgeResult | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [running, setRunning] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const toggleItem = (list: string[], setList: (v: string[]) => void, val: string) =>
-    setList(list.includes(val) ? list.filter(x => x !== val) : [...list, val]);
-
-  const buildBody = (dryRun: boolean) => ({
-    older_than_days: olderThanDays > 0 ? olderThanDays : undefined,
-    sections: selectedSections,
-    types: selectedTypes,
-    statuses: selectedStatuses,
-    hard_delete: hardDelete,
-    dry_run: dryRun,
-  });
-
-  const handlePreview = async () => {
-    setPreviewLoading(true); setPreview(null); setErr(null); setConfirmed(false);
-    try {
-      const res = await fetch(`${BOT_URL}/admin/pipeline/purge`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildBody(true)),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
-      setPreview(json);
-    } catch (e: any) { setErr(e.message); }
-    finally { setPreviewLoading(false); }
-  };
-
-  const handlePurge = async () => {
-    setRunning(true); setErr(null);
-    try {
-      const res = await fetch(`${BOT_URL}/admin/pipeline/purge`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildBody(false)),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
-      onDone(json.message ?? `Purged ${json.purged} insights.`);
-      onClose();
-    } catch (e: any) { setErr(e.message); }
-    finally { setRunning(false); }
-  };
-
-  const overlayStyle: React.CSSProperties = {
-    position: "fixed", inset: 0, zIndex: 9999,
-    background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)",
-    display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem",
-  };
-  const modalStyle: React.CSSProperties = {
-    width: "100%", maxWidth: 520,
-    background: "rgba(13,17,27,0.98)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: 16, padding: "1.5rem",
-    boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
-    maxHeight: "92vh", overflowY: "auto",
-  };
-  const chipStyle = (active: boolean, color = "#f43f5e"): React.CSSProperties => ({
-    padding: "4px 10px", borderRadius: 6, cursor: "pointer",
-    fontSize: "11px", fontWeight: 700, userSelect: "none",
-    background: active ? `${color}22` : "rgba(255,255,255,0.04)",
-    border: `1px solid ${active ? `${color}55` : "rgba(255,255,255,0.08)"}`,
-    color: active ? color : "#64748b",
-    transition: "all 0.1s",
-  });
-
-  const sectionLabel = (s: string) => s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-
-  const canPurge = selectedStatuses.length > 0;
-  const previewCount = preview?.would_purge ?? 0;
-
+function KpiStrip({ profit }: { profit: Profit | null }) {
+  const criticalBlockers = profit?.blockers?.filter(b => b.severity === "critical") ?? [];
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      style={overlayStyle} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 16 }} style={modalStyle}>
-
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(244,63,94,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Trash2 size={16} color="#f43f5e" />
-            </div>
-            <div>
-              <p style={{ fontSize: "10px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, marginBottom: 1 }}>Bulk Purge</p>
-              <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#e2e8f0" }}>Purge Insights</h2>
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569" }}>
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Age threshold */}
-        <div style={{ marginBottom: 18 }}>
-          <label style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: 700, color: "#94a3b8", marginBottom: 8 }}>
-            <span>Older than</span>
-            <span style={{ color: olderThanDays === 0 ? "#64748b" : "#e98d20" }}>
-              {olderThanDays === 0 ? "Any age" : `${olderThanDays} days`}
-            </span>
-          </label>
-          <input
-            type="range" min={0} max={180} step={1}
-            value={olderThanDays}
-            onChange={e => { setOlderThanDays(Number(e.target.value)); setPreview(null); }}
-            style={{ width: "100%", accentColor: "#e98d20" }}
-          />
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "9px", color: "#334155", marginTop: 4 }}>
-            <span>Any age</span><span>30d</span><span>60d</span><span>90d</span><span>180d</span>
-          </div>
-        </div>
-
-        {/* Statuses */}
-        <div style={{ marginBottom: 14 }}>
-          <p style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", marginBottom: 8 }}>Target statuses</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {ALL_STATUSES.map(s => (
-              <span key={s} style={chipStyle(selectedStatuses.includes(s), "#f43f5e")}
-                onClick={() => { toggleItem(selectedStatuses, setSelectedStatuses, s); setPreview(null); }}>
-                {s}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Sections */}
-        {allSections.length > 0 && (
-          <div style={{ marginBottom: 14 }}>
-            <p style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", marginBottom: 8 }}>Sections <span style={{ color: "#334155", fontWeight: 400 }}>(empty = all)</span></p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {allSections.map(s => (
-                <span key={s} style={chipStyle(selectedSections.includes(s), "#38bdf8")}
-                  onClick={() => { toggleItem(selectedSections, setSelectedSections, s); setPreview(null); }}>
-                  {sectionLabel(s)}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Types */}
-        <div style={{ marginBottom: 18 }}>
-          <p style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", marginBottom: 8 }}>Types <span style={{ color: "#334155", fontWeight: 400 }}>(empty = all)</span></p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {ALL_TYPES.map(t => (
-              <span key={t} style={chipStyle(selectedTypes.includes(t), "#a78bfa")}
-                onClick={() => { toggleItem(selectedTypes, setSelectedTypes, t); setPreview(null); }}>
-                {t.replace(/_/g, " ")}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Delete mode toggle */}
-        <button
-          onClick={() => { setHardDelete(h => !h); setPreview(null); }}
-          style={{
-            width: "100%", marginBottom: 16, padding: "9px 14px",
-            borderRadius: 8, cursor: "pointer", display: "flex",
-            alignItems: "center", gap: 10, textAlign: "left",
-            background: hardDelete ? "rgba(244,63,94,0.08)" : "rgba(255,255,255,0.03)",
-            border: `1px solid ${hardDelete ? "rgba(244,63,94,0.35)" : "rgba(255,255,255,0.08)"}`,
-            transition: "all 0.15s",
-          }}
-        >
-          <div style={{ width: 34, height: 18, borderRadius: 9, flexShrink: 0, background: hardDelete ? "#f43f5e" : "rgba(255,255,255,0.15)", position: "relative", transition: "background 0.2s" }}>
-            <div style={{ position: "absolute", top: 2, width: 14, height: 14, borderRadius: "50%", background: "#fff", transition: "left 0.2s", left: hardDelete ? 18 : 2 }} />
-          </div>
-          <div>
-            <p style={{ fontSize: "12px", fontWeight: 700, color: hardDelete ? "#f43f5e" : "#64748b" }}>
-              {hardDelete ? "⚠ Hard delete (permanent)" : "Soft dismiss (recoverable)"}
-            </p>
-            <p style={{ fontSize: "10px", color: "#475569", marginTop: 1 }}>
-              {hardDelete ? "Rows will be permanently removed from Supabase." : "Insights will be marked 'dismissed' and hidden from the pipeline."}
-            </p>
-          </div>
-        </button>
-
-        {/* Preview result */}
-        {preview && (
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-            style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10,
-              background: previewCount === 0 ? "rgba(34,197,94,0.06)" : "rgba(244,63,94,0.06)",
-              border: `1px solid ${previewCount === 0 ? "rgba(34,197,94,0.2)" : "rgba(244,63,94,0.2)"}` }}>
-            <p style={{ fontSize: "12px", fontWeight: 800, color: previewCount === 0 ? "#22c55e" : "#f87171", marginBottom: previewCount > 0 && preview.sample?.length ? 8 : 0 }}>
-              {previewCount === 0 ? "✓ No insights match — nothing to purge." : `${previewCount} insight${previewCount === 1 ? "" : "s"} will be ${hardDelete ? "permanently deleted" : "dismissed"}.`}
-            </p>
-            {preview.sample && preview.sample.length > 0 && (
-              <>
-                <p style={{ fontSize: "9px", color: "#64748b", marginBottom: 4, fontWeight: 700 }}>SAMPLE (up to 5):</p>
-                {preview.sample.map((s: any) => (
-                  <div key={s.id} style={{ fontSize: "10px", color: "#94a3b8", padding: "3px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                    <span style={{ color: "#475569", marginRight: 6 }}>[{s.section}]</span>{s.title}
-                  </div>
-                ))}
-              </>
-            )}
-          </motion.div>
-        )}
-
-        {err && <p style={{ color: "#f43f5e", fontSize: "12px", marginBottom: 10 }}>{err}</p>}
-
-        {/* Confirm checkbox (only shown when preview has items) */}
-        {preview && previewCount > 0 && (
-          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 14, fontSize: "12px", color: "#94a3b8" }}>
-            <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}
-              style={{ accentColor: "#f43f5e", width: 14, height: 14 }} />
-            I understand this action {hardDelete ? "permanently deletes" : "dismisses"} {previewCount} insight{previewCount === 1 ? "" : "s"}
-          </label>
-        )}
-
-        {/* Actions */}
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#94a3b8", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>
-            Cancel
-          </button>
-          <button
-            onClick={handlePreview}
-            disabled={previewLoading || !canPurge}
-            style={{ flex: 1.5, padding: "8px 0", borderRadius: 8, border: "1px solid rgba(56,189,248,0.3)", background: "rgba(56,189,248,0.08)", color: "#38bdf8", cursor: canPurge ? "pointer" : "not-allowed", fontWeight: 700, fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}
-          >
-            {previewLoading ? <RefreshCw size={11} className="animate-spin" /> : <Search size={11} />}
-            {previewLoading ? "Scanning…" : "Preview"}
-          </button>
-          <button
-            onClick={handlePurge}
-            disabled={running || !preview || previewCount === 0 || !confirmed}
-            style={{
-              flex: 2, padding: "8px 0", borderRadius: 8, border: "none",
-              cursor: (!preview || previewCount === 0 || !confirmed || running) ? "not-allowed" : "pointer",
-              background: (!preview || previewCount === 0 || !confirmed) ? "rgba(255,255,255,0.06)" : hardDelete ? "linear-gradient(135deg,#f43f5e,#c92f4a)" : "linear-gradient(135deg,#e98d20,#c97818)",
-              color: (!preview || previewCount === 0 || !confirmed) ? "#475569" : "#fff",
-              fontWeight: 700, fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-              transition: "all 0.15s",
-            }}
-          >
-            {running ? <RefreshCw size={11} className="animate-spin" /> : <Trash2 size={11} />}
-            {running ? "Purging…" : hardDelete ? "Delete Forever" : "Dismiss All"}
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
+    <>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(175px, 1fr))", gap: "0.7rem", marginBottom: "0.6rem" }}>
+        <StatCard
+          label="Net Margin"
+          value={profit?.summary.netMarginPct != null ? `${profit.summary.netMarginPct.toFixed(1)}%` : "—"}
+          sub={profit?.summary.netProfit != null ? `$${Math.round(profit.summary.netProfit).toLocaleString()} QTD` : "needs unit costs + overhead"}
+          icon={Target}
+          color={profit?.summary.netMarginPct == null ? "#475569" : profit.summary.netMarginPct >= 0 ? "#22c55e" : "#f43f5e"}
+          alert={profit?.summary.netMarginPct != null && profit.summary.netMarginPct < 0}
+        />
+        <StatCard
+          label="Q Pace"
+          value={profit?.pacing ? `$${Math.round(profit.pacing.projectedTotal / 1000)}K` : "—"}
+          sub={profit?.pacing ? `of $${Math.round(profit.pacing.target / 1000)}K target` : "no target set"}
+          icon={TrendingUp}
+          color={!profit?.pacing ? "#475569" : profit.pacing.varianceToPace >= 0 ? "#22c55e" : "#f59e0b"}
+          alert={!!profit?.pacing && profit.pacing.varianceToPace < 0}
+        />
+        <StatCard
+          label="MER"
+          value={profit?.summary.mer != null ? `${profit.summary.mer.toFixed(2)}×` : "—"}
+          sub={profit?.summary.mer != null ? "revenue ÷ ad spend" : "no ad spend recorded"}
+          icon={Activity}
+          color={profit?.summary.mer == null ? "#475569" : profit.summary.mer >= 2.8 ? "#22c55e" : "#f43f5e"}
+          alert={profit?.summary.mer != null && profit.summary.mer < 2.5}
+        />
+        <StatCard
+          label="Gross Margin"
+          value={profit?.summary.grossMarginPct != null ? `${profit.summary.grossMarginPct.toFixed(1)}%` : "—"}
+          sub={profit?.summary.grossMarginPct != null ? "healthy ≥ 48%" : `only ${((profit?.summary.cogsCoverage ?? 0) * 100).toFixed(0)}% cost coverage`}
+          icon={DollarSign}
+          color={profit?.summary.grossMarginPct == null ? "#475569" : profit.summary.grossMarginPct >= 48 ? "#22c55e" : "#f59e0b"}
+        />
+      </div>
+      {criticalBlockers.length > 0 && (
+        <a href="/profitability?tab=costs" style={{
+          display: "flex", alignItems: "center", gap: 8, marginBottom: "1rem", textDecoration: "none",
+          background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.25)", borderRadius: 10, padding: "0.55rem 0.85rem",
+        }}>
+          <AlertTriangle size={13} color="#f43f5e" />
+          <span style={{ fontSize: "11.5px", color: "#e2e8f0" }}>
+            {criticalBlockers.length} blocker(s) are keeping the figures above from being real —{" "}
+            <strong style={{ color: "#f43f5e" }}>{criticalBlockers[0]?.fix}</strong>
+          </span>
+          <ChevronRight size={12} color="#f43f5e" style={{ marginLeft: "auto", flexShrink: 0 }} />
+        </a>
+      )}
+    </>
   );
 }
 
-function ReassignModal({
-  item, agents, teamMembers, onClose, onReassign,
+// ── Value cell ────────────────────────────────────────────────────────────────
+// The chip is the point. A basis string alone does not separate GA4's own
+// per-page revenue from "30-40% CTR improvement … estimated", and the second one
+// is worth $150,000/mo on this board.
+function ValueCell({ value }: { value: BoardValue | null }) {
+  if (!value) {
+    return (
+      <span title="Nothing can price this yet. It is not worth $0 — no measurement exists, and a site-average guess would be invented."
+        style={{ color: "#334155", fontSize: "12px" }}>—</span>
+    );
+  }
+  const isRisk = value.amount < 0;
+  const measured = value.source === "measured";
+  const color = isRisk ? "#f43f5e" : measured ? "#22c55e" : "#94a3b8";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end" }}>
+      <span style={{ color, fontWeight: 800, fontSize: "13px", whiteSpace: "nowrap" }}>
+        {money(value.amount)}<span style={{ color: "#475569", fontWeight: 500 }}>/mo</span>
+      </span>
+      <span title={measured
+        ? `Measured: ${value.basis}`
+        : `Claimed by the filing agent — not measured: ${value.basis}`}
+        style={{
+          fontSize: "8.5px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em",
+          padding: "1px 5px", borderRadius: 4, cursor: "help",
+          color: measured ? "#22c55e" : "#64748b",
+          background: measured ? "rgba(34,197,94,0.12)" : "rgba(255,255,255,0.04)",
+          border: `1px solid ${measured ? "rgba(34,197,94,0.25)" : "rgba(255,255,255,0.07)"}`,
+        }}>
+        {measured ? "measured" : "claimed"}{isRisk ? " · risk" : ""}
+      </span>
+    </div>
+  );
+}
+
+// ── Assign modal ──────────────────────────────────────────────────────────────
+function AssignModal({
+  item, agents, teamMembers, onClose, onAssign,
 }: {
-  item: PipelineItem;
-  agents: Agent[];
-  teamMembers: TeamMember[];
+  item: BoardItem; agents: Agent[]; teamMembers: TeamMember[];
   onClose: () => void;
-  onReassign: (agentId: string | null, agentName: string | null, humanUsername: string | null, notify: boolean) => Promise<void>;
+  onAssign: (agentId: string | null, agentName: string | null, humanUsername: string | null, notify: boolean) => Promise<void>;
 }) {
   const [tab, setTab] = useState<"agent" | "human">("agent");
-  const [selected, setSelected] = useState<string>("__auto__"); // default to auto
+  const [selected, setSelected] = useState<string>("__auto__");
   const [notify, setNotify] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  /**
+   * Both agent paths go through POST /admin/insights/:id/assign, which is the
+   * only one that creates the `agent_work` row — the agent's scheduled run,
+   * milestones, run cap and all.
+   *
+   * Picking a specific agent used to go through /reassign instead, which sets a
+   * name on the insight and creates nothing. It looked assigned and never ran;
+   * only "Choose Automatically" actually dispatched anything. `force_agent_name`
+   * rides along because the route would otherwise label the work with the name of
+   * the agent that *filed* the insight.
+   *
+   * Humans still go through /reassign — that path creates the `human_tasks` row
+   * and sends the Discord DM.
+   */
   const handleSave = async () => {
     setSaving(true); setErr(null);
     try {
-      if (selected === "__auto__") {
-        // Auto-assign: for agents call /assign; for humans pick first team member
-        if (tab === "agent") {
-          const res = await fetch(`${BOT_URL}/admin/insights/${item.id}/assign`, { method: "POST" });
-          const json = await res.json();
-          if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
-          const agentName = json.assigned_agent_name ?? json.agent_name ?? "Agent";
-          const agentId   = json.assigned_agent_id   ?? json.agent_id   ?? "";
-          await onReassign(agentId, agentName, null, false);
-        } else {
-          // Human auto: pick first available team member
-          const first = teamMembers[0];
-          if (!first) throw new Error("No team members available to auto-assign");
-          await onReassign(null, null, first.username, notify);
-        }
-      } else if (tab === "agent") {
-        const ag = agents.find(a => a.id === selected);
-        await onReassign(selected, ag?.name ?? null, null, false);
+      if (tab === "agent") {
+        const forced = selected === "__auto__" ? null : selected;
+        const res = await fetch(`${BOT_URL}/admin/insights/${item.id}/assign`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(forced
+            ? { force_agent_id: forced, force_agent_name: agents.find(a => a.id === forced)?.name ?? null }
+            : {}),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+        await onAssign(json.agent_id ?? forced ?? "", json.agent_name ?? null, null, false);
       } else {
-        await onReassign(null, null, selected, notify);
+        const username = selected === "__auto__" ? teamMembers[0]?.username : selected;
+        if (!username) throw new Error("No team members available to assign to");
+        await onAssign(null, null, username, notify);
       }
       onClose();
-    } catch (e: any) { setErr(e.message); }
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     finally { setSaving(false); }
   };
 
-  const overlayStyle: React.CSSProperties = {
-    position: "fixed", inset: 0, zIndex: 9999,
-    background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)",
-    display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem",
-  };
-  const modalStyle: React.CSSProperties = {
-    width: "100%", maxWidth: 480,
-    background: "rgba(13,17,27,0.98)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: 16, padding: "1.5rem",
-    boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
-  };
-  const tabBtnStyle = (active: boolean): React.CSSProperties => ({
-    padding: "6px 16px", borderRadius: 8, border: "none", cursor: "pointer",
-    fontWeight: 700, fontSize: "12px", textTransform: "uppercase",
-    background: active ? "rgba(233,141,32,0.15)" : "transparent",
-    color: active ? "#e98d20" : "#64748b",
-    transition: "all 0.15s",
-  });
-  const itemStyle = (sel: boolean): React.CSSProperties => ({
-    display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-    borderRadius: 8, cursor: "pointer",
-    background: sel ? "rgba(233,141,32,0.1)" : "rgba(255,255,255,0.03)",
-    border: `1px solid ${sel ? "rgba(233,141,32,0.4)" : "rgba(255,255,255,0.06)"}`,
-    marginBottom: 6, transition: "all 0.1s",
+  const optionStyle = (sel: boolean, tint = ACCENT): React.CSSProperties => ({
+    display: "flex", alignItems: "center", gap: 10, padding: "9px 12px",
+    borderRadius: 8, cursor: "pointer", marginBottom: 6, transition: "all 0.1s",
+    background: sel ? `${tint}1a` : "rgba(255,255,255,0.03)",
+    border: `1px solid ${sel ? `${tint}66` : "rgba(255,255,255,0.06)"}`,
   });
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      style={overlayStyle} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 16 }} style={modalStyle}>
+      style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 16 }}
+        style={{ width: "100%", maxWidth: 480, background: "rgba(13,17,27,0.98)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: "1.4rem", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14, gap: 12 }}>
           <div>
-            <p style={{ fontSize: "10px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, marginBottom: 2 }}>
-              Re-assign
-            </p>
-            <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#e2e8f0" }}>{item.title}</h2>
+            <p style={{ fontSize: "10px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, marginBottom: 2 }}>Assign</p>
+            <h2 style={{ fontWeight: 800, fontSize: "0.95rem", color: "#e2e8f0", lineHeight: 1.35 }}>{item.title}</h2>
           </div>
-          <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569" }}>
-            <X size={18} />
-          </button>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569", flexShrink: 0 }}><X size={18} /></button>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "rgba(255,255,255,0.04)", padding: 4, borderRadius: 10 }}>
-          <button style={tabBtnStyle(tab === "agent")} onClick={() => setTab("agent")}>
-            <Bot size={12} style={{ display: "inline", marginRight: 4 }} />Agent
-          </button>
-          <button style={tabBtnStyle(tab === "human")} onClick={() => setTab("human")}>
-            <User size={12} style={{ display: "inline", marginRight: 4 }} />Human
-          </button>
+        <div style={{ display: "flex", gap: 4, marginBottom: 14, background: "rgba(255,255,255,0.04)", padding: 4, borderRadius: 10 }}>
+          {(["agent", "human"] as const).map(t => (
+            <button key={t} onClick={() => { setTab(t); setSelected("__auto__"); }}
+              style={{
+                padding: "6px 16px", borderRadius: 8, border: "none", cursor: "pointer",
+                fontWeight: 700, fontSize: "12px", textTransform: "uppercase",
+                background: tab === t ? "rgba(233,141,32,0.15)" : "transparent",
+                color: tab === t ? ACCENT : "#64748b",
+              }}>
+              {t === "agent" ? <Bot size={12} style={{ display: "inline", marginRight: 4 }} /> : <User size={12} style={{ display: "inline", marginRight: 4 }} />}
+              {t}
+            </button>
+          ))}
         </div>
 
-        {/* List */}
-        <div style={{ maxHeight: 320, overflowY: "auto" }}>
-          {tab === "agent" ? (
-            <>
-              {/* Choose Automatically — always first */}
-              <div style={{
-                display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-                borderRadius: 8, cursor: "pointer", marginBottom: 6, transition: "all 0.1s",
-                background: selected === "__auto__" ? "rgba(167,139,250,0.12)" : "rgba(255,255,255,0.03)",
-                border: `1px solid ${selected === "__auto__" ? "rgba(167,139,250,0.45)" : "rgba(255,255,255,0.06)"}`,
-              }} onClick={() => setSelected("__auto__")}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(167,139,250,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <Sparkles size={14} color="#a78bfa" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontWeight: 700, fontSize: "13px", color: "#a78bfa" }}>Choose Automatically</span>
-                  <p style={{ fontSize: "10px", color: "#64748b", margin: "1px 0 0" }}>
-                    Picks the section lead for <strong style={{ color: "#94a3b8" }}>{item.section ?? "this insight"}</strong>
-                  </p>
-                </div>
-                {selected === "__auto__" && <CheckCircle2 size={14} color="#a78bfa" />}
+        <div style={{ maxHeight: 300, overflowY: "auto" }}>
+          <div style={optionStyle(selected === "__auto__", "#a78bfa")} onClick={() => setSelected("__auto__")}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(167,139,250,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Sparkles size={14} color="#a78bfa" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <span style={{ fontWeight: 700, fontSize: "13px", color: "#a78bfa" }}>Choose Automatically</span>
+              <p style={{ fontSize: "10px", color: "#64748b", margin: "1px 0 0" }}>
+                {tab === "agent"
+                  ? <>Section lead for <strong style={{ color: "#94a3b8" }}>{SECTION_LABEL[item.section] ?? item.section}</strong>, with milestones</>
+                  : "First available team member"}
+              </p>
+            </div>
+            {selected === "__auto__" && <CheckCircle2 size={14} color="#a78bfa" />}
+          </div>
+
+          {tab === "agent" ? agents.map(a => (
+            <div key={a.id} style={optionStyle(selected === a.id)} onClick={() => setSelected(a.id)}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(167,139,250,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Bot size={14} color="#a78bfa" />
               </div>
-              {/* Manual options */}
-              {agents.map(a => (
-                <div key={a.id} style={{
-                  display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-                  borderRadius: 8, cursor: "pointer", marginBottom: 6, transition: "all 0.1s",
-                  background: selected === a.id ? "rgba(233,141,32,0.1)" : "rgba(255,255,255,0.03)",
-                  border: `1px solid ${selected === a.id ? "rgba(233,141,32,0.4)" : "rgba(255,255,255,0.06)"}`,
-                }} onClick={() => setSelected(a.id)}>
-                  <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(167,139,250,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Bot size={14} color="#a78bfa" />
-                  </div>
-                  <span style={{ fontWeight: 600, fontSize: "13px", color: "#e2e8f0", flex: 1 }}>{a.name}</span>
-                  {selected === a.id && <CheckCircle2 size={14} color="#e98d20" />}
-                </div>
-              ))}
-              {agents.length === 0 && <p style={{ color: "#475569", fontSize: "13px", textAlign: "center", padding: 24 }}>No agents available</p>}
-            </>
-          ) : (
-            <>
-              {/* Choose Automatically — always first */}
-              <div style={{
-                display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-                borderRadius: 8, cursor: "pointer", marginBottom: 6, transition: "all 0.1s",
-                background: selected === "__auto__" ? "rgba(167,139,250,0.12)" : "rgba(255,255,255,0.03)",
-                border: `1px solid ${selected === "__auto__" ? "rgba(167,139,250,0.45)" : "rgba(255,255,255,0.06)"}`,
-              }} onClick={() => setSelected("__auto__")}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(167,139,250,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <Sparkles size={14} color="#a78bfa" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontWeight: 700, fontSize: "13px", color: "#a78bfa" }}>Choose Automatically</span>
-                  <p style={{ fontSize: "10px", color: "#64748b", margin: "1px 0 0" }}>Assigns to the first available team member</p>
-                </div>
-                {selected === "__auto__" && <CheckCircle2 size={14} color="#a78bfa" />}
+              <span style={{ fontWeight: 600, fontSize: "13px", color: "#e2e8f0", flex: 1 }}>{a.name}</span>
+              {selected === a.id && <CheckCircle2 size={14} color={ACCENT} />}
+            </div>
+          )) : teamMembers.map(m => (
+            <div key={m.discord_id} style={optionStyle(selected === m.username)} onClick={() => setSelected(m.username)}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(34,197,94,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <User size={14} color="#22c55e" />
               </div>
-              {/* Manual options */}
-              {teamMembers.map(m => (
-                <div key={m.discord_id} style={{
-                  display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-                  borderRadius: 8, cursor: "pointer", marginBottom: 6, transition: "all 0.1s",
-                  background: selected === m.username ? "rgba(233,141,32,0.1)" : "rgba(255,255,255,0.03)",
-                  border: `1px solid ${selected === m.username ? "rgba(233,141,32,0.4)" : "rgba(255,255,255,0.06)"}`,
-                }} onClick={() => setSelected(m.username)}>
-                  <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(34,197,94,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <User size={14} color="#22c55e" />
-                  </div>
-                  <span style={{ fontWeight: 600, fontSize: "13px", color: "#e2e8f0", flex: 1 }}>{m.display_name ?? m.username}</span>
-                  {selected === m.username && <CheckCircle2 size={14} color="#e98d20" />}
-                </div>
-              ))}
-              {teamMembers.length === 0 && <p style={{ color: "#475569", fontSize: "13px", textAlign: "center", padding: 24 }}>No team members</p>}
-            </>
-          )}
+              <span style={{ fontWeight: 600, fontSize: "13px", color: "#e2e8f0", flex: 1 }}>{m.display_name ?? m.username}</span>
+              {selected === m.username && <CheckCircle2 size={14} color={ACCENT} />}
+            </div>
+          ))}
+          {tab === "agent" && agents.length === 0 && <p style={{ color: "#475569", fontSize: "13px", textAlign: "center", padding: 24 }}>No agents available</p>}
+          {tab === "human" && teamMembers.length === 0 && <p style={{ color: "#475569", fontSize: "13px", textAlign: "center", padding: 24 }}>No team members</p>}
         </div>
 
-        {/* Inform Human toggle — only shown on Human tab */}
-        {tab === "human" && selected && (
-          <button
-            onClick={() => setNotify(n => !n)}
+        {tab === "human" && (
+          <button onClick={() => setNotify(n => !n)}
             style={{
-              width: "100%", marginTop: 12, padding: "9px 14px",
-              borderRadius: 8, cursor: "pointer", display: "flex",
-              alignItems: "center", gap: 10, textAlign: "left",
+              width: "100%", marginTop: 12, padding: "9px 14px", borderRadius: 8, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 10, textAlign: "left",
               background: notify ? "rgba(34,197,94,0.06)" : "rgba(255,255,255,0.03)",
               border: `1px solid ${notify ? "rgba(34,197,94,0.3)" : "rgba(255,255,255,0.08)"}`,
-              transition: "all 0.15s",
-            }}
-          >
-            {/* Toggle pill */}
-            <div style={{
-              width: 34, height: 18, borderRadius: 9, flexShrink: 0,
-              background: notify ? "#22c55e" : "rgba(255,255,255,0.15)",
-              position: "relative", transition: "background 0.2s",
             }}>
-              <div style={{
-                position: "absolute", top: 2, width: 14, height: 14, borderRadius: "50%",
-                background: "#fff", transition: "left 0.2s",
-                left: notify ? 18 : 2,
-              }} />
+            <div style={{ width: 34, height: 18, borderRadius: 9, flexShrink: 0, background: notify ? "#22c55e" : "rgba(255,255,255,0.15)", position: "relative" }}>
+              <div style={{ position: "absolute", top: 2, width: 14, height: 14, borderRadius: "50%", background: "#fff", left: notify ? 18 : 2, transition: "left 0.2s" }} />
             </div>
             {notify ? <Bell size={13} color="#22c55e" /> : <BellOff size={13} color="#475569" />}
             <div>
-              <p style={{ fontSize: "12px", fontWeight: 700, color: notify ? "#22c55e" : "#64748b" }}>
-                {notify ? "Notify via Discord" : "No notification"}
-              </p>
-              <p style={{ fontSize: "10px", color: "#475569", marginTop: 1 }}>
-                {notify ? "Assignee will receive a DM with a direct link" : "Silent assignment — no DM sent"}
-              </p>
+              <p style={{ fontSize: "12px", fontWeight: 700, color: notify ? "#22c55e" : "#64748b" }}>{notify ? "Notify via Discord" : "No notification"}</p>
+              <p style={{ fontSize: "10px", color: "#475569", marginTop: 1 }}>{notify ? "Assignee gets a DM with a direct link" : "Silent assignment"}</p>
             </div>
           </button>
         )}
 
         {err && <p style={{ color: "#f43f5e", fontSize: "12px", marginTop: 8 }}>{err}</p>}
 
-        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#94a3b8", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>
-            Cancel
-          </button>
-          <button onClick={handleSave} disabled={!selected || saving} style={{ flex: 2, padding: "8px 0", borderRadius: 8, border: "none", cursor: selected ? "pointer" : "not-allowed", background: selected ? "linear-gradient(135deg,#e98d20,#c97818)" : "rgba(255,255,255,0.06)", color: selected ? "#fff" : "#475569", fontWeight: 700, fontSize: "13px" }}>
-            {saving ? "Saving…" : "Confirm Re-assign"}
+        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#94a3b8", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>Cancel</button>
+          <button onClick={handleSave} disabled={saving}
+            style={{ flex: 2, padding: "8px 0", borderRadius: 8, border: "none", cursor: saving ? "not-allowed" : "pointer", background: saving ? "rgba(255,255,255,0.06)" : "linear-gradient(135deg,#e98d20,#c97818)", color: saving ? "#475569" : "#fff", fontWeight: 700, fontSize: "13px" }}>
+            {saving ? "Assigning…" : "Confirm"}
           </button>
         </div>
       </motion.div>
@@ -660,810 +376,448 @@ function ReassignModal({
   );
 }
 
-function PipelineCard({
-  item, onReassign, onAction, onApprove, onReject, onDismiss, onComplete,
-}: {
-  item: PipelineItem;
-  onReassign: (item: PipelineItem) => void;
-  onAction: () => void;
-  onApprove?: (item: PipelineItem) => Promise<void>;
-  onReject?: (item: PipelineItem) => Promise<void>;
-  onDismiss?: (item: PipelineItem) => Promise<void>;
-  onComplete?: (item: PipelineItem) => Promise<void>;
+// ── Expanded detail ───────────────────────────────────────────────────────────
+function RowDetail({ item, onAssign, onDismiss, onComplete, busy }: {
+  item: BoardItem;
+  onAssign: () => void; onDismiss: () => void; onComplete: () => void;
+  busy: boolean;
 }) {
-  const badge = KIND_BADGE[item._kind];
-  const pct = milestonePercent(item);
-  const assignee = assigneeName(item);
-  const isAgent = isAgentAssigned(item);
-  const [acting, setActing] = useState<"approve" | "reject" | null>(null);
-  const [dismissing, setDismissing] = useState(false);
-  const [completing, setCompleting] = useState(false);
-
-  const handleDismiss = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (dismissing) return;
-    setDismissing(true);
-    try { await onDismiss?.(item); }
-    finally { setDismissing(false); }
-  };
-
-  const handleComplete = async () => {
-    if (completing) return;
-    setCompleting(true);
-    try { await onComplete?.(item); }
-    finally { setCompleting(false); }
-  };
-
-  const act = async (which: "approve" | "reject") => {
-    if (acting) return;
-    setActing(which);
-    try {
-      if (which === "approve") await onApprove?.(item);
-      else await onReject?.(item);
-    } finally {
-      setActing(null);
-    }
-  };
-
-  // Format tool name: call_initiate → Call Initiate
-  const toolLabel = item.tool_name
-    ? item.tool_name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
-    : null;
-
-  // Format section: "general" → "General"
-  const sectionLabel = item.section
-    ? item.section.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
-    : null;
+  const metricEntries = Object.entries(item.metrics ?? {}).filter(([, v]) => v != null && v !== "");
+  const btn = (bg: string, color: string): React.CSSProperties => ({
+    padding: "6px 12px", borderRadius: 7, border: `1px solid ${color}33`, background: bg,
+    color, fontSize: "11.5px", fontWeight: 700, cursor: busy ? "not-allowed" : "pointer",
+    display: "flex", alignItems: "center", gap: 5, opacity: busy ? 0.5 : 1,
+  });
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.97 }}
-      style={{
-        background: item._kind === "agent_task"
-          ? "rgba(244,63,94,0.04)"
-          : "rgba(255,255,255,0.03)",
-        border: item._kind === "agent_task"
-          ? "1px solid rgba(244,63,94,0.18)"
-          : "1px solid rgba(255,255,255,0.07)",
-        borderRadius: 12, padding: "12px 14px",
-        marginBottom: 8, cursor: "default",
-        transition: "border-color 0.15s",
-        position: "relative",
-      }}
-    >
-      {/* Dismiss button — insight cards only */}
-      {item._kind === "insight" && onDismiss && (
-        <button
-          onClick={handleDismiss}
-          disabled={dismissing}
-          aria-label="Dismiss insight"
-          title="Dismiss — mark as not needed"
-          style={{
-            position: "absolute", top: 8, right: 8,
-            width: 20, height: 20,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            background: "rgba(255,255,255,0.05)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 6, cursor: dismissing ? "wait" : "pointer",
-            color: "#475569", padding: 0,
-            transition: "background 0.15s, color 0.15s, border-color 0.15s",
-            opacity: dismissing ? 0.5 : 1,
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = "rgba(244,63,94,0.15)";
-            (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(244,63,94,0.35)";
-            (e.currentTarget as HTMLButtonElement).style.color = "#f43f5e";
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
-            (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.08)";
-            (e.currentTarget as HTMLButtonElement).style.color = "#475569";
-          }}
-        >
-          {dismissing
-            ? <RefreshCw size={10} className="animate-spin" />
-            : <X size={10} />}
-        </button>
-      )}
-      {/* Top row: type badge + section chip + time */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-        <span style={{ fontSize: "9px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: badge.color, background: badge.bg, borderRadius: 6, padding: "2px 7px" }}>
-          {badge.label}
-        </span>
-        {sectionLabel && (
-          <span style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", color: "#475569", background: "rgba(255,255,255,0.04)", borderRadius: 5, padding: "2px 6px" }}>
-            {sectionLabel}
-          </span>
-        )}
-        {item.risk_tier && item.risk_tier !== "low" && (
-          <span style={{ fontSize: "9px", fontWeight: 800, color: RISK_COLOR[item.risk_tier] ?? "#e98d20", marginLeft: "auto" }}>
-            ⚠ {item.risk_tier.toUpperCase()}
-          </span>
-        )}
-        <span style={{ fontSize: "9px", color: "#475569", marginLeft: item.risk_tier && item.risk_tier !== "low" ? 4 : "auto" }}>
-          {timeAgo(item.updated_at ?? item.created_at)}
-        </span>
-      </div>
-
-      {/* Priority bar + clickable title */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <div style={{ width: 3, height: 28, borderRadius: 2, background: priorityColor(item.priority), flexShrink: 0 }} />
-        {(() => {
-          // insights link to their own detail page
-          // work / human_task link to the parent insight if insight_id is available
-          const href =
-            item._kind === "insight" ? `/pipeline/${item.id}` :
-            item.insight_id ? `/pipeline/${item.insight_id}` :
-            null;
-          return href ? (
-            <a
-              href={href}
-              style={{ fontWeight: 700, fontSize: "13px", color: "#e2e8f0", lineHeight: 1.3, flex: 1, textDecoration: "none", cursor: "pointer" }}
-              onMouseEnter={e => (e.currentTarget.style.color = "#e98d20")}
-              onMouseLeave={e => (e.currentTarget.style.color = "#e2e8f0")}
-            >
-              {item.title}
-            </a>
-          ) : (
-            <p style={{ fontWeight: 700, fontSize: "13px", color: "#e2e8f0", lineHeight: 1.3, flex: 1 }}>{item.title}</p>
-          );
-        })()}
-      </div>
-
-      {/* Body / last progress */}
-      {(item.body ?? item.last_progress ?? item.instructions) && (
-        <p style={{ fontSize: "11px", color: "#64748b", lineHeight: 1.5, marginBottom: 8, marginLeft: 11 }}>
-          {(item.last_progress ?? item.body ?? item.instructions ?? "").slice(0, 120)}
-          {(item.last_progress ?? item.body ?? item.instructions ?? "").length > 120 ? "…" : ""}
-        </p>
+    <div style={{ padding: "0.9rem 1.1rem 1.1rem 2.6rem", borderTop: "1px solid rgba(255,255,255,0.04)", background: "rgba(0,0,0,0.18)" }}>
+      {item.body && (
+        <p style={{ color: "#94a3b8", fontSize: "12.5px", lineHeight: 1.6, margin: "0 0 0.8rem", whiteSpace: "pre-wrap" }}>{item.body}</p>
       )}
 
-      {/* Milestone progress bar (work items) */}
-      {item._kind === "work" && item.milestones && item.milestones.length > 0 && (
-        <div style={{ marginBottom: 8, marginLeft: 11 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-            <span style={{ fontSize: "9px", color: "#475569" }}>
-              Step {(item.current_milestone ?? 0) + 1} of {item.milestones.length}: {item.milestones[item.current_milestone ?? 0]?.label ?? ""}
+      {item.value && (
+        <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 9, padding: "0.6rem 0.8rem", marginBottom: "0.8rem" }}>
+          <p style={{ fontSize: "9.5px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 3px" }}>
+            {item.value.source === "measured" ? "How this was measured" : "How the agent calculated this"}
+          </p>
+          <p style={{ fontSize: "12px", color: "#94a3b8", margin: 0, lineHeight: 1.5 }}>{item.value.basis}</p>
+        </div>
+      )}
+
+      {metricEntries.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginBottom: "0.8rem" }}>
+          {metricEntries.map(([k, v]) => (
+            <span key={k} style={{ fontSize: "10.5px", color: "#94a3b8", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, padding: "3px 8px" }}>
+              <span style={{ color: "#475569" }}>{k.replace(/_/g, " ")}: </span>
+              <strong style={{ color: "#cbd5e1" }}>{String(v)}</strong>
             </span>
-            <span style={{ fontSize: "9px", color: "#38bdf8" }}>{pct}%</span>
-          </div>
-          <div style={{ height: 3, background: "rgba(255,255,255,0.08)", borderRadius: 2 }}>
-            <div style={{ height: "100%", width: `${pct}%`, background: "linear-gradient(90deg,#38bdf8,#818cf8)", borderRadius: 2, transition: "width 0.4s" }} />
-          </div>
+          ))}
         </div>
       )}
 
-      {/* ── Agent task approval panel ─────────────────────────────────────── */}
-      {item._kind === "agent_task" && (
-        <div style={{ marginBottom: 8, marginLeft: 11, padding: "10px 12px", background: "rgba(244,63,94,0.06)", borderRadius: 8, border: "1px solid rgba(244,63,94,0.15)" }}>
-          {/* Tool being requested */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: item.human_note ? 6 : 0 }}>
-            <Wrench size={11} color="#f43f5e" />
-            <span style={{ fontSize: "10px", color: "#94a3b8", fontWeight: 500 }}>Requesting approval to run:</span>
-            <span style={{ fontSize: "10px", color: "#f43f5e", fontWeight: 800, fontFamily: "monospace", background: "rgba(244,63,94,0.1)", padding: "1px 6px", borderRadius: 4 }}>
-              {item.tool_name ?? "unknown_tool"}
+      {/* Execution state — the reason assigning does not make the row vanish. */}
+      {item.work && (
+        <div style={{ background: "rgba(56,189,248,0.05)", border: "1px solid rgba(56,189,248,0.18)", borderRadius: 9, padding: "0.65rem 0.85rem", marginBottom: "0.8rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+            <Bot size={12} color="#38bdf8" />
+            <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#38bdf8" }}>
+              {item.assignee?.name ?? "Agent"} · {item.work.status}
             </span>
-          </div>
-          {toolLabel && item.tool_name !== toolLabel.toLowerCase().replace(/ /g, "_") && (
-            <p style={{ fontSize: "10px", color: "#64748b", marginTop: 2, marginLeft: 17 }}>{toolLabel}</p>
-          )}
-          {/* Agent's note to the human */}
-          {item.human_note && (
-            <p style={{ fontSize: "11px", color: "#94a3b8", marginTop: 6, lineHeight: 1.4, fontStyle: "italic",
-              borderLeft: "2px solid rgba(244,63,94,0.3)", paddingLeft: 8 }}>
-              &ldquo;{item.human_note}&rdquo;
-            </p>
-          )}
-          {/* tool_input preview — only if it has meaningful keys */}
-          {item.tool_input && Object.keys(item.tool_input).filter(k => !k.startsWith("_")).length > 0 && (
-            <details style={{ marginTop: 6 }}>
-              <summary style={{ fontSize: "9px", color: "#475569", cursor: "pointer", userSelect: "none" }}>View input params</summary>
-              <pre style={{ fontSize: "9px", color: "#64748b", marginTop: 4, whiteSpace: "pre-wrap", wordBreak: "break-all",
-                background: "rgba(0,0,0,0.2)", padding: "6px 8px", borderRadius: 4, maxHeight: 80, overflowY: "auto" }}>
-                {JSON.stringify(
-                  Object.fromEntries(Object.entries(item.tool_input).filter(([k]) => !k.startsWith("_"))),
-                  null, 2
-                )}
-              </pre>
-            </details>
-          )}
-        </div>
-      )}
-
-      {/* Bottom row: assignee + actions */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
-        {/* Assignee chip */}
-        {assignee ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 6, background: isAgent ? "rgba(167,139,250,0.1)" : "rgba(34,197,94,0.1)", border: `1px solid ${isAgent ? "rgba(167,139,250,0.25)" : "rgba(34,197,94,0.25)"}` }}>
-            {isAgent ? <Bot size={10} color="#a78bfa" /> : <User size={10} color="#22c55e" />}
-            <span style={{ fontSize: "10px", fontWeight: 700, color: isAgent ? "#a78bfa" : "#22c55e" }}>{assignee}</span>
-          </div>
-        ) : (
-          <span style={{ fontSize: "10px", color: "#475569", fontStyle: "italic" }}>Unassigned</span>
-        )}
-
-        {/* EMV */}
-        {item.estimated_monthly_value && (
-          <span style={{ fontSize: "10px", color: "#22c55e", fontWeight: 700 }}>
-            +${item.estimated_monthly_value.toFixed(0)}/mo
-          </span>
-        )}
-
-        {/* Occurrences */}
-        {(item.occurrences ?? 0) > 1 && (
-          <span style={{ fontSize: "10px", color: "#fb923c", fontWeight: 700 }}>
-            ×{item.occurrences}
-          </span>
-        )}
-
-        <div style={{ marginLeft: "auto", display: "flex", gap: 5 }}>
-          {/* Approval buttons for agent_task */}
-          {item._kind === "agent_task" && onApprove && onReject && (
-            <>
-              <button
-                onClick={() => act("reject")}
-                disabled={!!acting}
-                style={{
-                  padding: "4px 12px", borderRadius: 6,
-                  border: "1px solid rgba(244,63,94,0.3)",
-                  background: acting === "reject" ? "rgba(244,63,94,0.2)" : "rgba(244,63,94,0.08)",
-                  color: "#f43f5e", fontSize: "10px", fontWeight: 700,
-                  cursor: acting ? "wait" : "pointer",
-                  opacity: acting && acting !== "reject" ? 0.4 : 1,
-                  transition: "all 0.15s",
-                  display: "flex", alignItems: "center", gap: 4,
-                }}
-              >
-                {acting === "reject" ? <RefreshCw size={9} className="animate-spin" /> : <XCircle size={9} />}
-                {acting === "reject" ? "Rejecting…" : "Reject"}
-              </button>
-              <button
-                onClick={() => act("approve")}
-                disabled={!!acting}
-                style={{
-                  padding: "4px 12px", borderRadius: 6, border: "none",
-                  background: acting === "approve" ? "rgba(34,197,94,0.5)" : "linear-gradient(135deg,#22c55e,#16a34a)",
-                  color: "#fff", fontSize: "10px", fontWeight: 700,
-                  cursor: acting ? "wait" : "pointer",
-                  opacity: acting && acting !== "approve" ? 0.4 : 1,
-                  transition: "all 0.15s",
-                  display: "flex", alignItems: "center", gap: 4,
-                }}
-              >
-                {acting === "approve" ? <RefreshCw size={9} className="animate-spin" /> : <CheckCheck size={9} />}
-                {acting === "approve" ? "Approving…" : "Approve"}
-              </button>
-            </>
-          )}
-
-          {/* Mark Done — work and human_task cards */}
-          {(item._kind === "work" || item._kind === "human_task") && onComplete && (
-            <button
-              onClick={handleComplete}
-              disabled={completing}
-              title="Mark this item as done"
-              style={{
-                padding: "4px 10px", borderRadius: 6, border: "none",
-                background: completing
-                  ? "rgba(34,197,94,0.3)"
-                  : "linear-gradient(135deg,#22c55e,#16a34a)",
-                color: "#fff", fontSize: "10px", fontWeight: 700,
-                cursor: completing ? "wait" : "pointer",
-                display: "flex", alignItems: "center", gap: 4,
-                transition: "all 0.15s",
-              }}
-            >
-              {completing
-                ? <RefreshCw size={9} className="animate-spin" />
-                : <CheckCheck size={9} />}
-              {completing ? "Saving…" : "Done ✓"}
-            </button>
-          )}
-
-          {/* Work link */}
-          {item._kind === "insight" && item.assigned_work_id && (
-            <a href="/work" style={{ display: "flex", alignItems: "center", gap: 3, padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(56,189,248,0.2)", color: "#38bdf8", fontSize: "10px", fontWeight: 700, textDecoration: "none" }}>
-              <ExternalLink size={9} /> Work
-            </a>
-          )}
-
-          {/* Re-assign button — not shown on agent_task (use approve/reject instead) */}
-          {item._kind !== "agent_task" && (
-            <button onClick={() => onReassign(item)} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#94a3b8", fontSize: "10px", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 3 }}>
-              <RotateCcw size={9} /> Re-assign
-            </button>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-
-// ── Stage Column ──────────────────────────────────────────────────────────────
-const STAGE_META = {
-  inbox:       { label: "Inbox",       icon: Inbox,        color: "#e98d20", desc: "New insights & pending approvals" },
-  assigned:    { label: "Assigned",    icon: Users,        color: "#38bdf8", desc: "Queued for execution" },
-  in_progress: { label: "In Progress", icon: Zap,          color: "#22c55e", desc: "Actively being worked on" },
-  blocked:     { label: "Blocked",     icon: AlertTriangle, color: "#f43f5e", desc: "Needs attention" },
-} as const;
-
-type Stage = keyof typeof STAGE_META;
-
-function StageColumn({
-  stage, items, onReassign, onApprove, onReject, onDismiss, onComplete, onAction,
-}: {
-  stage: Stage;
-  items: PipelineItem[];
-  onReassign: (item: PipelineItem) => void;
-  onApprove: (item: PipelineItem) => Promise<void>;
-  onReject: (item: PipelineItem) => Promise<void>;
-  onDismiss: (item: PipelineItem) => Promise<void>;
-  onComplete: (item: PipelineItem) => Promise<void>;
-  onAction: () => void;
-}) {
-  const meta = STAGE_META[stage];
-  const Icon = meta.icon;
-
-  return (
-    <div style={{ flex: "0 0 320px", minWidth: 280, maxWidth: 360 }}>
-      {/* Column header — click to open full stage view */}
-      <a
-        href={`/pipeline/stage/${stage}`}
-        style={{ textDecoration: "none", display: "block" }}
-      >
-        <div
-          style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", cursor: "pointer", transition: "border-color 0.15s, background 0.15s" }}
-          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = `${meta.color}0a`; (e.currentTarget as HTMLDivElement).style.borderColor = `${meta.color}35`; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.03)"; (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.06)"; }}
-        >
-          <div style={{ width: 28, height: 28, borderRadius: 7, background: `${meta.color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Icon size={14} color={meta.color} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontWeight: 800, fontSize: "13px", color: "#e2e8f0" }}>{meta.label}</span>
-              <span style={{ fontSize: "10px", fontWeight: 900, color: meta.color, background: `${meta.color}18`, borderRadius: 8, padding: "1px 7px" }}>
-                {items.length}
+            {item.work.milestone_total > 0 && (
+              <span style={{ fontSize: "10.5px", color: "#64748b" }}>
+                step {item.work.milestone_index + 1}/{item.work.milestone_total}
+                {item.work.milestone_label ? ` — ${item.work.milestone_label}` : ""}
               </span>
-            </div>
-            <p style={{ fontSize: "9px", color: "#475569", marginTop: 1 }}>{meta.desc}</p>
+            )}
+            <span style={{ fontSize: "10px", color: "#475569", marginLeft: "auto" }}>{item.work.runs} runs</span>
           </div>
-          <ChevronRight size={12} color="#334155" style={{ flexShrink: 0 }} />
-        </div>
-      </a>
-
-
-      {/* Cards */}
-      <div style={{ maxHeight: "calc(100vh - 240px)", overflowY: "auto", paddingRight: 2 }}>
-        <AnimatePresence>
-          {items.length === 0 ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              style={{ textAlign: "center", padding: "32px 16px", color: "#334155" }}>
-              <Icon size={24} style={{ marginBottom: 8, opacity: 0.4 }} />
-              <p style={{ fontSize: "12px", fontWeight: 600 }}>All clear</p>
-            </motion.div>
-          ) : (
-            items.map(item => (
-              <PipelineCard
-                key={item.id}
-                item={item}
-                onReassign={onReassign}
-                onAction={onAction}
-                onApprove={onApprove}
-                onReject={onReject}
-                onDismiss={onDismiss}
-                onComplete={onComplete}
-              />
-            ))
+          {item.work.milestone_total > 0 && (
+            <div style={{ height: 4, borderRadius: 2, background: "rgba(255,255,255,0.06)", overflow: "hidden", marginBottom: 6 }}>
+              <div style={{ width: `${item.work.percent}%`, height: "100%", background: "#38bdf8", borderRadius: 2 }} />
+            </div>
           )}
-        </AnimatePresence>
+          {item.work.last_progress && (
+            <p style={{ fontSize: "11.5px", color: "#94a3b8", margin: 0, lineHeight: 1.5 }}>{item.work.last_progress}</p>
+          )}
+          <a href={`/work`} style={{ fontSize: "10.5px", color: "#38bdf8", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3, marginTop: 6 }}>
+            Open in Tasks <ArrowUpRight size={10} />
+          </a>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <button disabled={busy} onClick={onAssign} style={btn("rgba(233,141,32,0.1)", ACCENT)}>
+          {item.assignee ? <><RefreshCw size={11} /> Reassign</> : <><Bot size={11} /> Assign</>}
+        </button>
+        <button disabled={busy} onClick={onComplete} style={btn("rgba(34,197,94,0.08)", "#22c55e")}>
+          <CheckCircle2 size={11} /> Done
+        </button>
+        <button disabled={busy} onClick={onDismiss} style={btn("rgba(255,255,255,0.03)", "#64748b")}>
+          <Ban size={11} /> Dismiss
+        </button>
+        <span style={{ fontSize: "10.5px", color: "#334155", marginLeft: "auto" }}>
+          filed by {item.filed_by ?? "agent"} · {item.type.replace(/_/g, " ")} · {item.occurrences > 1 ? `reported ${item.occurrences}×` : "reported once"}
+        </span>
       </div>
     </div>
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
-export default function PipelinePage() {
-  const [data, setData] = useState<PipelineData | null>(null);
+// ── Main page ─────────────────────────────────────────────────────────────────
+const SORT_TABS: { key: SortKey; label: string; hint: string }[] = [
+  { key: "risk", label: "Priority", hint: "Assessed risk, reinforced by how often it was independently reported" },
+  { key: "value", label: "Money", hint: "Measured figures first, then claims, by size. Unpriced last — never guessed" },
+  { key: "effort", label: "Effort", hint: "Cheapest first. Insights with no recorded effort sort last" },
+  { key: "newest", label: "Newest", hint: "Most recently filed" },
+  { key: "section", label: "Section", hint: "Grouped by area of the business" },
+];
+
+export default function InsightsPage() {
+  const [board, setBoard] = useState<BoardResponse | null>(null);
+  const [profit, setProfit] = useState<Profit | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [sort, setSort] = useState<SortKey>("risk");
+  // Deep links from /pipeline/<id> arrive as ?focus= and may point at any lane,
+  // so start on `all` rather than silently filtering the target out.
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [lane, setLane] = useState<"business" | "ops" | "all">("business");
   const [search, setSearch] = useState("");
-  const [sectionFilter, setSectionFilter] = useState("");
-  // Which lane the board shows. Defaults to business decisions; "ops" is the
-  // system-maintenance queue (missing APIs, tool bugs, capability gaps), which
-  // previously made up 46% of the board and buried everything else.
-  const [laneFilter, setLaneFilter] = useState<"business" | "ops" | "all">("business");
-  const [agentFilter, setAgentFilter] = useState("");
-  const [humanFilter, setHumanFilter] = useState("");
-  const [reassignItem, setReassignItem] = useState<PipelineItem | null>(null);
-  const [showPurge, setShowPurge] = useState(false);
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [assignItem, setAssignItem] = useState<BoardItem | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  const addToast = (type: Toast["type"], msg: string) => {
-    const id = ++_toastId;
-    setToasts(t => [...t, { id, type, msg }]);
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 5000);
-  };
-  const dismissToast = (id: number) => setToasts(t => t.filter(x => x.id !== id));
+  // Read from window.location rather than useSearchParams: the latter opts a
+  // statically-prerendered route into client-only rendering, which replaced a
+  // whole page with its Suspense fallback once already (see Command Center).
+  useEffect(() => {
+    const focus = new URLSearchParams(window.location.search).get("focus");
+    if (focus) { setFocusId(focus); setExpanded(focus); setLane("all"); }
+  }, []);
 
-
-  const fetchData = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    setError(null);
+  const fetchBoard = useCallback(async () => {
     try {
-      const [plRes, agRes, tmRes] = await Promise.all([
-        fetch(`${BOT_URL}/admin/pipeline?lane=${laneFilter}${sectionFilter ? `&section=${sectionFilter}` : ""}`),
-        fetch(`${BOT_URL}/admin/agents`),
-        fetch(`${BOT_URL}/admin/team`),
-      ]);
+      const res = await fetch(`${BOT_URL}/admin/insights/board?sort=${sort}&lane=${lane}&limit=200`);
+      if (!res.ok) throw new Error(`Board unavailable (HTTP ${res.status})`);
+      setBoard(await res.json());
+      setError(null);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setLoading(false); }
+  }, [sort, lane]);
 
-      if (!plRes.ok) throw new Error(`Pipeline fetch failed: ${plRes.status}`);
-      const pl: PipelineData = await plRes.json();
-      setData(pl);
-
-      if (agRes.ok) {
-        const raw = await agRes.json();
-        const arr = Array.isArray(raw) ? raw : (raw.agents ?? raw.data ?? []);
-        setAgents(arr.filter((a: any) => a.active !== false).map((a: any) => ({ id: a.id, name: a.name ?? a.id })));
-      }
-      if (tmRes.ok) {
-        const raw = await tmRes.json();
-        const arr = Array.isArray(raw) ? raw : (raw.members ?? raw.data ?? []);
-        setTeamMembers(arr);
-      }
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [sectionFilter, laneFilter]);
+  useEffect(() => { fetchBoard(); }, [fetchBoard]);
+  useEffect(() => {
+    const t = setInterval(fetchBoard, REFRESH_MS);
+    return () => clearInterval(t);
+  }, [fetchBoard]);
 
   useEffect(() => {
-    fetchData();
-    intervalRef.current = setInterval(() => fetchData(true), REFRESH_MS);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [fetchData]);
+    (async () => {
+      const [pRes, aRes, tRes] = await Promise.all([
+        fetch(`${BOT_URL}/admin/profitability?period=qtd`).catch(() => null),
+        fetch(`${BOT_URL}/admin/agents`).catch(() => null),
+        fetch(`${BOT_URL}/admin/team`).catch(() => null),
+      ]);
+      if (pRes?.ok) setProfit(await pRes.json());
+      if (aRes?.ok) {
+        const d = await aRes.json();
+        const raw: Agent[] = Array.isArray(d) ? d : d.agents ?? [];
+        setAgents(raw.map(a => ({ id: a.id, name: a.name })));
+      }
+      if (tRes?.ok) {
+        const d = await tRes.json();
+        setTeamMembers(d.members ?? []);
+      }
+    })();
+  }, []);
 
-  const handleReassign = async (agentId: string | null, agentName: string | null, humanUsername: string | null, notify: boolean) => {
-    if (!reassignItem) return;
-    const res = await fetch(`${BOT_URL}/admin/pipeline/${reassignItem.id}/reassign`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ item_type: reassignItem._kind, agent_id: agentId, agent_name: agentName, human_username: humanUsername, notify }),
-    });
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      throw new Error(d.error ?? `HTTP ${res.status}`);
-    }
-    fetchData(true);
-  };
+  const items = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return board?.items ?? [];
+    return (board?.items ?? []).filter(i =>
+      i.title.toLowerCase().includes(q) ||
+      (i.body ?? "").toLowerCase().includes(q) ||
+      i.section.toLowerCase().includes(q),
+    );
+  }, [board, search]);
 
-  const handleApprove = async (item: PipelineItem) => {
+  // ── Actions ────────────────────────────────────────────────────────────────
+  const assign = async (item: BoardItem, agentId: string | null, agentName: string | null, humanUsername: string | null, notify: boolean) => {
+    setBusyId(item.id);
     try {
-      const res = await fetch(`${BOT_URL}/admin/tasks/${item.id}/approve`, {
+      await fetch(`${BOT_URL}/admin/pipeline/${item.id}/reassign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_type: "insight", agent_id: agentId, agent_name: agentName, human_username: humanUsername, notify }),
       });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const reason = body?.error ?? body?.message ?? `HTTP ${res.status}`;
-        addToast("err", `Approval failed: ${reason}`);
-        return;
-      }
-      // Show what actually happened: executed immediately vs queued for human
-      const execution = body._execution ?? "ai";
-      const taskStatus = body.status ?? "done";
-      if (taskStatus === "failed") {
-        addToast("err", `Approved but execution failed: ${body.result ?? "unknown error"}`);
-      } else if (execution === "human") {
-        addToast("ok", `Approved — assigned to human to complete manually.`);
-      } else {
-        addToast("ok", `Approved ✓ — ${body.tool_name ?? item.tool_name ?? "tool"} executed.`);
-      }
-      fetchData(true);
-    } catch (e: any) {
-      addToast("err", `Network error: ${e.message}`);
-    }
+      await fetchBoard();
+    } finally { setBusyId(null); }
   };
 
-  const handleCompleteItem = async (item: PipelineItem) => {
+  const setStatus = async (item: BoardItem, status: "dismissed" | "resolved") => {
+    setBusyId(item.id);
     try {
-      const item_type = item._kind === "work" ? "work"
-        : item._kind === "human_task" ? "human_task"
-        : "insight";
-      const res = await fetch(`${BOT_URL}/admin/pipeline/${item.id}/complete`, {
-        method: "POST",
+      await fetch(`${BOT_URL}/admin/insights/${item.id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ item_type, completed_by: "ash" }),
+        body: JSON.stringify(status === "dismissed"
+          ? { status, dismissed_reason: "Dismissed from the Insights list." }
+          : { status }),
       });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        addToast("err", `Could not complete: ${body?.error ?? `HTTP ${res.status}`}`);
-        return;
-      }
-      addToast("ok", `✓ Marked complete${body.title ? `: "${body.title}"` : ""}`);
-      fetchData(true);
-    } catch (e: any) {
-      addToast("err", `Network error: ${e.message}`);
-    }
+      await fetchBoard();
+    } finally { setBusyId(null); }
   };
 
-  const handleReject = async (item: PipelineItem) => {
-    try {
-      const res = await fetch(`${BOT_URL}/admin/tasks/${item.id}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        addToast("err", `Reject failed: ${body?.error ?? `HTTP ${res.status}`}`);
-        return;
-      }
-      addToast("ok", `Task rejected — agent has been notified.`);
-      fetchData(true);
-    } catch (e: any) {
-      addToast("err", `Network error: ${e.message}`);
-    }
+  const vs = board?.value_summary;
+
+  // A link can outlive the thing it points at — the board only carries open
+  // insights, so a DM about something since resolved would otherwise land on an
+  // ordinary list with nothing highlighted and no explanation.
+  const focusMissing = !!focusId && !loading && !!board && !board.items.some(i => i.id === focusId);
+
+  // Scroll the linked row into view once it renders.
+  useEffect(() => {
+    if (!focusId || !board) return;
+    document.getElementById(`insight-${focusId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [focusId, board]);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  const th: React.CSSProperties = {
+    fontSize: "9.5px", fontWeight: 800, color: "#475569", textTransform: "uppercase",
+    letterSpacing: "0.07em", padding: "0.5rem 0.75rem", textAlign: "left", whiteSpace: "nowrap",
   };
-
-  const handleDismissInsight = async (item: PipelineItem) => {
-    try {
-      const res = await fetch(`${BOT_URL}/admin/insights/${item.id}/feedback`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "dismissed", note: "Dismissed from pipeline view" }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        addToast("err", `Dismiss failed: ${body?.error ?? `HTTP ${res.status}`}`);
-        return;
-      }
-      addToast("ok", "Insight dismissed.");
-      fetchData(true);
-    } catch (e: any) {
-      addToast("err", `Network error: ${e.message}`);
-    }
-  };
-
-  // Filter items by search/section/agent/human
-  const filterItems = (items: PipelineItem[]): PipelineItem[] => {
-    if (!search && !sectionFilter && !agentFilter && !humanFilter) return items;
-    return items.filter(i => {
-      const matchSearch  = !search       || i.title.toLowerCase().includes(search.toLowerCase());
-      const matchSection = !sectionFilter || i.section === sectionFilter;
-      const itemAgent    = i.agent_id ?? i.assigned_agent_id ?? "";
-      const matchAgent   = !agentFilter  || itemAgent === agentFilter;
-      const itemHuman    = i.assigned_to ?? i.assigned_username ?? "";
-      const matchHuman   = !humanFilter  || itemHuman === humanFilter;
-      return matchSearch && matchSection && matchAgent && matchHuman;
-    });
-  };
-
-  // Collect unique values for filter dropdowns
-  const allItems = [
-    ...(data?.inbox ?? []),
-    ...(data?.assigned ?? []),
-    ...(data?.in_progress ?? []),
-    ...(data?.blocked ?? []),
-  ];
-  const allSections = Array.from(new Set(allItems.map(i => i.section).filter(Boolean)));
-  const allAgents = Array.from(
-    new Map(
-      allItems
-        .filter(i => i.agent_id ?? i.assigned_agent_id)
-        .map(i => [(i.agent_id ?? i.assigned_agent_id)!, (i.agent_name ?? i.assigned_agent_name ?? i.agent_id ?? i.assigned_agent_id)!])
-    )
-  );
-  const allHumans = Array.from(new Set(
-    allItems.map(i => i.assigned_to ?? i.assigned_username).filter(Boolean) as string[]
-  ));
-
-  const filtered = data ? {
-    inbox:       filterItems(data.inbox),
-    assigned:    filterItems(data.assigned),
-    in_progress: filterItems(data.in_progress),
-    blocked:     filterItems(data.blocked),
-  } : null;
-
-  const pageStyle: React.CSSProperties = {
-    padding: "1.5rem",
-    minHeight: "100%",
-  };
+  const td: React.CSSProperties = { padding: "0.6rem 0.75rem", verticalAlign: "middle" };
 
   return (
-    <div style={pageStyle}>
+    <div style={{ padding: "1.25rem 1.5rem" }}>
       {/* Header */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg,#e98d20,#c97818)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 16px rgba(233,141,32,0.35)" }}>
-              <GitMerge size={22} color="#fff" />
-            </div>
-            <div>
-              <h1 style={{ fontWeight: 900, fontSize: "1.4rem", color: "#e2e8f0", margin: 0 }}>Pipeline</h1>
-              <p style={{ color: "#475569", fontSize: "12px", marginTop: 2 }}>
-                {data ? `${data.summary.total_active} active items across all stages` : "Loading…"}
-              </p>
-            </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.1rem", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: `${ACCENT}18`, border: `1px solid ${ACCENT}35`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Lightbulb size={20} color={ACCENT} />
           </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {/* Search */}
-            <div style={{ position: "relative" }}>
-              <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "#475569" }} />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search items…"
-                style={{ paddingLeft: 28, paddingRight: 10, height: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#e2e8f0", fontSize: "12px", outline: "none", width: 180 }}
-              />
-            </div>
-
-            {/* Lane toggle — business decisions vs system maintenance */}
-            <div style={{ display: "flex", height: 34, borderRadius: 8, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
-              {([
-                { key: "business", label: "Business", color: "#e98d20" },
-                { key: "ops",      label: "Ops",      color: "#94a3b8" },
-                { key: "all",      label: "All",      color: "#64748b" },
-              ] as const).map(l => (
-                <button
-                  key={l.key}
-                  onClick={() => setLaneFilter(l.key)}
-                  title={l.key === "ops"
-                    ? "System plumbing: tool bugs, missing integrations, capability gaps"
-                    : l.key === "business"
-                      ? "Findings that need a business decision"
-                      : "Everything"}
-                  style={{
-                    padding: "0 11px", fontSize: 11, fontWeight: 800, textTransform: "uppercase",
-                    letterSpacing: "0.05em", cursor: "pointer", border: "none",
-                    background: laneFilter === l.key ? `${l.color}22` : "rgba(255,255,255,0.03)",
-                    color: laneFilter === l.key ? l.color : "#64748b",
-                  }}
-                >
-                  {l.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Section filter */}
-            {allSections.length > 0 && (
-              <select
-                value={sectionFilter}
-                onChange={e => setSectionFilter(e.target.value)}
-                style={{ height: 34, paddingLeft: 10, paddingRight: 10, borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: sectionFilter ? "#e2e8f0" : "#64748b", fontSize: "12px", outline: "none" }}
-              >
-                <option value="">All sections</option>
-                {allSections.map(s => <option key={s} value={s!}>{s}</option>)}
-              </select>
-            )}
-
-            {/* Agent filter */}
-            {allAgents.length > 0 && (
-              <select
-                value={agentFilter}
-                onChange={e => setAgentFilter(e.target.value)}
-                style={{ height: 34, paddingLeft: 10, paddingRight: 10, borderRadius: 8, border: `1px solid ${agentFilter ? "rgba(167,139,250,0.4)" : "rgba(255,255,255,0.08)"}`, background: agentFilter ? "rgba(167,139,250,0.08)" : "rgba(255,255,255,0.04)", color: agentFilter ? "#a78bfa" : "#64748b", fontSize: "12px", outline: "none" }}
-              >
-                <option value="">All agents</option>
-                {allAgents.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-              </select>
-            )}
-
-            {/* Human assignee filter */}
-            {allHumans.length > 0 && (
-              <select
-                value={humanFilter}
-                onChange={e => setHumanFilter(e.target.value)}
-                style={{ height: 34, paddingLeft: 10, paddingRight: 10, borderRadius: 8, border: `1px solid ${humanFilter ? "rgba(34,197,94,0.4)" : "rgba(255,255,255,0.08)"}`, background: humanFilter ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.04)", color: humanFilter ? "#22c55e" : "#64748b", fontSize: "12px", outline: "none" }}
-              >
-                <option value="">All people</option>
-                {allHumans.map(h => <option key={h} value={h}>{h}</option>)}
-              </select>
-            )}
-
-            {/* Purge */}
-            <button
-              onClick={() => setShowPurge(true)}
-              title="Purge old insights by criteria"
-              style={{ height: 34, padding: "0 12px", borderRadius: 8, border: "1px solid rgba(244,63,94,0.25)", background: "rgba(244,63,94,0.06)", color: "#f87171", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: "12px", fontWeight: 700 }}
-              aria-label="Purge old insights"
-            >
-              <Trash2 size={12} />
-              Purge
-            </button>
-
-            {/* Refresh */}
-            <button
-              onClick={() => fetchData()}
-              style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#64748b", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-              aria-label="Refresh pipeline"
-            >
-              <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-            </button>
+          <div>
+            <h1 style={{ fontWeight: 900, fontSize: "1.4rem", color: "#e2e8f0", margin: 0, lineHeight: 1 }}>Insights</h1>
+            <p style={{ fontSize: "0.75rem", color: "#475569", margin: 0, marginTop: 3 }}>
+              What the agents found · sort it, assign it, watch it run
+            </p>
           </div>
         </div>
-
-        {error && (
-          <div style={{ marginTop: 12, padding: "8px 14px", background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", borderRadius: 8, color: "#f87171", fontSize: "12px" }}>
-            <AlertCircle size={12} style={{ display: "inline", marginRight: 6 }} />{error}
-          </div>
-        )}
+        <button onClick={() => { setLoading(true); fetchBoard(); }}
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "6px 10px", cursor: "pointer", color: "#64748b", display: "flex", alignItems: "center", gap: 5 }}>
+          <RefreshCw size={13} className={loading ? "spin" : ""} />
+          <span style={{ fontSize: "11px" }}>Refresh</span>
+        </button>
       </div>
 
-      {/* Kanban board */}
-      {loading && !data ? (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#475569" }}>
-          <RefreshCw size={24} style={{ marginRight: 10, animation: "spin 1s linear infinite" }} />
-          Loading pipeline…
-        </div>
-      ) : filtered ? (
-        <div style={{
-          display: "flex", gap: 16,
-          overflowX: "auto",
-          /* Enough bottom padding so scrollbar doesn't sit on top of cards */
-          paddingBottom: 24,
-          alignItems: "flex-start",
-          /* Smooth momentum scroll on iOS/trackpad */
-          WebkitOverflowScrolling: "touch" as any,
-          /* Don't let inner column heights clip the board */
-          minHeight: 0,
-        }}>
-          {(["inbox", "assigned", "in_progress", "blocked"] as Stage[]).map(stage => (
-            <StageColumn
-              key={stage}
-              stage={stage}
-              items={filtered[stage]}
-              onReassign={setReassignItem}
-              onApprove={handleApprove}
-              onReject={handleReject}
-              onDismiss={handleDismissInsight}
-              onComplete={handleCompleteItem}
-              onAction={() => fetchData(true)}
-            />
+      <KpiStrip profit={profit} />
+
+      {/* Controls */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.6rem" }}>
+        <div style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.03)", padding: 3, borderRadius: 9, border: "1px solid rgba(255,255,255,0.05)" }}>
+          {SORT_TABS.map(t => (
+            <button key={t.key} onClick={() => setSort(t.key)} title={t.hint}
+              style={{
+                padding: "5px 11px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: "11.5px",
+                fontWeight: sort === t.key ? 800 : 500,
+                background: sort === t.key ? "rgba(233,141,32,0.15)" : "transparent",
+                color: sort === t.key ? ACCENT : "#64748b",
+              }}>
+              {t.label}
+            </button>
           ))}
         </div>
-      ) : null}
 
-      {/* Re-assign modal */}
+        <div style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.03)", padding: 3, borderRadius: 9, border: "1px solid rgba(255,255,255,0.05)" }}>
+          {(["business", "ops", "all"] as const).map(l => (
+            <button key={l} onClick={() => setLane(l)}
+              title={l === "business" ? "Findings that need a decision" : l === "ops" ? "System plumbing — see also /blockages" : "Everything"}
+              style={{
+                padding: "5px 10px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: "11px",
+                fontWeight: lane === l ? 800 : 500, textTransform: "capitalize",
+                background: lane === l ? "rgba(255,255,255,0.07)" : "transparent",
+                color: lane === l ? "#e2e8f0" : "#64748b",
+              }}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ position: "relative", flex: "1 1 180px", maxWidth: 280 }}>
+          <Search size={12} color="#475569" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filter…"
+            style={{ width: "100%", padding: "6px 10px 6px 28px", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#e2e8f0", fontSize: "12px", outline: "none" }} />
+        </div>
+      </div>
+
+      {/* Value summary — the two tiers, never added together */}
+      {vs && (
+        <div style={{ display: "flex", gap: "1.1rem", flexWrap: "wrap", alignItems: "center", marginBottom: "0.7rem", padding: "0 0.15rem" }}>
+          <span style={{ fontSize: "11.5px", color: "#64748b" }}>
+            <strong style={{ color: "#e2e8f0" }}>{items.length}</strong> insight{items.length === 1 ? "" : "s"}
+          </span>
+          <span style={{ fontSize: "11.5px", color: "#64748b" }}>
+            <strong style={{ color: vs.measured_monthly ? "#22c55e" : "#475569" }}>{money(vs.measured_monthly)}/mo</strong> measured
+          </span>
+          <span style={{ fontSize: "11.5px", color: "#64748b", display: "flex", alignItems: "center", gap: 4 }}>
+            <strong style={{ color: "#94a3b8" }}>{money(vs.claimed_monthly)}/mo</strong> claimed
+            <span title="Agent arithmetic, not measurement. Shown separately and never added to the measured figure — one netted headline is how the same outage once read +$33,500 and −$25,000 at the same time.">
+              <Info size={10} color="#475569" />
+            </span>
+          </span>
+          <span style={{ fontSize: "11.5px", color: "#475569" }}>{vs.unpriced_count} not priced</span>
+        </div>
+      )}
+
+      {focusMissing && (
+        <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "0.7rem 0.9rem", marginBottom: "0.8rem", display: "flex", alignItems: "center", gap: 8 }}>
+          <Info size={13} color="#64748b" />
+          <span style={{ fontSize: "12px", color: "#94a3b8" }}>
+            That insight is no longer open — it was resolved or dismissed. The rest of the board is below.
+          </span>
+          <button onClick={() => { setFocusId(null); setExpanded(null); }}
+            style={{ marginLeft: "auto", background: "transparent", border: "none", cursor: "pointer", color: "#475569" }}>
+            <X size={13} />
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div style={{ background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.25)", borderRadius: 10, padding: "0.7rem 0.9rem", marginBottom: "0.8rem", display: "flex", alignItems: "center", gap: 8 }}>
+          <AlertTriangle size={13} color="#f43f5e" />
+          <span style={{ fontSize: "12px", color: "#e2e8f0" }}>{error}</span>
+        </div>
+      )}
+
+      {/* The list */}
+      <div style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <th style={{ ...th, width: 28 }} />
+                <th style={th}>Insight</th>
+                <th style={{ ...th, textAlign: "right" }}>Value</th>
+                <th style={th}>Effort</th>
+                <th style={th}>Risk</th>
+                <th style={th}>Assignee</th>
+                <th style={{ ...th, textAlign: "right" }}>Age</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.length === 0 && !loading && (
+                <tr><td colSpan={7} style={{ padding: "3rem 1rem", textAlign: "center", color: "#334155", fontSize: "13px" }}>
+                  {search ? "Nothing matches that filter." : "Nothing open in this lane. Run an analysis to populate it."}
+                </td></tr>
+              )}
+              {items.map(item => {
+                const open = expanded === item.id;
+                const riskColor = RISK_COLOR[item.risk_tier ?? ""] ?? "#64748b";
+                const effort = item.effort.tier ? EFFORT_LABEL[item.effort.tier] : null;
+                return (
+                  <React.Fragment key={item.id}>
+                    <tr id={`insight-${item.id}`} onClick={() => setExpanded(open ? null : item.id)}
+                      style={{
+                        borderBottom: "1px solid rgba(255,255,255,0.03)", cursor: "pointer",
+                        background: item.id === focusId ? "rgba(233,141,32,0.06)" : open ? "rgba(255,255,255,0.02)" : "transparent",
+                        boxShadow: item.id === focusId ? `inset 2px 0 0 ${ACCENT}` : undefined,
+                      }}>
+                      <td style={{ ...td, paddingRight: 0, color: "#475569" }}>
+                        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                      </td>
+                      <td style={{ ...td, maxWidth: 460 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 3 }}>
+                          <span style={{ fontSize: "9px", fontWeight: 700, color: "#94a3b8", background: "rgba(255,255,255,0.05)", padding: "1px 6px", borderRadius: 4 }}>
+                            {SECTION_LABEL[item.section] ?? item.section}
+                          </span>
+                          {item.occurrences > 1 && (
+                            <span title={`Independently reported ${item.occurrences} times`}
+                              style={{ fontSize: "9px", fontWeight: 700, color: "#fb923c", background: "rgba(251,146,60,0.1)", padding: "1px 6px", borderRadius: 4 }}>
+                              {item.occurrences}×
+                            </span>
+                          )}
+                          {item.work && (
+                            <span style={{ fontSize: "9px", fontWeight: 700, color: "#38bdf8", background: "rgba(56,189,248,0.1)", padding: "1px 6px", borderRadius: 4 }}>
+                              {item.work.status}
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ color: "#e2e8f0", fontWeight: 600, fontSize: "12.5px", margin: 0, lineHeight: 1.4 }}>{item.title}</p>
+                        {item.work?.milestone_label && !open && (
+                          <p style={{ color: "#475569", fontSize: "10.5px", margin: "3px 0 0", display: "flex", alignItems: "center", gap: 4 }}>
+                            <Clock size={9} /> {item.work.milestone_label}
+                          </p>
+                        )}
+                      </td>
+                      <td style={{ ...td, textAlign: "right" }}><ValueCell value={item.value} /></td>
+                      <td style={td}>
+                        {effort
+                          ? <span style={{ fontSize: "11px", fontWeight: 700, color: effort.color }}>{effort.label}</span>
+                          : <span title="Nobody recorded an effort estimate" style={{ color: "#334155", fontSize: "12px" }}>—</span>}
+                      </td>
+                      <td style={td}>
+                        <span style={{ fontSize: "10px", fontWeight: 700, color: riskColor, background: `${riskColor}15`, padding: "2px 7px", borderRadius: 5, textTransform: "capitalize" }}>
+                          {item.risk_tier ?? "—"}
+                        </span>
+                      </td>
+                      <td style={td}>
+                        {item.assignee ? (
+                          <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "11.5px", color: "#cbd5e1" }}>
+                            {item.assignee.kind === "agent" ? <Bot size={11} color="#a78bfa" /> : <User size={11} color="#22c55e" />}
+                            {item.assignee.name}
+                          </span>
+                        ) : (
+                          <button onClick={e => { e.stopPropagation(); setAssignItem(item); }}
+                            style={{ fontSize: "11px", fontWeight: 700, color: ACCENT, background: "rgba(233,141,32,0.08)", border: `1px solid ${ACCENT}33`, borderRadius: 6, padding: "3px 9px", cursor: "pointer" }}>
+                            Assign
+                          </button>
+                        )}
+                      </td>
+                      <td style={{ ...td, textAlign: "right", color: "#475569", fontSize: "11px", whiteSpace: "nowrap" }}>
+                        {ageLabel(item.age_days)}
+                      </td>
+                    </tr>
+                    {open && (
+                      <tr>
+                        <td colSpan={7} style={{ padding: 0 }}>
+                          <RowDetail
+                            item={item}
+                            busy={busyId === item.id}
+                            onAssign={() => setAssignItem(item)}
+                            onDismiss={() => setStatus(item, "dismissed")}
+                            onComplete={() => setStatus(item, "resolved")}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p style={{ fontSize: "10.5px", color: "#334155", margin: "0.7rem 0.15rem 0" }}>
+        Technical problems (broken integrations, missing credentials, tool failures) are filed to{" "}
+        <a href="/blockages" style={{ color: "#64748b" }}>Blockages</a>, not here. Execution detail lives in{" "}
+        <a href="/work" style={{ color: "#64748b" }}>Tasks</a>.
+      </p>
+
       <AnimatePresence>
-        {reassignItem && (
-          <ReassignModal
-            item={reassignItem}
+        {assignItem && (
+          <AssignModal
+            item={assignItem}
             agents={agents}
             teamMembers={teamMembers}
-            onClose={() => setReassignItem(null)}
-            onReassign={handleReassign}
+            onClose={() => setAssignItem(null)}
+            onAssign={(agentId, agentName, humanUsername, notify) => assign(assignItem, agentId, agentName, humanUsername, notify)}
           />
         )}
       </AnimatePresence>
-
-      {/* Purge modal */}
-      <AnimatePresence>
-        {showPurge && (
-          <PurgeModal
-            allSections={allSections as string[]}
-            onClose={() => setShowPurge(false)}
-            onDone={msg => { addToast("ok", msg); fetchData(true); }}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Toast stack */}
-      <ToastStack toasts={toasts} dismiss={dismissToast} />
-
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-spin { animation: spin 1s linear infinite; }
-      `}</style>
     </div>
   );
 }
