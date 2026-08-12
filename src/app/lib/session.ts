@@ -3,15 +3,19 @@
  *
  * Web Crypto only: no Node built-ins, because middleware runs on the edge.
  *
- * A token is `<payload>.<base64 hmac>`. The role lives *inside* the signed payload,
- * so it cannot be edited by the client — flipping "viewer" to "admin" invalidates
- * the signature. Never derive the role from anything outside the payload.
+ * A token is `<payload>.<base64url hmac>`. Everything the server trusts lives *inside*
+ * the signed payload, so none of it can be edited by the client — flipping "viewer" to
+ * "admin" invalidates the signature. Never derive the role from anything outside it.
  *
- *   gc-auth-1712345678         -> viewer
- *   gc-auth-admin-1712345678   -> admin
+ * Two payload formats are accepted:
  *
- * The viewer form is exactly what shipped before roles existed, so sessions issued
- * by the old build keep working and nobody is forced to log in again.
+ *   v2  gc2.<base64url JSON>      { r, id, u, a, t }   — carries the Discord identity
+ *   v1  gc-auth-admin-<stamp>     -> admin             — password-era, no identity
+ *   v1  gc-auth-<stamp>           -> viewer
+ *
+ * v1 is still verified so that sessions issued before Discord login keep working; it is
+ * never *issued* any more. Both encodings sign the payload the same way, so the only
+ * difference is how the payload is read.
  */
 
 export const COOKIE_NAME = "gc_session";
@@ -19,8 +23,45 @@ export const THIRTY_DAYS = 60 * 60 * 24 * 30;
 
 export type Role = "viewer" | "admin";
 
+/** Who the session belongs to. Absent on v1 tokens and on break-glass logins. */
+export interface SessionUser {
+    /** Discord snowflake. */
+    id: string;
+    /** Discord username at the time of sign-in — display only, it can change. */
+    username: string;
+    /** Discord avatar hash, or null if they use a default avatar. */
+    avatar: string | null;
+}
+
+export interface Session {
+    role: Role;
+    user: SessionUser | null;
+    /** Issued-at, ms. */
+    issued: number;
+}
+
+const V2_PREFIX = "gc2.";
 const ADMIN_PREFIX = "gc-auth-admin-";
 const VIEWER_PREFIX = "gc-auth-";
+
+/* ── base64url ─────────────────────────────────────────────────────────────
+   btoa/atob only speak standard base64, but `+` and `/` are awkward in cookie
+   values. Encode to base64url, and normalise on the way back in so signatures
+   written by the old build (standard base64, padded) still verify. */
+
+function toB64Url(bytes: Uint8Array): string {
+    let bin = "";
+    for (const b of bytes) bin += String.fromCharCode(b);
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// Uint8Array is generic over its buffer since TS 5.7, and crypto.subtle wants the
+// ArrayBuffer form specifically — the bare `Uint8Array` alias does not satisfy it.
+function fromB64Url(s: string): Uint8Array<ArrayBuffer> {
+    const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+}
 
 async function hmacKey(secret: string, usage: "sign" | "verify") {
     return crypto.subtle.importKey(
@@ -32,35 +73,48 @@ async function hmacKey(secret: string, usage: "sign" | "verify") {
     );
 }
 
-/** Mint a signed token for `role`. `stamp` is injectable so tests are deterministic. */
-export async function createToken(
-    role: Role,
-    secret: string,
-    stamp: number = Date.now(),
-): Promise<string> {
-    const payload = role === "admin" ? `${ADMIN_PREFIX}${stamp}` : `${VIEWER_PREFIX}${stamp}`;
+async function sign(payload: string, secret: string): Promise<string> {
     const key = await hmacKey(secret, "sign");
-    const sigBuffer = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
-    const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuffer)));
-    return `${payload}.${sig}`;
+    const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
+    return `${payload}.${toB64Url(new Uint8Array(sig))}`;
 }
 
 /**
- * Verify a token and return the role it carries, or null if it is missing,
+ * Mint a signed token. `stamp` is injectable so tests are deterministic.
+ *
+ * Always emits v2, including for password logins — those simply carry a null user.
+ */
+export async function createToken(
+    role: Role,
+    secret: string,
+    user: SessionUser | null = null,
+    stamp: number = Date.now(),
+): Promise<string> {
+    const claims = {
+        r: role,
+        t: stamp,
+        ...(user ? { id: user.id, u: user.username, a: user.avatar } : {}),
+    };
+    // TextEncoder first: usernames are arbitrary Unicode and btoa throws on it.
+    const json = toB64Url(new TextEncoder().encode(JSON.stringify(claims)));
+    return sign(`${V2_PREFIX}${json}`, secret);
+}
+
+/**
+ * Verify a token and return the session it carries, or null if it is missing,
  * malformed, or not signed by `secret`.
  */
-export async function roleFromToken(
+export async function sessionFromToken(
     token: string | undefined,
     secret: string,
-): Promise<Role | null> {
+): Promise<Session | null> {
     if (!token || !secret) return null;
     try {
         const dotIndex = token.lastIndexOf(".");
         if (dotIndex === -1) return null;
 
         const payload = token.slice(0, dotIndex);
-        const sigB64 = token.slice(dotIndex + 1);
-        const sigBytes = Uint8Array.from(atob(sigB64), (c) => c.charCodeAt(0));
+        const sigBytes = fromB64Url(token.slice(dotIndex + 1));
 
         const key = await hmacKey(secret, "verify");
         const ok = await crypto.subtle.verify(
@@ -71,13 +125,44 @@ export async function roleFromToken(
         );
         if (!ok) return null;
 
+        if (payload.startsWith(V2_PREFIX)) {
+            const raw = new TextDecoder().decode(fromB64Url(payload.slice(V2_PREFIX.length)));
+            const c = JSON.parse(raw) as {
+                r?: unknown; t?: unknown; id?: unknown; u?: unknown; a?: unknown;
+            };
+            // The signature proves we wrote it, but a shape change between deploys
+            // should fail closed rather than produce a half-built session.
+            if (c.r !== "viewer" && c.r !== "admin") return null;
+            const user: SessionUser | null =
+                typeof c.id === "string" && typeof c.u === "string"
+                    ? { id: c.id, username: c.u, avatar: typeof c.a === "string" ? c.a : null }
+                    : null;
+            return { role: c.r, user, issued: typeof c.t === "number" ? c.t : 0 };
+        }
+
         // Order matters: the admin prefix also starts with the viewer prefix.
-        if (payload.startsWith(ADMIN_PREFIX)) return "admin";
-        if (payload.startsWith(VIEWER_PREFIX)) return "viewer";
+        const legacyStamp = (p: string) => Number(p.slice(p.lastIndexOf("-") + 1)) || 0;
+        if (payload.startsWith(ADMIN_PREFIX)) {
+            return { role: "admin", user: null, issued: legacyStamp(payload) };
+        }
+        if (payload.startsWith(VIEWER_PREFIX)) {
+            return { role: "viewer", user: null, issued: legacyStamp(payload) };
+        }
         return null;
     } catch {
         return null;
     }
+}
+
+/**
+ * Just the role. The middleware and anything that only gates on tier use this;
+ * it is `sessionFromToken` with the identity dropped.
+ */
+export async function roleFromToken(
+    token: string | undefined,
+    secret: string,
+): Promise<Role | null> {
+    return (await sessionFromToken(token, secret))?.role ?? null;
 }
 
 /** Cookie options shared by every route that sets the session. */

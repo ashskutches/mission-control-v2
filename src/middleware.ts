@@ -4,17 +4,24 @@ import { isAdminPath } from "@/app/lib/access";
 
 /**
  * Two tiers on one cookie:
- *   no valid session  -> /login   (DASHBOARD_PASSWORD)
+ *   no valid session  -> /login   (Discord, or break-glass password)
  *   viewer            -> everything except ADMIN_PATHS
  *   admin             -> everything
  *
  * An admin token satisfies the viewer check too — elevating never costs you access.
+ *
+ * The tier comes from the signer's Discord roles at sign-in time (see
+ * src/app/lib/discord.ts). This middleware only reads what the cookie says; it never
+ * calls Discord, because it runs on every request and an API round trip per navigation
+ * would be both slow and rate-limited.
  */
 
-// Exact path or subtree. `/admin` is the elevation form; it has to be reachable by
-// someone holding no session at all, otherwise you would have to log in as a viewer
-// first just to reach the admin prompt.
-const PUBLIC_PATHS = ["/login", "/admin", "/api/auth"];
+// Exact path or subtree. `/admin` is the break-glass elevation form; it has to be
+// reachable by someone holding no session at all, otherwise you would have to log in
+// as a viewer first just to reach the admin prompt. `/no-access` is where a valid
+// Discord sign-in with no qualifying role lands — gating it would bounce those people
+// to /login and make a role problem look like a password problem.
+const PUBLIC_PATHS = ["/login", "/admin", "/no-access", "/api/auth"];
 
 const isPublic = (pathname: string) =>
     PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));

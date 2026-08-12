@@ -18,7 +18,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router   = useRouter();
 
-  const { role, adminConfigured, loaded } = useRole();
+  const { role, user, adminConfigured, discordConfigured, loaded } = useRole();
   const isAdmin = role === "admin";
 
   // Admin-only entries are dropped from the list entirely rather than greyed out,
@@ -227,10 +227,57 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             </div>
           </div>
         </div>
+        {/* ── Who you are ────────────────────────────────────────────────────
+            A break-glass password session has no Discord identity behind it, so it
+            says so plainly rather than rendering a nameless avatar — knowing which
+            kind of session you hold matters when access misbehaves. */}
+        {loaded && role && (
+          <div className="is-flex is-align-items-center px-4" style={{ gap: "0.6rem", padding: "0.5rem 0", marginBottom: "0.25rem" }}>
+            {user?.avatarUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={user.avatarUrl}
+                alt=""
+                width={26}
+                height={26}
+                style={{ borderRadius: "50%", border: "1px solid rgba(233,141,32,0.28)", flexShrink: 0 }}
+              />
+            ) : (
+              <div
+                className="is-flex is-align-items-center is-justify-content-center"
+                style={{
+                  width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                  background: "rgba(233,141,32,0.1)", border: "1px solid rgba(233,141,32,0.25)",
+                  fontSize: 10, fontWeight: 800, color: "var(--accent-orange)",
+                }}
+              >
+                {user ? user.username.slice(0, 1).toUpperCase() : "?"}
+              </div>
+            )}
+            <div style={{ minWidth: 0 }}>
+              <div
+                className="has-text-weight-bold has-text-white"
+                style={{ fontSize: 11, fontFamily: "'Montserrat', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                title={user?.username ?? "Break-glass session"}
+              >
+                {user?.username ?? "Break-glass session"}
+              </div>
+              <div style={{ fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>
+                {isAdmin ? "Admin" : "Teammate"}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Admin tier ─────────────────────────────────────────────────────
             Exit Admin drops to a viewer session but keeps you signed in — that is
             what separates it from Sign Out below. Both use a hard location change
-            so server components re-render against the new cookie. */}
+            so server components re-render against the new cookie.
+
+            When Discord login is live, a viewer is NOT offered a password prompt:
+            admin comes from the Discord role, and pointing them at a form they
+            cannot fill would be a dead end. The break-glass form is still at
+            /admin by URL for the case where Discord itself is the problem. */}
         {loaded && (isAdmin ? (
           <button
             onClick={async () => { await fetch("/api/auth/admin", { method: "DELETE" }); window.location.href = "/"; }}
@@ -245,6 +292,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               color: "var(--text-muted)",
             }}>Exit</span>
           </button>
+        ) : discordConfigured ? (
+          <div
+            className="is-flex is-align-items-center px-4 has-text-grey-light"
+            style={{ gap: "0.75rem", padding: "0.4rem 0", opacity: 0.55 }}
+            title="Admin is granted by the Admin role in Discord — ask an admin to assign it"
+          >
+            <Lock size={16} />
+            <span className="is-uppercase has-text-weight-bold" style={{ fontSize: "10px", lineHeight: 1.4 }}>
+              Admin via Discord role
+            </span>
+          </div>
         ) : adminConfigured ? (
           <button
             onClick={() => navigate("/admin")}

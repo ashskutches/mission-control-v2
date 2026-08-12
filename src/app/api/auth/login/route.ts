@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createToken, sessionCookie } from "@/app/lib/session";
 
 /**
- * The dashboard password -> a viewer session.
+ * Break-glass password login. The dashboard password -> a viewer session.
+ *
+ * Discord is the advertised way in (see /api/auth/discord); this form is only reachable
+ * at /login?break-glass=1 and exists so a broken OAuth config cannot lock everyone out
+ * of production. Sessions it issues carry no Discord identity, which is why the sidebar
+ * shows them as "break-glass session" rather than a name.
  *
  * The admin password is also accepted here and yields an admin session directly.
  * It costs nothing (you already had to know the admin password) and avoids the
