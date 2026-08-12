@@ -35,13 +35,31 @@ export async function middleware(req: NextRequest) {
     const secret = process.env.SESSION_SECRET ?? "";
     const role = await roleFromToken(token, secret);
 
+    // An /api/ caller is fetch(), not a browser following redirects. Sending it to
+    // the login page means it parses HTML as JSON and reports the failure somewhere
+    // unrelated to the expired session that caused it. /api/bot in particular builds
+    // its own JSON 401 for exactly this reason, and a redirect here would preempt it.
+    const isApi = pathname.startsWith("/api/");
+
     if (!role) {
+        if (isApi) {
+            return NextResponse.json(
+                { error: "Not signed in", detail: "Dashboard session required." },
+                { status: 401 },
+            );
+        }
         const loginUrl = new URL("/login", req.url);
         loginUrl.searchParams.set("from", pathname);
         return NextResponse.redirect(loginUrl);
     }
 
     if (role !== "admin" && isAdminPath(pathname)) {
+        if (isApi) {
+            return NextResponse.json(
+                { error: "Admin required", detail: "This endpoint needs an admin session." },
+                { status: 403 },
+            );
+        }
         // Signed in, just not high enough. Send them to the elevation form rather
         // than /login — they already have a session and re-entering the dashboard
         // password would not help.
