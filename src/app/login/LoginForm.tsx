@@ -97,7 +97,9 @@ export function LoginForm({
             <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 28, fontFamily: MONO }}>
                 {breakGlass
                     ? "Break-glass access · Use only if Discord is down"
-                    : "Internal Intelligence · Sign in with Discord"}
+                    : discordConfigured
+                        ? "Internal Intelligence · Sign in with Discord"
+                        : "Internal Intelligence · Break-glass access"}
             </p>
 
             {shownError && (
@@ -139,7 +141,11 @@ export function LoginForm({
                 </div>
             ))}
 
-            {!breakGlass && (
+            {/* Gated on discordConfigured, not just !breakGlass: on a deploy where the
+                DISCORD_* vars are missing, promising "your role grants access" next to
+                "Discord login is not configured" reads as a broken site rather than an
+                unfinished setup. */}
+            {!breakGlass && discordConfigured && (
                 <p style={{ marginTop: 18, fontSize: 11, color: "var(--text-muted)", lineHeight: 1.6, fontFamily: MONO }}>
                     Access is granted by your role in the Leaps &amp; Rebounds Discord.
                 </p>
