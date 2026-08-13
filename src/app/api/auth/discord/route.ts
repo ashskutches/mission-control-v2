@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authorizeUrl, discordConfig, redirectUri } from "@/app/lib/discord";
+import { authorizeUrl, discordConfig, publicOrigin, redirectUri } from "@/app/lib/discord";
 import { createState, nonceCookie } from "@/app/lib/oauth-state";
 
 /**
@@ -12,13 +12,13 @@ export async function GET(req: NextRequest) {
     const cfg = discordConfig();
     if (!cfg) {
         console.error("Discord login attempted but DISCORD_* env vars are incomplete");
-        return NextResponse.redirect(new URL("/login?error=discord_unconfigured", req.url));
+        return NextResponse.redirect(new URL("/login?error=discord_unconfigured", publicOrigin(req)));
     }
 
     const secret = process.env.SESSION_SECRET;
     if (!secret) {
         console.error("SESSION_SECRET is not set — refusing to start an unsigned OAuth flow");
-        return NextResponse.redirect(new URL("/login?error=server", req.url));
+        return NextResponse.redirect(new URL("/login?error=server", publicOrigin(req)));
     }
 
     const { state, nonce } = await createState(req.nextUrl.searchParams.get("from") ?? "/", secret);

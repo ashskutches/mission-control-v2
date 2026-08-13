@@ -4,6 +4,7 @@ import {
     exchangeCode,
     fetchGuildRoles,
     fetchIdentity,
+    publicOrigin,
     redirectUri,
     roleForGuildRoles,
 } from "@/app/lib/discord";
@@ -21,8 +22,11 @@ import { createToken, sessionCookie } from "@/app/lib/session";
 export async function GET(req: NextRequest) {
     const params = req.nextUrl.searchParams;
 
+    // publicOrigin, not req.url: inside the container req.url is http://0.0.0.0:3000,
+    // and a Location built from it sends the browser somewhere it cannot reach.
+    const origin = publicOrigin(req);
     const bail = (path: string) => {
-        const res = NextResponse.redirect(new URL(path, req.url));
+        const res = NextResponse.redirect(new URL(path, origin));
         res.cookies.set(clearNonceCookie());
         return res;
     };
@@ -64,7 +68,7 @@ export async function GET(req: NextRequest) {
     const role = roleForGuildRoles(cfg, guildRoles);
     if (!role) return bail("/no-access?reason=no_role");
 
-    const res = NextResponse.redirect(new URL(state.from, req.url));
+    const res = NextResponse.redirect(new URL(state.from, origin));
     res.cookies.set(sessionCookie(await createToken(role, secret, user)));
     res.cookies.set(clearNonceCookie());
     return res;

@@ -74,9 +74,26 @@ export function discordConfig(): DiscordConfig | null {
  */
 export function redirectUri(req: NextRequest, cfg: DiscordConfig): string {
     if (cfg.redirectUriOverride) return cfg.redirectUriOverride;
+    return `${publicOrigin(req)}/api/auth/discord/callback`;
+}
+
+/**
+ * The origin a browser actually used to reach us.
+ *
+ * **Never build a redirect from `req.url` in a route handler.** Railway terminates TLS
+ * ahead of the app and the container binds 0.0.0.0:3000, so `req.url` is
+ * `http://0.0.0.0:3000/...` — and `new URL(path, req.url)` inherits that, producing a
+ * Location header pointing at an address the browser cannot reach. This shipped once:
+ * a successful Discord sign-in redirected to `https://0.0.0.0:3000/no-access`.
+ *
+ * Middleware redirects are unaffected because Next resolves those relative to the
+ * incoming request itself, which is why only the route handlers broke.
+ */
+export function publicOrigin(req: NextRequest): string {
     const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? req.nextUrl.host;
-    const proto = req.headers.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-    return `${proto}://${host}/api/auth/discord/callback`;
+    const proto = req.headers.get("x-forwarded-proto")
+        ?? (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
+    return `${proto}://${host}`;
 }
 
 export function authorizeUrl(cfg: DiscordConfig, redirect: string, state: string): string {
