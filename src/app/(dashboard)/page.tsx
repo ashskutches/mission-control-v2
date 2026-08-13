@@ -46,19 +46,30 @@ const DEPARTMENTS = [
 ] as const;
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-function KpiStrip({ data }: { data: any }) {
-  const items = [
-    { label: "Today",    value: data?.revenue?.today !== undefined ? `$${Number(data.revenue.today).toLocaleString()}` : "—",       color: "#22c55e" },
-    { label: "Orders",   value: data?.revenue?.todayOrders ?? "—",                                                                    color: "#38bdf8" },
-    { label: "AOV",      value: data?.revenue?.aov !== undefined ? `$${data.revenue.aov}` : "—",                                     color: "#a78bfa" },
-    { label: "30d Rev",  value: data?.revenue?.rolling30d !== undefined ? `$${Number(data.revenue.rolling30d).toLocaleString()}` : "—", color: "#fb923c" },
-    { label: "Forecast", value: data?.revenue?.mtdForecast ? `$${Number(data.revenue.mtdForecast).toLocaleString()}` : "—",          color: "#f59e0b" },
-    { label: "Agents",   value: data?.agents?.active ?? "—",                                                                          color: "#e879f9" },
-    { label: "Runs/7d",  value: data?.agentRuns7d ?? "—",                                                                             color: "#34d399" },
-    { label: "AI Cost",  value: data?.costs?.total30d !== undefined ? `$${data.costs.total30d}` : "—",                               color: "#f87171" },
+/**
+ * `money: true` marks a figure a guest must not see. The guest tier is open to anyone
+ * who completes a Discord sign-in, so revenue, AOV, forecast and spend are dropped
+ * from the strip for them.
+ *
+ * ⚠️ Presentation only. The page fetches /admin/overview, which returns these numbers
+ * in one payload — a guest can still read the response. Real enforcement means the bot
+ * withholding them by tier, which lands with the /api/bot proxy rollout. See the note
+ * on GUEST_HIDDEN_OVERVIEW in lib/access.ts.
+ */
+function KpiStrip({ data, hideMoney = false }: { data: any; hideMoney?: boolean }) {
+  const all = [
+    { label: "Today",    money: true,  value: data?.revenue?.today !== undefined ? `$${Number(data.revenue.today).toLocaleString()}` : "—",       color: "#22c55e" },
+    { label: "Orders",   money: true,  value: data?.revenue?.todayOrders ?? "—",                                                                    color: "#38bdf8" },
+    { label: "AOV",      money: true,  value: data?.revenue?.aov !== undefined ? `$${data.revenue.aov}` : "—",                                     color: "#a78bfa" },
+    { label: "30d Rev",  money: true,  value: data?.revenue?.rolling30d !== undefined ? `$${Number(data.revenue.rolling30d).toLocaleString()}` : "—", color: "#fb923c" },
+    { label: "Forecast", money: true,  value: data?.revenue?.mtdForecast ? `$${Number(data.revenue.mtdForecast).toLocaleString()}` : "—",          color: "#f59e0b" },
+    { label: "Agents",   money: false, value: data?.agents?.active ?? "—",                                                                          color: "#e879f9" },
+    { label: "Runs/7d",  money: false, value: data?.agentRuns7d ?? "—",                                                                             color: "#34d399" },
+    { label: "AI Cost",  money: true,  value: data?.costs?.total30d !== undefined ? `$${data.costs.total30d}` : "—",                               color: "#f87171" },
   ];
+  const items = hideMoney ? all.filter(i => !i.money) : all;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 8 }}>
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${items.length}, 1fr)`, gap: 8 }}>
       {items.map(({ label, value, color }) => (
         <div key={label} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
           <p style={{ fontSize: 9, color: "#555", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>{label}</p>
@@ -396,6 +407,11 @@ export default function CommandCenterPage() {
 
 // ── Overview tab ──────────────────────────────────────────────────────────────
 function OverviewTab() {
+  // Read the tier here rather than threading it down: OverviewTab is rendered from
+  // the tab strip, not passed props, and useRole is a cached fetch of /api/auth/me.
+  const { role } = useRole();
+  const hideMoney = role === "guest";
+  const kpiCount = hideMoney ? 2 : 8;   // KpiStrip drops the six money tiles for guests
   const [overview, setOverview] = useState<any>(null);
   const [agents, setAgents] = useState<any[]>([]);
   const [masterAgentId, setMasterAgentId] = useState<string | null>(null);
@@ -503,13 +519,15 @@ function OverviewTab() {
           <p style={{ fontSize: 9, fontWeight: 800, color: "#666", textTransform: "uppercase", letterSpacing: "0.12em", margin: 0 }}>Live Revenue Intelligence</p>
         </div>
         {loading ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 8 }}>
-            {Array(8).fill(0).map((_, i) => (
+          // Skeleton count tracks the real strip: guests see only the two non-money
+          // tiles, so an 8-column shimmer would collapse to 2 and jump the layout.
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${kpiCount}, 1fr)`, gap: 8 }}>
+            {Array(kpiCount).fill(0).map((_, i) => (
               <div key={i} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 10, height: 60 }} />
             ))}
           </div>
         ) : (
-          <KpiStrip data={overview} />
+          <KpiStrip data={overview} hideMoney={hideMoney} />
         )}
       </div>
 

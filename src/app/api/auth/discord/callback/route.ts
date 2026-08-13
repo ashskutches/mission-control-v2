@@ -6,10 +6,11 @@ import {
     fetchIdentity,
     publicOrigin,
     redirectUri,
-    roleForGuildRoles,
+    tierForSignIn,
 } from "@/app/lib/discord";
 import { clearNonceCookie, NONCE_COOKIE, verifyState } from "@/app/lib/oauth-state";
 import { createToken, sessionCookie } from "@/app/lib/session";
+import { canAccess } from "@/app/lib/access";
 
 /**
  * Where Discord sends people back to. Every failure path lands somewhere that explains
@@ -62,13 +63,16 @@ export async function GET(req: NextRequest) {
     const user = await fetchIdentity(accessToken);
     if (!user) return bail("/login?error=identity");
 
+    // null means "not in the guild", which is no longer a refusal — they simply have
+    // no roles, and everyone who signs in is at least a guest.
     const guildRoles = await fetchGuildRoles(accessToken, cfg.guildId);
-    if (guildRoles === null) return bail("/no-access?reason=not_member");
+    const role = tierForSignIn(cfg, user.id, guildRoles);
 
-    const role = roleForGuildRoles(cfg, guildRoles);
-    if (!role) return bail("/no-access?reason=no_role");
+    // A guest landing on a page above their tier would bounce straight back out, so
+    // send them somewhere they can actually see rather than to `state.from`.
+    const dest = role === "guest" && !canAccess("guest", state.from) ? "/" : state.from;
 
-    const res = NextResponse.redirect(new URL(state.from, origin));
+    const res = NextResponse.redirect(new URL(dest, origin));
     res.cookies.set(sessionCookie(await createToken(role, secret, user)));
     res.cookies.set(clearNonceCookie());
     return res;

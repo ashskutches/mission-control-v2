@@ -12,6 +12,13 @@ import { ShieldAlert } from "lucide-react";
 const MONO = "'Montserrat', sans-serif";
 
 const REASONS: Record<string, { title: string; body: string }> = {
+    // Reached by a signed-in guest who tried a page above their tier. They are not
+    // rejected — they have a lobby — so this says what to ask for, and offers the way
+    // back to the part of the dashboard they can actually use.
+    need_role: {
+        title: "That page needs the Teammate role",
+        body: "You're signed in as a guest, which covers the overview, tasks, research and the brand guide. Ask an admin for the Teammate role in Discord to unlock orders, support, marketing and the rest — or Admin for Profit, Costs, Agents and Quick Run.",
+    },
     not_member: {
         title: "You're not in the server",
         body: "This dashboard is limited to members of the Leaps & Rebounds Discord. Ask an admin for an invite, then sign in again.",
@@ -28,7 +35,7 @@ export default async function NoAccessPage({
     searchParams: Promise<{ reason?: string }>;
 }) {
     const { reason } = await searchParams;
-    const copy = REASONS[reason ?? ""] ?? REASONS.no_role;
+    const copy = REASONS[reason ?? ""] ?? REASONS.need_role;
 
     return (
         <div style={{
@@ -77,7 +84,7 @@ export default async function NoAccessPage({
                 </p>
 
                 <a
-                    href="/login"
+                    href={reason === "need_role" ? "/" : "/login"}
                     style={{
                         display: "block", padding: "12px",
                         background: "var(--brand-orange, #e98d20)", color: "white",
@@ -87,7 +94,7 @@ export default async function NoAccessPage({
                         boxShadow: "0 4px 16px rgba(233,141,32,0.35)",
                     }}
                 >
-                    Try again
+                    {reason === "need_role" ? "Back to the dashboard" : "Try again"}
                 </a>
 
                 <p style={{ marginTop: 20, fontSize: 10, color: "var(--text-muted)", opacity: 0.7, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 700, fontFamily: MONO }}>

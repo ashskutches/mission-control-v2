@@ -6,9 +6,13 @@
  * in Discord takes effect the next time that person signs in, and there is no second
  * list to keep in sync.
  *
- *   "Admin" role     -> admin   (Profit, Costs, Quick Run, Agents)
- *   "Teammate" role  -> viewer  (everything else)
- *   neither          -> denied, even if they are in the server
+ *   "Admin" role     -> admin     (Profit, Costs, Quick Run, Agents)
+ *   "Teammate" role  -> teammate  (the operational dashboard)
+ *   anyone else      -> guest     (a lobby: overview, tasks, research, brand)
+ *
+ * Guest requires no role and not even guild membership — completing a Discord
+ * sign-in is enough. See tierForSignIn, and GUEST_PATHS in lib/access.ts for the
+ * (short) list of what that actually opens.
  *
  * We read the member's roles with the *user's own* OAuth token via the
  * `guilds.members.read` scope, not with the gravity-claw bot token. This service
@@ -20,7 +24,8 @@
  *   DISCORD_CLIENT_SECRET  from the Developer Portal -> OAuth2
  *   DISCORD_GUILD_ID       the server whose roles decide access
  *   DISCORD_ADMIN_ROLE_ID  role granting admin
- *   DISCORD_VIEWER_ROLE_ID role granting viewer
+ *   DISCORD_VIEWER_ROLE_ID role granting teammate
+ *   DISCORD_ADMIN_USER_IDS comma-separated Discord user ids that are always admin
  *   DISCORD_REDIRECT_URI   optional override; otherwise derived from the request
  */
 
@@ -38,6 +43,8 @@ export interface DiscordConfig {
     adminRoleId: string;
     viewerRoleId: string;
     redirectUriOverride: string | null;
+    /** Discord user ids always treated as admin, whatever their roles say. */
+    adminUserIds: string[];
 }
 
 /**
@@ -61,6 +68,8 @@ export function discordConfig(): DiscordConfig | null {
         adminRoleId,
         viewerRoleId,
         redirectUriOverride: process.env.DISCORD_REDIRECT_URI ?? null,
+        adminUserIds: (process.env.DISCORD_ADMIN_USER_IDS ?? "")
+            .split(",").map((s) => s.trim()).filter(Boolean),
     };
 }
 
@@ -184,13 +193,33 @@ export async function fetchGuildRoles(
 }
 
 /**
- * Map guild roles onto an app role. Admin wins over Teammate, so someone holding both
- * is an admin rather than whichever we happened to test first.
+ * Decide the tier for someone who has just signed in.
+ *
+ * `roleIds` is null when they are not in the guild at all — which is not a refusal
+ * any more: everyone who completes a Discord sign-in is at least a guest.
+ *
+ *   DISCORD_ADMIN_USER_IDS  -> admin   (checked first, see below)
+ *   "Admin" role            -> admin
+ *   "Teammate" role         -> teammate
+ *   anything else           -> guest
+ *
+ * The user-id allowlist is checked before roles and exists because **a Discord guild
+ * owner holds no roles**. Owners have implicit permission over their server without
+ * ever being granted a role, so the owner of this guild was denied by a mapping that
+ * only reads roles — locked out of their own dashboard while four other people were
+ * admins. It doubles as the escape hatch if the Admin role is ever deleted or
+ * renamed: no role in Discord can lock out an id named here.
  */
-export function roleForGuildRoles(cfg: DiscordConfig, roleIds: string[]): Role | null {
-    if (roleIds.includes(cfg.adminRoleId)) return "admin";
-    if (roleIds.includes(cfg.viewerRoleId)) return "viewer";
-    return null;
+export function tierForSignIn(
+    cfg: DiscordConfig,
+    userId: string,
+    roleIds: string[] | null,
+): Role {
+    if (cfg.adminUserIds.includes(userId)) return "admin";
+    const roles = roleIds ?? [];
+    if (roles.includes(cfg.adminRoleId)) return "admin";
+    if (roles.includes(cfg.viewerRoleId)) return "teammate";
+    return "guest";
 }
 
 /** Discord CDN avatar, or null to fall back to initials. */

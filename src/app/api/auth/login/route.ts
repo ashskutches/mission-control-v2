@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createToken, sessionCookie } from "@/app/lib/session";
 
 /**
- * Break-glass password login. The dashboard password -> a viewer session.
+ * Break-glass password login. The dashboard password -> a teammate session.
  *
  * Discord is the advertised way in (see /api/auth/discord); this form is only reachable
  * at /login?break-glass=1 and exists so a broken OAuth config cannot lock everyone out
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     // An unset ADMIN_PASSWORD must never match an empty submission.
     const role =
         supplied && adminPassword && supplied === adminPassword ? "admin"
-        : supplied && supplied === dashboardPassword ? "viewer"
+        : supplied && supplied === dashboardPassword ? "teammate"
         : null;
 
     if (!role) {

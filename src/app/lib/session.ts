@@ -21,7 +21,12 @@
 export const COOKIE_NAME = "gc_session";
 export const THIRTY_DAYS = 60 * 60 * 24 * 30;
 
-export type Role = "viewer" | "admin";
+/**
+ * Three tiers. "viewer" is the retired name for "teammate" — it is still accepted
+ * when reading a token so sessions issued before the guest tier existed keep working,
+ * but it is never written. See sessionFromToken.
+ */
+export type Role = "guest" | "teammate" | "admin";
 
 /** Who the session belongs to. Absent on v1 tokens and on break-glass logins. */
 export interface SessionUser {
@@ -132,12 +137,16 @@ export async function sessionFromToken(
             };
             // The signature proves we wrote it, but a shape change between deploys
             // should fail closed rather than produce a half-built session.
-            if (c.r !== "viewer" && c.r !== "admin") return null;
+            // "viewer" predates the guest tier and meant "everything but admin",
+            // which is exactly what teammate means now — so it maps forward rather
+            // than being rejected, and nobody is signed out by this deploy.
+            const raw_r = c.r === "viewer" ? "teammate" : c.r;
+            if (raw_r !== "guest" && raw_r !== "teammate" && raw_r !== "admin") return null;
             const user: SessionUser | null =
                 typeof c.id === "string" && typeof c.u === "string"
                     ? { id: c.id, username: c.u, avatar: typeof c.a === "string" ? c.a : null }
                     : null;
-            return { role: c.r, user, issued: typeof c.t === "number" ? c.t : 0 };
+            return { role: raw_r, user, issued: typeof c.t === "number" ? c.t : 0 };
         }
 
         // Order matters: the admin prefix also starts with the viewer prefix.
@@ -146,7 +155,8 @@ export async function sessionFromToken(
             return { role: "admin", user: null, issued: legacyStamp(payload) };
         }
         if (payload.startsWith(VIEWER_PREFIX)) {
-            return { role: "viewer", user: null, issued: legacyStamp(payload) };
+            // Password-era viewer == teammate. See the note above.
+            return { role: "teammate", user: null, issued: legacyStamp(payload) };
         }
         return null;
     } catch {

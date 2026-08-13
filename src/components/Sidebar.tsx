@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, ShieldCheck, Lock, Unlock } from "lucide-react";
 import { APP_CONFIG } from "@/app/lib/AppConfig";
-import { isAdminPath } from "@/app/lib/access";
+import { canAccess } from "@/app/lib/access";
 import { useRole } from "@/app/lib/useRole";
 import { cn } from "@/app/lib/utils";
 
@@ -24,9 +24,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   // Admin-only entries are dropped from the list entirely rather than greyed out,
   // so the nav reads as a complete menu instead of a wall of locks. Until /api/auth/me
   // answers we render as a viewer — hide first, reveal after.
+  // Filtered by the same canAccess the middleware gates with, so the nav can never
+  // offer a page that immediately bounces. Until /api/auth/me answers we render as a
+  // guest — hide first, reveal after.
   const navItems = useMemo(
-    () => APP_CONFIG.navigation.filter((item) => isAdmin || !isAdminPath(item.href)),
-    [isAdmin],
+    () => APP_CONFIG.navigation.filter((item) => canAccess(role ?? "guest", item.href)),
+    [role],
   );
 
   const [pipelineBadge, setPipelineBadge] = useState<number>(0);   // inbox: new insights + pending approvals
@@ -263,7 +266,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 {user?.username ?? "Break-glass session"}
               </div>
               <div style={{ fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>
-                {isAdmin ? "Admin" : "Teammate"}
+                {role === "admin" ? "Admin" : role === "teammate" ? "Teammate" : "Guest"}
               </div>
             </div>
           </div>
@@ -292,6 +295,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               color: "var(--text-muted)",
             }}>Exit</span>
           </button>
+        ) : role === "guest" ? (
+          <div
+            className="is-flex is-align-items-center px-4 has-text-grey-light"
+            style={{ gap: "0.75rem", padding: "0.4rem 0", opacity: 0.55 }}
+            title="Ask an admin for the Teammate role in Discord to unlock the full dashboard"
+          >
+            <Lock size={16} />
+            <span className="is-uppercase has-text-weight-bold" style={{ fontSize: "10px", lineHeight: 1.4 }}>
+              Guest · ask for Teammate
+            </span>
+          </div>
         ) : discordConfigured ? (
           <div
             className="is-flex is-align-items-center px-4 has-text-grey-light"

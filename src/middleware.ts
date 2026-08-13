@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COOKIE_NAME, roleFromToken } from "@/app/lib/session";
-import { isAdminPath } from "@/app/lib/access";
+import { canAccess, isAdminPath } from "@/app/lib/access";
 
 /**
- * Two tiers on one cookie:
+ * Three tiers on one cookie:
  *   no valid session  -> /login   (Discord, or break-glass password)
- *   viewer            -> everything except ADMIN_PATHS
+ *   guest             -> GUEST_PATHS only (the lobby)
+ *   teammate          -> everything except ADMIN_PATHS
  *   admin             -> everything
  *
- * An admin token satisfies the viewer check too — elevating never costs you access.
+ * The policy itself lives in lib/access.ts so the sidebar cannot drift from the gate.
+ * A higher tier never loses access to a lower tier's pages.
  *
  * The tier comes from the signer's Discord roles at sign-in time (see
  * src/app/lib/discord.ts). This middleware only reads what the cookie says; it never
@@ -53,22 +55,31 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(loginUrl);
     }
 
-    if (role !== "admin" && isAdminPath(pathname)) {
-        if (isApi) {
-            return NextResponse.json(
-                { error: "Admin required", detail: "This endpoint needs an admin session." },
-                { status: 403 },
-            );
-        }
-        // Signed in, just not high enough. Send them to the elevation form rather
-        // than /login — they already have a session and re-entering the dashboard
-        // password would not help.
-        const adminUrl = new URL("/admin", req.url);
-        adminUrl.searchParams.set("from", pathname);
-        return NextResponse.redirect(adminUrl);
+    if (canAccess(role, pathname)) return NextResponse.next();
+
+    if (isApi) {
+        return NextResponse.json(
+            {
+                error: isAdminPath(pathname) ? "Admin required" : "Insufficient access",
+                detail: `This endpoint needs a higher tier than "${role}".`,
+            },
+            { status: 403 },
+        );
     }
 
-    return NextResponse.next();
+    // Signed in, just not high enough. Where we send them depends on what would
+    // actually help: a guest needs a role from an admin, whereas a teammate short of
+    // an admin page can still get there with the break-glass password.
+    if (role === "guest") {
+        const denied = new URL("/no-access", req.url);
+        denied.searchParams.set("reason", "need_role");
+        denied.searchParams.set("from", pathname);
+        return NextResponse.redirect(denied);
+    }
+
+    const adminUrl = new URL("/admin", req.url);
+    adminUrl.searchParams.set("from", pathname);
+    return NextResponse.redirect(adminUrl);
 }
 
 export const config = {

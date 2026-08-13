@@ -10,7 +10,7 @@ import { COOKIE_NAME, createToken, sessionCookie, sessionFromToken } from "@/app
  * ADMIN_PASSWORD to remove the path entirely; no code change needed.
  *
  * POST — elevate to admin with ADMIN_PASSWORD.
- * DELETE — step back down to viewer, keeping the session (that is the difference
+ * DELETE — step back down to teammate, keeping the session (that is the difference
  *          between this and /api/auth/logout, which drops the session entirely).
  *
  * Both preserve whatever Discord identity the session already carries, so elevating
@@ -56,7 +56,7 @@ export async function DELETE(req: NextRequest) {
     // out of nothing, which would be a free login.
     if (!existing) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
-    const res = NextResponse.json({ ok: true, role: "viewer" });
-    res.cookies.set(sessionCookie(await createToken("viewer", secret, existing.user)));
+    const res = NextResponse.json({ ok: true, role: "teammate" });
+    res.cookies.set(sessionCookie(await createToken("teammate", secret, existing.user)));
     return res;
 }
