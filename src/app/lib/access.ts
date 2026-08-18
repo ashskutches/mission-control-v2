@@ -1,70 +1,126 @@
 /**
  * Who can reach what. Three tiers.
  *
- *   guest    — anyone signed in with Discord. No role needed, not even membership
- *              of the guild. A lobby: the overview, tasks, research, brand.
- *   teammate — the "Teammate" Discord role. The whole operational dashboard.
- *   admin    — the "Admin" Discord role. Adds money and agent control.
+ *   guest    — signed in with Discord AND a member of a configured guild, but holding
+ *              no access role. A lobby: content, research, agents, quick run, chats.
+ *   teammate — the "Teammate" Discord role. Adds the operational dashboard.
+ *   admin    — the "Admin" Discord role. Everything.
  *
- * ONE policy, read by three places, so a page can never be hidden in the sidebar but
+ * ONE policy, read by four places, so a page can never be hidden in the sidebar but
  * left reachable by URL (or the reverse):
- *   - src/middleware.ts        the actual gate
- *   - src/components/Sidebar   hides the nav entries
- *   - (dashboard)/page.tsx     hides the Profitability tab of Command Center
+ *   - src/middleware.ts                     the actual gate
+ *   - src/components/Sidebar                hides the nav entries
+ *   - api/auth/discord/callback             where a sign-in lands
+ *   - (dashboard)/page.tsx                  hides the Profitability tab of Command Center
  *
- * GUEST_PATHS is an **allowlist** and ADMIN_PATHS a denylist, deliberately. A page
- * added later is invisible to guests until someone opts it in, but visible to
- * teammates by default — so forgetting to touch this file fails closed for the
- * untrusted tier and open for the trusted one.
+ * ## Both lower tiers are allowlists — this is default-deny
  *
- * Matching is exact-or-subtree: "/costs" covers "/costs" and "/costs/anything", but
- * NOT "/costsomething". "/" is special-cased to exact, or it would match everything.
+ * guest and teammate each get an explicit list; admin gets everything. A page added
+ * later is therefore **admin-only until someone opts it in**, which is the safe
+ * direction: forgetting to touch this file hides a new page from everyone but the
+ * owner rather than quietly publishing it.
+ *
+ * That is a change from the earlier model, where teammate meant "everything that is
+ * not admin-only" and a new page was teammate-visible by default. If you add a page
+ * and your team says they cannot see it, this file is why.
+ *
+ * Matching is exact-or-subtree: "/orders" covers "/orders" and "/orders/anything", but
+ * NOT "/ordersomething". "/" is special-cased to exact, or it would match everything.
+ * Subtree matching is what lets "/commerce/landing-pages" sit in the teammate list
+ * while the rest of the "/commerce" tree stays admin-only.
  */
 
 export type Tier = "guest" | "teammate" | "admin";
 
-/** Admin only. Money, and anything that spends it. */
-export const ADMIN_PATHS = [
-    "/profitability",   // Profit — the P&L
-    "/costs",           // Agent cost breakdown
-    "/quick-run",       // fires an agent — spends API credits
-    "/agents",          // agent roster + per-agent config
+/**
+ * The guest lobby. Reachable by anyone in the Discord who has no role yet.
+ *
+ * Guest is NOT anonymous — sign-in requires membership of a configured guild (see
+ * tierForSignIn in lib/discord.ts). That membership requirement is what makes it
+ * reasonable for this list to include /agents (system prompts), /quick-run (spends
+ * API credits) and /chats (conversation history). If guild membership is ever
+ * relaxed, this list has to shrink in the same commit.
+ *
+ * Nothing with customer PII belongs here — no /orders, /support, /customer.
+ */
+export const GUEST_PATHS = [
+    "/content",     // Content
+    "/research",    // Research
+    "/agents",      // Agents
+    "/quick-run",   // Quick Run — fires agents, spends API credits
+    "/chats",       // Chats
 ] as const;
 
 /**
- * The guest lobby. Everything NOT listed here needs at least Teammate.
+ * What the "Teammate" role adds on top of the guest lobby. The operational dashboard.
  *
- * Nothing with customer PII belongs in this list — no /orders, /support, /chats,
- * /customer. Those are the pages the tier exists to keep people out of.
+ * "/" is here and not in GUEST_PATHS deliberately: Command Center is the page every
+ * signed-in teammate lands on, so it cannot be admin-only, but its payload carries
+ * revenue figures that a guest should not be handed. A guest lands on /content
+ * instead — see landingFor().
  */
-export const GUEST_PATHS = [
-    "/",            // Command Center overview (money widgets hidden — see below)
-    "/work",        // Tasks
-    "/research",    // Research reports
-    "/brand",       // Brand guide
+export const TEAMMATE_PATHS = [
+    "/",                          // Command Center — the landing page for teammate+
+    "/website",                   // Website
+    "/marketing",                 // Marketing
+    "/seo",                       // SEO
+    "/logistics",                 // Logistics
+    "/orders",                    // Orders
+    "/support",                   // Support
+    "/commerce/landing-pages",    // Landing Pages — the rest of /commerce is admin-only
+    "/work",                      // Tasks
+    "/blockages",                 // Blockages
+    "/settings",                  // Settings
 ] as const;
 
 const matches = (p: string, pathname: string) =>
     p === "/" ? pathname === "/" : pathname === p || pathname.startsWith(p + "/");
-
-export function isAdminPath(pathname: string | undefined | null): boolean {
-    if (!pathname) return false;
-    return ADMIN_PATHS.some((p) => matches(p, pathname));
-}
 
 export function isGuestPath(pathname: string | undefined | null): boolean {
     if (!pathname) return false;
     return GUEST_PATHS.some((p) => matches(p, pathname));
 }
 
+/** Reachable by a teammate: their own list, plus the guest lobby they inherit. */
+export function isTeammatePath(pathname: string | undefined | null): boolean {
+    if (!pathname) return false;
+    return isGuestPath(pathname) || TEAMMATE_PATHS.some((p) => matches(p, pathname));
+}
+
 /**
- * The whole rule, in one place. Admin outranks teammate outranks guest, so a higher
- * tier never loses access by being promoted.
+ * Admin-only, meaning "on neither allowlist". Derived rather than listed, so it can
+ * never disagree with the two lists above.
+ *
+ * Today that covers Profit (/profitability), Costs (/costs), Insights (/pipeline),
+ * the /commerce tree except Landing Pages, Brand (/brand), Team (/team) and
+ * Customer (/customer) — plus anything added later and not opted in.
+ */
+export function isAdminPath(pathname: string | undefined | null): boolean {
+    if (!pathname) return false;
+    return !isTeammatePath(pathname);
+}
+
+/**
+ * The whole rule, in one place.
+ *
+ * Written so the tiers nest by construction — admin ⊇ teammate ⊇ guest — which is the
+ * property that stops a promotion from *removing* access. Do not rewrite this as three
+ * independent branches; that is exactly how a higher tier ends up losing a page.
  */
 export function canAccess(tier: Tier, pathname: string): boolean {
-    if (isAdminPath(pathname)) return tier === "admin";
-    if (tier === "guest") return isGuestPath(pathname);
-    return true;   // teammate and admin reach everything that isn't admin-only
+    if (tier === "admin") return true;
+    if (isGuestPath(pathname)) return true;
+    if (tier === "teammate") return isTeammatePath(pathname);
+    return false;
+}
+
+/**
+ * Where a tier lands when it has no specific destination, or asked for one it cannot
+ * have. Guests cannot reach "/", so sending them there produces an immediate bounce
+ * to /no-access and makes a working sign-in look broken — that shipped once.
+ */
+export function landingFor(tier: Tier): string {
+    return tier === "guest" ? "/content" : "/";
 }
 
 /**
@@ -77,11 +133,13 @@ export const ADMIN_CC_TABS = ["profitability"] as const;
 /**
  * Overview widgets a guest must not be shown: revenue, AOV, forecast, spend.
  *
+ * Retained as defence in depth only. Guests can no longer reach Command Center at all
+ * ("/" is teammate+), so nothing consults this today. It matters again the moment "/"
+ * is reopened to guests — and the warning below still applies if that happens.
+ *
  * ⚠️ This is presentation only. The Overview page fetches /admin/overview, which
  * returns the revenue figures in one payload — hiding the widget does not stop a
- * guest reading the response. Real enforcement needs the bot API to withhold the
- * numbers by tier, which lands with the /api/bot proxy rollout. Until then treat
- * this as tidiness, not security. (As of 2026-08-12 that endpoint answers
- * unauthenticated requests anyway, so the data is public regardless of this flag.)
+ * caller reading the response. Real enforcement needs the bot API to withhold the
+ * numbers by tier (ADMIN_AUTH_MODE=enforce plus the /api/bot proxy).
  */
 export const GUEST_HIDDEN_OVERVIEW = ["revenue", "costs", "profit"] as const;

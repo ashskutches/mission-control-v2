@@ -6,13 +6,17 @@
  * in Discord takes effect the next time that person signs in, and there is no second
  * list to keep in sync.
  *
- *   "Admin" role     -> admin     (Profit, Costs, Quick Run, Agents)
+ *   "Admin" role     -> admin     (everything)
  *   "Teammate" role  -> teammate  (the operational dashboard)
- *   anyone else      -> guest     (a lobby: overview, tasks, research, brand)
+ *   no role          -> guest     (a lobby: content, research, agents, quick run, chats)
+ *   not in the guild -> DENIED
  *
- * Guest requires no role and not even guild membership — completing a Discord
- * sign-in is enough. See tierForSignIn, and GUEST_PATHS in lib/access.ts for the
- * (short) list of what that actually opens.
+ * **Guest requires guild membership.** Completing a Discord sign-in is not enough:
+ * someone who is not in one of the configured guilds is refused outright and sent to
+ * /no-access?reason=not_member. That requirement is load-bearing — the guest lobby
+ * includes /quick-run (which spends API credits), /agents (system prompts) and /chats
+ * (conversation history), and none of that belongs on the open internet. If membership
+ * is ever relaxed, GUEST_PATHS in lib/access.ts must shrink in the same commit.
  *
  * We read the member's roles with the *user's own* OAuth token via the
  * `guilds.members.read` scope, not with the gravity-claw bot token. This service
@@ -22,7 +26,10 @@
  * Env:
  *   DISCORD_CLIENT_ID      the gravity-claw application's client id
  *   DISCORD_CLIENT_SECRET  from the Developer Portal -> OAuth2
- *   DISCORD_GUILD_ID       the server whose roles decide access
+ *   DISCORD_GUILD_ID       the primary server, whose roles decide access
+ *   DISCORD_EXTRA_GUILD_IDS  optional, comma-separated. Membership of any of these
+ *                            also admits someone — see the multi-guild note on
+ *                            resolveMembership.
  *   DISCORD_ADMIN_ROLE_ID  role granting admin
  *   DISCORD_VIEWER_ROLE_ID role granting teammate
  *   DISCORD_ADMIN_USER_IDS comma-separated Discord user ids that are always admin
@@ -39,7 +46,13 @@ export const DISCORD_SCOPES = "identify guilds.members.read";
 export interface DiscordConfig {
     clientId: string;
     clientSecret: string;
+    /** The primary guild. Its role ids are the ones below. */
     guildId: string;
+    /**
+     * Every guild whose members may sign in, primary first. Membership of any one of
+     * them admits the signer; only the primary's roles are mapped to tiers.
+     */
+    guildIds: string[];
     adminRoleId: string;
     viewerRoleId: string;
     redirectUriOverride: string | null;
@@ -61,10 +74,16 @@ export function discordConfig(): DiscordConfig | null {
 
     if (!clientId || !clientSecret || !guildId || !adminRoleId || !viewerRoleId) return null;
 
+    // Comma-separated so a second company's server is an env change, not a deploy of
+    // new code. The primary stays first — resolveMembership checks it before the rest.
+    const extraGuildIds = (process.env.DISCORD_EXTRA_GUILD_IDS ?? "")
+        .split(",").map((s) => s.trim()).filter(Boolean);
+
     return {
         clientId,
         clientSecret,
         guildId,
+        guildIds: [guildId, ...extraGuildIds.filter((g) => g !== guildId)],
         adminRoleId,
         viewerRoleId,
         redirectUriOverride: process.env.DISCORD_REDIRECT_URI ?? null,
@@ -192,34 +211,91 @@ export async function fetchGuildRoles(
     return Array.isArray(m.roles) ? m.roles : [];
 }
 
+/** Which guild the signer turned out to be in, and what they hold there. */
+export interface Membership {
+    guildId: string;
+    roleIds: string[];
+}
+
+/**
+ * Find the first configured guild the signer actually belongs to, or null if none.
+ *
+ * Guilds are checked in order and the search stops at the first hit, so the primary
+ * costs one request for the common case. A non-member is a 404 from Discord, which
+ * fetchGuildRoles already reports as null.
+ *
+ * ## Multi-guild, and what is deliberately NOT built yet
+ *
+ * Membership of any configured guild admits the signer, but only the primary guild's
+ * role ids are mapped to tiers (there is one DISCORD_ADMIN_ROLE_ID, not one per
+ * guild). So someone whose only membership is a secondary guild signs in as a **guest**
+ * no matter what roles they hold there. That is the intended behaviour for now — the
+ * second company's server grants the lobby and nothing more. Giving it its own admin
+ * and teammate roles means a per-guild role map, which is a deliberate next step and
+ * not an accident of this shape.
+ */
+export async function resolveMembership(
+    accessToken: string,
+    cfg: DiscordConfig,
+): Promise<Membership | null> {
+    for (const guildId of cfg.guildIds) {
+        const roleIds = await fetchGuildRoles(accessToken, guildId);
+        if (roleIds !== null) return { guildId, roleIds };
+    }
+    return null;
+}
+
+/**
+ * The outcome of a sign-in. A refusal carries its reason so the callback can send the
+ * person somewhere that explains itself rather than to a bare /login.
+ *
+ * Deliberately one object with nullable fields rather than the discriminated union
+ * (`{ok:true,...} | {ok:false,...}`) this obviously wants to be: this project compiles
+ * with `strict: false`, and without strictNullChecks TypeScript does not narrow a
+ * union by a boolean discriminant — `if (!d.ok)` left `d.reason` an error on the
+ * success member. Both fields exist on the one type, so no narrowing is required.
+ */
+export interface SignInDecision {
+    /** The granted tier, or null if the sign-in was refused. */
+    tier: Role | null;
+    /** Why it was refused. Null on success. */
+    reason: "not_member" | null;
+}
+
 /**
  * Decide the tier for someone who has just signed in.
  *
- * `roleIds` is null when they are not in the guild at all — which is not a refusal
- * any more: everyone who completes a Discord sign-in is at least a guest.
+ *   DISCORD_ADMIN_USER_IDS       -> admin           (checked first, see below)
+ *   not in any configured guild  -> refused         ("not_member")
+ *   "Admin" role in primary      -> admin
+ *   "Teammate" role in primary   -> teammate
+ *   anything else                -> guest
  *
- *   DISCORD_ADMIN_USER_IDS  -> admin   (checked first, see below)
- *   "Admin" role            -> admin
- *   "Teammate" role         -> teammate
- *   anything else           -> guest
+ * Membership is required, but the user-id allowlist is checked *before* it, because
+ * **a Discord guild owner holds no roles** — owners have implicit permission over
+ * their server without ever being granted one, and a mapping that only reads roles
+ * locked the owner out of their own dashboard while four other people were admins.
+ * Checking it ahead of the membership test also means a wrong DISCORD_GUILD_ID cannot
+ * lock out the ids named there: it is the escape hatch of last resort, and it has to
+ * survive the failure of everything else.
  *
- * The user-id allowlist is checked before roles and exists because **a Discord guild
- * owner holds no roles**. Owners have implicit permission over their server without
- * ever being granted a role, so the owner of this guild was denied by a mapping that
- * only reads roles — locked out of their own dashboard while four other people were
- * admins. It doubles as the escape hatch if the Admin role is ever deleted or
- * renamed: no role in Discord can lock out an id named here.
+ * Roles are only read from the primary guild — see resolveMembership.
  */
 export function tierForSignIn(
     cfg: DiscordConfig,
     userId: string,
-    roleIds: string[] | null,
-): Role {
-    if (cfg.adminUserIds.includes(userId)) return "admin";
-    const roles = roleIds ?? [];
-    if (roles.includes(cfg.adminRoleId)) return "admin";
-    if (roles.includes(cfg.viewerRoleId)) return "teammate";
-    return "guest";
+    membership: Membership | null,
+): SignInDecision {
+    const granted = (tier: Role): SignInDecision => ({ tier, reason: null });
+
+    if (cfg.adminUserIds.includes(userId)) return granted("admin");
+    if (!membership) return { tier: null, reason: "not_member" };
+
+    // A secondary guild carries no role mapping, so it can only ever yield guest.
+    const roles = membership.guildId === cfg.guildId ? membership.roleIds : [];
+    if (roles.includes(cfg.adminRoleId)) return granted("admin");
+    if (roles.includes(cfg.viewerRoleId)) return granted("teammate");
+    return granted("guest");
 }
 
 /** Discord CDN avatar, or null to fall back to initials. */

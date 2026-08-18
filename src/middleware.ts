@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COOKIE_NAME, roleFromToken } from "@/app/lib/session";
-import { canAccess, isAdminPath } from "@/app/lib/access";
+import { canAccess, isAdminPath, landingFor } from "@/app/lib/access";
 
 /**
  * Three tiers on one cookie:
  *   no valid session  -> /login   (Discord, or break-glass password)
  *   guest             -> GUEST_PATHS only (the lobby)
- *   teammate          -> everything except ADMIN_PATHS
+ *   teammate          -> GUEST_PATHS + TEAMMATE_PATHS
  *   admin             -> everything
+ *
+ * Both lower tiers are allowlists, so a page nobody opted in is admin-only. See
+ * lib/access.ts.
  *
  * The policy itself lives in lib/access.ts so the sidebar cannot drift from the gate.
  * A higher tier never loses access to a lower tier's pages.
@@ -65,6 +68,13 @@ export async function middleware(req: NextRequest) {
             },
             { status: 403 },
         );
+    }
+
+    // "/" is teammate+, so a guest who opens the bare domain — a bookmark, or just
+    // typing the host — is not making a mistake worth an error page. Send them to
+    // their own landing page instead of /no-access.
+    if (pathname === "/") {
+        return NextResponse.redirect(new URL(landingFor(role), req.url));
     }
 
     // Signed in, just not high enough. Where we send them depends on what would

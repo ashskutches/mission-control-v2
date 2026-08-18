@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import {
     discordConfig,
     exchangeCode,
-    fetchGuildRoles,
     fetchIdentity,
     publicOrigin,
     redirectUri,
+    resolveMembership,
     tierForSignIn,
 } from "@/app/lib/discord";
 import { clearNonceCookie, NONCE_COOKIE, verifyState } from "@/app/lib/oauth-state";
 import { createToken, sessionCookie } from "@/app/lib/session";
-import { canAccess } from "@/app/lib/access";
+import { canAccess, landingFor } from "@/app/lib/access";
 
 /**
  * Where Discord sends people back to. Every failure path lands somewhere that explains
@@ -63,14 +63,19 @@ export async function GET(req: NextRequest) {
     const user = await fetchIdentity(accessToken);
     if (!user) return bail("/login?error=identity");
 
-    // null means "not in the guild", which is no longer a refusal — they simply have
-    // no roles, and everyone who signs in is at least a guest.
-    const guildRoles = await fetchGuildRoles(accessToken, cfg.guildId);
-    const role = tierForSignIn(cfg, user.id, guildRoles);
+    // Membership of a configured guild is required. A non-member gets a page that says
+    // so — bouncing them to /login instead makes an invite problem look like a broken
+    // password, and they retry forever.
+    const membership = await resolveMembership(accessToken, cfg);
+    const { tier, reason } = tierForSignIn(cfg, user.id, membership);
+    if (!tier) return bail(`/no-access?reason=${reason}`);
+    const role = tier;
 
-    // A guest landing on a page above their tier would bounce straight back out, so
-    // send them somewhere they can actually see rather than to `state.from`.
-    const dest = role === "guest" && !canAccess("guest", state.from) ? "/" : state.from;
+    // Any tier can ask for a page above itself, now that teammate is default-deny too
+    // — so this is checked for everyone, not just guests. landingFor keeps a guest off
+    // "/", which they cannot reach: sending them there turns a good sign-in into a
+    // bounce to /no-access.
+    const dest = canAccess(role, state.from) ? state.from : landingFor(role);
 
     const res = NextResponse.redirect(new URL(dest, origin));
     res.cookies.set(sessionCookie(await createToken(role, secret, user)));
