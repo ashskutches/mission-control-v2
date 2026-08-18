@@ -4,7 +4,7 @@ import {
   Users, RefreshCw, Plus, Pencil, Trash2, X, Check,
   MapPin, Mail, Clock, Briefcase, Loader, AlertCircle,
   Shield, ChevronDown, ChevronUp, Sparkles, MessageSquare,
-  AlertTriangle, GitMerge,
+  AlertTriangle, GitMerge, Search,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import SectionAgentPanel from "@/components/SectionAgentPanel";
@@ -70,6 +70,32 @@ function getRoleStyle(role: string | null) {
   return role
     ? (ROLE_COLORS[role.toLowerCase()] ?? { color: "#94a3b8", bg: "rgba(148,163,184,0.08)" })
     : { color: "#475569", bg: "rgba(255,255,255,0.04)" };
+}
+
+/**
+ * Everything about a member that is worth typing into the search box. Bio and focus
+ * are included deliberately — "who is working on email flows" is a question the
+ * roster can answer, and it can only answer it if the prose is searchable.
+ */
+function searchHaystack(m: TeamMember): string {
+  return [
+    m.display_name, m.username, m.role, m.email, m.timezone,
+    m.current_focus, m.bio, ...(m.areas ?? []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+/**
+ * Terms are ANDed, not matched as one substring, so "ash marketing" finds Ash by way
+ * of his role rather than requiring those two words to sit next to each other.
+ * `terms` is pre-lowercased and pre-split by the caller — this runs per member.
+ */
+function matchesTerms(m: TeamMember, terms: string[]): boolean {
+  if (terms.length === 0) return true;
+  const hay = searchHaystack(m);
+  return terms.every(t => hay.includes(t));
 }
 
 // ── Add/Edit Modal ────────────────────────────────────────────────────────────
@@ -614,6 +640,7 @@ export default function TeamPage() {
   const [syncMsg, setSyncMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
+  const [query, setQuery] = useState("");
   const [assignedAgent, setAssignedAgent] = useState<{ id: string; name: string; emoji?: string; color?: string } | null>(null);
 
   // Populate-data run state
@@ -772,8 +799,18 @@ Begin immediately — call get_team_members first, then work through each member
     } catch { /* silent */ }
   };
 
-  const activeMembers = members.filter(m => m.active);
-  const inactiveMembers = members.filter(m => !m.active);
+  // Split by active *after* filtering, so a search narrows both sections at once and
+  // the Inactive divider disappears when nothing inactive matches.
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const searching = terms.length > 0;
+  const filtered = searching ? members.filter(m => matchesTerms(m, terms)) : members;
+  const activeMembers = filtered.filter(m => m.active);
+  const inactiveMembers = filtered.filter(m => !m.active);
+
+  // The header badge counts the whole roster, not the filtered view — a search should
+  // not make it look like people left the company.
+  const totalActive = members.filter(m => m.active).length;
+  const noMatches = searching && filtered.length === 0;
 
   const accentColor = (assignedAgent as any)?.color ?? "#a78bfa";
 
@@ -797,7 +834,7 @@ Begin immediately — call get_team_members first, then work through each member
                 fontSize: "11px", fontWeight: 700, padding: "2px 10px", borderRadius: 20,
                 background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.2)", color: "#a78bfa",
               }}>
-                {activeMembers.length} active
+                {totalActive} active
               </span>
             </div>
             <p style={{ fontSize: "0.875rem", color: "#64748b" }}>
@@ -962,6 +999,52 @@ Begin immediately — call get_team_members first, then work through each member
           )}
         </AnimatePresence>
 
+        {/* Search — narrows the roster. Hidden until there is a roster to narrow. */}
+        {!loading && members.length > 0 && (
+          <div style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+            <div style={{ position: "relative", flex: 1, minWidth: 240 }}>
+              <Search
+                size={14}
+                style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }}
+              />
+              <input
+                id="team-search"
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === "Escape") setQuery(""); }}
+                placeholder="Search name, role, area, focus…"
+                aria-label="Search team members"
+                style={{
+                  width: "100%", padding: "9px 34px 9px 34px",
+                  background: "rgba(255,255,255,0.04)",
+                  border: `1px solid ${searching ? "rgba(167,139,250,0.35)" : "rgba(255,255,255,0.08)"}`,
+                  borderRadius: 10, color: "#e2e8f0", fontSize: "0.875rem", outline: "none",
+                  transition: "border-color 0.15s",
+                }}
+              />
+              {searching && (
+                <button
+                  onClick={() => setQuery("")}
+                  aria-label="Clear search"
+                  style={{
+                    position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                    background: "transparent", border: "none", cursor: "pointer",
+                    color: "#64748b", display: "flex", alignItems: "center", padding: 4,
+                  }}
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+            {searching && (
+              <span style={{ fontSize: "11px", color: "#64748b", whiteSpace: "nowrap" }}>
+                {filtered.length} of {members.length}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Loading */}
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#475569", padding: "3rem 0" }}>
@@ -978,6 +1061,26 @@ Begin immediately — call get_team_members first, then work through each member
             <p style={{ fontSize: "0.875rem", color: "#334155", marginTop: 4 }}>
               Click "Sync from Discord" to pull your team from Discord, or add members manually.
             </p>
+          </div>
+        ) : noMatches ? (
+          <div style={{
+            textAlign: "center", padding: "3rem 2rem",
+            border: "1px dashed rgba(255,255,255,0.1)", borderRadius: 16,
+          }}>
+            <Search size={32} color="#334155" style={{ marginBottom: "0.75rem" }} />
+            <p style={{ fontSize: "0.95rem", color: "#64748b", fontWeight: 600 }}>
+              No one matches &ldquo;{query.trim()}&rdquo;
+            </p>
+            <button
+              onClick={() => setQuery("")}
+              style={{
+                marginTop: "0.75rem", padding: "6px 14px", borderRadius: 8,
+                background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.25)",
+                color: "#a78bfa", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              Clear search
+            </button>
           </div>
         ) : (
           <>
