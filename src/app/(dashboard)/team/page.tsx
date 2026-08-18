@@ -36,6 +36,12 @@ interface TeamMember {
   avatar_url: string | null;
   email: string | null;
   role: string | null;
+  /**
+   * Mission Control ACCESS tier — not `role` above, which is the job function.
+   * null means nobody has granted one yet and the person is a guest by default.
+   * Granted through PATCH /admin/team/:id/permission; see src/app/lib/access.ts.
+   */
+  permission_tier: "guest" | "teammate" | "admin" | null;
   areas: string[] | null;
   timezone: string | null;
   active: boolean;
@@ -46,6 +52,22 @@ interface TeamMember {
   last_synced_at: string | null;
   created_at: string;
 }
+
+/**
+ * The three access tiers, in ascending order of what they can reach. This list is the
+ * UI half of src/app/lib/access.ts — keep the two in step.
+ */
+const PERMISSION_TIERS = [
+  { value: "guest",    label: "Guest",       hint: "Content, Research, Agents, Quick Run, Chats" },
+  { value: "teammate", label: "Team Member", hint: "Adds the operational dashboard" },
+  { value: "admin",    label: "Admin",       hint: "Everything, including Profit and Team" },
+] as const;
+
+const TIER_STYLE: Record<string, { color: string; bg: string }> = {
+  guest:    { color: "#94a3b8", bg: "rgba(148,163,184,0.10)" },
+  teammate: { color: "#38bdf8", bg: "rgba(56,189,248,0.10)" },
+  admin:    { color: "#f472b6", bg: "rgba(244,114,182,0.10)" },
+};
 
 const ROLE_COLORS: Record<string, { color: string; bg: string }> = {
   owner:            { color: "#e98d20", bg: "rgba(233,141,32,0.12)" },
@@ -114,6 +136,7 @@ function MemberModal({
     username: member?.username ?? "",
     display_name: member?.display_name ?? "",
     role: member?.role ?? "",
+    permission_tier: member?.permission_tier ?? "guest",
     areas: (member?.areas ?? []).join(", "),
     email: member?.email ?? "",
     timezone: member?.timezone ?? "America/New_York",
@@ -262,6 +285,33 @@ function MemberModal({
               </select>
             </div>
             <div>
+              <label style={labelStyle}>
+                Dashboard access
+                <span style={{ marginLeft: 6, color: "#64748b", fontWeight: 400 }}>
+                  — what they can open, separate from the job role above
+                </span>
+              </label>
+              <select
+                id="tm-permission"
+                style={inputStyle}
+                value={form.permission_tier}
+                onChange={set("permission_tier")}
+              >
+                {PERMISSION_TIERS.map(t => (
+                  <option key={t.value} value={t.value}>{t.label} — {t.hint}</option>
+                ))}
+              </select>
+              {isEdit && !member?.permission_tier && (
+                <p style={{ fontSize: "0.75rem", color: "#64748b", margin: "6px 0 0" }}>
+                  No tier has been granted yet, so this person is currently a guest.
+                </p>
+              )}
+              <p style={{ fontSize: "0.75rem", color: "#64748b", margin: "6px 0 0" }}>
+                Takes effect the next time they sign in — the tier is sealed into their
+                session at sign-in, so promote-then-refresh will not do it.
+              </p>
+            </div>
+            <div>
               <label style={labelStyle}>Timezone</label>
               <input
                 id="tm-timezone"
@@ -372,6 +422,9 @@ function MemberCard({
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const roleStyle = getRoleStyle(member.role);
+  const tier = member.permission_tier ?? "guest";
+  const tierStyle = TIER_STYLE[tier] ?? TIER_STYLE.guest;
+  const tierLabel = PERMISSION_TIERS.find(t => t.value === tier)?.label ?? "Guest";
   const name = member.display_name ?? member.username;
   const initials = name.slice(0, 2).toUpperCase();
 
@@ -436,6 +489,24 @@ function MemberCard({
                   {member.role}
                 </span>
               )}
+              {/* Access tier, always shown — including the default. A blank here would
+                  read as "no access", when in fact everyone has the guest lobby. */}
+              <span
+                title={
+                  member.permission_tier
+                    ? `Dashboard access: ${tierLabel}`
+                    : "No tier granted yet — this person can open the guest lobby only"
+                }
+                style={{
+                  fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em",
+                  padding: "2px 8px", borderRadius: 10,
+                  color: tierStyle.color, background: tierStyle.bg,
+                  border: `1px solid ${tierStyle.color}30`,
+                  opacity: member.permission_tier ? 1 : 0.65,
+                }}
+              >
+                {tierLabel}{member.permission_tier ? "" : " (default)"}
+              </span>
             </div>
             <p style={{ fontSize: "0.8rem", color: "#64748b", marginTop: 2 }}>@{member.username}</p>
 
@@ -773,21 +844,62 @@ Begin immediately — call get_team_members first, then work through each member
   const openEdit = (m: TeamMember) => { setEditingMember(m); setShowModal(true); };
   const closeModal = () => { setShowModal(false); setEditingMember(null); };
 
+  /**
+   * Granting a tier is a second, separate call — deliberately.
+   *
+   * The general PATCH /admin/team/:id does not accept `permission_tier`; that column is
+   * revoked from the anon key in Postgres and written only by PATCH /:id/permission,
+   * which authenticates and uses the service role.
+   *
+   * It also goes through `/api/bot` explicitly rather than BOT_URL. BOT_URL still points
+   * straight at Railway from the browser, and this is the one route that must not be
+   * callable without a dashboard session: the proxy checks the caller is an admin and
+   * attaches the admin key server-side. Sending it direct would both skip that check and
+   * start 401ing the moment ADMIN_API_KEY is set on the bot.
+   */
+  const savePermission = async (id: string, tier: string) => {
+    const res = await fetch(`/api/bot/admin/team/${id}/permission`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ permission_tier: tier }),
+    });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      throw new Error(detail.detail ?? detail.error ?? "Could not change dashboard access");
+    }
+  };
+
   const saveMember = async (data: any) => {
+    const { permission_tier, ...profile } = data;
+
     if (editingMember) {
       const res = await fetch(`${BOT_URL}/admin/team/${editingMember.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(profile),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Update failed");
+
+      // Only when it actually changed. An untouched dropdown on someone who has never
+      // been granted a tier reads "Guest", and writing that would turn "never set" into
+      // an explicit grant — which is what stops POST /admin/team/sync seeding them.
+      if (permission_tier !== (editingMember.permission_tier ?? "guest")) {
+        await savePermission(editingMember.id, permission_tier);
+      }
     } else {
       const res = await fetch(`${BOT_URL}/admin/team`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(profile),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Create failed");
+
+      // A new row is created as a guest whatever the form said, so anything above that
+      // needs the second call — otherwise picking Admin here would silently do nothing.
+      const created = await res.json().catch(() => ({}));
+      if (permission_tier && permission_tier !== "guest" && created?.member?.id) {
+        await savePermission(created.member.id, permission_tier);
+      }
     }
     await fetchMembers();
   };

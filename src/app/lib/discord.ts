@@ -1,15 +1,26 @@
 /**
  * Discord OAuth — the primary way in.
  *
- * Access is decided by Discord server roles, so adding or removing a person is done
- * in Discord and nowhere else. There is no user table here on purpose: a role removed
- * in Discord takes effect the next time that person signs in, and there is no second
- * list to keep in sync.
+ * Discord decides ENTRY. It no longer decides the tier.
  *
- *   "Admin" role     -> admin     (everything)
- *   "Teammate" role  -> teammate  (the operational dashboard)
- *   no role          -> guest     (a lobby: content, research, agents, quick run, chats)
- *   not in the guild -> DENIED
+ *   in a configured guild -> admitted
+ *   not in the guild      -> DENIED
+ *   DISCORD_ADMIN_USER_IDS -> admitted AND admin, whatever else fails
+ *
+ * ## The tier moved to the team directory (2026-08-18)
+ *
+ * It used to be read from roles here — "Admin" -> admin, "Teammate" -> teammate,
+ * no role -> guest — so that there was no second list to keep in sync. It is now
+ * `team_members.permission_tier` on Supabase, granted from the Team page, because
+ * assigning access meant opening Discord and there was no interface for it.
+ *
+ * That trade is real and was made knowingly: there are now two systems, and a person
+ * removed from Discord still has a directory row. `active: false` is honoured as a
+ * revocation, and POST /admin/team/sync keeps the roster current. See lib/directory.ts.
+ *
+ * The role ids below are still required config: gravity-claw reads the same two ids to
+ * seed existing role-holders' tiers on first sync, so shipping this did not demote
+ * every current admin to guest.
  *
  * **Guest requires guild membership.** Completing a Discord sign-in is not enough:
  * someone who is not in one of the configured guilds is refused outright and sent to
@@ -37,7 +48,7 @@
  */
 
 import type { NextRequest } from "next/server";
-import type { Role, SessionUser } from "./session";
+import type { SessionUser } from "./session";
 
 const API = "https://discord.com/api/v10";
 
@@ -256,46 +267,46 @@ export async function resolveMembership(
  * success member. Both fields exist on the one type, so no narrowing is required.
  */
 export interface SignInDecision {
-    /** The granted tier, or null if the sign-in was refused. */
-    tier: Role | null;
+    /** Whether this person may sign in at all. */
+    admitted: boolean;
+    /**
+     * A DISCORD_ADMIN_USER_IDS id: admin outright, and the directory is not consulted.
+     * This is the break-glass that has to survive a Supabase outage, an empty table and
+     * a wrong DISCORD_GUILD_ID all at once.
+     */
+    breakGlass: boolean;
     /** Why it was refused. Null on success. */
     reason: "not_member" | null;
 }
 
 /**
- * Decide the tier for someone who has just signed in.
+ * Decide whether someone who has just signed in may come in at all.
  *
- *   DISCORD_ADMIN_USER_IDS       -> admin           (checked first, see below)
- *   not in any configured guild  -> refused         ("not_member")
- *   "Admin" role in primary      -> admin
- *   "Teammate" role in primary   -> teammate
- *   anything else                -> guest
+ *   DISCORD_ADMIN_USER_IDS       -> admitted, breakGlass (admin)
+ *   not in any configured guild  -> refused ("not_member")
+ *   otherwise                    -> admitted; the tier comes from the directory
  *
  * Membership is required, but the user-id allowlist is checked *before* it, because
  * **a Discord guild owner holds no roles** — owners have implicit permission over
- * their server without ever being granted one, and a mapping that only reads roles
+ * their server without ever being granted one, and a mapping that only read roles
  * locked the owner out of their own dashboard while four other people were admins.
  * Checking it ahead of the membership test also means a wrong DISCORD_GUILD_ID cannot
  * lock out the ids named there: it is the escape hatch of last resort, and it has to
- * survive the failure of everything else.
+ * survive the failure of everything else — now including the directory lookup.
  *
- * Roles are only read from the primary guild — see resolveMembership.
+ * This function deliberately does NOT read roles any more. Granting is done on the
+ * Team page; see the header above.
  */
-export function tierForSignIn(
+export function admitForSignIn(
     cfg: DiscordConfig,
     userId: string,
     membership: Membership | null,
 ): SignInDecision {
-    const granted = (tier: Role): SignInDecision => ({ tier, reason: null });
-
-    if (cfg.adminUserIds.includes(userId)) return granted("admin");
-    if (!membership) return { tier: null, reason: "not_member" };
-
-    // A secondary guild carries no role mapping, so it can only ever yield guest.
-    const roles = membership.guildId === cfg.guildId ? membership.roleIds : [];
-    if (roles.includes(cfg.adminRoleId)) return granted("admin");
-    if (roles.includes(cfg.viewerRoleId)) return granted("teammate");
-    return granted("guest");
+    if (cfg.adminUserIds.includes(userId)) {
+        return { admitted: true, breakGlass: true, reason: null };
+    }
+    if (!membership) return { admitted: false, breakGlass: false, reason: "not_member" };
+    return { admitted: true, breakGlass: false, reason: null };
 }
 
 /** Discord CDN avatar, or null to fall back to initials. */

@@ -43,24 +43,53 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Authentication
 
-Sign-in is **Discord OAuth**. Access is decided by role in the Leaps & Rebounds guild, so
-adding or removing a person is done in Discord and nowhere else — there is no user table
-here to keep in sync.
+Sign-in is **Discord OAuth**, and there are two separate questions with two different
+answers:
 
-| Discord role | Gets |
+| Question | Decided by |
 |---|---|
-| `Admin` | everything, including `ADMIN_PATHS` (Profit, Costs, Quick Run, Agents) |
-| `Teammate` | everything else |
-| neither | denied at `/no-access`, even if they are in the server |
+| May you sign in at all? | **Discord** — membership of a configured guild |
+| What can you open once in? | **The team directory** — `team_members.permission_tier` |
 
-Roles are read with the **signer's own** OAuth token (`guilds.members.read`), not the
-gravity-claw bot token — this service never holds a credential that can act as the bot.
-The role is resolved once at sign-in and baked into the signed session cookie; the
-middleware never calls Discord, because it runs on every request.
+Three tiers, defined in `src/app/lib/access.ts`:
 
-A role removed in Discord therefore takes effect at that person's next sign-in, not
-instantly. To cut someone off immediately, rotate `SESSION_SECRET` — that invalidates
+| Tier | Gets |
+|---|---|
+| `guest` | the lobby: Content, Research, Agents, Quick Run, Chats |
+| `teammate` | adds the operational dashboard (Command Center, Orders, Support, SEO, …) |
+| `admin` | everything, including Profit, Costs, Insights, Team |
+
+**Everyone starts as a guest.** Teammate and admin are granted on the **Team page** —
+open a member, set *Dashboard access*, save. That writes through
+`PATCH /admin/team/:id/permission` on gravity-claw, which is the only route that may
+touch the column: Postgres revokes it from the anon key, because that key is public.
+
+> ⚠️ The **Role** dropdown on the same form is the person's *job function*
+> (owner / marketing / ops / …). It has nothing to do with access. *Dashboard access*
+> is the permission control.
+
+Guild membership is still required and still read with the **signer's own** OAuth token
+(`guilds.members.read`), never the gravity-claw bot token — this service holds no
+credential that can act as the bot.
+
+`DISCORD_ADMIN_USER_IDS` is the break-glass: those ids are admin without a directory
+lookup, which is what keeps the owner in when Supabase is down or the table is empty.
+A Discord guild owner holds no roles, so this is not a corner case.
+
+The tier is resolved once at sign-in and baked into the signed session cookie; the
+middleware never calls out, because it runs on every request. **A tier change therefore
+takes effect at that person's next sign-in, not instantly** — promote-then-refresh will
+not do it. To cut someone off immediately, rotate `SESSION_SECRET`, which invalidates
 every session at once.
+
+### The trade this makes
+
+The tier used to be read live from Discord roles, so there was no second list. It moved
+into Supabase on 2026-08-18 so that granting access did not mean opening Discord. There
+are now two systems: a person removed from Discord keeps their directory row, so
+`active: false` is honoured as a revocation and `POST /admin/team/sync` keeps the roster
+current. The first sync after this shipped seeded existing `Admin`/`Teammate` role
+holders into the column, which is why nobody was demoted by the change.
 
 ### Environment
 
@@ -70,8 +99,10 @@ every session at once.
 | `DISCORD_CLIENT_ID` | The gravity-claw Discord application's client id |
 | `DISCORD_CLIENT_SECRET` | Developer Portal → OAuth2 |
 | `DISCORD_GUILD_ID` | The server whose roles decide access |
-| `DISCORD_ADMIN_ROLE_ID` | Role granting admin |
-| `DISCORD_VIEWER_ROLE_ID` | Role granting viewer |
+| `DISCORD_ADMIN_ROLE_ID` | Legacy. No longer grants access — gravity-claw reads it to seed tiers on first sync |
+| `DISCORD_VIEWER_ROLE_ID` | Legacy. Same — seeds `teammate` |
+| `DISCORD_ADMIN_USER_IDS` | Comma-separated ids that are always admin. The break-glass |
+| `BOT_API_KEY` | Sent as `x-admin-key` by `/api/bot`. Must equal `ADMIN_API_KEY` on gravity-claw |
 | `DISCORD_REDIRECT_URI` | Optional. Otherwise derived from `x-forwarded-proto`/`host` |
 | `ADMIN_PASSWORD` | Break-glass only — see below |
 | `DASHBOARD_PASSWORD` | Break-glass only — see below |

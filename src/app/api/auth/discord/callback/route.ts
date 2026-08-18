@@ -6,8 +6,10 @@ import {
     publicOrigin,
     redirectUri,
     resolveMembership,
-    tierForSignIn,
+    admitForSignIn,
 } from "@/app/lib/discord";
+import { tierFromDirectory } from "@/app/lib/directory";
+import type { Role } from "@/app/lib/session";
 import { clearNonceCookie, NONCE_COOKIE, verifyState } from "@/app/lib/oauth-state";
 import { createToken, sessionCookie } from "@/app/lib/session";
 import { canAccess, landingFor } from "@/app/lib/access";
@@ -67,9 +69,13 @@ export async function GET(req: NextRequest) {
     // so — bouncing them to /login instead makes an invite problem look like a broken
     // password, and they retry forever.
     const membership = await resolveMembership(accessToken, cfg);
-    const { tier, reason } = tierForSignIn(cfg, user.id, membership);
-    if (!tier) return bail(`/no-access?reason=${reason}`);
-    const role = tier;
+    const { admitted, breakGlass, reason } = admitForSignIn(cfg, user.id, membership);
+    if (!admitted) return bail(`/no-access?reason=${reason}`);
+
+    // Discord said they may come in; the team directory says what they get. Break-glass
+    // ids skip the lookup entirely, so a Supabase outage or an empty table cannot lock
+    // the owner out of their own dashboard. Everything else fails closed to guest.
+    const role: Role = breakGlass ? "admin" : (await tierFromDirectory(user.id)).tier;
 
     // Any tier can ask for a page above itself, now that teammate is default-deny too
     // — so this is checked for everyone, not just guests. landingFor keeps a guest off

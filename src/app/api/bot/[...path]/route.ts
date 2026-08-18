@@ -55,6 +55,12 @@ const STRIP_RESPONSE = new Set([
     "content-encoding", "content-length", "transfer-encoding", "connection",
 ]);
 
+/**
+ * Upstream paths only an admin session may reach through this proxy. Kept as patterns
+ * rather than a prefix so widening it is a deliberate edit.
+ */
+const ADMIN_ONLY = [/^admin\/team\/[^/]+\/permission$/];
+
 async function proxy(req: NextRequest, path: string[]) {
     const role = await roleFromToken(
         req.cookies.get(COOKIE_NAME)?.value,
@@ -67,6 +73,20 @@ async function proxy(req: NextRequest, path: string[]) {
         return NextResponse.json(
             { error: "Not signed in", detail: "Dashboard session required." },
             { status: 401 },
+        );
+    }
+
+    // Some upstream routes are admin-only regardless of what the bot itself enforces.
+    //
+    // This proxy admits ANY signed-in session, which is correct for almost everything
+    // (a guest legitimately reads /admin/agents). Granting an access tier is the
+    // exception: without this check a guest could PATCH themselves to admin using the
+    // credential this proxy holds — turning the thing built to close a hole into one.
+    const upstreamPath = path.join("/");
+    if (role !== "admin" && ADMIN_ONLY.some((r) => r.test(upstreamPath))) {
+        return NextResponse.json(
+            { error: "Forbidden", detail: "Admin access is required to change permissions." },
+            { status: 403 },
         );
     }
 
