@@ -87,6 +87,17 @@ export const APP_CONFIG = {
         // endpoint through the P&L lens. Same data, two questions; don't merge them.
         { id: 'marketing',     group: 'core', href: '/marketing',              icon: Megaphone,       label: 'Marketing',  color: '#e98d20' },
         { id: 'content',       group: 'core', href: '/content',                icon: Film,            label: 'Content',    color: '#e98d20' },
+        // Social sits next to Content because it publishes what Content produces.
+        // WIP and ADMIN-ONLY by construction, not by a flag: lib/access.ts is
+        // default-deny, so a path on neither allowlist is admin-only — middleware
+        // gates it and Sidebar hides it from the same canAccess() call. Opening it
+        // to the team later is one line in TEAMMATE_PATHS.
+        //
+        // Its Connections tab is live (GET /admin/integrations); Compose, Approvals,
+        // Scheduled and Performance are labelled mocks. Nothing on the page sends —
+        // the publish path (social__schedule-post) is not wired to this UI yet,
+        // pending the aggregator-vs-direct decision.
+        { id: 'social',        group: 'core', href: '/social',                 icon: Share2,          label: 'Social',     color: '#f5a840' },
         // SEO sits under Content because the blog is its main asset — the Blog Library
         // moved from /content/blog to /seo/blog, since everything it is judged on
         // (impressions, position, topic overlap, thin posts) is measured in Search
