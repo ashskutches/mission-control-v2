@@ -3,7 +3,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity, BarChart3, Package, RotateCcw, ShoppingCart, Warehouse,
+  Activity, BarChart3, Building2, Package, RotateCcw, ShoppingCart, Warehouse,
 } from "lucide-react";
 
 /**
@@ -11,8 +11,9 @@ import {
  *
  * Built to the layout in the Atlas logistics-dashboard report (Aug 7 2026): an
  * above-the-fold overview, then one tab per drill-down. Tabs are ordered by how
- * much of them works today: Overview, Inventory and Reorder run on Shopify alone,
- * Returns and Shipping are wired but waiting on Gorgias and Falcon credentials.
+ * much of them works today: Overview, Inventory, Reorder, Warehouses and Shipping all
+ * run on Shopify alone; Returns is wired but waiting on Gorgias, and the only thing
+ * Shipping still cannot show is the freight/storage FEES, which live on Falcon invoices.
  *
  * Kept separate from /orders on purpose. Orders is order-shaped (a queue you clear,
  * one customer at a time); this is SKU-shaped (what to buy, and when). They meet on
@@ -27,8 +28,10 @@ const TABS = [
     blurb: "What to buy now, how much, and when it would land — plus the supplier lead times the whole calculation rests on." },
   { href: "/logistics/returns", label: "Warranty & Returns", icon: RotateCcw, color: "#a78bfa",
     blurb: "Return rate, defect rate and RMA reasons. Blocked on Gorgias credentials; the Shopify returns-in-flight signal is shown meanwhile." },
-  { href: "/logistics/shipping", label: "Shipping Cost", icon: Activity, color: "#06b6d4",
-    blurb: "Freight cost per unit, cost per order and logistics cost as a share of revenue. Blocked on the Falcon Fulfillment token." },
+  { href: "/logistics/warehouses", label: "Warehouses", icon: Building2, color: "#22d3ee",
+    blurb: "Stock per SKU per warehouse: what can actually ship, what is only being held, and what belongs to a dropship partner rather than to us." },
+  { href: "/logistics/shipping", label: "Shipping & Carriers", icon: Activity, color: "#06b6d4",
+    blurb: "Shipment volume, carrier mix, transit time and on-time delivery against the carrier's promise — all from Shopify. Only the freight and storage FEES still need Falcon." },
 ];
 
 export default function LogisticsLayout({ children }: { children: React.ReactNode }) {

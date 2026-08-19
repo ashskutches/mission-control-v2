@@ -29,12 +29,29 @@ A glassmorphic business intelligence dashboard built with **Next.js**. Real-time
 | Inventory | `/logistics/inventory` | Every tracked SKU with reorder point and days-to-stockout, filterable by urgency |
 | Reorder | `/logistics/reorder` | The purchase list, plus the supplier lead-time editor it is computed from |
 | Warranty & Returns | `/logistics/returns` | Blocked on Gorgias; shows Shopify returns-in-flight meanwhile |
-| Shipping Cost | `/logistics/shipping` | Blocked on `FALCON_API_TOKEN`; renders Falcon's cost analysis once set |
+| **Warehouses** | `/logistics/warehouses` | Stock per SKU per warehouse: shippable vs held vs dropship-partner units, and phantom stock |
+| Shipping & Carriers | `/logistics/shipping` | Shipment volume, carrier mix, transit time, on-time-vs-promise. Only the freight/storage FEES still need `FALCON_API_TOKEN` |
 
 Reads `/admin/logistics` (gravity-claw `routes/logistics.ts`). Sits under SEO in the
 sidebar. **Not** `/commerce/ops/logistics` — that is the squad's agent surface (chat,
 tasks, routines); this is the operational dashboard. Where a figure cannot be computed
 honestly the tab names the env var that would unblock it rather than rendering a zero.
+
+**The Falcon feed shrank on 2026-08-18.** Falcon Fulfillment is a Shopify *location*
+(`48733585558`), so stock by warehouse, the shipment report, carrier mix and transit time
+were never Falcon-only, and on-time-vs-promise (KPI 2) needs only that the promise be
+recorded before Shopify overwrites it. What still requires Falcon is money: per-shipment
+shipping/fulfillment/pick/carton fees and storage. Two things to know before reading these
+tabs:
+
+- **Warehouses separates ours from partners'.** The store has 17 locations. One ships
+  (Falcon, 3,177 units), a few only hold (Easton House, 36), and thirteen are Shopify
+  Collective / Dropified dropship partners holding 967 units of their own goods.
+  `variant.inventoryQuantity` — what the Inventory and Reorder tabs use — sums all of them.
+- **On-time-vs-promise accumulates forward.** `Fulfillment.estimatedDeliveryAt` is a real
+  promise in transit and is rewritten to ~delivery time once it lands, so a 15-minute cron
+  snapshots it into `delivery_promises`. The table has no history and reports "still
+  filling up" rather than 0% until deliveries land against stored promises.
 
 ### Commerce (by squad)
 **Acquisition**: Media Buying, Creator Outreach, Social Presence, Search Visibility
