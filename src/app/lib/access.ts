@@ -26,8 +26,6 @@
  *
  * Matching is exact-or-subtree: "/orders" covers "/orders" and "/orders/anything", but
  * NOT "/ordersomething". "/" is special-cased to exact, or it would match everything.
- * Subtree matching is what lets "/commerce/landing-pages" sit in the teammate list
- * while the rest of the "/commerce" tree stays admin-only.
  */
 
 export type Tier = "guest" | "teammate" | "admin";
@@ -67,7 +65,7 @@ export const TEAMMATE_PATHS = [
     "/logistics",                 // Logistics
     "/orders",                    // Orders
     "/support",                   // Support
-    "/commerce/landing-pages",    // Landing Pages — the rest of /commerce is admin-only
+    "/landing-pages",             // Landing Pages — moved out of the deleted /commerce tree
     "/work",                      // Tasks
     "/blockages",                 // Blockages
     "/settings",                  // Settings
@@ -92,8 +90,12 @@ export function isTeammatePath(pathname: string | undefined | null): boolean {
  * never disagree with the two lists above.
  *
  * Today that covers Profit (/profitability), Costs (/costs), Insights (/pipeline),
- * the /commerce tree except Landing Pages, Brand (/brand), Team (/team) and
- * Customer (/customer) — plus anything added later and not opted in.
+ * Social (/social), Brand (/brand), Team (/team) and Customer (/customer) — plus
+ * anything added later and not opted in.
+ *
+ * Two of those are spaces (see lib/spaces.tsx). A space being admin-only is a real
+ * choice, not an oversight: /social is still half mocks, and /brand carries brand
+ * strategy. Opening either to the team is one line in TEAMMATE_PATHS.
  */
 export function isAdminPath(pathname: string | undefined | null): boolean {
     if (!pathname) return false;

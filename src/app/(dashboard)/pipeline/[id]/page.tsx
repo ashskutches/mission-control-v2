@@ -9,8 +9,8 @@ import { redirect } from "next/navigation";
  * to a person: the Discord DM on human assignment (routes/pipeline.ts) and the
  * proactive scheduler's task nudges. Those DMs are sitting in inboxes.
  *
- * Deep links from Command Center, the research library and the commerce section
- * pages come through here too.
+ * Deep links from Command Center and the research library come through here too.
+ * The commerce section pages were the fourth source until that tree was removed.
  */
 export default async function PipelineItemRedirect({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

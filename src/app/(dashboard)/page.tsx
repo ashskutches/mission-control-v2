@@ -13,38 +13,29 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { createClient } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Activity, TrendingUp, Brain, Cpu, ShieldAlert, Bot, CheckSquare, Target,
-  ShoppingBag, DollarSign, Send, AlertCircle, ChevronRight, Zap, Award,
-  Package, ShoppingCart, Heart, Share2, BarChart2, Mail, Megaphone,
-  SearchCheck, FileText, Star, LifeBuoy, TrendingDown, RefreshCw,
+  Activity, Brain, ShieldAlert, DollarSign,
+  Send, AlertCircle, ChevronRight, Zap, RefreshCw,
 } from "lucide-react";
 import { MarkdownMessage } from "@/components/MarkdownMessage";
 import CostAlerts from "@/components/CostAlerts";
 import ProfitDashboard from "@/components/ProfitDashboard";
 import { LayoutDashboard, PiggyBank } from "lucide-react";
 import { ADMIN_CC_TABS } from "@/app/lib/access";
+import { CORE_SPACES, type Space } from "@/app/lib/spaces";
 import { useRole } from "@/app/lib/useRole";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 const BOT_URL  = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
 // ── Department config ────────────────────────────────────────────────────────
-const DEPARTMENTS = [
-  { id: "seo",        label: "SEO",         icon: SearchCheck,  color: "#38bdf8", href: "/commerce/seo" },
-  { id: "email",      label: "Email",        icon: Mail,         color: "#a78bfa", href: "/commerce/email" },
-  { id: "content",    label: "Content",      icon: FileText,     color: "#22c55e", href: "/commerce/content" },
-  { id: "ads",        label: "Paid Ads",     icon: Megaphone,    color: "#f43f5e", href: "/commerce/ads" },
-  { id: "social",     label: "Social",       icon: Share2,       color: "#e879f9", href: "/commerce/social" },
-  { id: "influencing",label: "Influencing",  icon: Star,         color: "#fb923c", href: "/commerce/influencing" },
-  { id: "products",   label: "Products",     icon: Package,      color: "#34d399", href: "/commerce/products" },
-  { id: "orders",     label: "Orders",       icon: ShoppingCart, color: "#22c55e", href: "/commerce/orders" },
-  { id: "loyalty",    label: "Loyalty",      icon: Heart,        color: "#f43f5e", href: "/commerce/loyalty" },
-  { id: "reviews",    label: "Reviews",      icon: Award,        color: "#fbbf24", href: "/commerce/reviews" },
-  { id: "support",    label: "Support",      icon: LifeBuoy,     color: "#10b981", href: "/commerce/support" },
-  { id: "cro",        label: "CRO",          icon: TrendingUp,   color: "#818cf8", href: "/commerce/cro" },
-  { id: "amazon",     label: "Amazon",       icon: BarChart2,    color: "#fb923c", href: "/commerce/amazon" },
-] as const;
-
+// The grid is CORE_SPACES (lib/spaces.tsx) — same ids the backend keys
+// departmentHealth on, so a card and its number cannot disagree.
+//
+// The 13-entry list this replaced pointed every card into /commerce/*, and 7 of
+// them — Social, Products, Orders, Loyalty, Reviews, CRO, Amazon — were ids no
+// stored insight could ever carry: the first three of those were rewritten to a
+// different section on the way in, and the rest were refused outright. Those cards
+// showed "No insights yet" at a healthy-looking 70%, permanently.
 // ── Sub-components ────────────────────────────────────────────────────────────
 /**
  * `money: true` marks a figure a guest must not see. The guest tier is open to anyone
@@ -80,7 +71,7 @@ function KpiStrip({ data, hideMoney = false }: { data: any; hideMoney?: boolean 
   );
 }
 
-function DeptCard({ dept, health, onNav }: { dept: typeof DEPARTMENTS[number]; health?: any; onNav: (href: string) => void }) {
+function DeptCard({ dept, health, onNav }: { dept: Space; health?: any; onNav: (href: string) => void }) {
   const score = health?.score ?? 70;
   const color = score >= 80 ? "#22c55e" : score >= 60 ? "#f59e0b" : "#f43f5e";
   const Icon = dept.icon;
@@ -540,7 +531,7 @@ function OverviewTab() {
           <p style={{ fontSize: 9, fontWeight: 800, color: "#666", textTransform: "uppercase", letterSpacing: "0.12em", margin: 0 }}>Department Health</p>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
-          {DEPARTMENTS.map(dept => (
+          {CORE_SPACES.map(dept => (
             <DeptCard key={dept.id} dept={dept} health={deptHealthMap[dept.id]} onNav={router_fn} />
           ))}
         </div>

@@ -17,7 +17,7 @@ const REASONS: Record<string, { title: string; body: string }> = {
     // back to the part of the dashboard they can actually use.
     need_role: {
         title: "That page needs the Teammate role",
-        body: "You're signed in as a guest, which covers Content, Research, Agents, Quick Run and Chats. Ask an admin for the Teammate role in Discord to unlock Website, Marketing, SEO, Logistics, Orders, Support and the rest — or Admin for Profit, Costs, Insights, Commerce and Team.",
+        body: "You're signed in as a guest, which covers Content, Research, Agents, Quick Run and Chats. Ask an admin for the Teammate role in Discord to unlock Website, Marketing, SEO, Logistics, Orders, Support and the rest — or Admin for Profit, Costs, Insights, Social, Brand and Team.",
     },
     not_member: {
         title: "You're not in the server",
@@ -25,7 +25,7 @@ const REASONS: Record<string, { title: string; body: string }> = {
     },
     no_role: {
         title: "No access role yet",
-        body: "You're in the Discord, but you don't have a role that grants dashboard access. Ask an admin to give you the Teammate role — or Admin for Profit, Costs, Insights, Commerce and Team.",
+        body: "You're in the Discord, but you don't have a role that grants dashboard access. Ask an admin to give you the Teammate role — or Admin for Profit, Costs, Insights, Social, Brand and Team.",
     },
 };
 

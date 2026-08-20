@@ -33,9 +33,10 @@ A glassmorphic business intelligence dashboard built with **Next.js**. Real-time
 | Shipping & Carriers | `/logistics/shipping` | Shipment volume, carrier mix, transit time, on-time-vs-promise. Only the freight/storage FEES still need `FALCON_API_TOKEN` |
 
 Reads `/admin/logistics` (gravity-claw `routes/logistics.ts`). Sits under SEO in the
-sidebar. **Not** `/commerce/ops/logistics` — that is the squad's agent surface (chat,
-tasks, routines); this is the operational dashboard. Where a figure cannot be computed
-honestly the tab names the env var that would unblock it rather than rendering a zero.
+sidebar. It used to have a twin at `/commerce/ops/logistics` — the squad's agent surface
+(chat, tasks, routines) — which went with the rest of that tree. Where a figure cannot be
+computed honestly the tab names the env var that would unblock it rather than rendering a
+zero.
 
 **The Falcon feed shrank on 2026-08-18.** Falcon Fulfillment is a Shopify *location*
 (`48733585558`), so stock by warehouse, the shipment report, carrier mix and transit time
@@ -53,13 +54,39 @@ tabs:
   snapshots it into `delivery_promises`. The table has no history and reports "still
   filling up" rather than 0% until deliveries land against stored promises.
 
-### Commerce (by squad)
-**Acquisition**: Media Buying, Creator Outreach, Social Presence, Search Visibility
-**Conversion**: Experimentation, Pricing & Intel, Catalog Architect, Revenue Max
-**Ops**: Resolution, Logistics, Community Support
-**Strategy**: Profitability, Brand Sentinel
+### Spaces
+The hard-coded areas of the business. One page each, listed in `src/app/lib/spaces.tsx`
+and mirrored in gravity-claw's `src/utils/spaces.ts` — **the `id` strings must match**,
+because they key `agent_insights.section` and `business_sections`.
 
-Each commerce page: `SectionAgentPanel` (auto-assign agent + run analysis) → Live KPIs → Metrics → Insight cards → Task queue → Embedded chat
+| Space | id | Page | Group |
+|---|---|---|---|
+| Website | `audience` | `/website` | core |
+| Marketing | `marketing` | `/marketing` | core |
+| Content | `content` | `/content` | core |
+| Social | `social` | `/social` | core |
+| SEO | `seo` | `/seo` | core |
+| Logistics | `logistics` | `/logistics` | core |
+| Orders | `orders` | `/orders` | core |
+| Support | `support` | `/support` | core |
+| Brand | `brand` | `/brand` | settings |
+| Team | `team` | `/team` | settings |
+
+`core` spaces make up Command Center's health grid. Website's id is `audience` and not
+`website`: the id predates the page's rename and is stamped on the agent and its
+`business_sections` row — see the note in the gravity-claw twin.
+
+**This replaced `/commerce`.** That tree was 38 files: a dashboard, a `commerce_areas`
+CRUD manager, four squad overviews (Acquisition / Conversion / Ops / Strategy), a dynamic
+`[squad]/[area]` route, and ~25 thin pages that were all one shared `CommerceSectionPage`
+wrapped in a config object. Sections were rows, creatable at runtime — including by an LLM
+via `POST /admin/sections/areas/generate` — so the live taxonomy drifted away from the
+section list the insight tools would accept, and 6 of Command Center's 13 department cards
+pointed at ids no insight could ever carry. Old `/commerce/*` paths 308 to their space (see
+`next.config.ts`); anything with no successor lands on Command Center.
+
+Adding a space means editing both registries and building the page. An area of the business
+with no page cannot silently start collecting insights.
 
 ### Command
 Agents, Chats, Ideas, Costs, System, Settings
@@ -70,12 +97,7 @@ Agents, Chats, Ideas, Costs, System, Settings
 
 | Component | Purpose |
 |---|---|
-| `CommerceSectionPage` | Shared layout for all `/commerce/*` pages |
-| `SectionAgentPanel` | Auto-assign agent + trigger analysis run |
-| `SectionMetricsPanel` | Agent-managed KPI widgets per section |
-| `SectionLiveKPIs` | Live KPI auto-refresh bar |
-| `SectionTaskQueue` | Human-approval action queue per section |
-| `InsightReviewPanel` | Slide-out panel for rich insight review (drafts, replies) |
+| `SectionAgentPanel` | Auto-assign a lead agent to a space + trigger an analysis run. On `/website`, `/content`, `/marketing`, `/seo`, `/team` — **the other five spaces do not have one yet** |
 | `AgentCRUD` | Create/edit/delete agents — role presets, skill config |
 | `AgentRoutines` | Cron routine management per agent |
 | `AgentRequestsPanel` | System tab — triage queue for bugs/limits/integration asks |
@@ -101,7 +123,7 @@ Agent runs routine / chat
 
 ## North Star Page (`/north-star`)
 
-The strategic command layer. Unique to all other pages — not a `CommerceSectionPage` wrapper.
+The strategic command layer. Purpose-built rather than a shared section wrapper.
 
 | Panel | What |
 |---|---|
