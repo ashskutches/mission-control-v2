@@ -26,7 +26,13 @@ import { canAccess, isAdminPath, landingFor } from "@/app/lib/access";
 // as a viewer first just to reach the admin prompt. `/no-access` is where a valid
 // Discord sign-in with no qualifying role lands — gating it would bounce those people
 // to /login and make a role problem look like a password problem.
-const PUBLIC_PATHS = ["/login", "/admin", "/no-access", "/api/auth"];
+//
+// `/api/raven/pipeline` is public *to this middleware only*: it authenticates itself
+// with a bearer token (RAVEN_API_TOKEN) because its caller is Raven, a machine that
+// holds no session cookie. Listed as the full route path rather than `/api/raven` so
+// the subtree rule above cannot silently exempt a future sibling route — a second
+// Raven endpoint has to be added here on purpose.
+const PUBLIC_PATHS = ["/login", "/admin", "/no-access", "/api/auth", "/api/raven/pipeline"];
 
 const isPublic = (pathname: string) =>
     PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
