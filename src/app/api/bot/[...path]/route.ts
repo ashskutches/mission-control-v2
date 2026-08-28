@@ -32,7 +32,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { COOKIE_NAME, roleFromToken } from "@/app/lib/session";
+import { COOKIE_NAME, roleFromToken, sessionFromToken } from "@/app/lib/session";
 
 /** The real bot origin. Server-side only — never the relative proxy path. */
 const BOT_ORIGIN =
@@ -61,11 +61,26 @@ const STRIP_RESPONSE = new Set([
  */
 const ADMIN_ONLY = [/^admin\/team\/[^/]+\/permission$/];
 
+/**
+ * Paths where the proxy stamps WHO is speaking, overriding whatever the client
+ * sent.
+ *
+ * Posting to an insight's conversation attributes words to a person, and a
+ * client-supplied name is a client-supplied name: any signed-in teammate could
+ * post as the founder, or as an agent. The session cookie carries the Discord
+ * identity inside the signed payload, so it cannot be edited without
+ * invalidating the signature — that is the only trustworthy source here.
+ *
+ * Break-glass password sessions carry no user, and are refused rather than
+ * attributed to nobody. An unsigned message on a shared record is worse than a
+ * missing one.
+ */
+const IDENTITY_STAMPED = [/^admin\/insights\/[^/]+\/messages$/];
+
 async function proxy(req: NextRequest, path: string[]) {
-    const role = await roleFromToken(
-        req.cookies.get(COOKIE_NAME)?.value,
-        process.env.SESSION_SECRET ?? "",
-    );
+    const secret = process.env.SESSION_SECRET ?? "";
+    const session = await sessionFromToken(req.cookies.get(COOKIE_NAME)?.value, secret);
+    const role = session?.role ?? (await roleFromToken(req.cookies.get(COOKIE_NAME)?.value, secret));
     if (!role) {
         // JSON, not a redirect: the callers are fetch(), and handing them the
         // login page's HTML surfaces as a JSON parse error three layers away
@@ -111,7 +126,29 @@ async function proxy(req: NextRequest, path: string[]) {
 
     const init: RequestInit = { method: req.method, headers, redirect: "manual" };
     if (req.method !== "GET" && req.method !== "HEAD") {
-        init.body = await req.arrayBuffer();
+        const stamped = req.method === "POST" && IDENTITY_STAMPED.some((r) => r.test(upstreamPath));
+        if (stamped) {
+            if (!session?.user) {
+                return NextResponse.json(
+                    {
+                        error: "No identity on this session",
+                        detail: "Posting to an insight conversation requires a Discord sign-in, not a password session.",
+                    },
+                    { status: 403 },
+                );
+            }
+            let parsed: Record<string, unknown> = {};
+            try { parsed = JSON.parse(new TextDecoder().decode(await req.arrayBuffer()) || "{}"); }
+            catch { return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 }); }
+            // Overwrite rather than default — a client that sent an author is
+            // either confused or lying, and both are corrected the same way.
+            parsed.author_id = session.user.id;
+            parsed.author_name = session.user.username;
+            init.body = JSON.stringify(parsed);
+            headers.set("content-type", "application/json");
+        } else {
+            init.body = await req.arrayBuffer();
+        }
     }
 
     let upstream: Response;

@@ -1,18 +1,19 @@
-import { redirect } from "next/navigation";
+import InsightDetail from "@/components/InsightDetail";
 
 /**
- * Redirect: /pipeline/<id> → /pipeline?focus=<id>
+ * /pipeline/<id> — one insight, and the conversation on it.
  *
- * This was a 1,016-line detail page. The insight it showed now expands in place
- * on the list, so the page has nothing left to render — but the URL cannot just
- * disappear. Five places link to it, and two of them have already sent the link
- * to a person: the Discord DM on human assignment (routes/pipeline.ts) and the
- * proactive scheduler's task nudges. Those DMs are sitting in inboxes.
+ * This URL used to be a 1,016-line detail page, then a redirect to
+ * `/pipeline?focus=<id>` once the board learned to expand a row in place. It is
+ * a real page again, for a reason the board cannot cover: an insight now has a
+ * conversation, and a conversation needs somewhere to live that is not a row.
  *
- * Deep links from Command Center and the research library come through here too.
- * The commerce section pages were the fourth source until that tree was removed.
+ * The links were always the point. Five places send people here and two of them
+ * put the link in a person's hands — the Discord DM on human assignment, and now
+ * `ask_human`, which DMs a teammate a question and this address to answer it at.
+ * Those links have to land somewhere they can actually type.
  */
-export default async function PipelineItemRedirect({ params }: { params: Promise<{ id: string }> }) {
+export default async function InsightPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  redirect(`/pipeline?focus=${encodeURIComponent(id)}`);
+  return <InsightDetail insightId={id} />;
 }

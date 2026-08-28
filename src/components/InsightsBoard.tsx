@@ -25,7 +25,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   RefreshCw, X, ChevronDown, ChevronRight, Bot, User, Sparkles, CheckCircle2,
   Search, AlertTriangle, ArrowUpRight, Clock, Ban, Info, Lightbulb,
+  HelpCircle, MessageSquare,
 } from "lucide-react";
+import Link from "next/link";
 import { getSpace } from "@/app/lib/spaces";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
@@ -51,6 +53,13 @@ export interface BoardItem {
   assignee: { kind: "agent" | "human"; id: string; name: string } | null;
   work: BoardWork | null;
   human_task: { id: string; status: string } | null;
+  /**
+   * Set when an agent has asked a person something on this insight and is still
+   * waiting. Present only while genuinely blocked — see the waitingOn block in
+   * GET /admin/insights/board, which settles a question on a threaded answer OR
+   * on any later human message.
+   */
+  waiting_on_human: { question: string; asked_at: string; agent_name: string } | null;
   created_at: string; updated_at: string; age_days: number;
 }
 export interface BoardResponse {
@@ -332,6 +341,30 @@ function RowDetail({ item, accent, onAssign, onDismiss, onComplete, busy }: {
       )}
 
       {/* Execution state — the reason assigning does not make the row vanish. */}
+      {/*
+        The question, in full, above everything else in the panel. The DM already
+        went out; this is for the person who opened the board instead of their
+        Discord, and it is the whole reason the row is highlighted.
+      */}
+      {item.waiting_on_human && (
+        <Link href={`/pipeline/${item.id}`} style={{ textDecoration: "none", display: "block", marginBottom: "0.8rem" }}>
+          <div style={{ background: `${accent}12`, border: `1px solid ${accent}44`, borderRadius: 9, padding: "0.7rem 0.85rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
+              <HelpCircle size={12} color={accent} />
+              <span style={{ fontSize: "11.5px", fontWeight: 700, color: accent }}>
+                {item.waiting_on_human.agent_name} is waiting on an answer
+              </span>
+              <span style={{ fontSize: "10px", color: "#64748b", marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                Answer <ArrowUpRight size={10} />
+              </span>
+            </div>
+            <p style={{ fontSize: "12px", color: "#cbd5e1", margin: 0, lineHeight: 1.55 }}>
+              {item.waiting_on_human.question}
+            </p>
+          </div>
+        </Link>
+      )}
+
       {item.work && (
         <div style={{ background: "rgba(56,189,248,0.05)", border: "1px solid rgba(56,189,248,0.18)", borderRadius: 9, padding: "0.65rem 0.85rem", marginBottom: "0.8rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
@@ -371,6 +404,16 @@ function RowDetail({ item, accent, onAssign, onDismiss, onComplete, busy }: {
         <button disabled={busy} onClick={onDismiss} style={btn("rgba(255,255,255,0.03)", "#64748b")}>
           <Ban size={11} /> Dismiss
         </button>
+        {/*
+          The way into the conversation. Assigning, closing and dismissing are
+          list actions and stay here; talking to whoever is working it is not
+          something a row can hold.
+        */}
+        <Link href={`/pipeline/${item.id}`} style={{ textDecoration: "none" }}>
+          <span style={btn("rgba(255,255,255,0.03)", "#94a3b8")}>
+            <MessageSquare size={11} /> Open conversation
+          </span>
+        </Link>
         <span style={{ fontSize: "10.5px", color: "#334155", marginLeft: "auto" }}>
           filed by {item.filed_by ?? "agent"} · {item.type.replace(/_/g, " ")} · {item.occurrences > 1 ? `reported ${item.occurrences}×` : "reported once"}
         </span>
@@ -670,6 +713,19 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
                               {item.occurrences}×
                             </span>
                           )}
+                          {/*
+                            An agent blocked on a person outranks its work status
+                            on the row. The status says what the machine is doing;
+                            this says the machine has stopped and is waiting for
+                            YOU, which is the only thing on the board asking the
+                            reader for anything.
+                          */}
+                          {item.waiting_on_human && (
+                            <span title={`${item.waiting_on_human.agent_name} asked: ${item.waiting_on_human.question}`}
+                              style={{ fontSize: "9px", fontWeight: 700, color: accent, background: `${accent}1a`, border: `1px solid ${accent}44`, padding: "1px 6px", borderRadius: 4, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                              <HelpCircle size={8} /> needs you
+                            </span>
+                          )}
                           {item.work && (
                             <span style={{ fontSize: "9px", fontWeight: 700, color: "#38bdf8", background: "rgba(56,189,248,0.1)", padding: "1px 6px", borderRadius: 4 }}>
                               {item.work.status}
@@ -740,9 +796,9 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
 
       <p style={{ fontSize: "10.5px", color: "#334155", margin: "0.7rem 0.15rem 0" }}>
         Technical problems (broken integrations, missing credentials, tool failures) are filed to{" "}
-        <a href="/blockages" style={{ color: "#64748b" }}>Blockages</a>, not here. Execution detail lives in{" "}
-        <a href="/work" style={{ color: "#64748b" }}>Tasks</a>.
-        {section && <> Every space&rsquo;s board is on <a href="/pipeline" style={{ color: "#64748b" }}>Insights</a>.</>}
+        <Link href="/blockages" style={{ color: "#64748b" }}>Blockages</Link>, not here. Execution detail lives in{" "}
+        <Link href="/work" style={{ color: "#64748b" }}>Tasks</Link>.
+        {section && <> Every space&rsquo;s board is on <Link href="/pipeline" style={{ color: "#64748b" }}>Insights</Link>.</>}
       </p>
 
       <AnimatePresence>

@@ -68,6 +68,20 @@ export const TEAMMATE_PATHS = [
     "/landing-pages",             // Landing Pages — moved out of the deleted /commerce tree
     "/work",                      // Tasks
     "/blockages",                 // Blockages
+    // Insights — and specifically /pipeline/<id>, the conversation on one insight.
+    //
+    // This was admin-only by default (default-deny: a page is admin-only until it
+    // is listed here), which made the whole agent→human loop unreachable for the
+    // people it exists for. An agent DMs a teammate a question and a link to the
+    // insight; before this, Ryan (teammate) clicking that link landed on
+    // /no-access. A question nobody can open is not a question.
+    //
+    // The board carries dollar figures, so this is a real widening and not a
+    // formality — but every one of those figures is labelled `measured` or
+    // `claimed` and the same teammates already see /profitability-adjacent
+    // numbers on Command Center, which is in this list. Narrowing it later means
+    // splitting the detail page out from the board, not removing this line.
+    "/pipeline",                  // Insights + per-insight conversation
     "/settings",                  // Settings
 ] as const;
 
