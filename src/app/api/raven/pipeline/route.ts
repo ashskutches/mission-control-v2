@@ -19,10 +19,15 @@
  *
  * ## Where the data comes from
  *
- * The same place the page gets it. src/app/(dashboard)/pipeline/page.tsx calls
+ * The same place the page gets it. src/components/InsightsBoard calls
  * `GET /admin/insights/board` on gravity-claw; this calls that, server-side,
  * with the admin key. No new query and no new shape — the field names below are
  * the upstream's, minus what is withheld.
+ *
+ * That call used to live in (dashboard)/pipeline/page.tsx. It moved when every
+ * space got its own Insights tab and the board became one shared component; the
+ * request this route mirrors is unchanged, and `lane=all` still matches what the
+ * board asks for when nothing is filtered.
  *
  * ## Auth
  *
