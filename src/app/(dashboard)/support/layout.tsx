@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Inbox, BookOpen, Brain, LifeBuoy, Settings } from "lucide-react";
+import { LayoutDashboard, Inbox, BookOpen, Brain, LifeBuoy, Settings, Lightbulb } from "lucide-react";
 import { SUPPORT_ACCENT } from "./ui";
 import { getSummary } from "./api";
 
@@ -17,6 +17,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: "/support",          label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/support/insights", label: "Insights",  icon: Lightbulb },
   { href: "/support/inbox",    label: "Inbox",     icon: Inbox,    badge: "awaitingApproval" },
   { href: "/support/learning", label: "Learning",  icon: Brain,    badge: "openQuestions" },
   { href: "/support/docs",     label: "Knowledge", icon: BookOpen },

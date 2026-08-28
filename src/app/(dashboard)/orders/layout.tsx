@@ -2,7 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AlertTriangle, MessageSquare, Package, TrendingUp, Truck } from "lucide-react";
+import { AlertTriangle, Lightbulb, MessageSquare, Package, TrendingUp, Truck } from "lucide-react";
 
 /**
  * The Orders section. Four surfaces that all answer "what is happening to an order",
@@ -18,6 +18,8 @@ import { AlertTriangle, MessageSquare, Package, TrendingUp, Truck } from "lucide
 const TABS = [
   { href: "/orders",             label: "Queue",       icon: AlertTriangle,  color: "#fb923c", exact: true,
     blurb: "Every order that needs a human today, ranked by how bad it is. Read live from Shopify — healthy orders are not shown." },
+  { href: "/orders/insights",    label: "Insights",    icon: Lightbulb,      color: "#e98d20",
+    blurb: "What the Orders lead agent has filed — ranked findings, what each is worth, and who is acting on it." },
   { href: "/orders/backorders",  label: "Backorders",  icon: Package,        color: "#06b6d4",
     blurb: "Orders tagged _BACKORDERED, with the variant-or-wait SMS follow-up." },
   { href: "/orders/sms",         label: "Text Message (Testing)", icon: MessageSquare, color: "#a78bfa",

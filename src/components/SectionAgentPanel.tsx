@@ -5,6 +5,7 @@ import {
   Bot, UserPlus, Users, MessageSquare, ChevronDown, X, Check, Zap,
   Play, Loader, ExternalLink, AlertTriangle, Sparkles,
 } from "lucide-react";
+import { insightsHrefFor } from "@/app/lib/spaces";
 
 
 
@@ -234,6 +235,16 @@ Your goal is to help grow this area of the business. Surface what's actually imp
   const lead = section?.lead_agent;
   const accentColor = lead?.color ?? "#38bdf8";
 
+  /**
+   * Where "View insights" goes once a run finishes.
+   *
+   * This used to be `/intelligence?section=${sectionId}` — a route that has never
+   * existed, so the one link offered at the end of a successful analysis 404'd.
+   * Every core space now has its own board; the two settings spaces (Brand, Team)
+   * do not, and fall back to the all-spaces list.
+   */
+  const insightsHref = insightsHrefFor(sectionId) ?? "/pipeline";
+
   if (loading) {
     return (
       <div className="box p-4 mb-4" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
@@ -447,7 +458,7 @@ Your goal is to help grow this area of the business. Surface what's actually imp
                             <MessageSquare size={11} /> View chat
                           </a>
                         )}
-                        <a href={`/intelligence?section=${sectionId}`} style={{ fontSize: "11px", color: accentColor, fontWeight: 700, display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                        <a href={insightsHref} style={{ fontSize: "11px", color: accentColor, fontWeight: 700, display: "flex", alignItems: "center", gap: "0.3rem" }}>
                           <ExternalLink size={11} /> View insights
                         </a>
                       </div>

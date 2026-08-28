@@ -1,0 +1,28 @@
+"use client";
+/**
+ * Marketing → Insights
+ *
+ * What the Marketing lead agent has filed, and nothing else. The list, the sorting
+ * and the assign/dismiss actions are all components/InsightsBoard — the same
+ * component /pipeline renders — so this page is a section id and nothing more.
+ *
+ * `section` is the SPACE id from lib/spaces.tsx, not a raw `agent_insights.section`
+ * value. The server expands it to the retired sections that roll up here, so this
+ * board shows the space's whole history rather than only rows filed since spaces
+ * existed. See the note at the top of InsightsBoard.
+ */
+import InsightsBoard from "@/components/InsightsBoard";
+
+export default function MarketingInsightsPage() {
+  return (
+    <InsightsBoard
+      section="marketing"
+      emptyHint={
+        <>
+          Nothing open for Marketing in this lane. Run an analysis from the{" "}
+          <a href="/marketing" style={{ color: "#64748b" }}>dashboard</a> to populate it.
+        </>
+      }
+    />
+  );
+}

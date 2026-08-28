@@ -59,3 +59,21 @@ export const CORE_SPACES: readonly Space[] = SPACES.filter(s => s.group === 'cor
 export function getSpace(id: string): Space | undefined {
     return SPACES.find(s => s.id === id);
 }
+
+/**
+ * Where a space's own Insights board lives, or null if it has no tab yet.
+ *
+ * Every `core` space has one; the two `settings` spaces (Brand, Team) do not, so
+ * anything linking to "this space's insights" has to handle null rather than
+ * assume `${href}/insights` resolves. Linking a Team agent's run at /team/insights
+ * would 404 — that is the bug this function exists to prevent.
+ *
+ * Social is the exception to the URL shape. It has no layout.tsx and no child
+ * routes: it is one page with its own in-page tab strip, which reads ?tab= on
+ * mount. So its board is a query param, not a path segment.
+ */
+export function insightsHrefFor(id: string): string | null {
+    const space = getSpace(id);
+    if (!space || space.group !== 'core') return null;
+    return space.id === 'social' ? '/social?tab=insights' : `${space.href}/insights`;
+}

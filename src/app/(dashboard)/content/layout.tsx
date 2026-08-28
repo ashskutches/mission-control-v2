@@ -2,7 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Tag, Layers, Copy, Film, Pin, Wand2 } from "lucide-react";
+import { BarChart3, Tag, Layers, Copy, Film, Pin, Wand2, Lightbulb } from "lucide-react";
 
 // Blog is not in this strip. It lives under SEO — /seo/blog — because it is judged on
 // search performance, and it was only ever a cross-link from here: the tab pointed at
@@ -11,6 +11,7 @@ import { BarChart3, Tag, Layers, Copy, Film, Pin, Wand2 } from "lucide-react";
 // so old bookmarks and agent-written links keep working.
 const NAV = [
   { href: "/content",          label: "Dashboard",    icon: BarChart3, color: "#f59e0b", exact: true },
+  { href: "/content/insights", label: "Insights",     icon: Lightbulb, color: "#e98d20" },
   { href: "/content/assets",   label: "Content",      icon: Film,      color: "#38bdf8" },
   { href: "/content/generate", label: "Image Studio", icon: Wand2,     color: "#a78bfa" },
   { href: "/content/products", label: "Products",     icon: Pin,       color: "#f59e0b" },

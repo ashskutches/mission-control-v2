@@ -2,10 +2,11 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookOpen, SearchCheck, FileSearch, Target, Gauge, Bot } from "lucide-react";
+import { BarChart3, BookOpen, SearchCheck, FileSearch, Target, Gauge, Bot, Lightbulb } from "lucide-react";
 
 const NAV = [
   { href: "/seo",               label: "Dashboard",     icon: BarChart3,  color: "#34d399", exact: true },
+  { href: "/seo/insights",      label: "Insights",      icon: Lightbulb,  color: "#e98d20" },
   { href: "/seo/opportunities", label: "Opportunities", icon: Target,     color: "#f43f5e" },
   { href: "/seo/pages",         label: "Pages",         icon: FileSearch, color: "#38bdf8" },
   { href: "/seo/ai",            label: "AI Visibility", icon: Bot,        color: "#22d3ee" },

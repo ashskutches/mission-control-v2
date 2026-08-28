@@ -29,8 +29,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
     Share2, Send, ShieldCheck, Check, X, AlertTriangle, RefreshCw, Lock,
-    Sparkles, CalendarClock, BarChart3, Link2, PenLine, Loader,
+    Sparkles, CalendarClock, BarChart3, Link2, PenLine, Loader, Lightbulb,
 } from "lucide-react";
+import InsightsBoard from "@/components/InsightsBoard";
 import { motion, AnimatePresence } from "framer-motion";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
@@ -47,7 +48,7 @@ interface Integration {
 }
 
 type ArchKey = "agg" | "dir" | "hyb";
-type TabKey = "conn" | "comp" | "appr" | "sched" | "perf";
+type TabKey = "conn" | "insights" | "comp" | "appr" | "sched" | "perf";
 
 // ── The social feeds, and which half of the problem each one solves ──────────
 // A write credential and a read credential fail separately: a working Instagram
@@ -226,6 +227,20 @@ export default function SocialPage() {
     const [tab, setTab] = useState<TabKey>("conn");
     const [arch, setArch] = useState<ArchKey>("agg");
 
+    /**
+     * Deep link into a tab — /social?tab=insights.
+     *
+     * This page has no child routes, so a link to "Social's insights" has nowhere
+     * to point without it; insightsHrefFor() in lib/spaces.tsx produces exactly
+     * that URL. Read off window.location rather than useSearchParams, which opts a
+     * prerendered route into client-only rendering (see the note in /pipeline).
+     */
+    useEffect(() => {
+        const want = new URLSearchParams(window.location.search).get("tab");
+        const keys: TabKey[] = ["conn", "insights", "comp", "appr", "sched", "perf"];
+        if (want && (keys as string[]).includes(want)) setTab(want as TabKey);
+    }, []);
+
     // Live registry state
     const [feeds, setFeeds] = useState<Integration[]>([]);
     const [loading, setLoading] = useState(true);
@@ -292,6 +307,7 @@ export default function SocialPage() {
 
     const TABS: { k: TabKey; label: string; icon: React.ElementType; count?: number }[] = [
         { k: "conn",  label: "Connections", icon: Link2,         count: feeds.length || undefined },
+        { k: "insights", label: "Insights",  icon: Lightbulb },
         { k: "comp",  label: "Compose",     icon: PenLine },
         { k: "appr",  label: "Approvals",   icon: ShieldCheck,   count: pendingCount || undefined },
         { k: "sched", label: "Scheduled",   icon: CalendarClock, count: QUEUE.length },
@@ -313,7 +329,7 @@ export default function SocialPage() {
                         Work in progress — admin only
                     </div>
                     <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
-                        Connections is live. Compose, Approvals, Scheduled and Performance are interactive mocks
+                        Connections and Insights are live. Compose, Approvals, Scheduled and Performance are interactive mocks
                         over fixture data. <strong style={{ color: "var(--text-primary)" }}>Nothing on this page sends anything.</strong>
                     </div>
                 </div>
@@ -394,6 +410,15 @@ export default function SocialPage() {
                             arch={arch} setArch={setArch}
                             writeFeeds={writeFeeds} readFeeds={readFeeds}
                             loading={loading} fetchErr={fetchErr} reload={loadFeeds}
+                        />
+                    )}
+
+                    {/* ══ INSIGHTS ══════════════════════════════════════════ */}
+                    {/* Real data — the same board every other space renders. */}
+                    {tab === "insights" && (
+                        <InsightsBoard
+                            section="social"
+                            emptyHint={<>Nothing open for Social in this lane. The Social lead agent files here when it runs.</>}
                         />
                     )}
 

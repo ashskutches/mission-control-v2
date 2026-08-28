@@ -2,10 +2,11 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Layers, Radio, Link2, Rocket, Activity, Code2 } from "lucide-react";
+import { BarChart3, Layers, Radio, Link2, Rocket, Activity, Code2, Lightbulb } from "lucide-react";
 
 const NAV = [
   { href: "/website",           label: "Dashboard", icon: BarChart3, color: "#38bdf8", exact: true },
+  { href: "/website/insights",  label: "Insights",  icon: Lightbulb, color: "#e98d20" },
   { href: "/website/sections",  label: "Sections",  icon: Layers,   color: "#a78bfa" },
   { href: "/website/signals",   label: "Signals",   icon: Radio,    color: "#f59e0b" },
   { href: "/website/embeds",    label: "Embeds",    icon: Link2,    color: "#34d399" },

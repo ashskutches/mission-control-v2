@@ -3,7 +3,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity, BarChart3, Building2, Package, RotateCcw, ShoppingCart, Warehouse,
+  Activity, BarChart3, Building2, Lightbulb, Package, RotateCcw, ShoppingCart, Warehouse,
 } from "lucide-react";
 
 /**
@@ -22,6 +22,8 @@ import {
 const TABS = [
   { href: "/logistics", label: "Overview", icon: BarChart3, color: "#22c55e", exact: true,
     blurb: "Inventory health, live alerts and fulfilment speed — everything the report puts above the fold." },
+  { href: "/logistics/insights", label: "Insights", icon: Lightbulb, color: "#e98d20",
+    blurb: "What the Logistics lead agent has filed — ranked findings, what each is worth, and who is acting on it." },
   { href: "/logistics/inventory", label: "Inventory", icon: Package, color: "#38bdf8",
     blurb: "Every tracked SKU with its stock, reorder point and days to stockout. Sorted by what runs out first." },
   { href: "/logistics/reorder", label: "Reorder", icon: ShoppingCart, color: "#f59e0b",
