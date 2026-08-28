@@ -34,10 +34,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COOKIE_NAME, roleFromToken, sessionFromToken } from "@/app/lib/session";
 
-/** The real bot origin. Server-side only — never the relative proxy path. */
+/**
+ * The real bot origin. Server-side only — never the relative proxy path.
+ *
+ * NEXT_PUBLIC_BOT_URL is read as a fallback so a developer pointing the app at a
+ * local bot does not have this proxy quietly forward to production; it is used
+ * only while it is an absolute URL, since the whole point of setting it to
+ * `/api/bot` is to route through here.
+ */
+const PUBLIC_BOT_URL = (process.env.NEXT_PUBLIC_BOT_URL ?? "").trim();
 const BOT_ORIGIN =
     process.env.BOT_ORIGIN ??
     process.env.INTERNAL_BOT_URL ??
+    (/^https?:\/\//.test(PUBLIC_BOT_URL) ? PUBLIC_BOT_URL : undefined) ??
     "https://gravity-claw-production-fb9e.up.railway.app";
 
 const BOT_API_KEY = process.env.BOT_API_KEY ?? "";

@@ -41,6 +41,18 @@ import {
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
+
+/**
+ * Posting a message is the one call here that must NOT use BOT_URL.
+ *
+ * Who is speaking is stamped server-side by the /api/bot proxy from the signed
+ * session (IDENTITY_STAMPED in api/bot/[...path]/route.ts) — the browser never
+ * sends an author, or anyone could post as anyone. NEXT_PUBLIC_BOT_URL points
+ * straight at the bot today, so a post sent through it bypasses the proxy,
+ * arrives with no author and is refused with "author_name is required".
+ * Hard-coding the proxy path keeps attribution independent of that env var.
+ */
+const PROXY_URL = "/api/bot";
 const ACCENT = "#e98d20";
 
 /** How often to re-read. The work runner polls every 15 minutes, so this is
@@ -249,7 +261,7 @@ export default function InsightThread({ insightId }: { insightId: string }) {
       // author_id / author_name are stamped by the /api/bot proxy from the
       // signed session — deliberately not sent from here, or anyone could post
       // as anyone. See IDENTITY_STAMPED in api/bot/[...path]/route.ts.
-      const res = await fetch(`${BOT_URL}/admin/insights/${insightId}/messages`, {
+      const res = await fetch(`${PROXY_URL}/admin/insights/${insightId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
