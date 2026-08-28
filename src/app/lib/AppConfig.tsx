@@ -32,20 +32,22 @@ export const APP_CONFIG = {
         // ── Four groups, in the order you work through them ────────────────────
         //   (ungrouped)  Command Center — the one screen above the split
         //   COMMERCE     the business itself: one entry per `core` space in
-        //                lib/spaces.tsx, in that file's order
+        //                lib/spaces.tsx, in that file's order, plus Costs — the
+        //                assumptions Sales → Profit is computed from
         //   TOOLS        things you run against the business — the four work-intake
-        //                surfaces, plus the queues and ledgers they feed
-        //   AGENTS       the workforce: who exists, and the room they argue in
-        //   SETTINGS     configuration and people
+        //                surfaces, plus Landing Pages
+        //   AGENTS       the workforce: who exists, and both rooms they talk in
+        //   SETTINGS     configuration, people, and the technical debt that is
+        //                usually a configuration fix (Blockages)
         //
         // Sidebar draws a divider + label whenever `group` changes and the new group
         // is not `core`, so ORDER IS THE GROUPING — an entry filed out of sequence
         // starts a second heading with the same name rather than joining the first.
         //
         // COMMERCE should stay in lockstep with CORE_SPACES in lib/spaces.tsx. It is
-        // not derived from it, because one entry here is not a space at all (Command
-        // Center) and a space can be admin-only; but a core space missing from this
-        // list is a page with no way to reach it.
+        // not derived from it, because two entries here are not spaces at all (Command
+        // Center, Costs) and a space can be admin-only; but a core space missing from
+        // this list is a page with no way to reach it.
 
         // ── Core (ungrouped) ───────────────────────────────────────────────────
         // Command Center is tabbed — Overview and Profitability today, more to come.
@@ -61,6 +63,13 @@ export const APP_CONFIG = {
         // construction — lib/access.ts is default-deny and /sales is on neither
         // allowlist, exactly as /profitability was.
         { id: 'sales',         group: 'commerce', href: '/sales',              icon: ShoppingCart,    label: 'Sales',      color: '#22c55e' },
+        // Costs sits directly under Sales because it is the input side of that page's
+        // output: unit costs, overhead and fee assumptions are what every margin on
+        // Sales → Profit is computed from, so the two are read together. It was filed
+        // under Tools when the question was "what do you run against the business";
+        // the better question turned out to be "what is this a part of", and it is
+        // part of Commerce. Also admin-only by construction, same as /sales.
+        { id: 'costs',         group: 'commerce', href: '/costs',              icon: DollarSign,      label: 'Costs',      color: '#22c55e' },
         { id: 'audience',      group: 'commerce', href: '/website',            icon: Layers,          label: 'Website',    color: '#4a9eff' },
         // Marketing sits directly under Website: the same funnel, one step earlier.
         // Website is what a visitor sees once they arrive; Marketing is every channel
@@ -130,28 +139,30 @@ export const APP_CONFIG = {
         // digest of these same insights, with no way to act on any of them. Its
         // strip now sits on top of the Insights list, where the ranked findings it
         // was summarising can actually be assigned. /north-star is gone.
+        //
+        // Three more entries have since left this group, each to sit with the thing
+        // it is actually about rather than with the other verbs: Chats → Agents,
+        // Costs → Commerce, Blockages → Settings. What is left is the four intake
+        // surfaces plus Landing Pages.
         { id: 'pipeline',      group: 'tools', href: '/pipeline',      icon: Lightbulb,     label: 'Insights',      color: '#e98d20' },
         { id: 'research',      group: 'tools', href: '/research',      icon: FlaskConical,  label: 'Research',      color: '#a78bfa' },
         { id: 'quick-run',     group: 'tools', href: '/quick-run',     icon: Zap,           label: 'Quick Run',     color: '#4a9eff' },
         { id: 'tasks',         group: 'tools', href: '/work',          icon: ClipboardList, label: 'Tasks',         color: '#4a9eff' },
-        { id: 'chats',         group: 'tools', href: '/chats',         icon: MessageSquare, label: 'Chats',         color: '#6b7280' },
-        // Blockages sits next to Insights because those two lists are one triage read
-        // split by kind: the gate in POST /admin/insights sends every bug, blocker and
-        // integration request here instead of onto the board. Its id is 'system' and
-        // Sidebar's stuck-agent badge keys on that string — renaming the id silently
-        // drops the badge rather than erroring.
-        { id: 'system',        group: 'tools', href: '/blockages',     icon: Bug,           label: 'Blockages',     color: '#f43f5e' },
         { id: 'landing-pages', group: 'tools', href: '/landing-pages', icon: Layout,        label: 'Landing Pages', color: '#818cf8' },
-        // Costs is the data-entry surface behind every margin on Sales → Profit: unit
-        // costs, overhead, fee assumptions. A tool you operate, not a report you read,
-        // which is why it left Settings.
-        { id: 'costs',         group: 'tools', href: '/costs',         icon: DollarSign,    label: 'Costs',         color: '#22c55e' },
 
         // ── Agents ─────────────────────────────────────────────────────────────
-        // The workforce itself. Deliberately only the roster and the room they argue
-        // in — the four surfaces where their work actually lands are in Tools above,
+        // The workforce itself: who exists, and the two rooms they talk in — Chats is
+        // you talking to one of them, Roundtable is several of them talking to each
+        // other. The four surfaces where their *work* lands stay in Tools above,
         // because you open those to move work, not to manage an agent.
-        { id: 'agents',        group: 'agents', href: '/agents',     icon: Bot,    label: 'Agents',     color: '#6b7280' },
+        { id: 'agents',        group: 'agents', href: '/agents',     icon: Bot,           label: 'Agents',     color: '#6b7280' },
+        // Chats is the history of talking TO an agent, so it belongs with the roster
+        // rather than in Tools: you open it to see what an agent said, not to move a
+        // piece of work. Reads left to right with its neighbours — Agents is who
+        // exists, Chats is your conversations with them, Roundtable is theirs with
+        // each other. Still a guest path (lib/access.ts GUEST_PATHS); the group it is
+        // drawn in has no bearing on who can reach it.
+        { id: 'chats',         group: 'agents', href: '/chats',      icon: MessageSquare, label: 'Chats',      color: '#6b7280' },
         // Roundtable is the fifth way work could reach an agent, and deliberately the
         // one that produces no work at all: N agents, one question, a transcript and a
         // report. It writes no insight, no blockage and no task — every write tool is
@@ -162,11 +173,21 @@ export const APP_CONFIG = {
         // and why it is NOT an entry in lib/spaces.tsx: a lab surface is not an area of
         // the business, and runtime-creatable areas are the mistake spaces.ts exists to
         // prevent.
-        { id: 'roundtable',    group: 'agents', href: '/roundtable', icon: Users2, label: 'Roundtable', color: '#a78bfa' },
+        { id: 'roundtable',    group: 'agents', href: '/roundtable', icon: Users2,        label: 'Roundtable', color: '#a78bfa' },
 
         // ── Settings ───────────────────────────────────────────────────────────
         { id: 'brand',         group: 'settings', href: '/brand',     icon: Palette,   label: 'Brand',     color: '#e98d20' },
         { id: 'team',          group: 'settings', href: '/team',      icon: Users,     label: 'Team',      color: '#a78bfa' },
+        // Blockages sits next to Settings because that is where most of them are
+        // resolved: the gate in POST /admin/insights routes every missing credential,
+        // unconnected integration and tool failure here, and fixing one is usually a
+        // configuration change rather than a business decision. It used to sit beside
+        // Insights in Tools, on the argument that the two are one triage read split by
+        // kind — that split still holds, it just no longer decides where this lives.
+        //
+        // ⚠️ Its id is 'system' and Sidebar's stuck-agent badge keys on that exact
+        // string — renaming the id silently drops the badge rather than erroring.
+        { id: 'system',        group: 'settings', href: '/blockages', icon: Bug,       label: 'Blockages', color: '#f43f5e' },
         { id: 'settings',      group: 'settings', href: '/settings',  icon: Settings,  label: 'Settings'                   },
     ],
     theme: {
