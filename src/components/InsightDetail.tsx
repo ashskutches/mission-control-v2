@@ -15,6 +15,7 @@
  * stated basis is not shown at all — the board learned that after rendering a
  * +$40,000/mo badge built on an empty value_basis.
  */
+import { MarkdownMessage } from "@/components/MarkdownMessage";
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
@@ -45,7 +46,30 @@ interface Insight {
   risk_tier: string | null; risk_score: number | null;
   agent_name: string | null; assigned_agent_name: string | null;
   occurrences: number | null; created_at: string;
+  /** Raw column. The board gets a computed `due` object; this page has the row itself. */
+  due_date: string | null;
   value: Value; work: Work | null; human_task: HumanTask | null;
+}
+
+/**
+ * The same two thresholds the board colours by — red past due, orange through
+ * the last fifth of the allotted time. Duplicated here rather than plumbed
+ * through because this page reads the raw row (GET /admin/insights/:id) while
+ * the board reads the computed one; the rule itself lives in gravity-claw's
+ * utils/insight-due.ts and that is the copy to change first.
+ */
+function dueChip(createdAt: string, dueDate: string | null): { label: string; color: string } | null {
+  if (!dueDate) return null;
+  const due = new Date(dueDate).getTime();
+  if (!Number.isFinite(due)) return null;
+  const created = new Date(createdAt).getTime();
+  const now = Date.now();
+  const remaining = due - now;
+  const days = remaining >= 0 ? Math.ceil(remaining / 86_400_000) : Math.floor(remaining / 86_400_000);
+  if (remaining < 0) return { label: `${Math.abs(days)}d overdue`, color: "#f43f5e" };
+  const allotted = due - created;
+  const elapsed = allotted > 0 ? (now - created) / allotted : 1;
+  return { label: `due in ${days}d`, color: elapsed >= 0.8 ? "#fb923c" : "#64748b" };
 }
 
 const RISK_COLOR: Record<string, string> = {
@@ -125,6 +149,12 @@ export default function InsightDetail({ insightId }: { insightId: string }) {
         {(insight.occurrences ?? 0) > 1 && (
           <Chip color="#fb923c" title={`Independently reported ${insight.occurrences} times`}>{insight.occurrences}×</Chip>
         )}
+        {(() => {
+          const d = dueChip(insight.created_at, insight.due_date);
+          return d ? (
+            <Chip color={d.color} title={`Due ${new Date(insight.due_date!).toLocaleDateString()}`}>{d.label}</Chip>
+          ) : null;
+        })()}
       </div>
 
       <h1 style={{ fontSize: "1.35rem", fontWeight: 800, color: "#f1f5f9", margin: "0 0 0.6rem", lineHeight: 1.3 }}>
@@ -156,9 +186,10 @@ export default function InsightDetail({ insightId }: { insightId: string }) {
           background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)",
           borderRadius: 12, padding: "0.9rem 1rem", marginBottom: "1rem",
         }}>
-          <p style={{ fontSize: "12.5px", color: "#cbd5e1", margin: 0, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>
-            {insight.body}
-          </p>
+          {/* Rendered, not raw — see the same call in InsightsBoard's row detail. */}
+          <div style={{ fontSize: "12.5px", color: "#cbd5e1", lineHeight: 1.65 }}>
+            <MarkdownMessage content={insight.body} />
+          </div>
         </div>
       )}
 

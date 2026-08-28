@@ -34,6 +34,7 @@
  * to a redirect (deliberately — no machinery forces a course change), so the
  * label is the only thing making sure it knows one happened.
  */
+import { MarkdownMessage } from "@/components/MarkdownMessage";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   MessageSquare, Send, Bot, User, CornerDownRight, AlertTriangle,
@@ -166,9 +167,22 @@ function MessageRow({ m, answered }: { m: Message; answered: boolean }) {
           <span style={{ fontSize: "10px", color: "#475569", marginLeft: "auto" }}>{when(m.created_at)}</span>
         </div>
 
-        <p style={{ fontSize: "12.5px", color: "#cbd5e1", margin: 0, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
-          {m.body}
-        </p>
+        {/*
+          Agents write markdown; people type sentences. Rendering an agent's
+          finding shows the table it built instead of the pipes it built it from,
+          and leaving a human's reply as plain text means an asterisk somebody
+          typed stays an asterisk rather than silently italicising half a
+          sentence they wrote.
+        */}
+        {m.author_type === "human" ? (
+          <p style={{ fontSize: "12.5px", color: "#cbd5e1", margin: 0, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+            {m.body}
+          </p>
+        ) : (
+          <div style={{ fontSize: "12.5px", color: "#cbd5e1", lineHeight: 1.55 }}>
+            <MarkdownMessage content={m.body} />
+          </div>
+        )}
 
         {pending && (
           <p style={{ fontSize: "10.5px", color: ACCENT, margin: "7px 0 0", fontWeight: 600 }}>

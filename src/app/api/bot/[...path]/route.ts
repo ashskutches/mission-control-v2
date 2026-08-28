@@ -84,7 +84,17 @@ const ADMIN_ONLY = [/^admin\/team\/[^/]+\/permission$/];
  * attributed to nobody. An unsigned message on a shared record is worse than a
  * missing one.
  */
-const IDENTITY_STAMPED = [/^admin\/insights\/[^/]+\/messages$/];
+/**
+ * Which field carries the identity, per path. A thread message is authored; an
+ * insight a person filed is *recorded by* them — and `suggested_by`, the person
+ * whose idea it actually was, is deliberately NOT stamped, because a manager
+ * writing down what somebody said in a standup is two different people and
+ * flattening them loses the attribution the feature exists to capture.
+ */
+const IDENTITY_STAMPED: { pattern: RegExp; fields: { id: string; name: string } }[] = [
+    { pattern: /^admin\/insights\/[^/]+\/messages$/, fields: { id: "author_id", name: "author_name" } },
+    { pattern: /^admin\/insights$/, fields: { id: "recorded_by_id", name: "recorded_by" } },
+];
 
 async function proxy(req: NextRequest, path: string[]) {
     const secret = process.env.SESSION_SECRET ?? "";
@@ -135,13 +145,15 @@ async function proxy(req: NextRequest, path: string[]) {
 
     const init: RequestInit = { method: req.method, headers, redirect: "manual" };
     if (req.method !== "GET" && req.method !== "HEAD") {
-        const stamped = req.method === "POST" && IDENTITY_STAMPED.some((r) => r.test(upstreamPath));
+        const stamped = req.method === "POST"
+            ? IDENTITY_STAMPED.find((r) => r.pattern.test(upstreamPath))
+            : undefined;
         if (stamped) {
             if (!session?.user) {
                 return NextResponse.json(
                     {
                         error: "No identity on this session",
-                        detail: "Posting to an insight conversation requires a Discord sign-in, not a password session.",
+                        detail: "Signing your name to something on an insight requires a Discord sign-in, not a password session.",
                     },
                     { status: 403 },
                 );
@@ -151,8 +163,8 @@ async function proxy(req: NextRequest, path: string[]) {
             catch { return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 }); }
             // Overwrite rather than default — a client that sent an author is
             // either confused or lying, and both are corrected the same way.
-            parsed.author_id = session.user.id;
-            parsed.author_name = session.user.username;
+            parsed[stamped.fields.id] = session.user.id;
+            parsed[stamped.fields.name] = session.user.username;
             init.body = JSON.stringify(parsed);
             headers.set("content-type", "application/json");
         } else {

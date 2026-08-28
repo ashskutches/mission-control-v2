@@ -25,17 +25,42 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   RefreshCw, X, ChevronDown, ChevronRight, Bot, User, Sparkles, CheckCircle2,
   Search, AlertTriangle, ArrowUpRight, Clock, Ban, Info, Lightbulb,
-  HelpCircle, MessageSquare,
+  HelpCircle, MessageSquare, CalendarClock, Plus, Copy, Check, Play, Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { getSpace } from "@/app/lib/spaces";
+import { MarkdownMessage } from "@/components/MarkdownMessage";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
+/**
+ * Creating an insight is the one call here that must NOT use BOT_URL.
+ *
+ * Who recorded it is stamped server-side by the /api/bot proxy from the signed
+ * session cookie (see IDENTITY_STAMPED there); NEXT_PUBLIC_BOT_URL reaches the
+ * bot directly and would let the browser name anyone as the recorder. Same rule
+ * as posting into an insight's conversation.
+ */
+const PROXY_URL = "/api/bot";
 const REFRESH_MS = 30_000;
+/** How often the page asks whether a running analysis has finished. */
+const RUN_POLL_MS = 5_000;
 const DEFAULT_ACCENT = "#e98d20";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface BoardValue { amount: number; source: "measured" | "claimed"; basis: string }
+/** Server-computed lateness. `none` means nobody set a date — never a guess. */
+export interface BoardDue {
+  state: "overdue" | "due_soon" | "on_track" | "none";
+  due_date: string | null;
+  days_remaining: number | null;
+  percent_elapsed: number | null;
+}
+/** Who put this on the board. A person recording a colleague's idea is two names. */
+export interface BoardAuthored {
+  kind: "agent" | "human";
+  suggested_by: string | null;
+  recorded_by: string | null;
+}
 export interface BoardWork {
   id: string; status: string;
   milestone_label: string | null; milestone_index: number; milestone_total: number;
@@ -48,6 +73,8 @@ export interface BoardItem {
   risk_score: number; risk_tier: string | null;
   metrics: Record<string, unknown>;
   filed_by: string | null;
+  authored: BoardAuthored;
+  due: BoardDue;
   value: BoardValue | null;
   effort: { tier: "low" | "medium" | "high" | null; rank: number };
   assignee: { kind: "agent" | "human"; id: string; name: string } | null;
@@ -65,12 +92,20 @@ export interface BoardItem {
 export interface BoardResponse {
   sort: string; lane: string; count: number;
   value_summary: { measured_monthly: number; claimed_monthly: number; unpriced_count: number };
+  due_summary: { overdue: number; due_soon: number; undated: number };
   items: BoardItem[];
+}
+/** A manual analysis run launched from this board. */
+interface RunJob {
+  id: string; status: string; agent_name: string | null; error: string | null;
+  created_at: string; completed_at: string | null;
 }
 interface Agent { id: string; name: string }
 interface TeamMember { discord_id: string; username: string; display_name?: string | null }
 
-type SortKey = "risk" | "value" | "effort" | "newest" | "section";
+type SortKey = "risk" | "value" | "effort" | "newest" | "section" | "due";
+/** Lateness filter. `dated` is what you want when planning; `undated` is the backlog of undecided deadlines. */
+type DueFilter = "all" | "late" | "overdue" | "soon" | "undated";
 
 // ── Display helpers ───────────────────────────────────────────────────────────
 const RISK_COLOR: Record<string, string> = {
@@ -100,11 +135,72 @@ export function money(n: number): string {
   const s = abs >= 1000 ? `$${(abs / 1000).toFixed(abs >= 10_000 ? 0 : 1)}K` : `$${Math.round(abs)}`;
   return n < 0 ? `−${s}` : s;
 }
+/**
+ * The two colours the request actually asked for: red once overdue, orange
+ * through the last fifth of the allotted time. `on_track` is deliberately grey
+ * rather than green — a board where most rows glow green trains you to stop
+ * looking at colour, which is the one thing this column has to survive.
+ */
+const DUE_STYLE: Record<BoardDue["state"], { color: string; bg: string; border: string } | null> = {
+  overdue: { color: "#f43f5e", bg: "rgba(244,63,94,0.12)", border: "rgba(244,63,94,0.35)" },
+  due_soon: { color: "#fb923c", bg: "rgba(251,146,60,0.12)", border: "rgba(251,146,60,0.32)" },
+  on_track: { color: "#64748b", bg: "rgba(255,255,255,0.03)", border: "rgba(255,255,255,0.07)" },
+  none: null,
+};
+
+function dueLabel(due: BoardDue): string {
+  const d = due.days_remaining;
+  if (d == null) return "—";
+  if (due.state === "overdue") {
+    const late = Math.abs(d);
+    return late === 1 ? "1d late" : `${late}d late`;
+  }
+  return d === 1 ? "1d left" : `${d}d left`;
+}
+
+/** The date itself, for the tooltip — the chip shows the distance, not the day. */
+function dueDateLabel(iso: string | null): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+/** `<input type="date">` wants a local yyyy-mm-dd, and toISOString would shift it a day in half the world. */
+function toDateInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function ageLabel(days: number): string {
   if (days === 0) return "today";
   if (days === 1) return "1d";
   if (days < 30) return `${days}d`;
   return `${Math.floor(days / 30)}mo`;
+}
+
+// ── Due cell ──────────────────────────────────────────────────────────────────
+// Reads at a glance or it has failed: the request was "see which are red or
+// orange without reading anything".
+function DueCell({ due }: { due: BoardDue }) {
+  const style = DUE_STYLE[due.state];
+  if (!style) {
+    return (
+      <span title="No due date. Nothing infers one — a colour computed from age would be measuring our arithmetic, not anyone's commitment."
+        style={{ color: "#334155", fontSize: "12px", cursor: "help" }}>—</span>
+    );
+  }
+  return (
+    <span title={`Due ${dueDateLabel(due.due_date)}${due.state === "due_soon" ? " — inside the last 20% of the time allotted" : ""}`}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 4, cursor: "help",
+        fontSize: "10.5px", fontWeight: 700, whiteSpace: "nowrap",
+        color: style.color, background: style.bg,
+        border: `1px solid ${style.border}`, borderRadius: 5, padding: "2px 7px",
+      }}>
+      <CalendarClock size={9} /> {dueLabel(due)}
+    </span>
+  );
 }
 
 // ── Value cell ────────────────────────────────────────────────────────────────
@@ -139,6 +235,223 @@ function ValueCell({ value }: { value: BoardValue | null }) {
         {measured ? "measured" : "claimed"}{isRisk ? " · risk" : ""}
       </span>
     </div>
+  );
+}
+
+// ── Record-an-insight modal ───────────────────────────────────────────────────
+/**
+ * The manager's way in.
+ *
+ * Insights the team came up with were being passed on verbally and hoped to
+ * stick. This is the same board, same gates, same table — the only new thing is
+ * that a person can be the filer.
+ *
+ * Three things it deliberately does NOT do:
+ *  - **It does not bypass triage.** A bug typed in here is routed to Blockages
+ *    by the server exactly as an agent's would be, and the modal reports that
+ *    rather than hiding it. A form that quietly files bugs onto the decisions
+ *    board is how the board filled up the first time.
+ *  - **It does not let you set a dollar figure.** Filing may propose a value
+ *    only with a stated calculation, and a free-text money box on a quick-entry
+ *    form is a $150,000/mo claim waiting to happen. Add it on the row afterwards
+ *    if it can be substantiated.
+ *  - **It does not ask who is recording it.** That is stamped from the signed-in
+ *    session by the proxy. "Who suggested it" IS asked, because it is usually
+ *    somebody else and it is the question the feature exists to answer.
+ */
+/**
+ * The server's own vocabulary, not a friendlier parallel one.
+ *
+ * `POST /admin/insights` validates `type` against ALL_TYPES in
+ * utils/insight-taxonomy.ts and 400s on anything else, so an invented value like
+ * "opportunity" or "risk" reads perfectly here and fails at the only moment that
+ * matters. Same rule as naming a tool in a skill: every value written here is a
+ * real one.
+ */
+const RECORDABLE_TYPES: { value: string; label: string; hint: string }[] = [
+  { value: "suggestion", label: "Suggestion", hint: "A specific change somebody is proposing" },
+  { value: "observation", label: "Observation", hint: "Something noticed that may matter" },
+  { value: "critical_issue", label: "Critical", hint: "Something about the business that needs deciding now" },
+  { value: "competitor", label: "Competitor", hint: "Something a competitor is doing" },
+  { value: "win", label: "Win", hint: "Something that worked, worth repeating" },
+  { value: "feature_request", label: "Feature request", hint: "A thing the team wants built — files in the ops lane" },
+  { value: "bug", label: "Bug", hint: "Something is broken — this will be filed to Blockages, not here" },
+];
+
+function RecordModal({
+  section, accent, teamMembers, onClose, onFiled,
+}: {
+  section?: string; accent: string; teamMembers: TeamMember[];
+  onClose: () => void; onFiled: () => Promise<void>;
+}) {
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [type, setType] = useState("opportunity");
+  const [suggestedBy, setSuggestedBy] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [routed, setRouted] = useState<{ blockage_id: string; reasons: string[] } | null>(null);
+  const [notes, setNotes] = useState<string[]>([]);
+
+  const save = async () => {
+    setSaving(true); setErr(null); setRouted(null); setNotes([]);
+    try {
+      const res = await fetch(`${PROXY_URL}/admin/insights`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_kind: "human",
+          suggested_by: suggestedBy.trim() || null,
+          section: section ?? "general",
+          type,
+          title: title.trim(),
+          body: body.trim() || null,
+          // End of the chosen day, local — a deadline of "the 5th" means the 5th
+          // is still on time, and midnight would make it late all day.
+          due_date: dueDate ? new Date(`${dueDate}T23:59:59`).toISOString() : null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.detail ?? json.error ?? `HTTP ${res.status}`);
+
+      // The server's triage gate can decide this belongs in Blockages. Say so —
+      // silently filing it somewhere else is how people stop trusting the form.
+      if (json.routed_to === "blockage") {
+        setRouted({ blockage_id: json.blockage_id, reasons: json.triage?.reasons ?? [] });
+        await onFiled();
+        return;
+      }
+      if (Array.isArray(json._notes) && json._notes.length) setNotes(json._notes);
+      await onFiled();
+      if (!Array.isArray(json._notes) || !json._notes.length) onClose();
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    finally { setSaving(false); }
+  };
+
+  const field: React.CSSProperties = {
+    width: "100%", padding: "8px 10px", borderRadius: 8, fontSize: "12.5px",
+    background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+    color: "#e2e8f0", outline: "none", fontFamily: "inherit",
+  };
+  const label: React.CSSProperties = {
+    fontSize: "9.5px", fontWeight: 800, color: "#475569", textTransform: "uppercase",
+    letterSpacing: "0.07em", display: "block", margin: "0 0 4px",
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 16 }}
+        style={{ width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto", background: "rgba(13,17,27,0.98)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: "1.4rem", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14, gap: 12 }}>
+          <div>
+            <p style={{ fontSize: "10px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, marginBottom: 2 }}>Record an insight</p>
+            <h2 style={{ fontWeight: 800, fontSize: "0.95rem", color: "#e2e8f0", lineHeight: 1.35 }}>
+              Something the team came up with
+            </h2>
+          </div>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569", flexShrink: 0 }}><X size={18} /></button>
+        </div>
+
+        {routed ? (
+          <div>
+            <div style={{ background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.25)", borderRadius: 10, padding: "0.8rem 0.95rem", marginBottom: 12 }}>
+              <p style={{ fontSize: "12.5px", color: "#e2e8f0", margin: "0 0 6px", fontWeight: 700 }}>
+                Filed to Blockages, not to the board.
+              </p>
+              <p style={{ fontSize: "11.5px", color: "#94a3b8", margin: 0, lineHeight: 1.6 }}>
+                {routed.reasons[0] ?? "This describes something broken rather than something to decide."} The
+                board is for decisions; broken things live in{" "}
+                <Link href="/blockages" style={{ color: "#38bdf8" }}>Blockages</Link>, where they are tracked to a fix.
+              </p>
+            </div>
+            <button onClick={onClose} style={{ width: "100%", padding: "9px 0", borderRadius: 8, border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${accent}, ${accent}bb)`, color: "#fff", fontWeight: 700, fontSize: "13px" }}>
+              Done
+            </button>
+          </div>
+        ) : (
+          <>
+            <div style={{ marginBottom: 11 }}>
+              <label style={label}>What is it</label>
+              <input value={title} onChange={e => setTitle(e.target.value)} autoFocus
+                placeholder="One line — what somebody noticed or is proposing" style={field} />
+            </div>
+
+            <div style={{ marginBottom: 11 }}>
+              <label style={label}>Detail</label>
+              <textarea value={body} onChange={e => setBody(e.target.value)} rows={4}
+                placeholder="What is happening, why it matters, anything they said about it. Markdown is rendered."
+                style={{ ...field, resize: "vertical", lineHeight: 1.55 }} />
+            </div>
+
+            <div style={{ marginBottom: 11 }}>
+              <label style={label}>Type</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {RECORDABLE_TYPES.map(t => (
+                  <button key={t.value} onClick={() => setType(t.value)} title={t.hint}
+                    style={{
+                      padding: "5px 10px", borderRadius: 7, cursor: "pointer", fontSize: "11.5px",
+                      fontWeight: type === t.value ? 800 : 500,
+                      background: type === t.value ? `${accent}22` : "rgba(255,255,255,0.03)",
+                      border: `1px solid ${type === t.value ? `${accent}55` : "rgba(255,255,255,0.06)"}`,
+                      color: type === t.value ? accent : "#94a3b8",
+                    }}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              {type === "bug" && (
+                <p style={{ fontSize: "10.5px", color: "#fb923c", margin: "6px 0 0", lineHeight: 1.5 }}>
+                  A bug is not a decision — this will be filed to Blockages instead, and you will be told where it went.
+                </p>
+              )}
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 200px" }}>
+                <label style={label}>Who suggested it</label>
+                <input value={suggestedBy} onChange={e => setSuggestedBy(e.target.value)}
+                  list="insight-suggesters" placeholder="Their name — leave blank if it was you" style={field} />
+                <datalist id="insight-suggesters">
+                  {teamMembers.map(m => <option key={m.discord_id} value={m.display_name ?? m.username} />)}
+                </datalist>
+              </div>
+              <div style={{ flex: "1 1 140px" }}>
+                <label style={label}>Due (optional)</label>
+                <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={field} />
+              </div>
+            </div>
+
+            <p style={{ fontSize: "10px", color: "#334155", margin: "0 0 12px", lineHeight: 1.55 }}>
+              Recorded against your signed-in account. No dollar figure here on purpose — a value needs a
+              calculation behind it, which you can add on the row once there is one.
+            </p>
+
+            {notes.length > 0 && (
+              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 9, padding: "0.6rem 0.8rem", marginBottom: 10 }}>
+                {notes.map((n, i) => (
+                  <p key={i} style={{ fontSize: "11px", color: "#94a3b8", margin: i ? "5px 0 0" : 0, lineHeight: 1.5 }}>{n}</p>
+                ))}
+              </div>
+            )}
+            {err && <p style={{ color: "#f43f5e", fontSize: "12px", marginBottom: 8 }}>{err}</p>}
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={onClose} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#94a3b8", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>
+                {notes.length ? "Close" : "Cancel"}
+              </button>
+              <button onClick={save} disabled={saving || !title.trim()}
+                style={{ flex: 2, padding: "8px 0", borderRadius: 8, border: "none", cursor: saving || !title.trim() ? "not-allowed" : "pointer", background: saving || !title.trim() ? "rgba(255,255,255,0.06)" : `linear-gradient(135deg, ${accent}, ${accent}bb)`, color: saving || !title.trim() ? "#475569" : "#fff", fontWeight: 700, fontSize: "13px" }}>
+                {saving ? "Recording…" : "Record it"}
+              </button>
+            </div>
+          </>
+        )}
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -302,12 +615,25 @@ function AssignModal({
 }
 
 // ── Expanded detail ───────────────────────────────────────────────────────────
-function RowDetail({ item, accent, onAssign, onDismiss, onComplete, busy }: {
+function RowDetail({ item, accent, onAssign, onDismiss, onComplete, onDue, busy }: {
   item: BoardItem; accent: string;
   onAssign: () => void; onDismiss: () => void; onComplete: () => void;
+  onDue: (iso: string | null) => void;
   busy: boolean;
 }) {
   const metricEntries = Object.entries(item.metrics ?? {}).filter(([, v]) => v != null && v !== "");
+  const [copied, setCopied] = useState(false);
+
+  const copyBody = async () => {
+    // The markdown, not the rendered text: what people paste this into is
+    // another markdown box more often than not.
+    const md = [`# ${item.title}`, "", item.body ?? ""].join("\n").trim();
+    try {
+      await navigator.clipboard.writeText(md);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch { /* clipboard denied — the text is on screen and selectable */ }
+  };
   const btn = (bg: string, color: string): React.CSSProperties => ({
     padding: "6px 12px", borderRadius: 7, border: `1px solid ${color}33`, background: bg,
     color, fontSize: "11.5px", fontWeight: 700, cursor: busy ? "not-allowed" : "pointer",
@@ -316,8 +642,28 @@ function RowDetail({ item, accent, onAssign, onDismiss, onComplete, busy }: {
 
   return (
     <div style={{ padding: "0.9rem 1.1rem 1.1rem 2.6rem", borderTop: "1px solid rgba(255,255,255,0.04)", background: "rgba(0,0,0,0.18)" }}>
+      {/*
+        Rendered, not raw. Agents write markdown — headings, bullets, tables —
+        and a pre-wrap block showed the asterisks and pipes, which is legible
+        only if you are willing to parse it in your head. The copy button hands
+        back the markdown rather than the rendered text, because the next place
+        it goes is usually another markdown box.
+      */}
       {item.body && (
-        <p style={{ color: "#94a3b8", fontSize: "12.5px", lineHeight: 1.6, margin: "0 0 0.8rem", whiteSpace: "pre-wrap" }}>{item.body}</p>
+        <div style={{ position: "relative", marginBottom: "0.8rem" }}>
+          <div style={{ color: "#94a3b8", fontSize: "12.5px" }}>
+            <MarkdownMessage content={item.body} />
+          </div>
+          <button onClick={copyBody} title="Copy as markdown"
+            style={{
+              position: "absolute", top: -4, right: 0, display: "flex", alignItems: "center", gap: 4,
+              background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
+              borderRadius: 6, padding: "3px 8px", cursor: "pointer",
+              color: copied ? "#22c55e" : "#475569", fontSize: "10px", fontWeight: 700,
+            }}>
+            {copied ? <><Check size={9} /> Copied</> : <><Copy size={9} /> Copy</>}
+          </button>
+        </div>
       )}
 
       {item.value && (
@@ -394,6 +740,34 @@ function RowDetail({ item, accent, onAssign, onDismiss, onComplete, busy }: {
         </div>
       )}
 
+      {/*
+        Setting the date is where the colour comes from, so it lives beside the
+        actions rather than behind another screen. Clearing it is a first-class
+        action: an insight can lose a deadline as legitimately as it gains one,
+        and the alternative is people setting a fake date to get rid of a chip.
+      */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: "0.7rem" }}>
+        <span style={{ fontSize: "10px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <CalendarClock size={10} /> Due
+        </span>
+        <input type="date" disabled={busy} value={toDateInput(item.due.due_date)}
+          onChange={e => onDue(e.target.value ? new Date(`${e.target.value}T23:59:59`).toISOString() : null)}
+          style={{
+            background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 7, padding: "4px 8px", color: "#cbd5e1", fontSize: "11.5px",
+            outline: "none", colorScheme: "dark", fontFamily: "inherit",
+          }} />
+        {item.due.due_date
+          ? <>
+              <DueCell due={item.due} />
+              <button disabled={busy} onClick={() => onDue(null)}
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569", fontSize: "10.5px", textDecoration: "underline" }}>
+                clear
+              </button>
+            </>
+          : <span style={{ fontSize: "10.5px", color: "#334155" }}>none set — this row is never coloured</span>}
+      </div>
+
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <button disabled={busy} onClick={onAssign} style={btn(`${accent}1a`, accent)}>
           {item.assignee ? <><RefreshCw size={11} /> Reassign</> : <><Bot size={11} /> Assign</>}
@@ -415,7 +789,12 @@ function RowDetail({ item, accent, onAssign, onDismiss, onComplete, busy }: {
           </span>
         </Link>
         <span style={{ fontSize: "10.5px", color: "#334155", marginLeft: "auto" }}>
-          filed by {item.filed_by ?? "agent"} · {item.type.replace(/_/g, " ")} · {item.occurrences > 1 ? `reported ${item.occurrences}×` : "reported once"}
+          {item.authored.kind === "human"
+            ? <>suggested by <strong style={{ color: "#64748b" }}>{item.filed_by ?? "someone"}</strong>
+                {item.authored.recorded_by && item.authored.recorded_by !== item.authored.suggested_by
+                  ? <>, recorded by {item.authored.recorded_by}</> : null}</>
+            : <>filed by {item.filed_by ?? "agent"}</>}
+          {" · "}{item.type.replace(/_/g, " ")} · {item.occurrences > 1 ? `reported ${item.occurrences}×` : "reported once"}
         </span>
       </div>
     </div>
@@ -427,8 +806,18 @@ const SORT_TABS: { key: SortKey; label: string; hint: string }[] = [
   { key: "risk", label: "Priority", hint: "Assessed risk, reinforced by how often it was independently reported" },
   { key: "value", label: "Money", hint: "Measured figures first, then claims, by size. Unpriced last — never guessed" },
   { key: "effort", label: "Effort", hint: "Cheapest first. Insights with no recorded effort sort last" },
+  { key: "due", label: "Due", hint: "Soonest due first. Insights nobody set a date for sort last — a date is never inferred" },
   { key: "newest", label: "Newest", hint: "Most recently filed" },
   { key: "section", label: "Section", hint: "Grouped by area of the business" },
+];
+
+/** Lateness filter tabs. Counts come from the server's whole-board summary. */
+const DUE_TABS: { key: DueFilter; label: string; hint: string }[] = [
+  { key: "all", label: "Any", hint: "No date filter" },
+  { key: "late", label: "At risk", hint: "Overdue or inside the last 20% of the time allotted" },
+  { key: "overdue", label: "Overdue", hint: "Past the due date" },
+  { key: "soon", label: "Due soon", hint: "Inside the last 20% of the time allotted" },
+  { key: "undated", label: "No date", hint: "Nobody has committed to a date for these" },
 ];
 
 export interface InsightsBoardProps {
@@ -455,6 +844,15 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
   const [error, setError] = useState<string | null>(null);
 
   const [sort, setSort] = useState<SortKey>("risk");
+  const [dueFilter, setDueFilter] = useState<DueFilter>("all");
+  const [assignee, setAssignee] = useState<string>("all");
+  const [recording, setRecording] = useState(false);
+  // A manual analysis run, and whether one is in flight. Only offered inside a
+  // space — "run every space at once" is a different and much more expensive
+  // decision than the one that was asked for.
+  const [run, setRun] = useState<RunJob | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
   // Deep links from /pipeline/<id> arrive as ?focus= and may point at any lane,
   // so start on `all` rather than silently filtering the target out.
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -514,15 +912,94 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
     })();
   }, []);
 
+  /**
+   * Search, lateness and assignee are all filtered here rather than on the
+   * server, because the summary strip above the table reports the whole board
+   * and a server-side filter would quietly change what those totals mean. The
+   * board is capped at 200 rows and holds far fewer, so this costs nothing.
+   */
+  // ── The manual analysis run ────────────────────────────────────────────────
+  /**
+   * Ash's ask, in full: "I cannot manually run the insights on that page. There
+   * is no button." The board's own Refresh re-reads rows an overnight routine
+   * wrote; this sends the space's lead agent to go and look now.
+   *
+   * It is a real agent run, so it takes minutes, not the moment a click takes.
+   * The button therefore has to stay honest about that — a spinner that resolves
+   * in 300ms and changes nothing is worse than no button, because it teaches you
+   * the data is fresh when it is not.
+   */
+  const pollRun = useCallback(async () => {
+    if (!section) return;
+    const res = await fetch(`${BOT_URL}/admin/insights/refresh?section=${section}`).catch(() => null);
+    if (!res?.ok) return;
+    const json = await res.json();
+    setRun(json.job ?? null);
+    return json.job as RunJob | null;
+  }, [section]);
+
+  useEffect(() => { void pollRun(); }, [pollRun]);
+
+  // Only poll while something is actually in flight, and re-read the board once
+  // it lands — the whole point is seeing what the run filed.
+  useEffect(() => {
+    if (!run || !["queued", "running"].includes(run.status)) return;
+    const t = setInterval(async () => {
+      const latest = await pollRun();
+      if (latest && !["queued", "running"].includes(latest.status)) await fetchBoard();
+    }, RUN_POLL_MS);
+    return () => clearInterval(t);
+  }, [run, pollRun, fetchBoard]);
+
+  const startRun = async () => {
+    if (!section) return;
+    setStarting(true); setRunError(null);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/insights/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ section }),
+      });
+      const json = await res.json();
+      // 409 is the unassigned-space case, and it names the decision that is
+      // missing rather than reading as a failure.
+      if (!res.ok) throw new Error(json.how_to_proceed ? `${json.error} ${json.how_to_proceed}` : (json.error ?? `HTTP ${res.status}`));
+      setRun(json.job ?? null);
+    } catch (e) { setRunError(e instanceof Error ? e.message : String(e)); }
+    finally { setStarting(false); }
+  };
+
+  const running = !!run && ["queued", "running"].includes(run.status);
+
   const items = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return board?.items ?? [];
-    return (board?.items ?? []).filter(i =>
-      i.title.toLowerCase().includes(q) ||
-      (i.body ?? "").toLowerCase().includes(q) ||
-      i.section.toLowerCase().includes(q),
-    );
-  }, [board, search]);
+    return (board?.items ?? []).filter(i => {
+      if (q && !(
+        i.title.toLowerCase().includes(q) ||
+        (i.body ?? "").toLowerCase().includes(q) ||
+        i.section.toLowerCase().includes(q)
+      )) return false;
+
+      if (dueFilter === "late" && i.due.state !== "overdue" && i.due.state !== "due_soon") return false;
+      if (dueFilter === "overdue" && i.due.state !== "overdue") return false;
+      if (dueFilter === "soon" && i.due.state !== "due_soon") return false;
+      if (dueFilter === "undated" && i.due.state !== "none") return false;
+
+      if (assignee === "unassigned" && i.assignee) return false;
+      if (assignee !== "all" && assignee !== "unassigned" && i.assignee?.id !== assignee) return false;
+
+      return true;
+    });
+  }, [board, search, dueFilter, assignee]);
+
+  /** Everyone and everything currently holding a row, for the assignee filter. */
+  const assignees = useMemo(() => {
+    const seen = new Map<string, { id: string; name: string; kind: "agent" | "human" }>();
+    for (const i of board?.items ?? []) {
+      if (i.assignee && !seen.has(i.assignee.id)) seen.set(i.assignee.id, i.assignee);
+    }
+    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [board]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
   const assign = async (item: BoardItem, agentId: string | null, agentName: string | null, humanUsername: string | null, notify: boolean) => {
@@ -532,6 +1009,19 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ item_type: "insight", agent_id: agentId, agent_name: agentName, human_username: humanUsername, notify }),
+      });
+      await fetchBoard();
+    } finally { setBusyId(null); }
+  };
+
+  /** Set or clear a due date. Null clears it; the server rejects anything unparseable. */
+  const setDue = async (item: BoardItem, iso: string | null) => {
+    setBusyId(item.id);
+    try {
+      await fetch(`${BOT_URL}/admin/insights/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ due_date: iso }),
       });
       await fetchBoard();
     } finally { setBusyId(null); }
@@ -570,7 +1060,7 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
     letterSpacing: "0.07em", padding: "0.5rem 0.75rem", textAlign: "left", whiteSpace: "nowrap",
   };
   const td: React.CSSProperties = { padding: "0.6rem 0.75rem", verticalAlign: "middle" };
-  const colCount = section ? 6 : 7;
+  const colCount = section ? 7 : 8;
 
   return (
     <div>
@@ -611,12 +1101,110 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
             style={{ width: "100%", padding: "6px 10px 6px 28px", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#e2e8f0", fontSize: "12px", outline: "none" }} />
         </div>
 
-        <button onClick={() => { setLoading(true); fetchBoard(); }}
+        <button onClick={() => { setLoading(true); fetchBoard(); }} title="Re-read the board. To go and look for new findings, use Run analysis."
           style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "6px 10px", cursor: "pointer", color: "#64748b", display: "flex", alignItems: "center", gap: 5 }}>
           <RefreshCw size={13} className={loading ? "spin" : ""} />
           <span style={{ fontSize: "11px" }}>Refresh</span>
         </button>
+
+        <button onClick={() => setRecording(true)} title="Record something the team came up with"
+          style={{ background: `${accent}14`, border: `1px solid ${accent}33`, borderRadius: 8, padding: "6px 11px", cursor: "pointer", color: accent, display: "flex", alignItems: "center", gap: 5, fontWeight: 700 }}>
+          <Plus size={13} />
+          <span style={{ fontSize: "11px" }}>Record insight</span>
+        </button>
+
+        {/*
+          Only inside a space. On /pipeline this would mean "run every space",
+          which is a much bigger and more expensive thing than the one that was
+          asked for, and nobody asked for it.
+        */}
+        {section && (
+          <button onClick={startRun} disabled={running || starting}
+            title={running ? "An analysis is already running for this space" : "Send this space's lead agent to look at the live data now"}
+            style={{
+              background: running ? "rgba(56,189,248,0.1)" : "rgba(255,255,255,0.04)",
+              border: `1px solid ${running ? "rgba(56,189,248,0.3)" : "rgba(255,255,255,0.08)"}`,
+              borderRadius: 8, padding: "6px 11px", cursor: running || starting ? "default" : "pointer",
+              color: running ? "#38bdf8" : "#94a3b8", display: "flex", alignItems: "center", gap: 5, fontWeight: 700,
+            }}>
+            {running || starting
+              ? <Loader2 size={13} className="spin" />
+              : <Play size={13} />}
+            <span style={{ fontSize: "11px" }}>{running ? "Analysing…" : starting ? "Starting…" : "Run analysis"}</span>
+          </button>
+        )}
       </div>
+
+      {/* Lateness and assignee — the two filters asked for alongside the colours. */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.6rem" }}>
+        <div style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.03)", padding: 3, borderRadius: 9, border: "1px solid rgba(255,255,255,0.05)" }}>
+          {DUE_TABS.map(t => {
+            const count = t.key === "all" ? null
+              : t.key === "late" ? (board?.due_summary?.overdue ?? 0) + (board?.due_summary?.due_soon ?? 0)
+              : t.key === "overdue" ? board?.due_summary?.overdue ?? 0
+              : t.key === "soon" ? board?.due_summary?.due_soon ?? 0
+              : board?.due_summary?.undated ?? 0;
+            const tint = t.key === "overdue" ? "#f43f5e" : t.key === "soon" ? "#fb923c" : "#e2e8f0";
+            return (
+              <button key={t.key} onClick={() => setDueFilter(t.key)} title={t.hint}
+                style={{
+                  padding: "5px 10px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: "11px",
+                  fontWeight: dueFilter === t.key ? 800 : 500,
+                  background: dueFilter === t.key ? "rgba(255,255,255,0.07)" : "transparent",
+                  color: dueFilter === t.key ? tint : "#64748b",
+                  display: "flex", alignItems: "center", gap: 4,
+                }}>
+                {t.label}
+                {count != null && count > 0 && (
+                  <span style={{ fontSize: "9px", fontWeight: 800, color: tint, background: `${tint}1a`, borderRadius: 4, padding: "0 4px" }}>{count}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <select value={assignee} onChange={e => setAssignee(e.target.value)}
+          title="Filter by who is on it"
+          style={{
+            background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+            borderRadius: 8, padding: "6px 9px", color: assignee === "all" ? "#64748b" : "#e2e8f0",
+            fontSize: "11.5px", outline: "none", cursor: "pointer", fontFamily: "inherit",
+          }}>
+          <option value="all">Anyone</option>
+          <option value="unassigned">Nobody yet</option>
+          {assignees.map(a => (
+            <option key={a.id} value={a.id}>{a.kind === "agent" ? "🤖" : "👤"} {a.name}</option>
+          ))}
+        </select>
+
+        {(dueFilter !== "all" || assignee !== "all") && (
+          <button onClick={() => { setDueFilter("all"); setAssignee("all"); }}
+            style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569", fontSize: "11px", display: "flex", alignItems: "center", gap: 3 }}>
+            <X size={10} /> clear filters
+          </button>
+        )}
+      </div>
+
+      {/* What the run is doing, and what it did. Never a silent spinner. */}
+      {section && (running || runError || (run && run.status === "failed")) && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8, marginBottom: "0.7rem",
+          background: runError || run?.status === "failed" ? "rgba(244,63,94,0.06)" : "rgba(56,189,248,0.05)",
+          border: `1px solid ${runError || run?.status === "failed" ? "rgba(244,63,94,0.25)" : "rgba(56,189,248,0.2)"}`,
+          borderRadius: 10, padding: "0.6rem 0.85rem",
+        }}>
+          {running
+            ? <Loader2 size={13} color="#38bdf8" className="spin" />
+            : <AlertTriangle size={13} color="#f43f5e" />}
+          <span style={{ fontSize: "11.5px", color: "#cbd5e1" }}>
+            {runError
+              ? runError
+              : running
+              ? <>{run?.agent_name ?? "The lead agent"} is reading the live data for this space. Anything it files appears here — this takes a few minutes.</>
+              : <>The last analysis run failed{run?.error ? `: ${run.error}` : "."}</>}
+          </span>
+        </div>
+      )}
 
       {/* Value summary — the two tiers, never added together */}
       {vs && (
@@ -665,6 +1253,7 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
               <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                 <th style={{ ...th, width: 28 }} />
                 <th style={th}>Insight</th>
+                <th style={th}>Due</th>
                 <th style={{ ...th, textAlign: "right" }}>Value</th>
                 <th style={th}>Effort</th>
                 <th style={th}>Risk</th>
@@ -675,9 +1264,11 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
             <tbody>
               {items.length === 0 && !loading && (
                 <tr><td colSpan={colCount} style={{ padding: "3rem 1rem", textAlign: "center", color: "#334155", fontSize: "13px" }}>
-                  {search
-                    ? "Nothing matches that filter."
-                    : emptyHint ?? "Nothing open in this lane. Run an analysis to populate it."}
+                  {search || dueFilter !== "all" || assignee !== "all"
+                    ? <>Nothing matches those filters{(board?.items?.length ?? 0) > 0 ? <> — {board?.items.length} insight{board?.items.length === 1 ? " is" : "s are"} hidden by them</> : null}.</>
+                    : emptyHint ?? (section
+                      ? "Nothing open in this lane. Run analysis sends this space's lead agent to look."
+                      : "Nothing open in this lane. Run an analysis to populate it.")}
                 </td></tr>
               )}
               {items.map(item => {
@@ -742,6 +1333,7 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
                           </p>
                         )}
                       </td>
+                      <td style={td}><DueCell due={item.due} /></td>
                       <td style={{ ...td, textAlign: "right" }}><ValueCell value={item.value} /></td>
                       <td style={td}>
                         {effort
@@ -782,6 +1374,7 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
                             onAssign={() => setAssignItem(item)}
                             onDismiss={() => setStatus(item, "dismissed")}
                             onComplete={() => setStatus(item, "resolved")}
+                            onDue={iso => setDue(item, iso)}
                           />
                         </td>
                       </tr>
@@ -800,6 +1393,18 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
         <Link href="/work" style={{ color: "#64748b" }}>Tasks</Link>.
         {section && <> Every space&rsquo;s board is on <Link href="/pipeline" style={{ color: "#64748b" }}>Insights</Link>.</>}
       </p>
+
+      <AnimatePresence>
+        {recording && (
+          <RecordModal
+            section={section}
+            accent={accent}
+            teamMembers={teamMembers}
+            onClose={() => setRecording(false)}
+            onFiled={fetchBoard}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {assignItem && (
