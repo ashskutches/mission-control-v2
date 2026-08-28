@@ -30,7 +30,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   MousePointerClick, DollarSign, FileSearch, RefreshCw, Pencil, TrendingUp,
-  AlertTriangle, ArrowRight, HelpCircle,
+  AlertTriangle, ArrowRight, HelpCircle, CheckCircle2, Undo2,
 } from "lucide-react";
 import {
   BOT_URL, CARD, LABEL, TH, TD, MetricCard, Panel, EmptyState,
@@ -41,6 +41,12 @@ import {
 
 type Verdict = "rank_limited" | "snippet_limited" | "performing" | "unmeasurable";
 
+interface Actioned {
+  marked_at: string; note: string | null;
+  position_at_mark: number | null; total_gap_clicks_at_mark: number | null;
+  verifying: boolean; verification_days_remaining: number; basis: string;
+}
+
 interface LedgerItem {
   url: string; path: string;
   clicks: number; impressions: number; position: number; ctr_pct: number;
@@ -49,6 +55,8 @@ interface LedgerItem {
   value_per_session: number | null; value_basis: string;
   est_revenue: number | null;
   landing: { revenue: number; transactions: number; sessions: number } | null;
+  /** Set when somebody has recorded making this change on the site. */
+  actioned: Actioned | null;
 }
 
 interface LedgerTotals {
@@ -63,6 +71,10 @@ interface LedgerResponse {
   period_days: number; min_impressions: number; min_sessions_for_value: number;
   items: LedgerItem[]; items_returned: number;
   totals: LedgerTotals; caveats: string[]; method: string;
+  actioned: {
+    marked_total: number; hidden_count: number; hidden_paths: string[];
+    include_actioned: boolean;
+  } | null;
   landing_totals: { revenue: number; transactions: number; pages_with_revenue: number } | null;
   warnings: string[];
   property_truncated: boolean;
@@ -89,13 +101,16 @@ export default function SeoOpportunitiesPage() {
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [lever, setLever] = useState<"all" | "snippet" | "rank">("all");
+  const [showFixed, setShowFixed] = useState(false);
+  const [marking, setMarking] = useState<string | null>(null);
 
   const load = useCallback(async (fresh = false) => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(
-        `${BOT_URL}/admin/seo/opportunities?days=${days}&limit=100${fresh ? "&fresh=1" : ""}`
+        `${BOT_URL}/admin/seo/opportunities?days=${days}&limit=100` +
+        `${fresh ? "&fresh=1" : ""}${showFixed ? "&include_actioned=1" : ""}`
       );
       const json = (await res.json()) as LedgerResponse;
       if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
@@ -106,9 +121,60 @@ export default function SeoOpportunitiesPage() {
     } finally {
       setLoading(false);
     }
-  }, [days]);
+  }, [days, showFixed]);
 
   useEffect(() => { load(); }, [load]);
+
+  /**
+   * Record that the recommendation was carried out on the site.
+   *
+   * This does not delete the row. The ledger reads a trailing window, so for the next
+   * `days` days it is still averaging in impressions from before the change — the row is
+   * hidden until the window is entirely post-fix, then re-checked. If the rewrite worked
+   * the gap is gone and it never comes back; if it did not, it returns saying so.
+   */
+  const mark = useCallback(async (item: LedgerItem) => {
+    setMarking(item.path);
+    try {
+      const res = await fetch(`${BOT_URL}/admin/seo/opportunities/actioned?days=${days}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: item.path,
+          position: item.position,
+          total_gap_clicks: item.total_gap_clicks,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `HTTP ${res.status}`);
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMarking(null);
+    }
+  }, [days, load]);
+
+  const unmark = useCallback(async (item: LedgerItem) => {
+    setMarking(item.path);
+    try {
+      const res = await fetch(
+        `${BOT_URL}/admin/seo/opportunities/actioned?path=${encodeURIComponent(item.path)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `HTTP ${res.status}`);
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMarking(null);
+    }
+  }, [load]);
 
   const items = useMemo(() => {
     const all = data?.items ?? [];
@@ -235,6 +301,20 @@ export default function SeoOpportunitiesPage() {
             </button>
           );
         })}
+        {data?.actioned && (data.actioned.hidden_count > 0 || showFixed || data.actioned.marked_total > 0) && (
+          <button onClick={() => setShowFixed(v => !v)}
+            title="Pages you marked fixed are hidden until Search Console's window no longer covers the pre-fix days."
+            style={{
+              background: showFixed ? "rgba(34,197,94,0.14)" : "rgba(255,255,255,0.04)",
+              color: showFixed ? "#22c55e" : "#64748b",
+              border: showFixed ? "1px solid rgba(34,197,94,0.3)" : "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 8, padding: "0.3rem 0.8rem", cursor: "pointer",
+              fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 5,
+            }}>
+            <CheckCircle2 size={12} />
+            {showFixed ? "Hiding none" : `${data.actioned.hidden_count} marked fixed, hidden`}
+          </button>
+        )}
         <span style={{ fontSize: 10.5, color: "#475569", marginLeft: "auto" }}>
           {items.length} page{items.length === 1 ? "" : "s"}
         </span>
@@ -288,6 +368,16 @@ export default function SeoOpportunitiesPage() {
                             {v.label}
                           </span>
                           <span style={{ fontSize: 11.5, color: "#94a3b8" }}>{i.path}</span>
+                          {i.actioned && (
+                            <span title={i.actioned.basis} style={{
+                              fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em",
+                              background: i.actioned.verifying ? "rgba(34,197,94,0.12)" : "rgba(233,141,32,0.12)",
+                              color: i.actioned.verifying ? "#22c55e" : "#e98d20",
+                              borderRadius: 20, padding: "0.05rem 0.4rem", marginLeft: 6,
+                            }}>
+                              {i.actioned.verifying ? `fixed · verifying ${i.actioned.verification_days_remaining}d` : "fixed · gap remains"}
+                            </span>
+                          )}
                         </td>
                         <td style={TD}>{i.position.toFixed(1)}</td>
                         <td style={TD}>{num(i.impressions)}</td>
@@ -328,12 +418,43 @@ export default function SeoOpportunitiesPage() {
                                 </div>
                               ))}
                             </div>
-                            <Link
-                              href={`/seo/pages?url=${encodeURIComponent(i.path)}&days=${days}`}
-                              style={{ fontSize: 10, color: "#38bdf8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}
-                            >
-                              Open the drill-down <ArrowRight size={11} />
-                            </Link>
+                            {i.actioned && (
+                              <p style={{ fontSize: 11, color: i.actioned.verifying ? "#22c55e" : "#e98d20", lineHeight: 1.55, marginBottom: "0.6rem" }}>
+                                <CheckCircle2 size={10} style={{ display: "inline", marginRight: 3 }} />
+                                {i.actioned.basis}
+                                {i.actioned.total_gap_clicks_at_mark != null && (
+                                  <> It carried +{num(i.actioned.total_gap_clicks_at_mark)} recoverable clicks at position{" "}
+                                  {i.actioned.position_at_mark?.toFixed(1) ?? "—"} when it was marked.</>
+                                )}
+                              </p>
+                            )}
+                            <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+                              <Link
+                                href={`/seo/pages?url=${encodeURIComponent(i.path)}&days=${days}`}
+                                style={{ fontSize: 10, color: "#38bdf8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}
+                              >
+                                Open the drill-down <ArrowRight size={11} />
+                              </Link>
+                              <button
+                                onClick={e => { e.stopPropagation(); if (i.actioned) { void unmark(i); } else { void mark(i); } }}
+                                disabled={marking === i.path}
+                                title={i.actioned
+                                  ? "Put this page back on the list as an open opportunity."
+                                  : "You made this change on the site. Hides the row until Search Console has re-measured the page — it comes back if the gap is still there."}
+                                style={{
+                                  background: i.actioned ? "rgba(255,255,255,0.04)" : "rgba(34,197,94,0.12)",
+                                  color: i.actioned ? "#64748b" : "#22c55e",
+                                  border: i.actioned ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(34,197,94,0.28)",
+                                  borderRadius: 8, padding: "0.28rem 0.7rem",
+                                  cursor: marking === i.path ? "wait" : "pointer",
+                                  opacity: marking === i.path ? 0.6 : 1,
+                                  fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em",
+                                  display: "inline-flex", alignItems: "center", gap: 4,
+                                }}
+                              >
+                                {i.actioned ? <><Undo2 size={11} /> Reopen</> : <><CheckCircle2 size={11} /> I made this change</>}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )}
