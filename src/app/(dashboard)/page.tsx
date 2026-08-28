@@ -20,7 +20,7 @@ import { MarkdownMessage } from "@/components/MarkdownMessage";
 import CostAlerts from "@/components/CostAlerts";
 import ProfitDashboard from "@/components/ProfitDashboard";
 import { LayoutDashboard, PiggyBank } from "lucide-react";
-import { ADMIN_CC_TABS } from "@/app/lib/access";
+import { ADMIN_CC_TABS, canAccess } from "@/app/lib/access";
 import { CORE_SPACES, type Space } from "@/app/lib/spaces";
 import { useRole } from "@/app/lib/useRole";
 
@@ -71,9 +71,22 @@ function KpiStrip({ data, hideMoney = false }: { data: any; hideMoney?: boolean 
   );
 }
 
+/**
+ * One space's health card.
+ *
+ * A space with no health row reads **"not measured"**, not a number. It used to
+ * default to `?? 70`, which drew an amber bar and a confident "70%" over a space
+ * nothing had ever scored — the precise failure the spaces refactor was built to
+ * end, where Command Center showed 13 department cards and 7 of them named a
+ * section no stored insight could carry while reading "healthy at 70%".
+ *
+ * A newly added space always starts in this state, so the honest rendering of it
+ * is not an edge case — it is the first thing anyone sees after adding one.
+ */
 function DeptCard({ dept, health, onNav }: { dept: Space; health?: any; onNav: (href: string) => void }) {
-  const score = health?.score ?? 70;
-  const color = score >= 80 ? "#22c55e" : score >= 60 ? "#f59e0b" : "#f43f5e";
+  const score: number | null = typeof health?.score === "number" ? health.score : null;
+  const measured = score != null;
+  const color = !measured ? "#475569" : score >= 80 ? "#22c55e" : score >= 60 ? "#f59e0b" : "#f43f5e";
   const Icon = dept.icon;
   return (
     <motion.button
@@ -98,7 +111,7 @@ function DeptCard({ dept, health, onNav }: { dept: Space; health?: any; onNav: (
 
       {/* Health bar */}
       <div style={{ height: 3, borderRadius: 2, background: "rgba(255,255,255,0.06)", overflow: "hidden", marginBottom: 4 }}>
-        <div style={{ height: "100%", width: `${score}%`, background: color, borderRadius: 2, transition: "width 0.6s ease" }} />
+        <div style={{ height: "100%", width: measured ? `${score}%` : "100%", background: measured ? color : "rgba(255,255,255,0.06)", borderRadius: 2, transition: "width 0.6s ease" }} />
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -107,7 +120,12 @@ function DeptCard({ dept, health, onNav }: { dept: Space; health?: any; onNav: (
           {health?.openIssues > 0 && <span style={{ color: "#f43f5e" }}>⚠{health.openIssues} </span>}
           {health?.insightCount > 0 ? `${health.insightCount} insights` : "No insights yet"}
         </span>
-        <span style={{ fontSize: 11, fontWeight: 900, color }}>{score}%</span>
+        <span
+          style={{ fontSize: measured ? 11 : 9, fontWeight: measured ? 900 : 700, color, textTransform: measured ? "none" : "uppercase", letterSpacing: measured ? 0 : "0.06em" }}
+          title={measured ? undefined : "No health row for this space yet — nothing has scored it"}
+        >
+          {measured ? `${score}%` : "not measured"}
+        </span>
       </div>
     </motion.button>
   );
@@ -531,7 +549,11 @@ function OverviewTab() {
           <p style={{ fontSize: 9, fontWeight: 800, color: "#666", textTransform: "uppercase", letterSpacing: "0.12em", margin: 0 }}>Department Health</p>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
-          {CORE_SPACES.map(dept => (
+          {/* Filtered by the same canAccess the middleware gates with — Sales and
+              Social are core spaces but admin-only, and an unfiltered grid offers a
+              teammate a card that bounces straight to /no-access. Until
+              useRole resolves we render as a guest: hide first, reveal after. */}
+          {CORE_SPACES.filter(dept => canAccess(role ?? "guest", dept.href)).map(dept => (
             <DeptCard key={dept.id} dept={dept} health={deptHealthMap[dept.id]} onNav={router_fn} />
           ))}
         </div>

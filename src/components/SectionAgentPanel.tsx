@@ -6,6 +6,7 @@ import {
   Play, Loader, ExternalLink, AlertTriangle, Sparkles,
 } from "lucide-react";
 import { insightsHrefFor } from "@/app/lib/spaces";
+import SectionOwner from "./SectionOwner";
 
 
 
@@ -255,6 +256,12 @@ Your goal is to help grow this area of the business. Surface what's actually imp
 
   return (
     <div className="mb-5">
+      {/* Who owns this department, above the agent that works it. Outside the
+          AnimatePresence on purpose: the panel below has an unassigned and an
+          assigned branch, so anything inside it has to be written twice or
+          disappears in one state. Ownership is orthogonal to whether an agent
+          has been assigned at all. */}
+      <SectionOwner sectionId={sectionId} sectionName={sectionName} accentColor={accentColor} />
       <AnimatePresence mode="wait">
         {!lead ? (
           // ── Unassigned state ──────────────────────────────────────────────

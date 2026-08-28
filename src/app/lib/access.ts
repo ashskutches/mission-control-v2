@@ -89,9 +89,16 @@ export function isTeammatePath(pathname: string | undefined | null): boolean {
  * Admin-only, meaning "on neither allowlist". Derived rather than listed, so it can
  * never disagree with the two lists above.
  *
- * Today that covers Profit (/profitability), Costs (/costs), Insights (/pipeline),
- * Social (/social), Brand (/brand), Team (/team), Customer (/customer) and
- * Roundtable (/roundtable) — plus anything added later and not opted in.
+ * Today that covers Sales (/sales), Profit (/profitability), Costs (/costs),
+ * Insights (/pipeline), Social (/social), Brand (/brand), Team (/team),
+ * Customer (/customer) and Roundtable (/roundtable) — plus anything added later
+ * and not opted in.
+ *
+ * /sales is admin-only by the same deliberate choice /profitability was: it is the
+ * revenue surface, and it absorbed the P&L as its Profit tab, so opening it to the
+ * team opens gross margin, CAC and per-product cost with it. One line in
+ * TEAMMATE_PATHS if that is wanted — but note that would ALSO have to be a
+ * decision about /sales/profit, which is the same numbers /profitability serves.
  *
  * /roundtable is admin-only **on purpose**, not by omission. It fires several
  * agents per run, and its transcripts are unreviewed agent argument about business

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, Inbox, BookOpen, Brain, LifeBuoy, Settings, Lightbulb } from "lucide-react";
 import { SUPPORT_ACCENT } from "./ui";
 import { getSummary } from "./api";
+import SectionOwner from "@/components/SectionOwner";
 
 interface NavItem {
   href: string;
@@ -92,6 +93,11 @@ export default function SupportLayout({ children }: { children: React.ReactNode 
           );
         })}
       </div>
+
+      {/* Whose department this is. In the layout rather than the page so it
+          shows on every tab of the section — this space has no
+          SectionAgentPanel to carry it. */}
+      <SectionOwner sectionId="support" sectionName="Support" accentColor="#00c9d7" />
 
       {children}
     </div>

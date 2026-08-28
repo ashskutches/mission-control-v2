@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import InsightsBoard from "@/components/InsightsBoard";
 import { motion, AnimatePresence } from "framer-motion";
+import SectionOwner from "@/components/SectionOwner";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
 
@@ -316,6 +317,10 @@ export default function SocialPage() {
 
     return (
         <div style={{ maxWidth: 1220 }}>
+            {/* Whose department this is. Social has no SectionAgentPanel, so the
+                owner strip is mounted directly. */}
+            <SectionOwner sectionId="social" sectionName="Social" accentColor="#f5a840" />
+
             {/* ── WIP banner ─────────────────────────────────────────────── */}
             <div style={{
                 display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",

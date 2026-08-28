@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Activity, BarChart3, Building2, Lightbulb, Package, RotateCcw, ShoppingCart, Warehouse,
 } from "lucide-react";
+import SectionOwner from "@/components/SectionOwner";
 
 /**
  * The Logistics section — the supply side of the store.
@@ -89,6 +90,11 @@ export default function LogisticsLayout({ children }: { children: React.ReactNod
           );
         })}
       </div>
+
+      {/* Whose department this is. In the layout rather than the page so it
+          shows on every tab of the section — this space has no
+          SectionAgentPanel to carry it. */}
+      <SectionOwner sectionId="logistics" sectionName="Logistics" accentColor="#22c55e" />
 
       {children}
     </div>

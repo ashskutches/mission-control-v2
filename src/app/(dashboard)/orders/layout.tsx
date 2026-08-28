@@ -3,6 +3,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AlertTriangle, Lightbulb, MessageSquare, Package, TrendingUp, Truck } from "lucide-react";
+import SectionOwner from "@/components/SectionOwner";
 
 /**
  * The Orders section. Four surfaces that all answer "what is happening to an order",
@@ -89,6 +90,11 @@ export default function OrdersLayout({ children }: { children: React.ReactNode }
           </div>
         </>
       )}
+
+      {/* Whose department this is. In the layout rather than the page so it
+          shows on every tab of the section — this space has no
+          SectionAgentPanel to carry it. */}
+      <SectionOwner sectionId="orders" sectionName="Orders" accentColor="#fb923c" />
 
       {children}
     </div>

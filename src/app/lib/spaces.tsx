@@ -1,6 +1,6 @@
 import {
     Layers, Megaphone, Film, Share2, SearchCheck, Warehouse, Truck, LifeBuoy,
-    Palette, Users,
+    Palette, Users, ShoppingCart,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -41,6 +41,11 @@ export interface Space {
 }
 
 export const SPACES: readonly Space[] = [
+    // Sales leads because it is the number the rest of the grid explains. It
+    // absorbed the standalone Profit page — /profitability still renders (the
+    // Insights blocker banner deep-links it) but is no longer in the sidebar;
+    // the P&L is /sales/profit.
+    { id: 'sales',     label: 'Sales',     href: '/sales',     icon: ShoppingCart, color: '#22c55e', group: 'core' },
     { id: 'audience',  label: 'Website',   href: '/website',   icon: Layers,      color: '#4a9eff', group: 'core' },
     { id: 'marketing', label: 'Marketing', href: '/marketing', icon: Megaphone,   color: '#e98d20', group: 'core' },
     { id: 'content',   label: 'Content',   href: '/content',   icon: Film,        color: '#e98d20', group: 'core' },

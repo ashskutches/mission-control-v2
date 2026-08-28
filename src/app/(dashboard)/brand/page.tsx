@@ -3,6 +3,7 @@ import React from "react";
 import { AgentBrandGuide } from "@/components/AgentBrandGuide";
 import { BusinessContextEditor } from "@/components/BusinessContextEditor";
 import FacebookPageMonitor from "@/components/FacebookPageMonitor";
+import SectionOwner from "@/components/SectionOwner";
 
 export default function BrandPage() {
   return (
@@ -14,6 +15,10 @@ export default function BrandPage() {
       >
         Business context, voice, and brand identity
       </p>
+
+      {/* Whose department this is. Brand has no SectionAgentPanel, so the owner
+          strip is mounted directly. */}
+      <SectionOwner sectionId="brand" sectionName="Brand" accentColor="#e98d20" />
 
       {/* The paste-ready guide — what people actually come here to copy */}
       <AgentBrandGuide />
