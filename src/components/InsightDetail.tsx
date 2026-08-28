@@ -46,8 +46,9 @@ interface Insight {
   risk_tier: string | null; risk_score: number | null;
   agent_name: string | null; assigned_agent_name: string | null;
   occurrences: number | null; created_at: string;
-  /** Raw column. The board gets a computed `due` object; this page has the row itself. */
+  /** Raw columns. The board gets a computed `due` object; this page has the row itself. */
   due_date: string | null;
+  due_set_at: string | null;
   value: Value; work: Work | null; human_task: HumanTask | null;
 }
 
@@ -57,12 +58,16 @@ interface Insight {
  * through because this page reads the raw row (GET /admin/insights/:id) while
  * the board reads the computed one; the rule itself lives in gravity-claw's
  * utils/insight-due.ts and that is the copy to change first.
+ *
+ * The window is anchored on `due_set_at`, not `created_at`: allotted time is
+ * time somebody allotted, and dating an old insight would otherwise be almost
+ * entirely elapsed the moment it was saved.
  */
-function dueChip(createdAt: string, dueDate: string | null): { label: string; color: string } | null {
+function dueChip(windowStart: string, dueDate: string | null): { label: string; color: string } | null {
   if (!dueDate) return null;
   const due = new Date(dueDate).getTime();
   if (!Number.isFinite(due)) return null;
-  const created = new Date(createdAt).getTime();
+  const created = new Date(windowStart).getTime();
   const now = Date.now();
   const remaining = due - now;
   const days = remaining >= 0 ? Math.ceil(remaining / 86_400_000) : Math.floor(remaining / 86_400_000);
@@ -150,7 +155,8 @@ export default function InsightDetail({ insightId }: { insightId: string }) {
           <Chip color="#fb923c" title={`Independently reported ${insight.occurrences} times`}>{insight.occurrences}×</Chip>
         )}
         {(() => {
-          const d = dueChip(insight.created_at, insight.due_date);
+          // Anchored on due_set_at — the time somebody allotted, not the row's age.
+          const d = dueChip(insight.due_set_at ?? insight.created_at, insight.due_date);
           return d ? (
             <Chip color={d.color} title={`Due ${new Date(insight.due_date!).toLocaleDateString()}`}>{d.label}</Chip>
           ) : null;
