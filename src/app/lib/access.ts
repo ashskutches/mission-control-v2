@@ -90,8 +90,14 @@ export function isTeammatePath(pathname: string | undefined | null): boolean {
  * never disagree with the two lists above.
  *
  * Today that covers Profit (/profitability), Costs (/costs), Insights (/pipeline),
- * Social (/social), Brand (/brand), Team (/team) and Customer (/customer) — plus
- * anything added later and not opted in.
+ * Social (/social), Brand (/brand), Team (/team), Customer (/customer) and
+ * Roundtable (/roundtable) — plus anything added later and not opted in.
+ *
+ * /roundtable is admin-only **on purpose**, not by omission. It fires several
+ * agents per run, and its transcripts are unreviewed agent argument about business
+ * strategy — readable as settled conclusions by someone who does not know it is an
+ * experiment. Opening it to the team is one line in TEAMMATE_PATHS, worth doing
+ * once the format has shown it produces something worth reading.
  *
  * Two of those are spaces (see lib/spaces.tsx). A space being admin-only is a real
  * choice, not an oversight: /social is still half mocks, and /brand carries brand

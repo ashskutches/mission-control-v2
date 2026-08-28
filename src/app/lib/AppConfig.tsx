@@ -21,6 +21,7 @@ import {
     ClipboardList,
     PiggyBank,
     Warehouse,
+    Users2,
 } from 'lucide-react';
 
 export const APP_CONFIG = {
@@ -110,6 +111,18 @@ export const APP_CONFIG = {
         // so a query-string href would never highlight.
         { id: 'profit',   group: 'agentic', href: '/profitability', icon: PiggyBank, label: 'Profit',     color: '#22c55e' },
         { id: 'chats',    group: 'agentic', href: '/chats',    icon: MessageSquare, label: 'Chats',      color: '#6b7280' },
+
+        // Roundtable is the fifth way work could reach an agent, and deliberately the
+        // one that produces no work at all: N agents, one question, a transcript and a
+        // report. It writes no insight, no blockage and no task — every write tool is
+        // blocked for the duration of a run (roundtable/runner.ts).
+        //
+        // It is an experiment, and the honest outcome may be that the format does not
+        // earn its cost. That is why it sits here rather than in the space it discusses,
+        // and why it is NOT an entry in lib/spaces.tsx: a lab surface is not an area of
+        // the business, and runtime-creatable areas are the mistake spaces.ts exists to
+        // prevent.
+        { id: 'roundtable', group: 'agentic', href: '/roundtable', icon: Users2, label: 'Roundtable', color: '#a78bfa' },
 
         // ── Settings ───────────────────────────────────────────────────────────
         { id: 'brand',    group: 'settings', href: '/brand',     icon: Palette,   label: 'Brand',     color: '#e98d20' },
