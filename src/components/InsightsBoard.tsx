@@ -103,7 +103,7 @@ interface RunJob {
 interface Agent { id: string; name: string }
 interface TeamMember { discord_id: string; username: string; display_name?: string | null }
 
-type SortKey = "risk" | "value" | "effort" | "newest" | "section" | "due";
+type SortKey = "risk" | "value" | "effort" | "newest" | "section" | "due" | "type";
 /** Lateness filter. `dated` is what you want when planning; `undated` is the backlog of undecided deadlines. */
 type DueFilter = "all" | "late" | "overdue" | "soon" | "undated";
 
@@ -286,7 +286,16 @@ function RecordModal({
 }) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [type, setType] = useState("opportunity");
+  /**
+   * Defaults to the first RECORDABLE_TYPE, not to a friendlier word.
+   *
+   * This was `"opportunity"` — the exact invented value the comment above warns
+   * about. Nothing on screen showed it (no chip matched, so the row read as
+   * unselected) and POST /admin/insights 400s on it, so recording an insight
+   * without first clicking a type — the obvious path through this form — failed
+   * every time with "Unknown type". Any default here must come from the list.
+   */
+  const [type, setType] = useState(RECORDABLE_TYPES[0].value);
   const [suggestedBy, setSuggestedBy] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [saving, setSaving] = useState(false);
@@ -809,6 +818,7 @@ const SORT_TABS: { key: SortKey; label: string; hint: string }[] = [
   { key: "due", label: "Due", hint: "Soonest due first. Insights nobody set a date for sort last — a date is never inferred" },
   { key: "newest", label: "Newest", hint: "Most recently filed" },
   { key: "section", label: "Section", hint: "Grouped by area of the business" },
+  { key: "type", label: "Type", hint: "Grouped by kind — suggestions together, competitor sightings together. Ranked by risk inside each group" },
 ];
 
 /** Lateness filter tabs. Counts come from the server's whole-board summary. */
@@ -1296,6 +1306,29 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
                           {(!section || item.section !== section) && (
                             <span style={{ fontSize: "9px", fontWeight: 700, color: "#94a3b8", background: "rgba(255,255,255,0.05)", padding: "1px 6px", borderRadius: 4 }}>
                               {SECTION_LABEL[item.section] ?? item.section}
+                            </span>
+                          )}
+                          {/*
+                            Type and suggester are on the collapsed row, not just
+                            in the expanded detail: the ask was to see who
+                            suggested what at a glance, and a row you have to open
+                            to read the attribution of is not at a glance.
+
+                            The suggester chip is drawn only for human-filed rows.
+                            "filed by <agent>" on every machine-written row is the
+                            overwhelming majority of the board and says nothing —
+                            it would bury the handful of rows this is for.
+                          */}
+                          <span title={`Type: ${item.type.replace(/_/g, " ")}`}
+                            style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", background: "rgba(255,255,255,0.04)", padding: "1px 6px", borderRadius: 4, textTransform: "capitalize" }}>
+                            {item.type.replace(/_/g, " ")}
+                          </span>
+                          {item.authored.kind === "human" && (
+                            <span title={item.authored.recorded_by && item.authored.recorded_by !== item.authored.suggested_by
+                              ? `Suggested by ${item.filed_by ?? "someone"}, recorded by ${item.authored.recorded_by}`
+                              : `Suggested by ${item.filed_by ?? "someone"}`}
+                              style={{ fontSize: "9px", fontWeight: 700, color: "#22c55e", background: "rgba(34,197,94,0.1)", padding: "1px 6px", borderRadius: 4, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                              <User size={8} /> {item.filed_by ?? "someone"}
                             </span>
                           )}
                           {item.occurrences > 1 && (
