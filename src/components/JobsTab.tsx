@@ -27,6 +27,7 @@ import {
   Loader2, ChevronDown, ChevronUp, Clock, Zap, Search,
   Palette, Mail, BarChart2, Users, Copy, Check, X, Bell, FileText,
 } from "lucide-react";
+import { MarkdownPanel } from "@/components/MarkdownPanel";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3000";
 
@@ -662,12 +663,12 @@ function JobCard({ job, jobs, onCancel, onDelete }: {
                     </p>
                     <CopyButton text={job.agent_output} />
                   </div>
+                  {/* Rendered, not raw — the Copy button above still hands back
+                      the markdown the agent actually wrote. */}
                   <div style={{ background: "#0a0a12", borderRadius: 10, padding: "10px 12px",
                     border: "1px solid rgba(255,255,255,0.06)", maxHeight: 320, overflowY: "auto" }}>
-                    <pre style={{ fontSize: 12, color: "#94a3b8", margin: 0, whiteSpace: "pre-wrap",
-                      wordBreak: "break-word", lineHeight: 1.65, fontFamily: "monospace" }}>
-                      {job.agent_output}
-                    </pre>
+                    <MarkdownPanel content={job.agent_output} copy={false}
+                      style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.65 }} />
                   </div>
                 </div>
               )}

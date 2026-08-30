@@ -15,7 +15,7 @@
  * stated basis is not shown at all — the board learned that after rendering a
  * +$40,000/mo badge built on an empty value_basis.
  */
-import { MarkdownMessage } from "@/components/MarkdownMessage";
+import { MarkdownPanel } from "@/components/MarkdownPanel";
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
@@ -192,10 +192,14 @@ export default function InsightDetail({ insightId }: { insightId: string }) {
           background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)",
           borderRadius: 12, padding: "0.9rem 1rem", marginBottom: "1rem",
         }}>
-          {/* Rendered, not raw — see the same call in InsightsBoard's row detail. */}
-          <div style={{ fontSize: "12.5px", color: "#cbd5e1", lineHeight: 1.65 }}>
-            <MarkdownMessage content={insight.body} />
-          </div>
+          {/* Rendered, not raw — see the same call in InsightsBoard's row detail.
+              The copy hands back the markdown, title included, because the next
+              place it goes is usually another markdown box. */}
+          <MarkdownPanel
+            content={insight.body}
+            copyText={[`# ${insight.title}`, "", insight.body].join("\n")}
+            style={{ fontSize: "12.5px", color: "#cbd5e1", lineHeight: 1.65 }}
+          />
         </div>
       )}
 
