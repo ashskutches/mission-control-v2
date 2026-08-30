@@ -3,8 +3,9 @@
 /**
  * /roundtable — the cross-department strategy experiment.
  *
- * Pick agents, ask one question, watch them answer it blind, argue, and get
- * reported on by a facilitator who took no part.
+ * Pick agents, ask one question, watch them answer it blind, answer each other's
+ * questions with their tools back, argue, and get reported on by a facilitator who
+ * took no part.
  *
  * ## Why this page exists separately from everything else
  *
@@ -42,7 +43,7 @@ interface AgentDef {
 
 interface Msg {
   id: string; seq: number;
-  phase: "opening" | "floor" | "synthesis" | "error";
+  phase: "opening" | "reply" | "floor" | "synthesis" | "error";
   round: number;
   agent_id: string; agent_name: string; agent_emoji?: string | null;
   content: string; tools_used: string[]; provider?: string | null;
@@ -70,9 +71,10 @@ const C = {
 };
 
 const PHASE_STYLE: Record<Msg["phase"], { label: string; color: string }> = {
-  opening:   { label: "Opening — written blind", color: C.blue },
-  floor:     { label: "Open floor",              color: C.purple },
-  synthesis: { label: "Facilitator's report",    color: C.orange },
+  opening:   { label: "Opening — written blind",              color: C.blue },
+  reply:     { label: "Replies — answering what was asked",   color: C.green },
+  floor:     { label: "Open floor",                           color: C.purple },
+  synthesis: { label: "Facilitator's report",                 color: C.orange },
   error:     { label: "Failure",                 color: C.rose },
 };
 
@@ -85,7 +87,10 @@ export default function RoundtablePage() {
 
   const [question, setQuestion] = React.useState("");
   const [picked, setPicked] = React.useState<string[]>([]);
-  const [rounds, setRounds] = React.useState(1);
+  // 2, matching the server default: at one round the only floor round is also the
+  // last one, so every agent is told to make a closing statement and nobody can
+  // leave a question open for anyone.
+  const [rounds, setRounds] = React.useState(2);
   const [allowMoney, setAllowMoney] = React.useState(false);
 
   const [session, setSession] = React.useState<Session | null>(null);
@@ -235,8 +240,9 @@ function Header() {
       </div>
       <p style={{ fontSize: 11.5, color: C.muted, margin: "0 0 4px", lineHeight: 1.6, maxWidth: 760 }}>
         Several agents, one question. Each answers <strong style={{ color: C.dim }}>blind</strong> with
-        access to its own data, then they all read each other and argue, then a facilitator who took no
-        part reports what happened.
+        access to its own data, then each <strong style={{ color: C.dim }}>answers the questions the
+        others put to it</strong> — tools back on — then they argue over what was found, then a
+        facilitator who took no part reports what happened.
       </p>
       <p style={{ fontSize: 11.5, color: C.muted, margin: "0 0 18px", lineHeight: 1.6, maxWidth: 760 }}>
         <strong style={{ color: C.green }}>Nothing here is executed.</strong> A roundtable writes no
@@ -525,7 +531,11 @@ function Turn({ m }: { m: Msg }) {
   const [open, setOpen] = React.useState(true);
   const isError = m.phase === "error";
   const isReport = m.phase === "synthesis";
-  const noTools = m.phase === "opening" && (!m.tools_used || m.tools_used.length === 0);
+  // Both tool-enabled phases carry the provenance badge. A reply with no reads is
+  // the more damning of the two: it means an agent was asked a direct question by
+  // a named colleague and answered it without opening anything.
+  const toolPhase = m.phase === "opening" || m.phase === "reply";
+  const noTools = toolPhase && (!m.tools_used || m.tools_used.length === 0);
 
   return (
     <div style={{
@@ -549,9 +559,11 @@ function Turn({ m }: { m: Msg }) {
 
         {/* Tool provenance. An opening with no tool calls is an agent reasoning from
             its system prompt, and saying so is the whole point of showing this. */}
-        {m.phase === "opening" && (
+        {toolPhase && (
           noTools ? (
-            <span title="This agent called no tools — its opening is reasoning from its system prompt, not from a read."
+            <span title={m.phase === "reply"
+              ? "This agent answered without calling a tool — the reply round exists to go and look, so this answer is from memory."
+              : "This agent called no tools — its opening is reasoning from its system prompt, not from a read."}
               style={{
                 display: "flex", alignItems: "center", gap: 4, fontSize: 9.5, fontWeight: 700,
                 color: "#fcd34d", background: "rgba(245,158,11,0.1)",
@@ -574,7 +586,7 @@ function Turn({ m }: { m: Msg }) {
       {open && (
         <div style={{ padding: "0 13px 12px 32px", fontSize: 12.3, color: C.dim, lineHeight: 1.65 }}>
           <MarkdownMessage content={m.content} />
-          {m.phase === "opening" && m.tools_used.length > 0 && (
+          {toolPhase && m.tools_used.length > 0 && (
             <div style={{ marginTop: 9, display: "flex", gap: 4, flexWrap: "wrap" }}>
               {m.tools_used.map((t, i) => (
                 <span key={`${t}-${i}`} className="mono" style={{
@@ -657,6 +669,7 @@ function fmt(v: number, unit: string): string {
 
 function phaseLabel(phase: string): string {
   if (phase === "opening") return "openings, written blind";
+  if (phase === "reply") return "replies, answering what was asked";
   if (phase.startsWith("floor:")) return `open floor, round ${phase.split(":")[1]}`;
   if (phase === "synthesis") return "facilitator writing the report";
   return phase;
