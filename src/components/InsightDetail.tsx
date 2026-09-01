@@ -221,7 +221,19 @@ export default function InsightDetail({ insightId }: { insightId: string }) {
   const w = insight.work;
   const riskColor = RISK_COLOR[insight.risk_tier ?? ""] ?? "#64748b";
   const milestone = w?.milestones?.[w.current_milestone];
-  const assignee = insight.assigned_agent_name ?? w?.agent_name ?? insight.human_task?.assigned_username ?? null;
+  /**
+   * `assigned_username` is null on every human task, so it cannot be the last
+   * word here. /admin/pipeline/:id/reassign inserts `assigned_to` and never
+   * populates `assigned_username`, which meant this page said "Nobody assigned
+   * yet" directly above a panel headed "What you were asked to do" and a
+   * follow-up counter reading "Reminded 3×". The board already falls back the
+   * same way; this page did not, and was the one a person is DM'd to.
+   */
+  const assignee = insight.assigned_agent_name
+    ?? w?.agent_name
+    ?? insight.human_task?.assigned_username
+    ?? insight.human_task?.assigned_to
+    ?? null;
 
   return (
     <div style={{ padding: "1.4rem 1.2rem 3rem", maxWidth: 900, margin: "0 auto" }}>

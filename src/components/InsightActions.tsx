@@ -267,18 +267,33 @@ export default function InsightActions({
       }} />
   );
 
+  /**
+   * The confirm button, and — when it is disabled — the reason.
+   *
+   * A greyed button with no explanation reads as "this is broken", not as "you
+   * have not finished". The note is required on three of these four panels and
+   * the prompt above the box describes what to write without ever saying it is
+   * mandatory, so the only signal was the button not responding. Say it instead.
+   */
   const confirm = (label: string, onClick: () => void, color: string, disabled = false) => (
-    <button onClick={onClick} disabled={busy || disabled}
-      style={{
-        display: "inline-flex", alignItems: "center", gap: 6,
-        padding: "9px 16px", minHeight: 38, borderRadius: 8, border: "none",
-        background: busy || disabled ? "rgba(255,255,255,0.06)" : color,
-        color: busy || disabled ? "#475569" : "#0b1220",
-        fontSize: "12.5px", fontWeight: 800,
-        cursor: busy || disabled ? "not-allowed" : "pointer",
-      }}>
-      {busy ? <Loader2 size={12} className="animate-spin" /> : null} {label}
-    </button>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <button onClick={onClick} disabled={busy || disabled}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 6,
+          padding: "9px 16px", minHeight: 38, borderRadius: 8, border: "none",
+          background: busy || disabled ? "rgba(255,255,255,0.06)" : color,
+          color: busy || disabled ? "#475569" : "#0b1220",
+          fontSize: "12.5px", fontWeight: 800,
+          cursor: busy || disabled ? "not-allowed" : "pointer",
+        }}>
+        {busy ? <Loader2 size={12} className="animate-spin" /> : null} {label}
+      </button>
+      {disabled && !busy && (
+        <span style={{ fontSize: "11px", color: "#fb923c" }}>
+          Write a line above first — it is what the agent reads.
+        </span>
+      )}
+    </span>
   );
 
   const pick = (selected: boolean, onClick: () => void, children: React.ReactNode) => (

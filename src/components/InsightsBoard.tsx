@@ -1044,21 +1044,34 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
   }, []);
 
   /**
-   * Is this row mine?
+   * My own handle in the team directory — NOT `session.user.username`.
    *
-   * `assignee.id` for a human is `human_tasks.assigned_to`, which is the username
-   * the assigning UI sent — not a Discord snowflake, because the DM lookup
-   * resolves the snowflake server-side from the username. So the comparison is
-   * against the session's username, with the display name as a fallback for rows
-   * written before that was consistent. Case-insensitive: Discord usernames are,
-   * and a row that does not match its owner is worse than one that over-matches.
+   * Those are two different strings and confusing them silently breaks this
+   * filter. `human_tasks.assigned_to` holds `team_members.username`
+   * ("ashdash0629"), because that is what the assign modal sends; the session
+   * carries the Discord display name at sign-in ("Ash"). Comparing the two
+   * matches nothing and the filter just looks empty.
+   *
+   * The Discord snowflake is the only key that is stable across both, so the
+   * handle is resolved through it.
+   */
+  const myHandles = useMemo(() => {
+    const row = teamMembers.find(m => m.discord_id === user?.id);
+    return new Set(
+      [row?.username, row?.display_name].filter(Boolean).map(v => String(v).toLowerCase()),
+    );
+  }, [teamMembers, user?.id]);
+
+  /**
+   * Is this row mine? `assignee.id` for a human is that same `assigned_to`, and
+   * `name` falls back to it when `assigned_username` is null — which is always,
+   * see the note in InsightDetail. Case-insensitive, because Discord handles are.
    */
   const isMine = useCallback((i: BoardItem) => {
-    if (i.assignee?.kind !== "human") return false;
-    const me = user?.username?.toLowerCase();
-    if (!me) return false;
-    return i.assignee.id?.toLowerCase() === me || i.assignee.name?.toLowerCase() === me;
-  }, [user?.username]);
+    if (i.assignee?.kind !== "human" || myHandles.size === 0) return false;
+    return myHandles.has((i.assignee.id ?? "").toLowerCase())
+        || myHandles.has((i.assignee.name ?? "").toLowerCase());
+  }, [myHandles]);
 
   /** How many rows are mine. Counted over the loaded board, so it is only shown
    *  when that board is every lane — see the option below. */
@@ -1360,7 +1373,7 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
           }}>
           <option value="all">Anyone</option>
           {/* Only counted when the board holds every lane, or it under-reports. */}
-          {user?.username && (
+          {myHandles.size > 0 && (
             <option value="mine">👤 Mine{lane === "all" && mineCount ? ` (${mineCount})` : ""}</option>
           )}
           <option value="unassigned">Nobody yet</option>
