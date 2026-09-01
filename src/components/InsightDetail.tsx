@@ -27,12 +27,15 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Bot, User, AlertTriangle, Loader2, CheckCircle2,
-  Clock, Target, Building2, HelpCircle, ClipboardList, ArrowDown,
+  Clock, Target, Building2, HelpCircle, ClipboardList, ArrowDown, FlaskConical,
 } from "lucide-react";
 import InsightThread, { COMPOSER_ID } from "@/components/InsightThread";
 import InsightActions from "@/components/InsightActions";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
+/** Posting into the thread must go through the proxy — it is what stamps who is
+ *  speaking. Same rule, and the same reason, as InsightThread and InsightActions. */
+const PROXY_URL = "/api/bot";
 const ACCENT = "#e98d20";
 
 interface Milestone { label: string; done?: boolean }
@@ -110,6 +113,8 @@ export default function InsightDetail({ insightId }: { insightId: string }) {
   const [error, setError] = useState<string | null>(null);
   /** Bumped after an action so the thread re-reads the message it just posted. */
   const [reloadToken, setReloadToken] = useState(0);
+  /** Held through the navigation to /research, so the button cannot be double-fired. */
+  const [researching, setResearching] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -128,6 +133,55 @@ export default function InsightDetail({ insightId }: { insightId: string }) {
   useEffect(() => { load(); }, [load]);
 
   const onChanged = useCallback(() => { load(); setReloadToken(t => t + 1); }, [load]);
+
+  /**
+   * Hand this insight to the research pipeline.
+   *
+   * The question is written and then *not* launched. A finding is not a question
+   * — handing one straight to the pipeline buys twenty tool calls of the agent
+   * restating the problem — and the composer's "Improve" pass exists precisely to
+   * catch that before the minutes are spent. The person who pressed the button is
+   * also the one who knows which part of the finding is the real unknown, and
+   * they cannot say so if the run has already started.
+   *
+   * A note goes into the conversation first, for the same reason InsightActions
+   * posts before it closes: `POST /admin/research` writes an `agent_jobs` row,
+   * and `agent_jobs` has no `insight_id` — only `agent_work` does. Without the
+   * note the report finishes somewhere this insight could never point at. The
+   * thread is where that story already lives, so this needs no schema change.
+   */
+  const researchSolution = useCallback(async () => {
+    if (!insight || researching) return;
+    setResearching(true);
+
+    const body = (insight.body ?? "").trim();
+    // Truncated because the whole thing rides in a URL, and because a 4,000-word
+    // write-up pasted into the question box buries the question inside it.
+    const context = body.length > 1500 ? `${body.slice(0, 1500)}\n…(truncated)` : body;
+    const question = [
+      "What is the best-evidenced way to act on this, and what should we expect it to be worth?",
+      "",
+      `Finding (${insight.section}, filed by ${insight.agent_name ?? "an agent"}): ${insight.title}`,
+      context,
+    ].filter(Boolean).join("\n");
+
+    // Best-effort: failing to annotate must not strand somebody on this page.
+    // Who is speaking is stamped by the proxy — see IDENTITY_STAMPED.
+    await fetch(`${PROXY_URL}/admin/insights/${insight.id}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "note",
+        body: "Taking this to Research — the report will land in the research library.",
+        replies_to: null,
+      }),
+    }).catch(() => {});
+
+    // A finding worth investigating is worth more than 3 tool calls and less than
+    // the 40 a landscape survey costs. The composer can change it.
+    const qs = new URLSearchParams({ q: question, insight: insight.id, depth: "standard" });
+    window.location.href = `/research?${qs.toString()}`;
+  }, [insight, researching]);
 
   /**
    * The banner's Answer button focuses the one composer rather than opening a
@@ -336,9 +390,34 @@ export default function InsightDetail({ insightId }: { insightId: string }) {
         insightId={insight.id}
         status={insight.status}
         assigneeLabel={assignee}
+        sectionLabel={insight.section}
         dueDate={insight.due_date}
         onChanged={onChanged}
       />
+
+      {/*
+        Deliberately outside InsightActions, and it is not a fifth tab there.
+        Those four discharge an ask that was made of you; this one says the
+        opposite — that nobody yet knows enough to act, and the next move is to
+        go and find out. Mixing it in would blur the test that component's
+        docblock sets for what belongs on this page.
+      */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", margin: "0.75rem 0 1rem" }}>
+        <button onClick={researchSolution} disabled={researching}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "7px 13px", minHeight: 34, borderRadius: 8,
+            background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.33)",
+            color: "#a78bfa", fontSize: "12px", fontWeight: 700,
+            cursor: researching ? "not-allowed" : "pointer", opacity: researching ? 0.6 : 1,
+          }}>
+          {researching ? <Loader2 size={12} className="animate-spin" /> : <FlaskConical size={12} />}
+          Research a solution
+        </button>
+        <span style={{ fontSize: "10.5px", color: "#64748b" }}>
+          Opens the composer with a question written from this finding — nothing runs until you send it.
+        </span>
+      </div>
 
       {insight.human_task?.completion_notes && (
         <div style={{

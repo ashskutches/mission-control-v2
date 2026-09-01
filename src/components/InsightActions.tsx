@@ -46,6 +46,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import {
   CheckCircle2, Ban, CalendarClock, CornerUpLeft, Loader2, X, Bot, User, Inbox,
+  Sparkles, Bell, BellOff,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
@@ -53,7 +54,17 @@ const PROXY_URL = "/api/bot";
 const ACCENT = "#e98d20";
 
 type Panel = "done" | "handback" | "snooze" | "dismiss" | null;
-type HandbackTarget = { kind: "nobody" } | { kind: "human"; username: string } | { kind: "agent"; id: string; name: string };
+/**
+ * `auto` is not a fourth kind of destination — it is declining to pick one.
+ * `POST /admin/insights/:id/assign` with an empty body routes to the section's
+ * lead agent, which is the only target a person cannot name from this panel
+ * because it depends on a mapping the page does not hold.
+ */
+type HandbackTarget =
+  | { kind: "nobody" }
+  | { kind: "auto" }
+  | { kind: "human"; username: string }
+  | { kind: "agent"; id: string; name: string };
 
 interface Agent { id: string; name: string }
 interface TeamMember { discord_id: string; username: string; display_name?: string | null }
@@ -64,6 +75,9 @@ export interface InsightActionsProps {
   status: string;
   /** Who holds it now, for the hand-back copy. Null when nobody does. */
   assigneeLabel: string | null;
+  /** The insight's section, named in the auto-pick option so "whoever leads it"
+   *  says which area it is routing by rather than asking for blind trust. */
+  sectionLabel?: string | null;
   /** Existing due date, ISO, so the snooze field opens on what is already set. */
   dueDate: string | null;
   /** Re-read the insight and the thread after anything lands. */
@@ -86,7 +100,7 @@ function endOfDay(days: number): string {
 }
 
 export default function InsightActions({
-  insightId, status, assigneeLabel, dueDate, onChanged,
+  insightId, status, assigneeLabel, sectionLabel = null, dueDate, onChanged,
 }: InsightActionsProps) {
   const [panel, setPanel] = useState<Panel>(null);
   const [note, setNote] = useState("");
@@ -96,6 +110,8 @@ export default function InsightActions({
   const [agents, setAgents] = useState<Agent[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [date, setDate] = useState(toDateInput(dueDate));
+  /** Whether a human target gets the Discord DM. Agents and the board never do. */
+  const [notify, setNotify] = useState(true);
 
   useEffect(() => { setDate(toDateInput(dueDate)); }, [dueDate]);
 
@@ -170,17 +186,32 @@ export default function InsightActions({
    */
   const handBack = () => run(async () => {
     await say("redirect", note.trim());
-    if (target.kind === "agent") {
-      await post(`${PROXY_URL}/admin/insights/${insightId}/assign`, {
-        force_agent_id: target.id, force_agent_name: target.name,
-      });
+
+    // Resolved rather than assumed: on `auto` the server picks the section lead
+    // and tells us who it picked, and /reassign has to be told the same name or
+    // the insight ends up labelled with whichever agent filed it.
+    let agentId: string | null = target.kind === "agent" ? target.id : null;
+    let agentName: string | null = target.kind === "agent" ? target.name : null;
+
+    if (target.kind === "agent" || target.kind === "auto") {
+      const assigned = await post(`${PROXY_URL}/admin/insights/${insightId}/assign`,
+        target.kind === "agent"
+          ? { force_agent_id: target.id, force_agent_name: target.name }
+          : {});
+      agentId = assigned?.agent_id ?? agentId;
+      agentName = assigned?.agent_name ?? agentName;
+      if (!agentId) throw new Error("No agent covers this section — pick one explicitly.");
     }
+
     await post(`${PROXY_URL}/admin/pipeline/${insightId}/reassign`, {
       item_type: "insight",
-      agent_id: target.kind === "agent" ? target.id : null,
-      agent_name: target.kind === "agent" ? target.name : null,
+      agent_id: agentId,
+      agent_name: agentName,
       human_username: target.kind === "human" ? target.username : null,
-      notify: target.kind === "human",
+      // Only a person can be notified, and only if the sender wants them to be.
+      // A silent handover is a real choice — telling somebody in the room and
+      // then also DMing them is how people learn to ignore the DMs.
+      notify: target.kind === "human" && notify,
     });
   });
 
@@ -327,6 +358,8 @@ export default function InsightActions({
               <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 9 }}>
                 {pick(target.kind === "nobody", () => setTarget({ kind: "nobody" }),
                   <><Inbox size={11} /> Back to the board</>)}
+                {pick(target.kind === "auto", () => setTarget({ kind: "auto" }),
+                  <><Sparkles size={11} /> Whoever leads {sectionLabel ?? "this area"}</>)}
                 {team.map(m => pick(
                   target.kind === "human" && target.username === m.username,
                   () => setTarget({ kind: "human", username: m.username }),
@@ -338,7 +371,43 @@ export default function InsightActions({
                   <><Bot size={11} /> {a.name}</>,
                 ))}
               </div>
-              {field("Why is this not yours? e.g. Ryan owns supplier pricing, not me.", 2)}
+              {/* The prompt follows who holds it. "Why is this not yours?" is the
+                  right question for an assignee declining an ask and the wrong one
+                  for anybody routing an insight nobody ever held — which is most of
+                  the board. */}
+              {field(
+                assigneeLabel
+                  ? "Why is this not yours? e.g. Ryan owns supplier pricing, not me."
+                  : "Why them? e.g. Ryan owns supplier pricing.",
+                2,
+              )}
+
+              {/* Only a person can be DM'd, so the toggle only appears for one. */}
+              {target.kind === "human" && (
+                <button type="button" onClick={() => setNotify(n => !n)} disabled={busy}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 9, width: "100%",
+                    marginTop: 9, padding: "8px 11px", borderRadius: 8, textAlign: "left",
+                    cursor: busy ? "not-allowed" : "pointer",
+                    background: notify ? "rgba(34,197,94,0.06)" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${notify ? "rgba(34,197,94,0.3)" : "rgba(255,255,255,0.08)"}`,
+                  }}>
+                  <span style={{
+                    width: 30, height: 17, borderRadius: 9, flexShrink: 0, position: "relative",
+                    background: notify ? "#22c55e" : "rgba(255,255,255,0.15)",
+                  }}>
+                    <span style={{
+                      position: "absolute", top: 2, width: 13, height: 13, borderRadius: "50%",
+                      background: "#fff", left: notify ? 15 : 2, transition: "left 0.15s",
+                    }} />
+                  </span>
+                  {notify ? <Bell size={12} color="#22c55e" /> : <BellOff size={12} color="#475569" />}
+                  <span style={{ fontSize: "11px", color: notify ? "#22c55e" : "#64748b", fontWeight: 700 }}>
+                    {notify ? "DM them a link to this page" : "Hand it over silently"}
+                  </span>
+                </button>
+              )}
+
               <div style={{ marginTop: 9 }}>
                 {confirm(
                   target.kind === "nobody" ? "Put it back" : "Hand it over",

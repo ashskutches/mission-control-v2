@@ -32,7 +32,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   FlaskConical, Loader2, Send, Bot, ChevronDown, AlertCircle, Bell,
-  Sparkles, Check, Undo2, HelpCircle, CornerDownRight, FileText, X,
+  Sparkles, Check, Undo2, HelpCircle, CornerDownRight, FileText, X, Link2,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3000";
@@ -97,6 +97,8 @@ export default function ResearchComposer({
   onLaunched,
   followUp = null,
   onClearFollowUp,
+  fromInsight = null,
+  onClearInsight,
 }: {
   agents: AgentDef[];
   onLaunched: () => void;
@@ -111,6 +113,17 @@ export default function ResearchComposer({
    */
   followUp?: { id: string; title: string } | null;
   onClearFollowUp?: () => void;
+  /**
+   * An insight handed over by "Research a solution" on /pipeline/<id>.
+   *
+   * The question arrives written but NOT launched. A finding is not a question,
+   * and the person who pressed the button is the one who knows which part of it
+   * is the real unknown — so this seeds the box and leaves both "Improve" and the
+   * cursor available. Launching straight from the board would spend the minutes
+   * and the tool calls before anyone had read what was being asked.
+   */
+  fromInsight?: { id: string; question: string; depth?: string } | null;
+  onClearInsight?: () => void;
 }) {
   const [question, setQuestion] = useState("");
   const [depth, setDepth] = useState<string>("standard");
@@ -125,6 +138,22 @@ export default function ResearchComposer({
   const [refinement, setRefinement] = useState<Refinement | null>(null);
   const [undoTo, setUndoTo] = useState<string | null>(null);
   const [refineError, setRefineError] = useState<string | null>(null);
+
+  /**
+   * Seed the box from an insight handed over by the board.
+   *
+   * Keyed on the insight id, not on `fromInsight` itself, so a re-render cannot
+   * overwrite an edit in progress: arriving from a different insight re-seeds,
+   * typing does not.
+   */
+  useEffect(() => {
+    if (!fromInsight) return;
+    setQuestion(fromInsight.question);
+    if (fromInsight.depth && DEPTHS.some(d => d.id === fromInsight.depth)) setDepth(fromInsight.depth);
+    setRefinement(null);
+    setUndoTo(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromInsight?.id]);
 
   // The roster is best-effort: the endpoint answers with [] when the bot is offline
   // or DISCORD_GUILD_ID is unset, and the control simply doesn't render.
@@ -245,11 +274,13 @@ export default function ResearchComposer({
       <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12 }}>
         {followUp ? <CornerDownRight size={14} color={ACCENT} /> : <FlaskConical size={14} color={ACCENT} />}
         <p style={{ fontSize: 13, fontWeight: 800, color: "#e2e8f0", margin: 0 }}>
-          {followUp ? "Follow-up investigation" : "New investigation"}
+          {followUp ? "Follow-up investigation" : fromInsight ? "Researching an insight" : "New investigation"}
         </p>
         <span style={{ fontSize: 10.5, color: "#475569" }}>
           {followUp
             ? "The earlier report is supplied to the agent — ask what comes next."
+            : fromInsight
+            ? "Written from the finding, not launched. Read it, sharpen it, then send it."
             : "Ask a question. You get a cited report, not a chat reply."}
         </span>
 
@@ -273,6 +304,33 @@ export default function ResearchComposer({
           {refining ? "Improving…" : "Improve with AI"}
         </button>
       </div>
+
+      {/* Where the question came from, and the way back to it. The insight's own
+          conversation already records that this was sent to research; this is the
+          other half of that link, so the run never looks like it came from nowhere. */}
+      {fromInsight && !followUp && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8, marginBottom: 8,
+          padding: "8px 11px", borderRadius: 10,
+          background: "rgba(233,141,32,0.06)",
+          border: "1px solid rgba(233,141,32,0.26)",
+        }}>
+          <Link2 size={11} color="#e98d20" style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: 10.5, color: "#94a3b8", minWidth: 0 }}>
+            From an insight —{" "}
+            <a href={`/pipeline/${fromInsight.id}`} style={{ color: "#e2e8f0", fontWeight: 700 }}>
+              open it
+            </a>
+            . The question below is a draft written from the finding; edit it before you launch.
+          </span>
+          {onClearInsight && (
+            <button onClick={onClearInsight} disabled={busy} title="Ask this as a standalone question instead"
+              style={{ marginLeft: "auto", flexShrink: 0, background: "none", border: "none", cursor: busy ? "not-allowed" : "pointer", color: "#475569" }}>
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* What this run is built on. Always visible while it is set, because the
           question you write means something different when the agent has already

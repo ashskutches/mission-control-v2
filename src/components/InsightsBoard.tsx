@@ -548,7 +548,7 @@ function AssignModal({
     try {
       if (tab === "agent") {
         const forced = selected === "__auto__" ? null : selected;
-        const res = await fetch(`${BOT_URL}/admin/insights/${item.id}/assign`, {
+        const res = await fetch(`${PROXY_URL}/admin/insights/${item.id}/assign`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(forced
@@ -675,14 +675,26 @@ function AssignModal({
 }
 
 // ── Expanded detail ───────────────────────────────────────────────────────────
-function RowDetail({ item, accent, onAssign, onDismiss, onComplete, onDue, busy }: {
+function RowDetail({ item, accent, onAssign, onClose, onDue, busy }: {
   item: BoardItem; accent: string;
-  onAssign: () => void; onDismiss: () => void; onComplete: () => void;
+  onAssign: () => void;
+  /** Close it out. The note is required — see the note on `closeOut` below. */
+  onClose: (action: "completed" | "dismissed", note: string) => void;
   onDue: (iso: string | null) => void;
   busy: boolean;
 }) {
   const metricEntries = Object.entries(item.metrics ?? {}).filter(([, v]) => v != null && v !== "");
   const [copied, setCopied] = useState(false);
+  /**
+   * Which close is being written, if either. Done and Dismiss stopped being
+   * one-click on this board deliberately: a row closed with no account of why is
+   * a row nobody can explain a month later, and — because the note is what
+   * reaches `insight_feedback` — a decision the agents never learn from. The
+   * detail page has asked for a note since InsightActions shipped; this is the
+   * surface where most closing actually happens.
+   */
+  const [closing, setClosing] = useState<"completed" | "dismissed" | null>(null);
+  const [note, setNote] = useState("");
 
   const copyBody = async () => {
     // The markdown, not the rendered text: what people paste this into is
@@ -832,10 +844,12 @@ function RowDetail({ item, accent, onAssign, onDismiss, onComplete, onDue, busy 
         <button disabled={busy} onClick={onAssign} style={btn(`${accent}1a`, accent)}>
           {item.assignee ? <><RefreshCw size={11} /> Reassign</> : <><Bot size={11} /> Assign</>}
         </button>
-        <button disabled={busy} onClick={onComplete} style={btn("rgba(34,197,94,0.08)", "#22c55e")}>
+        <button disabled={busy} onClick={() => { setClosing(c => c === "completed" ? null : "completed"); setNote(""); }}
+          style={btn(closing === "completed" ? "rgba(34,197,94,0.18)" : "rgba(34,197,94,0.08)", "#22c55e")}>
           <CheckCircle2 size={11} /> Done
         </button>
-        <button disabled={busy} onClick={onDismiss} style={btn("rgba(255,255,255,0.03)", "#64748b")}>
+        <button disabled={busy} onClick={() => { setClosing(c => c === "dismissed" ? null : "dismissed"); setNote(""); }}
+          style={btn(closing === "dismissed" ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.03)", "#64748b")}>
           <Ban size={11} /> Dismiss
         </button>
         {/*
@@ -857,6 +871,58 @@ function RowDetail({ item, accent, onAssign, onDismiss, onComplete, onDue, busy 
           {" · "}{item.type.replace(/_/g, " ")} · {item.occurrences > 1 ? `reported ${item.occurrences}×` : "reported once"}
         </span>
       </div>
+
+      {/*
+        The account of the decision. It is posted to the insight's conversation
+        and to /feedback in one go — see closeOut in the board below for why the
+        second one is the whole point.
+      */}
+      {closing && (
+        <div style={{
+          marginTop: 10, padding: "10px 12px", borderRadius: 9,
+          background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.08)",
+        }}>
+          <p style={{ fontSize: "10.5px", color: "#64748b", margin: "0 0 7px", lineHeight: 1.55 }}>
+            {closing === "completed"
+              ? "What was actually done? The agent that filed this reads it before it analyses the section again."
+              : "Why is this not worth doing? This is the only way the agents stop filing more like it."}
+          </p>
+          <textarea
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            disabled={busy}
+            rows={2}
+            placeholder={closing === "completed"
+              ? "e.g. Built the flow in Klaviyo, live since Tuesday."
+              : "e.g. We tried this in March — the lift did not survive a holdout."}
+            style={{
+              width: "100%", resize: "vertical", padding: "7px 9px", borderRadius: 7,
+              background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)",
+              color: "#cbd5e1", fontSize: "12px", fontFamily: "inherit", lineHeight: 1.5, outline: "none",
+            }} />
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+            <button
+              disabled={busy || !note.trim()}
+              onClick={() => { onClose(closing, note.trim()); setClosing(null); setNote(""); }}
+              style={{
+                padding: "6px 13px", borderRadius: 7, border: "none",
+                cursor: busy || !note.trim() ? "not-allowed" : "pointer",
+                background: !note.trim() ? "rgba(255,255,255,0.05)" : closing === "completed" ? "#22c55e" : "#64748b",
+                color: !note.trim() ? "#475569" : "#0b1220",
+                fontSize: "11.5px", fontWeight: 800,
+              }}>
+              {closing === "completed" ? "Mark it done" : "Dismiss it"}
+            </button>
+            <button disabled={busy} onClick={() => { setClosing(null); setNote(""); }}
+              style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569", fontSize: "11px" }}>
+              Cancel
+            </button>
+            {!note.trim() && (
+              <span style={{ fontSize: "10.5px", color: "#334155" }}>A reason is required.</span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1065,7 +1131,7 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
   const assign = async (item: BoardItem, agentId: string | null, agentName: string | null, humanUsername: string | null, notify: boolean) => {
     setBusyId(item.id);
     try {
-      await fetch(`${BOT_URL}/admin/pipeline/${item.id}/reassign`, {
+      await fetch(`${PROXY_URL}/admin/pipeline/${item.id}/reassign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ item_type: "insight", agent_id: agentId, agent_name: agentName, human_username: humanUsername, notify }),
@@ -1074,7 +1140,15 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
     } finally { setBusyId(null); }
   };
 
-  /** Set or clear a due date. Null clears it; the server rejects anything unparseable. */
+  /**
+   * Set or clear a due date. Null clears it; the server rejects anything unparseable.
+   *
+   * Left on BOT_URL rather than the proxy, matching `snooze()` in InsightActions:
+   * PATCH carries no identity stamp and a due date records no actor, so routing
+   * it through the proxy would buy nothing but a hop. Assign, reassign and the
+   * two closes all attach a person's name to a decision, which is why those go
+   * the other way.
+   */
   const setDue = async (item: BoardItem, iso: string | null) => {
     setBusyId(item.id);
     try {
@@ -1087,15 +1161,33 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
     } finally { setBusyId(null); }
   };
 
-  const setStatus = async (item: BoardItem, status: "dismissed" | "resolved") => {
+  /**
+   * Close a row out, the same way InsightActions does it on the detail page.
+   *
+   * This used to be `PATCH /admin/insights/:id` with a canned
+   * "Dismissed from the Insights list." Three routes can resolve an insight and
+   * only `/feedback` writes an `insight_feedback` row carrying `section_id` —
+   * which is what `get_section_feedback` filters on, the tool an agent calls
+   * before analysing a section again. Closing any other way teaches the agents
+   * nothing, and the table shows it: the newest row in `insight_feedback` was
+   * written 2026-06-21, by the UI this board replaced. Ten weeks of decisions
+   * went to a column nothing reads.
+   *
+   * Speech first, decision second, as on the detail page: `completion_notes` is
+   * not injected into an agent's next run but the thread is, and posting before
+   * the close means a failure at the second step cannot lose the words.
+   */
+  const closeOut = async (item: BoardItem, action: "completed" | "dismissed", note: string) => {
     setBusyId(item.id);
     try {
-      await fetch(`${BOT_URL}/admin/insights/${item.id}`, {
-        method: "PATCH",
+      const body = JSON.stringify({ kind: "decision", body: note });
+      await fetch(`${PROXY_URL}/admin/insights/${item.id}/messages`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body,
+      });
+      await fetch(`${PROXY_URL}/admin/insights/${item.id}/feedback`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(status === "dismissed"
-          ? { status, dismissed_reason: "Dismissed from the Insights list." }
-          : { status }),
+        body: JSON.stringify({ action, note }),
       });
       await fetchBoard();
     } finally { setBusyId(null); }
@@ -1487,8 +1579,7 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
                             accent={accent}
                             busy={busyId === item.id}
                             onAssign={() => setAssignItem(item)}
-                            onDismiss={() => setStatus(item, "dismissed")}
-                            onComplete={() => setStatus(item, "resolved")}
+                            onClose={(action, note) => closeOut(item, action, note)}
                             onDue={iso => setDue(item, iso)}
                           />
                         </td>
