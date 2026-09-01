@@ -148,6 +148,66 @@ const DUE_STYLE: Record<BoardDue["state"], { color: string; bg: string; border: 
   none: null,
 };
 
+/**
+ * ── The colour of a row ──────────────────────────────────────────────────────
+ *
+ * Ash's ask, in full: *"there should be some colors to one that is assigned, due
+ * this week, overdue — so at a glance we can see where insights are instead of
+ * having to read the status."* A board you have to read cell by cell is a board
+ * you skim and then stop opening.
+ *
+ * **One colour per row, most urgent wins.** The states are deliberately ordered
+ * and deliberately few — four, plus the absence of one. Every extra band costs
+ * the reader a lookup, and the whole point is that the scan needs no lookup.
+ *
+ *   red    overdue                — past a date somebody committed to
+ *   amber  an agent is waiting    — the only row asking the reader for something
+ *   orange due inside a week      — or inside the last fifth of its window
+ *   blue   somebody is on it      — assigned or executing, nothing imminent
+ *   —      nobody has it          — no stripe at all
+ *
+ * **Nothing is coloured green, and nothing on track glows.** Same rule as the
+ * Due chip: a board where most rows are lit is a board you stop reading colour
+ * on, so "fine" is the absence of a signal rather than a reassuring one. And
+ * unassigned draws nothing, which is what makes 52 unclaimed rows visibly bare
+ * beside 25 that somebody owns.
+ *
+ * **The colour is never the only carrier of the fact.** The Due chip, the
+ * `needs you` chip and the Assignee column all still say it in words — colour
+ * that cannot be read by everyone must be redundant, not load-bearing.
+ *
+ * ⚠️ `due_this_week` is the ONE calendar-based threshold in this file, and it
+ * does not replace `due_soon`. `due_soon` is the last 20% of the allotted window
+ * (utils/insight-due.ts, and the reasoning there for why a fixed number of days
+ * is wrong at both ends); this is "it lands within seven days", which is the
+ * horizon a person actually plans a week against. A row satisfying either one is
+ * orange, so a long-running item still warns before its window closes and a
+ * short one is not silent just because its window is barely used.
+ */
+const ROW_STATE = {
+  overdue:   { color: "#f43f5e", label: "Overdue" },
+  needs_you: { color: "#e98d20", label: "Waiting on a person" },
+  due_week:  { color: "#fb923c", label: "Due this week" },
+  assigned:  { color: "#38bdf8", label: "Someone's on it" },
+  idle:      { color: null,      label: "Nobody has it" },
+} as const;
+
+type RowStateKey = keyof typeof ROW_STATE;
+
+/** Days inside which a due date counts as "this week". */
+const THIS_WEEK_DAYS = 7;
+
+function rowState(item: BoardItem): RowStateKey {
+  if (item.due.state === "overdue") return "overdue";
+  if (item.waiting_on_human) return "needs_you";
+  if (
+    item.due.state === "due_soon" ||
+    (item.due.days_remaining != null && item.due.days_remaining <= THIS_WEEK_DAYS)
+  ) return "due_week";
+  if (item.assignee || item.work) return "assigned";
+  return "idle";
+}
+
 function dueLabel(due: BoardDue): string {
   const d = due.days_remaining;
   if (d == null) return "—";
@@ -1225,6 +1285,42 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
         </div>
       )}
 
+      {/*
+        The key to the stripes. Read-only on purpose: the lateness tabs above
+        already filter on overdue / due soon / undated, and a second set of
+        controls that filters on nearly-but-not-quite the same predicate is how
+        two filters end up disagreeing in front of somebody.
+
+        Counted from the rows actually on screen, so the numbers always describe
+        the list underneath rather than the whole board — the opposite choice
+        from the value summary above, which reports the board on purpose.
+      */}
+      {items.length > 0 && (
+        <div style={{ display: "flex", gap: "0.85rem", flexWrap: "wrap", alignItems: "center", marginBottom: "0.6rem", padding: "0 0.15rem" }}>
+          {(Object.keys(ROW_STATE) as (keyof typeof ROW_STATE)[]).map(key => {
+            const { color, label } = ROW_STATE[key];
+            const count = items.filter(i => rowState(i) === key).length;
+            if (!count) return null;
+            return (
+              <span key={key} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "10.5px", color: "#64748b" }}>
+                <span style={{
+                  width: 3, height: 12, borderRadius: 2,
+                  // No stripe is itself a state, and the key has to show that as
+                  // an absence rather than invent a grey band for it.
+                  background: color ?? "transparent",
+                  border: color ? "none" : "1px dashed rgba(255,255,255,0.14)",
+                }} />
+                <strong style={{ color: color ?? "#475569", fontWeight: 800 }}>{count}</strong> {label.toLowerCase()}
+              </span>
+            );
+          })}
+          <span title="Overdue outranks everything, then a question waiting on a person, then a date inside seven days or the last fifth of its window, then simply having an owner. Nothing on track is coloured — a board where most rows glow is one you stop reading colour on."
+            style={{ display: "inline-flex", alignItems: "center", cursor: "help" }}>
+            <Info size={10} color="#334155" />
+          </span>
+        </div>
+      )}
+
       {focusMissing && (
         <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "0.7rem 0.9rem", marginBottom: "0.8rem", display: "flex", alignItems: "center", gap: 8 }}>
           <Info size={13} color="#64748b" />
@@ -1275,13 +1371,32 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
                 const open = expanded === item.id;
                 const riskColor = RISK_COLOR[item.risk_tier ?? ""] ?? "#64748b";
                 const effort = item.effort.tier ? EFFORT_LABEL[item.effort.tier] : null;
+                /*
+                  Where this row stands, as a colour. See ROW_STATE above for the
+                  order and why there are only four. A deep-linked row keeps the
+                  accent stripe instead: focus is transient and says "this is the
+                  one you clicked", which for as long as it lasts outranks
+                  anything the row is telling you about itself.
+                */
+                const state = ROW_STATE[rowState(item)];
+                const stripe = item.id === focusId ? accent : state.color;
                 return (
                   <React.Fragment key={item.id}>
                     <tr id={`insight-${item.id}`} onClick={() => setExpanded(open ? null : item.id)}
+                      title={item.id === focusId ? undefined : state.label}
                       style={{
                         borderBottom: "1px solid rgba(255,255,255,0.03)", cursor: "pointer",
-                        background: item.id === focusId ? `${accent}0f` : open ? "rgba(255,255,255,0.02)" : "transparent",
-                        boxShadow: item.id === focusId ? `inset 2px 0 0 ${accent}` : undefined,
+                        // The tint is deliberately at the edge of visible — enough to
+                        // group a band of rows when you unfocus your eyes, not enough
+                        // to fight the text on top of it.
+                        background: item.id === focusId
+                          ? `${accent}0f`
+                          : open
+                          ? "rgba(255,255,255,0.02)"
+                          : stripe
+                          ? `${stripe}0a`
+                          : "transparent",
+                        boxShadow: stripe ? `inset 3px 0 0 ${stripe}` : undefined,
                       }}>
                       <td style={{ ...td, paddingRight: 0, color: "#475569" }}>
                         {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
