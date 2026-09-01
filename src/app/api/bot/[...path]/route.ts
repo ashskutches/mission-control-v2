@@ -94,6 +94,13 @@ const ADMIN_ONLY = [/^admin\/team\/[^/]+\/permission$/];
 const IDENTITY_STAMPED: { pattern: RegExp; fields: { id: string; name: string } }[] = [
     { pattern: /^admin\/insights\/[^/]+\/messages$/, fields: { id: "author_id", name: "author_name" } },
     { pattern: /^admin\/insights$/, fields: { id: "recorded_by_id", name: "recorded_by" } },
+    // Closing, dismissing or handing back an insight is a decision with a name on
+    // it, and the DM'd teammate acting on their own assignment is exactly the
+    // person a client-supplied name would misattribute. `completed_by` on the
+    // pipeline route defaulted to "ash" server-side, so every close read as the
+    // founder's.
+    { pattern: /^admin\/insights\/[^/]+\/feedback$/, fields: { id: "actor_id", name: "actor_name" } },
+    { pattern: /^admin\/pipeline\/[^/]+\/reassign$/, fields: { id: "actor_id", name: "actor_name" } },
 ];
 
 async function proxy(req: NextRequest, path: string[]) {

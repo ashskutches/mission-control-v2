@@ -213,7 +213,20 @@ function EventRow({ e }: { e: Event }) {
 }
 
 // ── The thread ────────────────────────────────────────────────────────────────
-export default function InsightThread({ insightId }: { insightId: string }) {
+/** The composer's anchor. The "needs you" banner at the top of the page scrolls
+ *  here rather than duplicating a reply box — one composer, one `kind` picker,
+ *  one place an answer is written. */
+export const COMPOSER_ID = "insight-composer";
+
+export default function InsightThread({ insightId, reloadToken = 0 }: {
+  insightId: string;
+  /**
+   * Bumped by the page when an action posted something — closing an insight with
+   * a note writes a message, and a 20s poll would leave the person who just typed
+   * it looking at a thread that does not contain it.
+   */
+  reloadToken?: number;
+}) {
   const [data, setData] = useState<Timeline | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -239,6 +252,9 @@ export default function InsightThread({ insightId }: { insightId: string }) {
   }, [insightId]);
 
   useEffect(() => { load(); }, [load]);
+  // Re-read on demand, quietly — the rows are already on screen and a spinner
+  // over them reads as a page reload rather than an arriving message.
+  useEffect(() => { if (reloadToken) load(true); }, [reloadToken, load]);
 
   // Poll quietly. A teammate answering in Discord expects to see it appear here.
   useEffect(() => {
@@ -384,6 +400,7 @@ export default function InsightThread({ insightId }: { insightId: string }) {
 
         <div style={{ display: "flex", gap: 7, alignItems: "flex-end" }}>
           <textarea
+            id={COMPOSER_ID}
             value={body}
             onChange={e => setBody(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send(); }}

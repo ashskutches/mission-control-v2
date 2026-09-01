@@ -2,12 +2,19 @@
 /**
  * InsightDetail — the header above an insight's conversation.
  *
- * Deliberately thin. Everything that acts on an insight — assigning it, changing
- * its status, reading the board around it — already works on `/pipeline`, and
+ * Deliberately thin. Reading the board around an insight, sorting it, filtering
+ * it, running an analysis — all of that already works on `/pipeline`, and
  * duplicating it here is how the last detail page reached a thousand lines and
  * then got deleted. This answers three questions and then gets out of the way:
- * what is this, who is on it, and where has the work got to. The conversation
- * below is the part that is new.
+ * what is this, who is on it, and where has the work got to.
+ *
+ * What it does now also carry is the *ask*, and the means to discharge it —
+ * `InsightActions`, and the question pinned above the fold. That is not a
+ * softening of the rule above: three DMs send a person to this address and two of
+ * them say "mark complete", so a page that could not was making a liar of every
+ * one of them, and the follow-up sweep kept re-sending the reminder because
+ * nothing here could close the task. See the docblock on InsightActions for what
+ * is deliberately still only on the board.
  *
  * The money is rendered through the server's `value` object, never the raw
  * `estimated_monthly_value` column. A `claimed` figure and a `measured` one are
@@ -20,9 +27,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Bot, User, AlertTriangle, Loader2, CheckCircle2,
-  Clock, Target, Building2,
+  Clock, Target, Building2, HelpCircle, ClipboardList, ArrowDown,
 } from "lucide-react";
-import InsightThread from "@/components/InsightThread";
+import InsightThread, { COMPOSER_ID } from "@/components/InsightThread";
+import InsightActions from "@/components/InsightActions";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
 const ACCENT = "#e98d20";
@@ -37,7 +45,12 @@ interface Work {
 interface HumanTask {
   id: string; title: string; assigned_username: string | null; assigned_to: string | null;
   status: string; completion_notes: string | null; followup_count: number | null;
+  /** What the assignment DM said to do. It existed nowhere on this page before. */
+  instructions: string | null;
 }
+/** An agent stopped, waiting on a person. Same rule as the board's chip — the
+ *  server shares latestOpenQuestion() between the two so they cannot disagree. */
+interface WaitingOnHuman { id: string; question: string; asked_at: string; agent_name: string }
 /** Mirrors buildValue() in gravity-claw's utils/insight-board.ts. */
 interface Value { amount: number | null; source: "measured" | "claimed" | null; basis: string | null }
 interface Insight {
@@ -50,6 +63,7 @@ interface Insight {
   due_date: string | null;
   due_set_at: string | null;
   value: Value; work: Work | null; human_task: HumanTask | null;
+  waiting_on_human: WaitingOnHuman | null;
 }
 
 /**
@@ -94,6 +108,8 @@ export default function InsightDetail({ insightId }: { insightId: string }) {
   const [insight, setInsight] = useState<Insight | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** Bumped after an action so the thread re-reads the message it just posted. */
+  const [reloadToken, setReloadToken] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -110,6 +126,21 @@ export default function InsightDetail({ insightId }: { insightId: string }) {
   }, [insightId]);
 
   useEffect(() => { load(); }, [load]);
+
+  const onChanged = useCallback(() => { load(); setReloadToken(t => t + 1); }, [load]);
+
+  /**
+   * The banner's Answer button focuses the one composer rather than opening a
+   * second reply box. Two places to type an answer is two places for it to be
+   * half-written, and the composer already picks `answer` and threads onto the
+   * open question by itself.
+   */
+  const goToComposer = () => {
+    const el = document.getElementById(COMPOSER_ID);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    (el as HTMLTextAreaElement).focus({ preventScroll: true });
+  };
 
   if (loading) {
     return (
@@ -143,6 +174,44 @@ export default function InsightDetail({ insightId }: { insightId: string }) {
       <Link href="/pipeline" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#64748b", fontSize: "12px", textDecoration: "none", marginBottom: "0.9rem" }}>
         <ArrowLeft size={13} /> All insights
       </Link>
+
+      {/*
+        ── The ask, above everything ──
+        A person who followed a DM here was asked something, and the question was
+        previously findable only by scrolling a merged timeline to the bottom.
+        The question outranks the title: what this insight is matters less, to
+        this reader, than what is being waited on.
+      */}
+      {insight.waiting_on_human && (
+        <div style={{
+          background: `${ACCENT}12`, border: `1px solid ${ACCENT}44`, borderRadius: 12,
+          padding: "0.85rem 0.95rem", marginBottom: "1rem",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6, flexWrap: "wrap" }}>
+            <HelpCircle size={13} color={ACCENT} />
+            <span style={{ fontSize: "12px", fontWeight: 800, color: ACCENT }}>
+              {insight.waiting_on_human.agent_name} is waiting on you
+            </span>
+            <span style={{ fontSize: "10px", color: "#64748b" }}>
+              asked {new Date(insight.waiting_on_human.asked_at).toLocaleString()}
+            </span>
+          </div>
+          <p style={{ fontSize: "13px", color: "#e2e8f0", margin: "0 0 9px", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+            {insight.waiting_on_human.question}
+          </p>
+          <button onClick={goToComposer}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "8px 14px", minHeight: 36, borderRadius: 8, border: "none",
+              background: ACCENT, color: "#0b1220", fontSize: "12px", fontWeight: 800, cursor: "pointer",
+            }}>
+            <ArrowDown size={12} /> Answer it
+          </button>
+          <span style={{ fontSize: "10.5px", color: "#64748b", marginLeft: 10 }}>
+            or just reply to the Discord DM — both land in the same place
+          </span>
+        </div>
+      )}
 
       {/* ── What is this ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
@@ -237,6 +306,40 @@ export default function InsightDetail({ insightId }: { insightId: string }) {
         )}
       </div>
 
+      {/*
+        What the DM actually asked for. `human_tasks.instructions` is written when
+        an insight is assigned to a person and was sent only in the DM — somebody
+        who scrolled past that message arrived here with no copy of the ask, on
+        the page the ask told them to open.
+      */}
+      {insight.human_task?.instructions && insight.human_task.status !== "done" && (
+        <div style={{
+          background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)",
+          borderRadius: 12, padding: "0.8rem 0.9rem", marginBottom: "1rem",
+        }}>
+          <p style={{ fontSize: "9.5px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px", display: "flex", alignItems: "center", gap: 5 }}>
+            <ClipboardList size={10} /> What you were asked to do
+          </p>
+          <p style={{ fontSize: "12.5px", color: "#cbd5e1", margin: 0, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+            {insight.human_task.instructions}
+          </p>
+          {(insight.human_task.followup_count ?? 0) > 0 && (
+            <p style={{ fontSize: "10.5px", color: "#fb923c", margin: "7px 0 0" }}>
+              Reminded {insight.human_task.followup_count}× — closing this, or handing it
+              back, is what stops them.
+            </p>
+          )}
+        </div>
+      )}
+
+      <InsightActions
+        insightId={insight.id}
+        status={insight.status}
+        assigneeLabel={assignee}
+        dueDate={insight.due_date}
+        onChanged={onChanged}
+      />
+
       {insight.human_task?.completion_notes && (
         <div style={{
           background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)",
@@ -251,7 +354,7 @@ export default function InsightDetail({ insightId }: { insightId: string }) {
         </div>
       )}
 
-      <InsightThread insightId={insight.id} />
+      <InsightThread insightId={insight.id} reloadToken={reloadToken} />
     </div>
   );
 }
