@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getSpace } from "@/app/lib/spaces";
+import { useRole } from "@/app/lib/useRole";
 import { MarkdownMessage } from "@/components/MarkdownMessage";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
@@ -972,6 +973,10 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
   const [sort, setSort] = useState<SortKey>("risk");
   const [dueFilter, setDueFilter] = useState<DueFilter>("all");
   const [assignee, setAssignee] = useState<string>("all");
+  /** Who is looking. Only the identity is wanted here — the write controls are
+   *  gated by the proxy, not by this. Null on a break-glass password session,
+   *  which is why the Mine option is conditional rather than always rendered. */
+  const { user } = useRole();
   const [recording, setRecording] = useState(false);
   // A manual analysis run, and whether one is in flight. Only offered inside a
   // space — "run every space at once" is a different and much more expensive
@@ -1037,6 +1042,27 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
       }
     })();
   }, []);
+
+  /**
+   * Is this row mine?
+   *
+   * `assignee.id` for a human is `human_tasks.assigned_to`, which is the username
+   * the assigning UI sent — not a Discord snowflake, because the DM lookup
+   * resolves the snowflake server-side from the username. So the comparison is
+   * against the session's username, with the display name as a fallback for rows
+   * written before that was consistent. Case-insensitive: Discord usernames are,
+   * and a row that does not match its owner is worse than one that over-matches.
+   */
+  const isMine = useCallback((i: BoardItem) => {
+    if (i.assignee?.kind !== "human") return false;
+    const me = user?.username?.toLowerCase();
+    if (!me) return false;
+    return i.assignee.id?.toLowerCase() === me || i.assignee.name?.toLowerCase() === me;
+  }, [user?.username]);
+
+  /** How many rows are mine. Counted over the loaded board, so it is only shown
+   *  when that board is every lane — see the option below. */
+  const mineCount = useMemo(() => (board?.items ?? []).filter(isMine).length, [board, isMine]);
 
   /**
    * Search, lateness and assignee are all filtered here rather than on the
@@ -1112,11 +1138,13 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
       if (dueFilter === "undated" && i.due.state !== "none") return false;
 
       if (assignee === "unassigned" && i.assignee) return false;
-      if (assignee !== "all" && assignee !== "unassigned" && i.assignee?.id !== assignee) return false;
+      if (assignee === "mine" && !isMine(i)) return false;
+      if (assignee !== "all" && assignee !== "unassigned" && assignee !== "mine"
+          && i.assignee?.id !== assignee) return false;
 
       return true;
     });
-  }, [board, search, dueFilter, assignee]);
+  }, [board, search, dueFilter, assignee, isMine]);
 
   /** Everyone and everything currently holding a row, for the assignee filter. */
   const assignees = useMemo(() => {
@@ -1315,7 +1343,15 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
           })}
         </div>
 
-        <select value={assignee} onChange={e => setAssignee(e.target.value)}
+        <select value={assignee}
+          onChange={e => {
+            const v = e.target.value;
+            setAssignee(v);
+            // "Mine" that hides half of mine is worse than no filter at all. The
+            // board defaults to the business lane, so an insight handed to you in
+            // ops — plumbing, a broken integration — would simply not be there.
+            if (v === "mine") setLane("all");
+          }}
           title="Filter by who is on it"
           style={{
             background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
@@ -1323,6 +1359,10 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
             fontSize: "11.5px", outline: "none", cursor: "pointer", fontFamily: "inherit",
           }}>
           <option value="all">Anyone</option>
+          {/* Only counted when the board holds every lane, or it under-reports. */}
+          {user?.username && (
+            <option value="mine">👤 Mine{lane === "all" && mineCount ? ` (${mineCount})` : ""}</option>
+          )}
           <option value="unassigned">Nobody yet</option>
           {assignees.map(a => (
             <option key={a.id} value={a.id}>{a.kind === "agent" ? "🤖" : "👤"} {a.name}</option>
