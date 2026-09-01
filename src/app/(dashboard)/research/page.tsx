@@ -453,6 +453,28 @@ export default function ResearchPage() {
   const [followUp, setFollowUp] = useState<{ id: string; title: string } | null>(null);
   const composerRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * An insight handed over by "Research a solution" on /pipeline/<id>.
+   *
+   * Read from window.location rather than useSearchParams: the latter opts a
+   * statically-prerendered route into client-only rendering, which replaced a
+   * whole page with its Suspense fallback once already (see Command Center).
+   *
+   * The query string is then stripped with replaceState, so a refresh — or the
+   * back button after a launch — does not silently re-seed the box with a
+   * question the person has already asked and edited away.
+   */
+  const [fromInsight, setFromInsight] = useState<{ id: string; question: string; depth?: string } | null>(null);
+
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const id = sp.get("insight");
+    const q = sp.get("q");
+    if (!id || !q) return;
+    setFromInsight({ id, question: q, depth: sp.get("depth") ?? undefined });
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
   const startFollowUp = useCallback((item: ResearchItem) => {
     setFollowUp({ id: item.id, title: item.title });
     // The library is long and the composer is above the fold only on a short one.
@@ -560,7 +582,9 @@ export default function ResearchPage() {
           agents={agents}
           followUp={followUp}
           onClearFollowUp={() => setFollowUp(null)}
-          onLaunched={() => { setFollowUp(null); fetchData(true); }}
+          fromInsight={fromInsight}
+          onClearInsight={() => setFromInsight(null)}
+          onLaunched={() => { setFollowUp(null); setFromInsight(null); fetchData(true); }}
         />
       </div>
 

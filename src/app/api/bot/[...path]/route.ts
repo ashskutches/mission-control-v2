@@ -71,6 +71,49 @@ const STRIP_RESPONSE = new Set([
 const ADMIN_ONLY = [/^admin\/team\/[^/]+\/permission$/];
 
 /**
+ * Insight writes: closed to guests, open to teammate and above.
+ *
+ * `methods` is the point of the shape — the GETs beside these must stay open, or
+ * the detail page cannot render for the person it was built for.
+ *
+ * ## Why teammate and not admin
+ *
+ * The obvious-looking rule is "only the owner directs work", and it is wrong here.
+ * `/pipeline` was opened to teammates precisely so a teammate DM'd a question by
+ * `ask_human` could open the insight and discharge it, and `InsightActions` — Mark
+ * done, Hand back, Set a date, Dismiss — is that feature. Every one of those four
+ * lands on a path below. Gating them to admin would 403 the assignee on their own
+ * assignment and put the follow-up sweep back to re-sending a reminder nobody can
+ * act on, which is the exact failure that feature was built to end.
+ *
+ * What is actually being closed is the tier that cannot see this page at all. A
+ * guest has no /pipeline route, but the proxy is a route of its own, and before
+ * this it forwarded a guest's POST to any of these with the admin key attached.
+ * Membership of the Discord is not authority to close somebody else's finding.
+ *
+ * ⚠️ This only bites for traffic that comes through this proxy. While
+ * NEXT_PUBLIC_BOT_URL points straight at gravity-claw, a write sent the direct way
+ * reaches none of it — see the DEPLOY ORDER note at the bottom, still on step 2.
+ */
+const NOT_GUESTS: { pattern: RegExp; methods?: string[] }[] = [
+    // Hand back — to an agent (via /assign, the only route that creates the work
+    // row) or to a person by DM.
+    { pattern: /^admin\/insights\/[^/]+\/assign$/, methods: ["POST"] },
+    { pattern: /^admin\/pipeline\/[^/]+\/reassign$/, methods: ["POST"] },
+    // Mark done and Dismiss. /feedback is the path that writes section_id, which
+    // is what get_section_feedback filters on.
+    { pattern: /^admin\/insights\/[^/]+\/feedback$/, methods: ["POST"] },
+    { pattern: /^admin\/pipeline\/[^/]+\/complete$/, methods: ["POST"] },
+    // Set a date, and the rest of the editable columns.
+    { pattern: /^admin\/insights\/[^/]+$/, methods: ["PATCH", "DELETE"] },
+    // Board-wide, and irreversible for everyone. Admin, not teammate.
+    { pattern: /^admin\/insights\/(sweep|purge)$/, methods: ["POST"] },
+];
+
+/** The two board-wide ones above are owner-only despite living in that list. */
+const ADMIN_ONLY_WRITES = [/^admin\/insights\/(sweep|purge)$/];
+
+/**
  * Paths where the proxy stamps WHO is speaking, overriding whatever the client
  * sent.
  *
@@ -127,6 +170,24 @@ async function proxy(req: NextRequest, path: string[]) {
     if (role !== "admin" && ADMIN_ONLY.some((r) => r.test(upstreamPath))) {
         return NextResponse.json(
             { error: "Forbidden", detail: "Admin access is required to change permissions." },
+            { status: 403 },
+        );
+    }
+    if (role !== "admin" && ADMIN_ONLY_WRITES.some((r) => r.test(upstreamPath))) {
+        return NextResponse.json(
+            { error: "Forbidden", detail: "Only an admin can clear the board." },
+            { status: 403 },
+        );
+    }
+    if (
+        role === "guest" &&
+        NOT_GUESTS.some((r) => r.pattern.test(upstreamPath) && (!r.methods || r.methods.includes(req.method)))
+    ) {
+        return NextResponse.json(
+            {
+                error: "Forbidden",
+                detail: "Changing an insight needs dashboard access. Ask Ash to add you to the team directory.",
+            },
             { status: 403 },
         );
     }
