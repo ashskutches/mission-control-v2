@@ -44,6 +44,7 @@
  * account of what was done is a row nobody can explain a month later.
  */
 import React, { useState, useCallback, useEffect } from "react";
+import { useRole } from "@/app/lib/useRole";
 import {
   CheckCircle2, Ban, CalendarClock, CornerUpLeft, Loader2, X, Bot, User, Inbox,
   Sparkles, Bell, BellOff,
@@ -102,6 +103,23 @@ function endOfDay(days: number): string {
 export default function InsightActions({
   insightId, status, assigneeLabel, sectionLabel = null, dueDate, onChanged,
 }: InsightActionsProps) {
+  /**
+   * Dismissing is admin-only; the other three are not.
+   *
+   * Finishing the thing you were asked to do is yours to record. Deciding the
+   * finding was never worth doing is a judgement about the business — and it is
+   * the one that teaches the filing agent to stop raising that kind of thing, so
+   * a well-meaning "this isn't for me" quietly retrains the section. Hand back
+   * is the honest move there, and it stays open to everyone.
+   *
+   * Hidden rather than shown-and-refused: an admin-only button that 403s on
+   * click teaches people the page is flaky. The proxy refuses it regardless —
+   * see isDismissal in api/bot/[...path]/route.ts — because a hidden button is
+   * not a permission check.
+   */
+  const { role, loaded: roleLoaded } = useRole();
+  const canDismiss = roleLoaded && role === "admin";
+
   const [panel, setPanel] = useState<Panel>(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -133,6 +151,12 @@ export default function InsightActions({
   }, [panel, agents.length, team.length]);
 
   const open = (p: Panel) => { setPanel(p === panel ? null : p); setNote(""); setError(null); };
+
+  // The tier arrives after first paint, so a dismiss panel opened from a stale
+  // render would otherwise stay on screen for someone who may not use it.
+  useEffect(() => {
+    if (!canDismiss && panel === "dismiss") setPanel(null);
+  }, [canDismiss, panel]);
 
   /** POST helper that surfaces the server's own message — these routes explain themselves. */
   const post = useCallback(async (url: string, body: unknown, method = "POST") => {
@@ -319,7 +343,7 @@ export default function InsightActions({
         {tab("done", "Mark done", CheckCircle2, "#22c55e")}
         {tab("handback", "Hand back", CornerUpLeft, "#38bdf8")}
         {tab("snooze", dueDate ? "Change the date" : "Set a date", CalendarClock, "#94a3b8")}
-        {tab("dismiss", "Dismiss", Ban, "#64748b")}
+        {canDismiss && tab("dismiss", "Dismiss", Ban, "#64748b")}
         {panel && (
           <button onClick={() => open(null)} disabled={busy}
             style={{

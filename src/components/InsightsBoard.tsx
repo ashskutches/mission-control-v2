@@ -676,13 +676,20 @@ function AssignModal({
 }
 
 // ── Expanded detail ───────────────────────────────────────────────────────────
-function RowDetail({ item, accent, onAssign, onClose, onDue, busy }: {
+function RowDetail({ item, accent, onAssign, onClose, onDue, busy, canDismiss }: {
   item: BoardItem; accent: string;
   onAssign: () => void;
   /** Close it out. The note is required — see the note on `closeOut` below. */
   onClose: (action: "completed" | "dismissed", note: string) => void;
   onDue: (iso: string | null) => void;
   busy: boolean;
+  /**
+   * Admin. Marking something done records what you did; dismissing it decides
+   * the finding was never worth doing, which is the owner's call — and the one
+   * that teaches the filing agent to stop raising that kind of thing. Hidden
+   * rather than shown-and-refused, and the proxy refuses it either way.
+   */
+  canDismiss: boolean;
 }) {
   const metricEntries = Object.entries(item.metrics ?? {}).filter(([, v]) => v != null && v !== "");
   const [copied, setCopied] = useState(false);
@@ -849,10 +856,12 @@ function RowDetail({ item, accent, onAssign, onClose, onDue, busy }: {
           style={btn(closing === "completed" ? "rgba(34,197,94,0.18)" : "rgba(34,197,94,0.08)", "#22c55e")}>
           <CheckCircle2 size={11} /> Done
         </button>
-        <button disabled={busy} onClick={() => { setClosing(c => c === "dismissed" ? null : "dismissed"); setNote(""); }}
-          style={btn(closing === "dismissed" ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.03)", "#64748b")}>
-          <Ban size={11} /> Dismiss
-        </button>
+        {canDismiss && (
+          <button disabled={busy} onClick={() => { setClosing(c => c === "dismissed" ? null : "dismissed"); setNote(""); }}
+            style={btn(closing === "dismissed" ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.03)", "#64748b")}>
+            <Ban size={11} /> Dismiss
+          </button>
+        )}
         {/*
           The way into the conversation. Assigning, closing and dismissing are
           list actions and stay here; talking to whoever is working it is not
@@ -976,7 +985,9 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
   /** Who is looking. Only the identity is wanted here — the write controls are
    *  gated by the proxy, not by this. Null on a break-glass password session,
    *  which is why the Mine option is conditional rather than always rendered. */
-  const { user } = useRole();
+  const { user, role, loaded: roleLoaded } = useRole();
+  /** See the note on RowDetail's prop of the same name. */
+  const canDismiss = roleLoaded && role === "admin";
   const [recording, setRecording] = useState(false);
   // A manual analysis run, and whether one is in flight. Only offered inside a
   // space — "run every space at once" is a different and much more expensive
@@ -1633,6 +1644,7 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
                             busy={busyId === item.id}
                             onAssign={() => setAssignItem(item)}
                             onClose={(action, note) => closeOut(item, action, note)}
+                            canDismiss={canDismiss}
                             onDue={iso => setDue(item, iso)}
                           />
                         </td>

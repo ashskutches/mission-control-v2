@@ -114,6 +114,35 @@ const NOT_GUESTS: { pattern: RegExp; methods?: string[] }[] = [
 const ADMIN_ONLY_WRITES = [/^admin\/insights\/(sweep|purge)$/];
 
 /**
+ * Killing a finding is the owner's call; finishing one is not.
+ *
+ * Marking an insight done and dismissing it are the same route with a different
+ * word in the body — `POST /admin/insights/:id/feedback`, action `completed` or
+ * `dismissed` — so this is the one rule that cannot be expressed as a path and a
+ * verb. A teammate discharging the ask they were DM'd is the whole reason the
+ * page exists; deciding the finding was never worth doing is a judgement about
+ * the business, and it is also the one that teaches the filing agent to stop
+ * raising that kind of thing. 175 of the last 200 insights ended dismissed, so
+ * this is not a rare branch.
+ *
+ * `rejected` maps to the same terminal status upstream and is gated with it, or
+ * the rule would be one synonym from being bypassed.
+ */
+const ADMIN_ONLY_ACTIONS = new Set(["dismissed", "rejected"]);
+
+/** Does this body dismiss something? True for either route that can. */
+function isDismissal(upstreamPath: string, body: Record<string, unknown>): boolean {
+    if (/^admin\/insights\/[^/]+\/feedback$/.test(upstreamPath)) {
+        return ADMIN_ONLY_ACTIONS.has(String(body.action ?? ""));
+    }
+    // The board's older path, and anything else setting the column directly.
+    if (/^admin\/insights\/[^/]+$/.test(upstreamPath)) {
+        return String(body.status ?? "") === "dismissed";
+    }
+    return false;
+}
+
+/**
  * Paths where the proxy stamps WHO is speaking, overriding whatever the client
  * sent.
  *
@@ -216,23 +245,43 @@ async function proxy(req: NextRequest, path: string[]) {
         const stamped = req.method === "POST"
             ? IDENTITY_STAMPED.find((r) => r.pattern.test(upstreamPath))
             : undefined;
-        if (stamped) {
-            if (!session?.user) {
+
+        // The dismissal rule reads the body, so on the routes that can carry one
+        // the body is parsed up front and reused — reading it twice is not an
+        // option, `req.arrayBuffer()` can only be consumed once.
+        const mayDismiss = /^admin\/insights\/[^/]+(\/feedback)?$/.test(upstreamPath);
+
+        if (stamped || mayDismiss) {
+            let parsed: Record<string, unknown> = {};
+            try { parsed = JSON.parse(new TextDecoder().decode(await req.arrayBuffer()) || "{}"); }
+            catch { return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 }); }
+
+            if (role !== "admin" && isDismissal(upstreamPath, parsed)) {
                 return NextResponse.json(
                     {
-                        error: "No identity on this session",
-                        detail: "Signing your name to something on an insight requires a Discord sign-in, not a password session.",
+                        error: "Forbidden",
+                        detail: "Only an admin can dismiss an insight. Mark it done if you finished it, or hand it back if it is not yours.",
                     },
                     { status: 403 },
                 );
             }
-            let parsed: Record<string, unknown> = {};
-            try { parsed = JSON.parse(new TextDecoder().decode(await req.arrayBuffer()) || "{}"); }
-            catch { return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 }); }
-            // Overwrite rather than default — a client that sent an author is
-            // either confused or lying, and both are corrected the same way.
-            parsed[stamped.fields.id] = session.user.id;
-            parsed[stamped.fields.name] = session.user.username;
+
+            if (stamped) {
+                if (!session?.user) {
+                    return NextResponse.json(
+                        {
+                            error: "No identity on this session",
+                            detail: "Signing your name to something on an insight requires a Discord sign-in, not a password session.",
+                        },
+                        { status: 403 },
+                    );
+                }
+                // Overwrite rather than default — a client that sent an author is
+                // either confused or lying, and both are corrected the same way.
+                parsed[stamped.fields.id] = session.user.id;
+                parsed[stamped.fields.name] = session.user.username;
+            }
+
             init.body = JSON.stringify(parsed);
             headers.set("content-type", "application/json");
         } else {
