@@ -68,7 +68,15 @@ const STRIP_RESPONSE = new Set([
  * Upstream paths only an admin session may reach through this proxy. Kept as patterns
  * rather than a prefix so widening it is a deliberate edit.
  */
-const ADMIN_ONLY = [/^admin\/team\/[^/]+\/permission$/];
+const ADMIN_ONLY = [
+    /^admin\/team\/[^/]+\/permission$/,
+    // Closing a limitation out on /agent-behavior. It asserts that a capability
+    // gap no longer exists, which only the person who built the tool or granted
+    // the access can know — and a wrongly-closed one silently removes the
+    // evidence that the same wall keeps being hit. Reading the page stays open to
+    // the team (lib/access.ts); this one write does not.
+    /^admin\/agent-behavior\/limitations\/[^/]+$/,
+];
 
 /**
  * Insight writes: closed to guests, open to teammate and above.
@@ -163,7 +171,22 @@ function isDismissal(upstreamPath: string, body: Record<string, unknown>): boole
  * writing down what somebody said in a standup is two different people and
  * flattening them loses the attribution the feature exists to capture.
  */
-const IDENTITY_STAMPED: { pattern: RegExp; fields: { id: string; name: string } }[] = [
+/**
+ * `optional: true` means "stamp the name if there is one, but do not refuse the
+ * request when there is not".
+ *
+ * The default is the stricter reading, and it is right for a thread message: an
+ * unsigned message on a shared record is worse than a missing one, so a
+ * break-glass password session — which carries no Discord identity — is turned
+ * away rather than attributed to nobody.
+ *
+ * Dispatching an insight to an agent is not that. The action is legitimate
+ * whoever is doing it; we simply may not know their name, and the upstream route
+ * already renders an unknown actor as an unqualified "Work assigned to X"
+ * instead of inventing one. Refusing it would 403 the owner on a password login
+ * for the sake of a byline.
+ */
+const IDENTITY_STAMPED: { pattern: RegExp; fields: { id: string; name: string }; optional?: boolean }[] = [
     { pattern: /^admin\/insights\/[^/]+\/messages$/, fields: { id: "author_id", name: "author_name" } },
     { pattern: /^admin\/insights$/, fields: { id: "recorded_by_id", name: "recorded_by" } },
     // Closing, dismissing or handing back an insight is a decision with a name on
@@ -173,6 +196,15 @@ const IDENTITY_STAMPED: { pattern: RegExp; fields: { id: string; name: string } 
     // founder's.
     { pattern: /^admin\/insights\/[^/]+\/feedback$/, fields: { id: "actor_id", name: "actor_name" } },
     { pattern: /^admin\/pipeline\/[^/]+\/reassign$/, fields: { id: "actor_id", name: "actor_name" } },
+    // Sending an insight to an agent. `approved_by` on this route defaulted to
+    // the literal string "ash", so every agent assignment in every insight's
+    // history read as the founder's regardless of who clicked it.
+    { pattern: /^admin\/insights\/[^/]+\/assign$/, fields: { id: "actor_id", name: "actor_name" }, optional: true },
+    // Closing out a limitation on /agent-behavior. A PATCH, not a POST — see the
+    // method check below. Optional for the same reason /assign is: the write is
+    // admin-gated either way, so a break-glass session should be able to make it
+    // without a byline rather than be refused for lacking one.
+    { pattern: /^admin\/agent-behavior\/limitations\/[^/]+$/, fields: { id: "resolved_by_id", name: "actor_name" }, optional: true },
 ];
 
 async function proxy(req: NextRequest, path: string[]) {
@@ -242,7 +274,11 @@ async function proxy(req: NextRequest, path: string[]) {
 
     const init: RequestInit = { method: req.method, headers, redirect: "manual" };
     if (req.method !== "GET" && req.method !== "HEAD") {
-        const stamped = req.method === "POST"
+        // POST and PATCH. Every entry in the table is scoped by its own path
+        // pattern, so admitting a second verb widens nothing on its own — but the
+        // check has to admit PATCH, or the limitation resolve silently loses its
+        // actor, which is the exact failure this whole mechanism exists to fix.
+        const stamped = req.method === "POST" || req.method === "PATCH"
             ? IDENTITY_STAMPED.find((r) => r.pattern.test(upstreamPath))
             : undefined;
 
@@ -267,7 +303,7 @@ async function proxy(req: NextRequest, path: string[]) {
             }
 
             if (stamped) {
-                if (!session?.user) {
+                if (!session?.user && !stamped.optional) {
                     return NextResponse.json(
                         {
                             error: "No identity on this session",
@@ -278,8 +314,11 @@ async function proxy(req: NextRequest, path: string[]) {
                 }
                 // Overwrite rather than default — a client that sent an author is
                 // either confused or lying, and both are corrected the same way.
-                parsed[stamped.fields.id] = session.user.id;
-                parsed[stamped.fields.name] = session.user.username;
+                // On an optional route with no identity behind the session, both
+                // fields are cleared to null: leaving whatever the client sent is
+                // exactly the forgery this stamp exists to prevent.
+                parsed[stamped.fields.id] = session?.user?.id ?? null;
+                parsed[stamped.fields.name] = session?.user?.username ?? null;
             }
 
             init.body = JSON.stringify(parsed);

@@ -194,15 +194,45 @@ function MessageRow({ m, answered }: { m: Message; answered: boolean }) {
   );
 }
 
+/**
+ * Events that are a PERSON'S DECISION, not machine noise, and therefore render
+ * whether or not "Show activity" is on.
+ *
+ * The events toggle exists to keep a run log from burying the two sentences
+ * that matter. That reasoning does not cover "Ryan reassigned this to Sarah":
+ * hiding it makes the thread read as though the work changed hands by itself,
+ * which is exactly the gap that made an assigned insight impossible to follow.
+ * These four are the whole set of human acts that produce an event rather than a
+ * message — assigning, unassigning, and the two ways of closing.
+ *
+ * A `human_message` is deliberately NOT here: the message itself is already
+ * rendered, so its paired event is a genuine duplicate.
+ */
+const DECISION_EVENTS = new Set([
+  "insight_assigned",
+  "insight_unassigned",
+  "insight_dismissed",
+  "insight_rejected",
+]);
+
 // ── One machine event ─────────────────────────────────────────────────────────
 // Drawn deliberately quiet. These are the spine; the speech is the content, and
 // a run log rendered at the same weight buries the two sentences that matter.
 function EventRow({ e }: { e: Event }) {
   const isBad = e.event_type === "work_blocked" || e.event_type.includes("error") || e.event_type.includes("reject");
+  /**
+   * A decision is drawn a step louder than a run-log line — brighter text, a
+   * filled marker — but still quieter than speech. It is a fact about the
+   * insight, not something anybody said, and rendering it as a message would
+   * put words in a person's mouth.
+   */
+  const isDecision = DECISION_EVENTS.has(e.event_type);
+  const color = isBad ? "#fb7185" : isDecision ? "#94a3b8" : "#475569";
+  const dot = isBad ? "#f43f5e" : isDecision ? ACCENT : "#334155";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0.2rem 0.9rem 0.2rem 0.5rem" }}>
-      <div style={{ width: 5, height: 5, borderRadius: "50%", background: isBad ? "#f43f5e" : "#334155", flexShrink: 0, marginLeft: 12 }} />
-      <span style={{ fontSize: "10.5px", color: isBad ? "#fb7185" : "#475569", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <div style={{ width: 5, height: 5, borderRadius: "50%", background: dot, flexShrink: 0, marginLeft: 12 }} />
+      <span style={{ fontSize: "10.5px", color, fontWeight: isDecision ? 600 : 400, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {e.title ?? e.event_type}
         {e.tool_name && <span style={{ color: "#334155" }}> · {e.tool_name}</span>}
         {e.run_number != null && <span style={{ color: "#334155" }}> · run {e.run_number}</span>}
@@ -313,7 +343,15 @@ export default function InsightThread({ insightId, reloadToken = 0 }: {
     }
   }
 
-  const rows = (data?.timeline ?? []).filter(r => showEvents || r._row === "message");
+  // Messages always; decisions always; the rest only behind the toggle.
+  const rows = (data?.timeline ?? []).filter(r =>
+    showEvents || r._row === "message" || DECISION_EVENTS.has(r.event_type),
+  );
+  /** How many events the toggle would actually add. Decisions already show. */
+  const hiddenEventCount = (data?.timeline ?? []).filter(
+    r => r._row === "event" && !DECISION_EVENTS.has(r.event_type),
+  ).length;
+
   const activeKind = HUMAN_KINDS.find(k => k.id === kind) ?? HUMAN_KINDS[1]!;
 
   return (
@@ -334,7 +372,7 @@ export default function InsightThread({ insightId, reloadToken = 0 }: {
             border: "1px solid rgba(255,255,255,0.08)", borderRadius: 7, padding: "3px 9px",
             fontSize: "10px", color: showEvents ? "#94a3b8" : "#475569", cursor: "pointer",
           }}>
-          {showEvents ? "Hide" : "Show"} activity ({data?.event_count ?? 0})
+          {showEvents ? "Hide" : "Show"} activity ({hiddenEventCount})
         </button>
         <button onClick={() => load()} title="Refresh"
           style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569", display: "flex" }}>

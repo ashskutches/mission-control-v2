@@ -25,7 +25,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   RefreshCw, X, ChevronDown, ChevronRight, Bot, User, Sparkles, CheckCircle2,
   Search, AlertTriangle, ArrowUpRight, Clock, Ban, Info, Lightbulb,
-  HelpCircle, MessageSquare, CalendarClock, Plus, Copy, Check, Play, Loader2,
+  HelpCircle, MessageSquare, CalendarClock, Plus, Copy, Check, Play, Loader2, UserCheck, Inbox,
 } from "lucide-react";
 import Link from "next/link";
 import { getSpace } from "@/app/lib/spaces";
@@ -105,6 +105,18 @@ interface Agent { id: string; name: string }
 interface TeamMember { discord_id: string; username: string; display_name?: string | null }
 
 type SortKey = "risk" | "value" | "effort" | "newest" | "section" | "due";
+/**
+ * Who put it on the board. NOT the same axis as `lane`, and conflating the two
+ * is easy to do because both look like two-way splits on a toolbar.
+ *
+ * `lane` is business vs ops — what KIND of thing this is. A finding that needs
+ * a decision, or system plumbing. Both lanes are almost entirely agent-filed.
+ *
+ * This is `authored.kind` — whether an agent found it or a person wrote it
+ * down. It answers "show me what the team came up with" and "show me what the
+ * machines came up with", which the lane tabs cannot answer at all.
+ */
+type SourceFilter = "all" | "agent" | "human";
 /** Lateness filter. `dated` is what you want when planning; `undated` is the backlog of undecided deadlines. */
 type DueFilter = "all" | "late" | "overdue" | "soon" | "undated";
 
@@ -524,7 +536,16 @@ function AssignModal({
   onClose: () => void;
   onAssign: (agentId: string | null, agentName: string | null, humanUsername: string | null, notify: boolean) => Promise<void>;
 }) {
-  const [tab, setTab] = useState<"agent" | "human">("agent");
+  /**
+   * Opens on whichever tab the row is NOT currently on — a row held by an
+   * agent is most often being handed to a person and the reverse — and on
+   * "agent" for an unassigned row, which is where auto-pick lives.
+   */
+  const [tab, setTab] = useState<"agent" | "human">(
+    item.assignee?.kind === "agent" ? "human" : "agent",
+  );
+  /** Handing it back to nobody. Not a third tab — see the button below. */
+  const [unassigning, setUnassigning] = useState(false);
   const [selected, setSelected] = useState<string>("__auto__");
   const [notify, setNotify] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -547,7 +568,12 @@ function AssignModal({
   const handleSave = async () => {
     setSaving(true); setErr(null);
     try {
-      if (tab === "agent") {
+      if (unassigning) {
+        // Both targets null. The server reads that as "take it off whoever has
+        // it", cancels the outgoing human_task so the follow-up sweep stops
+        // DM-ing them, and records an insight_unassigned event.
+        await onAssign(null, null, null, false);
+      } else if (tab === "agent") {
         const forced = selected === "__auto__" ? null : selected;
         const res = await fetch(`${PROXY_URL}/admin/insights/${item.id}/assign`, {
           method: "POST",
@@ -606,7 +632,7 @@ function AssignModal({
           ))}
         </div>
 
-        <div style={{ maxHeight: 300, overflowY: "auto" }}>
+        <div style={{ maxHeight: 300, overflowY: "auto", opacity: unassigning ? 0.35 : 1, pointerEvents: unassigning ? "none" : "auto" }}>
           <div style={optionStyle(selected === "__auto__", "#a78bfa")} onClick={() => setSelected("__auto__")}>
             <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(167,139,250,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <Sparkles size={14} color="#a78bfa" />
@@ -663,11 +689,58 @@ function AssignModal({
 
         {err && <p style={{ color: "#f43f5e", fontSize: "12px", marginTop: 8 }}>{err}</p>}
 
+        {/*
+          Hand it back to nobody.
+
+          A first-class action, not a failure to choose: an insight can stop
+          being somebody's as legitimately as it can become theirs, and without
+          this the only exits from a wrong assignment are dismissing the finding
+          (a judgement about the business, and admin-only) or leaving it parked
+          on whoever touched it last. Two-step rather than one-click, because it
+          silently cancels the holder's task.
+        */}
+        {item.assignee && (
+          <button onClick={() => setUnassigning(u => !u)} disabled={saving}
+            style={{
+              width: "100%", marginTop: 12, padding: "8px 12px", borderRadius: 8,
+              cursor: saving ? "not-allowed" : "pointer", textAlign: "left",
+              background: unassigning ? "rgba(244,63,94,0.1)" : "rgba(255,255,255,0.03)",
+              border: `1px solid ${unassigning ? "rgba(244,63,94,0.35)" : "rgba(255,255,255,0.07)"}`,
+              color: unassigning ? "#fb7185" : "#64748b", fontSize: "11.5px", fontWeight: 700,
+              display: "flex", alignItems: "center", gap: 7,
+            }}>
+            <Inbox size={12} />
+            {unassigning
+              ? `Confirm below to take this off ${item.assignee.name} and return it to the inbox`
+              : `Or hand it back to nobody`}
+          </button>
+        )}
+
         <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
           <button onClick={onClose} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#94a3b8", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>Cancel</button>
           <button onClick={handleSave} disabled={saving}
-            style={{ flex: 2, padding: "8px 0", borderRadius: 8, border: "none", cursor: saving ? "not-allowed" : "pointer", background: saving ? "rgba(255,255,255,0.06)" : `linear-gradient(135deg, ${accent}, ${accent}bb)`, color: saving ? "#475569" : "#fff", fontWeight: 700, fontSize: "13px" }}>
-            {saving ? "Assigning…" : "Confirm"}
+            style={{
+              flex: 2, padding: "8px 0", borderRadius: 8, border: "none",
+              cursor: saving ? "not-allowed" : "pointer",
+              background: saving
+                ? "rgba(255,255,255,0.06)"
+                : unassigning
+                ? "rgba(244,63,94,0.75)"
+                : `linear-gradient(135deg, ${accent}, ${accent}bb)`,
+              color: saving ? "#475569" : "#fff", fontWeight: 700, fontSize: "13px",
+            }}>
+            {/*
+              The button says which of the three things it is about to do.
+              "Confirm" over a modal that can assign, reassign or unassign is a
+              button you have to read the rest of the dialog to understand.
+            */}
+            {saving
+              ? (unassigning ? "Unassigning…" : "Assigning…")
+              : unassigning
+              ? "Hand it back"
+              : item.assignee
+              ? "Reassign"
+              : "Confirm"}
           </button>
         </div>
       </motion.div>
@@ -947,6 +1020,20 @@ const SORT_TABS: { key: SortKey; label: string; hint: string }[] = [
   { key: "section", label: "Section", hint: "Grouped by area of the business" },
 ];
 
+/**
+ * Filed-by tabs.
+ *
+ * Deliberately labelled "Agent" and "Team" rather than "Agentic" and "Human":
+ * the thing being named is who put the row there, and on this board that is
+ * either one of the agents or one of us. "Human" reads as a category of being
+ * rather than a colleague, and the hint says the rest.
+ */
+const SOURCE_TABS: { key: SourceFilter; label: string; hint: string; tint: string }[] = [
+  { key: "all",   label: "Anyone",  hint: "Agent-filed and team-filed together. The default.", tint: "#e2e8f0" },
+  { key: "agent", label: "Agents",  hint: "Found by an agent during an analysis run", tint: "#a78bfa" },
+  { key: "human", label: "Team",    hint: "Recorded by a person — see 'Record insight'. A manager writing down somebody else's idea counts as team-filed, and the row names both.", tint: "#22c55e" },
+];
+
 /** Lateness filter tabs. Counts come from the server's whole-board summary. */
 const DUE_TABS: { key: DueFilter; label: string; hint: string }[] = [
   { key: "all", label: "Any", hint: "No date filter" },
@@ -998,7 +1085,23 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
   // Deep links from /pipeline/<id> arrive as ?focus= and may point at any lane,
   // so start on `all` rather than silently filtering the target out.
   const [focusId, setFocusId] = useState<string | null>(null);
-  const [lane, setLane] = useState<"business" | "ops" | "all">("business");
+  /**
+   * Defaults to `all`.
+   *
+   * It used to default to `business` on the argument that ops plumbing was 46%
+   * of the board and drowned out the findings that need a decision. That
+   * argument was right about the noise and wrong about the fix: a default that
+   * hides half the rows means the count in the summary strip, the "N insights"
+   * figure and every filter applied on top of it all describe a subset nobody
+   * chose. It also made "Mine" a trap — an insight handed to you in ops was
+   * simply not there — which is why selecting Mine had to force the lane to all
+   * as a special case.
+   *
+   * The lane tabs are still here and still worth having; they are just a filter
+   * you reach for rather than one you have to notice and undo.
+   */
+  const [lane, setLane] = useState<"business" | "ops" | "all">("all");
+  const [source, setSource] = useState<SourceFilter>("all");
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [assignItem, setAssignItem] = useState<BoardItem | null>(null);
@@ -1084,6 +1187,9 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
         || myHandles.has((i.assignee.name ?? "").toLowerCase());
   }, [myHandles]);
 
+  /** The My-tickets button and the dropdown's Mine option are the same state. */
+  const mineOn = assignee === "mine";
+
   /** How many rows are mine. Counted over the loaded board, so it is only shown
    *  when that board is every lane — see the option below. */
   const mineCount = useMemo(() => (board?.items ?? []).filter(isMine).length, [board, isMine]);
@@ -1161,6 +1267,11 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
       if (dueFilter === "soon" && i.due.state !== "due_soon") return false;
       if (dueFilter === "undated" && i.due.state !== "none") return false;
 
+      // Who filed it. `authored.kind` is the server's own reading of that —
+      // see BoardAuthored, where a person recording a colleague's idea is two
+      // separate names and still one `human`.
+      if (source !== "all" && i.authored.kind !== source) return false;
+
       if (assignee === "unassigned" && i.assignee) return false;
       if (assignee === "mine" && !isMine(i)) return false;
       if (assignee !== "all" && assignee !== "unassigned" && assignee !== "mine"
@@ -1168,7 +1279,22 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
 
       return true;
     });
-  }, [board, search, dueFilter, assignee, isMine]);
+  }, [board, search, dueFilter, assignee, source, isMine]);
+
+  /**
+   * How many rows each source holds, counted over the loaded board rather than
+   * over `items` — a tab that reports the count AFTER its own filter is
+   * applied always reads as the total, which makes the other tab's number look
+   * like a bug.
+   */
+  const sourceCounts = useMemo(() => {
+    const all = board?.items ?? [];
+    return {
+      all: all.length,
+      agent: all.filter(i => i.authored.kind === "agent").length,
+      human: all.filter(i => i.authored.kind === "human").length,
+    };
+  }, [board]);
 
   /** Everyone and everything currently holding a row, for the assignee filter. */
   const assignees = useMemo(() => {
@@ -1287,7 +1413,7 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
         <div style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.03)", padding: 3, borderRadius: 9, border: "1px solid rgba(255,255,255,0.05)" }}>
           {(["business", "ops", "all"] as const).map(l => (
             <button key={l} onClick={() => setLane(l)}
-              title={l === "business" ? "Findings that need a decision" : l === "ops" ? "System plumbing — see also /blockages" : "Everything"}
+              title={l === "business" ? "Findings that need a business decision — mostly agent-filed either way. For who filed it, use the Agent/Team tabs." : l === "ops" ? "System plumbing — broken integrations, missing credentials, tool failures. See also /blockages." : "Every lane. The default."}
               style={{
                 padding: "5px 10px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: "11px",
                 fontWeight: lane === l ? 800 : 500, textTransform: "capitalize",
@@ -1367,13 +1493,86 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
           })}
         </div>
 
+        {/*
+          Who filed it. Sits beside the lateness tabs rather than next to the
+          lane tabs on purpose: those two look identical and mean different
+          things, and putting them shoulder to shoulder is how you end up
+          reading one as the other.
+        */}
+        <div style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.03)", padding: 3, borderRadius: 9, border: "1px solid rgba(255,255,255,0.05)" }}>
+          {SOURCE_TABS.map(t => {
+            const count = sourceCounts[t.key];
+            const on = source === t.key;
+            return (
+              <button key={t.key} onClick={() => setSource(t.key)} title={t.hint}
+                style={{
+                  padding: "5px 10px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: "11px",
+                  fontWeight: on ? 800 : 500,
+                  background: on ? "rgba(255,255,255,0.07)" : "transparent",
+                  color: on ? t.tint : "#64748b",
+                  display: "flex", alignItems: "center", gap: 4,
+                }}>
+                {t.key === "agent" ? <Bot size={10} /> : t.key === "human" ? <User size={10} /> : null}
+                {t.label}
+                {t.key !== "all" && count > 0 && (
+                  <span style={{ fontSize: "9px", fontWeight: 800, color: t.tint, background: `${t.tint}1a`, borderRadius: 4, padding: "0 4px" }}>{count}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/*
+          My tickets, as a button.
+
+          It is also still an option inside the select below, and the two are one
+          piece of state — a toggle that disagrees with the dropdown next to it is
+          worse than either alone. It is promoted out because "what is mine" is
+          the question people open this board to answer, and an option four items
+          down a dropdown labelled "Anyone" is not an answer to it.
+
+          Hidden on a break-glass password session: there is no Discord identity
+          behind one, so there is no "mine" to show. Rendering it anyway would
+          give a button that always returns an empty list.
+        */}
+        {myHandles.size > 0 && (
+          <button
+            onClick={() => setAssignee(a => (a === "mine" ? "all" : "mine"))}
+            title={mineOn
+              ? "Showing only insights assigned to you. Click to show everyone's."
+              : "Show only the insights assigned to you"}
+            style={{
+              display: "flex", alignItems: "center", gap: 5, cursor: "pointer",
+              borderRadius: 8, padding: "6px 11px", fontWeight: 700, fontSize: "11px",
+              background: mineOn ? `${accent}22` : "rgba(255,255,255,0.03)",
+              border: `1px solid ${mineOn ? `${accent}66` : "rgba(255,255,255,0.07)"}`,
+              color: mineOn ? accent : "#94a3b8",
+            }}>
+            <UserCheck size={12} />
+            My tickets
+            {/*
+              Only counted when the board holds every lane. It does by default
+              now, but a person who has switched to one lane would otherwise see
+              a number that quietly means "mine, in this lane".
+            */}
+            {lane === "all" && mineCount > 0 && (
+              <span style={{ fontSize: "9px", fontWeight: 800, color: mineOn ? accent : "#64748b", background: mineOn ? `${accent}1f` : "rgba(255,255,255,0.06)", borderRadius: 4, padding: "0 4px" }}>
+                {mineCount}
+              </span>
+            )}
+          </button>
+        )}
+
         <select value={assignee}
           onChange={e => {
             const v = e.target.value;
             setAssignee(v);
-            // "Mine" that hides half of mine is worse than no filter at all. The
-            // board defaults to the business lane, so an insight handed to you in
-            // ops — plumbing, a broken integration — would simply not be there.
+            // "Mine" that hides half of mine is worse than no filter at all, and
+            // the board used to default to the business lane — so an insight
+            // handed to you in ops would simply not be there. The default is now
+            // `all`, but somebody who has deliberately narrowed the lane and then
+            // asks for their own work is asking the broader question; widening it
+            // back is the reading that cannot silently lose a row.
             if (v === "mine") setLane("all");
           }}
           title="Filter by who is on it"
@@ -1393,8 +1592,8 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
           ))}
         </select>
 
-        {(dueFilter !== "all" || assignee !== "all") && (
-          <button onClick={() => { setDueFilter("all"); setAssignee("all"); }}
+        {(dueFilter !== "all" || assignee !== "all" || source !== "all" || lane !== "all") && (
+          <button onClick={() => { setDueFilter("all"); setAssignee("all"); setSource("all"); setLane("all"); }}
             style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569", fontSize: "11px", display: "flex", alignItems: "center", gap: 3 }}>
             <X size={10} /> clear filters
           </button>
@@ -1516,7 +1715,7 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
             <tbody>
               {items.length === 0 && !loading && (
                 <tr><td colSpan={colCount} style={{ padding: "3rem 1rem", textAlign: "center", color: "#334155", fontSize: "13px" }}>
-                  {search || dueFilter !== "all" || assignee !== "all"
+                  {search || dueFilter !== "all" || assignee !== "all" || source !== "all" || lane !== "all"
                     ? <>Nothing matches those filters{(board?.items?.length ?? 0) > 0 ? <> — {board?.items.length} insight{board?.items.length === 1 ? " is" : "s are"} hidden by them</> : null}.</>
                     : emptyHint ?? (section
                       ? "Nothing open in this lane. Run analysis sends this space's lead agent to look."
@@ -1617,13 +1816,45 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
                         </span>
                       </td>
                       <td style={td}>
+                        {/*
+                          Assigned or not, this cell is the way to change it.
+
+                          An assigned row used to render the holder's name as plain
+                          text, so the only route to reassigning was: notice the row
+                          expands, expand it, find Reassign. Nothing on screen said
+                          any of that, and the effect was a board where an insight
+                          could be handed out once and then looked immovable — which
+                          is exactly what "only admins can assign" feels like from
+                          the outside even when no permission is involved. Nothing
+                          here is gated: assigning has been teammate-and-above at the
+                          proxy since /pipeline opened to the team (see NOT_GUESTS in
+                          api/bot/[...path]/route.ts).
+                        */}
                         {item.assignee ? (
-                          <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "11.5px", color: "#cbd5e1" }}>
+                          <button onClick={e => { e.stopPropagation(); setAssignItem(item); }}
+                            title={`Assigned to ${item.assignee.name} — click to reassign or hand it back`}
+                            style={{
+                              display: "flex", alignItems: "center", gap: 5, fontSize: "11.5px",
+                              color: "#cbd5e1", background: "transparent", border: "1px solid transparent",
+                              borderRadius: 6, padding: "3px 7px", cursor: "pointer", fontFamily: "inherit",
+                              maxWidth: 170, textAlign: "left",
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                              e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.background = "transparent";
+                              e.currentTarget.style.borderColor = "transparent";
+                            }}>
                             {item.assignee.kind === "agent" ? <Bot size={11} color="#a78bfa" /> : <User size={11} color="#22c55e" />}
-                            {item.assignee.name}
-                          </span>
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.assignee.name}</span>
+                            {/* Only on hover, or the column reads as a row of buttons. */}
+                            <RefreshCw size={9} color="#334155" style={{ flexShrink: 0 }} />
+                          </button>
                         ) : (
                           <button onClick={e => { e.stopPropagation(); setAssignItem(item); }}
+                            title="Hand this to an agent or a person"
                             style={{ fontSize: "11px", fontWeight: 700, color: accent, background: `${accent}14`, border: `1px solid ${accent}33`, borderRadius: 6, padding: "3px 9px", cursor: "pointer" }}>
                             Assign
                           </button>
