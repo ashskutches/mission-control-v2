@@ -44,7 +44,6 @@
  * account of what was done is a row nobody can explain a month later.
  */
 import React, { useState, useCallback, useEffect } from "react";
-import { useRole } from "@/app/lib/useRole";
 import {
   CheckCircle2, Ban, CalendarClock, CornerUpLeft, Loader2, X, Bot, User, Inbox,
   Sparkles, Bell, BellOff,
@@ -104,21 +103,18 @@ export default function InsightActions({
   insightId, status, assigneeLabel, sectionLabel = null, dueDate, onChanged,
 }: InsightActionsProps) {
   /**
-   * Dismissing is admin-only; the other three are not.
+   * All four actions are open to the team. Nothing on this page is role-gated.
    *
-   * Finishing the thing you were asked to do is yours to record. Deciding the
-   * finding was never worth doing is a judgement about the business — and it is
-   * the one that teaches the filing agent to stop raising that kind of thing, so
-   * a well-meaning "this isn't for me" quietly retrains the section. Hand back
-   * is the honest move there, and it stays open to everyone.
+   * Dismiss used to be admin-only, on the argument that finishing the thing you
+   * were asked to do is yours to record while deciding a finding was never worth
+   * doing is a judgement about the business. Ash reversed it on 2026-09-03: the
+   * team could not tell that wall apart from the several genuine bugs sitting
+   * next to it, so it read as "the page will not let me" rather than as a rule.
    *
-   * Hidden rather than shown-and-refused: an admin-only button that 403s on
-   * click teaches people the page is flaky. The proxy refuses it regardless —
-   * see isDismissal in api/bot/[...path]/route.ts — because a hidden button is
-   * not a permission check.
+   * What keeps a dismissal honest is the required note, not a role — it is what
+   * reaches insight_feedback and therefore the filing agent. See the docblock on
+   * the proxy's ADMIN_ONLY_WRITES for the whole reasoning.
    */
-  const { role, loaded: roleLoaded } = useRole();
-  const canDismiss = roleLoaded && role === "admin";
 
   const [panel, setPanel] = useState<Panel>(null);
   const [note, setNote] = useState("");
@@ -151,12 +147,6 @@ export default function InsightActions({
   }, [panel, agents.length, team.length]);
 
   const open = (p: Panel) => { setPanel(p === panel ? null : p); setNote(""); setError(null); };
-
-  // The tier arrives after first paint, so a dismiss panel opened from a stale
-  // render would otherwise stay on screen for someone who may not use it.
-  useEffect(() => {
-    if (!canDismiss && panel === "dismiss") setPanel(null);
-  }, [canDismiss, panel]);
 
   /** POST helper that surfaces the server's own message — these routes explain themselves. */
   const post = useCallback(async (url: string, body: unknown, method = "POST") => {
@@ -343,7 +333,7 @@ export default function InsightActions({
         {tab("done", "Mark done", CheckCircle2, "#22c55e")}
         {tab("handback", "Hand back", CornerUpLeft, "#38bdf8")}
         {tab("snooze", dueDate ? "Change the date" : "Set a date", CalendarClock, "#94a3b8")}
-        {canDismiss && tab("dismiss", "Dismiss", Ban, "#64748b")}
+        {tab("dismiss", "Dismiss", Ban, "#64748b")}
         {panel && (
           <button onClick={() => open(null)} disabled={busy}
             style={{

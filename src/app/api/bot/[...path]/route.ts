@@ -122,33 +122,35 @@ const NOT_GUESTS: { pattern: RegExp; methods?: string[] }[] = [
 const ADMIN_ONLY_WRITES = [/^admin\/insights\/(sweep|purge)$/];
 
 /**
- * Killing a finding is the owner's call; finishing one is not.
+ * ⚠️ There is no admin-only action on an insight any more. Deliberately.
  *
- * Marking an insight done and dismissing it are the same route with a different
- * word in the body — `POST /admin/insights/:id/feedback`, action `completed` or
- * `dismissed` — so this is the one rule that cannot be expressed as a path and a
- * verb. A teammate discharging the ask they were DM'd is the whole reason the
- * page exists; deciding the finding was never worth doing is a judgement about
- * the business, and it is also the one that teaches the filing agent to stop
- * raising that kind of thing. 175 of the last 200 insights ended dismissed, so
- * this is not a rare branch.
+ * Dismissing used to be owner-only while marking done was not — the argument
+ * being that finishing the thing you were asked to do is yours to record, while
+ * deciding a finding was never worth doing is a judgement about the business.
+ * That argument is still true as a description of the two acts. It stopped being
+ * a good rule because of what it cost in practice: the team hit a wall on Dismiss
+ * and could not tell it apart from the walls that were bugs (a silently disabled
+ * confirm button, an unpushed fix, a filter that hid their own rows), so every
+ * one of those read as "the page will not let me". A permission people cannot
+ * distinguish from a fault is worse than no permission.
  *
- * `rejected` maps to the same terminal status upstream and is gated with it, or
- * the rule would be one synonym from being bypassed.
+ * Ash's call, 2026-09-03: the team can do anything with an insight. Assign,
+ * reassign, hand back, set a date, mark done, dismiss.
+ *
+ * ## What that means, and it is not nothing
+ *
+ * A dismissal writes `insight_feedback`, which is what `get_section_feedback`
+ * hands the filing agent before it analyses that section again. So a teammate
+ * dismissing something genuinely does retrain what the agents raise. The
+ * mitigation is not a role check, it is the required note — both close panels
+ * refuse an empty one, and the words go to the agent. A dismissal with a reason
+ * from whoever knows the reason is better teaching than one from whoever happens
+ * to hold the role.
+ *
+ * Still closed: `sweep` and `purge` above. Neither has a button anywhere in this
+ * app — they clear the whole board in one call — so leaving them owner-only
+ * blocks nobody and is not part of what was opened up.
  */
-const ADMIN_ONLY_ACTIONS = new Set(["dismissed", "rejected"]);
-
-/** Does this body dismiss something? True for either route that can. */
-function isDismissal(upstreamPath: string, body: Record<string, unknown>): boolean {
-    if (/^admin\/insights\/[^/]+\/feedback$/.test(upstreamPath)) {
-        return ADMIN_ONLY_ACTIONS.has(String(body.action ?? ""));
-    }
-    // The board's older path, and anything else setting the column directly.
-    if (/^admin\/insights\/[^/]+$/.test(upstreamPath)) {
-        return String(body.status ?? "") === "dismissed";
-    }
-    return false;
-}
 
 /**
  * Paths where the proxy stamps WHO is speaking, overriding whatever the client
@@ -282,44 +284,27 @@ async function proxy(req: NextRequest, path: string[]) {
             ? IDENTITY_STAMPED.find((r) => r.pattern.test(upstreamPath))
             : undefined;
 
-        // The dismissal rule reads the body, so on the routes that can carry one
-        // the body is parsed up front and reused — reading it twice is not an
-        // option, `req.arrayBuffer()` can only be consumed once.
-        const mayDismiss = /^admin\/insights\/[^/]+(\/feedback)?$/.test(upstreamPath);
-
-        if (stamped || mayDismiss) {
+        if (stamped) {
             let parsed: Record<string, unknown> = {};
             try { parsed = JSON.parse(new TextDecoder().decode(await req.arrayBuffer()) || "{}"); }
             catch { return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 }); }
 
-            if (role !== "admin" && isDismissal(upstreamPath, parsed)) {
+            if (!session?.user && !stamped.optional) {
                 return NextResponse.json(
                     {
-                        error: "Forbidden",
-                        detail: "Only an admin can dismiss an insight. Mark it done if you finished it, or hand it back if it is not yours.",
+                        error: "No identity on this session",
+                        detail: "Signing your name to something on an insight requires a Discord sign-in, not a password session.",
                     },
                     { status: 403 },
                 );
             }
-
-            if (stamped) {
-                if (!session?.user && !stamped.optional) {
-                    return NextResponse.json(
-                        {
-                            error: "No identity on this session",
-                            detail: "Signing your name to something on an insight requires a Discord sign-in, not a password session.",
-                        },
-                        { status: 403 },
-                    );
-                }
-                // Overwrite rather than default — a client that sent an author is
-                // either confused or lying, and both are corrected the same way.
-                // On an optional route with no identity behind the session, both
-                // fields are cleared to null: leaving whatever the client sent is
-                // exactly the forgery this stamp exists to prevent.
-                parsed[stamped.fields.id] = session?.user?.id ?? null;
-                parsed[stamped.fields.name] = session?.user?.username ?? null;
-            }
+            // Overwrite rather than default — a client that sent an author is
+            // either confused or lying, and both are corrected the same way.
+            // On an optional route with no identity behind the session, both
+            // fields are cleared to null: leaving whatever the client sent is
+            // exactly the forgery this stamp exists to prevent.
+            parsed[stamped.fields.id] = session?.user?.id ?? null;
+            parsed[stamped.fields.name] = session?.user?.username ?? null;
 
             init.body = JSON.stringify(parsed);
             headers.set("content-type", "application/json");

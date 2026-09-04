@@ -749,20 +749,13 @@ function AssignModal({
 }
 
 // ── Expanded detail ───────────────────────────────────────────────────────────
-function RowDetail({ item, accent, onAssign, onClose, onDue, busy, canDismiss }: {
+function RowDetail({ item, accent, onAssign, onClose, onDue, busy }: {
   item: BoardItem; accent: string;
   onAssign: () => void;
   /** Close it out. The note is required — see the note on `closeOut` below. */
   onClose: (action: "completed" | "dismissed", note: string) => void;
   onDue: (iso: string | null) => void;
   busy: boolean;
-  /**
-   * Admin. Marking something done records what you did; dismissing it decides
-   * the finding was never worth doing, which is the owner's call — and the one
-   * that teaches the filing agent to stop raising that kind of thing. Hidden
-   * rather than shown-and-refused, and the proxy refuses it either way.
-   */
-  canDismiss: boolean;
 }) {
   const metricEntries = Object.entries(item.metrics ?? {}).filter(([, v]) => v != null && v !== "");
   const [copied, setCopied] = useState(false);
@@ -929,12 +922,17 @@ function RowDetail({ item, accent, onAssign, onClose, onDue, busy, canDismiss }:
           style={btn(closing === "completed" ? "rgba(34,197,94,0.18)" : "rgba(34,197,94,0.08)", "#22c55e")}>
           <CheckCircle2 size={11} /> Done
         </button>
-        {canDismiss && (
-          <button disabled={busy} onClick={() => { setClosing(c => c === "dismissed" ? null : "dismissed"); setNote(""); }}
-            style={btn(closing === "dismissed" ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.03)", "#64748b")}>
-            <Ban size={11} /> Dismiss
-          </button>
-        )}
+        {/*
+          Open to the team, same as Done. See the proxy's ADMIN_ONLY_WRITES
+          docblock for why the role check came off — briefly: a permission the
+          team could not tell apart from the bugs sitting next to it was doing
+          more harm than the judgement call it was protecting. The required note
+          below is what keeps a dismissal honest now.
+        */}
+        <button disabled={busy} onClick={() => { setClosing(c => c === "dismissed" ? null : "dismissed"); setNote(""); }}
+          style={btn(closing === "dismissed" ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.03)", "#64748b")}>
+          <Ban size={11} /> Dismiss
+        </button>
         {/*
           The way into the conversation. Assigning, closing and dismissing are
           list actions and stay here; talking to whoever is working it is not
@@ -1072,9 +1070,7 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
   /** Who is looking. Only the identity is wanted here — the write controls are
    *  gated by the proxy, not by this. Null on a break-glass password session,
    *  which is why the Mine option is conditional rather than always rendered. */
-  const { user, role, loaded: roleLoaded } = useRole();
-  /** See the note on RowDetail's prop of the same name. */
-  const canDismiss = roleLoaded && role === "admin";
+  const { user } = useRole();
   const [recording, setRecording] = useState(false);
   // A manual analysis run, and whether one is in flight. Only offered inside a
   // space — "run every space at once" is a different and much more expensive
@@ -1158,23 +1154,42 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
   }, []);
 
   /**
-   * My own handle in the team directory — NOT `session.user.username`.
+   * Every string that could name me on a row.
    *
-   * Those are two different strings and confusing them silently breaks this
-   * filter. `human_tasks.assigned_to` holds `team_members.username`
-   * ("ashdash0629"), because that is what the assign modal sends; the session
-   * carries the Discord display name at sign-in ("Ash"). Comparing the two
-   * matches nothing and the filter just looks empty.
+   * The directory handle is the one that usually matches — `human_tasks.assigned_to`
+   * holds `team_members.username` ("ashdash0629") because that is what the assign
+   * modal sends, while the session carries the Discord display name at sign-in
+   * ("Ash"). Those are different strings, and comparing only the second matches
+   * nothing. The Discord snowflake is the stable key between them.
    *
-   * The Discord snowflake is the only key that is stable across both, so the
-   * handle is resolved through it.
+   * ⚠️ But the directory lookup is allowed to fail, and this no longer depends on
+   * it succeeding. If somebody signs in with Discord and has no `team_members`
+   * row — never added, or `active = false` — the old version produced an EMPTY
+   * set, which hid the Mine control entirely. From the outside that is
+   * indistinguishable from "I am not allowed to filter by myself", and it is
+   * exactly the kind of thing that got reported as a permissions problem when it
+   * was a missing row in a table.
+   *
+   * So the session's own id and username go in too. They are weaker matches, and
+   * that is fine: a false positive here shows you a row that is not yours, which
+   * you can see and correct. A false negative hides your own work and tells you
+   * nothing.
    */
   const myHandles = useMemo(() => {
     const row = teamMembers.find(m => m.discord_id === user?.id);
     return new Set(
-      [row?.username, row?.display_name].filter(Boolean).map(v => String(v).toLowerCase()),
+      [row?.username, row?.display_name, user?.username, user?.id]
+        .filter(Boolean)
+        .map(v => String(v).toLowerCase()),
     );
-  }, [teamMembers, user?.id]);
+  }, [teamMembers, user?.id, user?.username]);
+
+  /**
+   * Signed in with Discord but not in the team directory. Mine still works off
+   * the session handle; it just matches less reliably, and the control says so
+   * rather than quietly under-reporting.
+   */
+  const notInDirectory = !!user?.id && !teamMembers.some(m => m.discord_id === user.id);
 
   /**
    * Is this row mine? `assignee.id` for a human is that same `assigned_to`, and
@@ -1538,7 +1553,9 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
         {myHandles.size > 0 && (
           <button
             onClick={() => setAssignee(a => (a === "mine" ? "all" : "mine"))}
-            title={mineOn
+            title={notInDirectory
+              ? "Showing insights assigned to you. Heads up: you are not in the team directory, so this matches on your Discord handle alone and may miss rows assigned under a different username — ask Ash to add you on /team."
+              : mineOn
               ? "Showing only insights assigned to you. Click to show everyone's."
               : "Show only the insights assigned to you"}
             style={{
@@ -1586,11 +1603,37 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
           {myHandles.size > 0 && (
             <option value="mine">👤 Mine{lane === "all" && mineCount ? ` (${mineCount})` : ""}</option>
           )}
+          {/*
+            No identity at all — a break-glass password session. Rendered as a
+            disabled option that says why, rather than omitted: a missing choice
+            reads as a missing permission.
+          */}
+          {myHandles.size === 0 && (
+            <option value="mine" disabled>👤 Mine — sign in with Discord to use this</option>
+          )}
           <option value="unassigned">Nobody yet</option>
           {assignees.map(a => (
             <option key={a.id} value={a.id}>{a.kind === "agent" ? "🤖" : "👤"} {a.name}</option>
           ))}
         </select>
+
+        {/*
+          An empty Mine has two very different causes and they must not look the
+          same: nothing is assigned to you, or nothing CAN be because we do not
+          know which name is yours. The second one was previously invisible — the
+          control simply did not render — and got reported as a permissions bug.
+        */}
+        {mineOn && notInDirectory && (
+          <span style={{
+            fontSize: "10.5px", color: "#fb923c", display: "inline-flex", alignItems: "center",
+            gap: 5, background: "rgba(251,146,60,0.08)", border: "1px solid rgba(251,146,60,0.22)",
+            borderRadius: 7, padding: "4px 9px",
+          }}>
+            <Info size={10} />
+            You are not in the team directory, so this matches on your Discord handle only.
+            {" "}<Link href="/team" style={{ color: "#fb923c" }}>Add yourself</Link>
+          </span>
+        )}
 
         {(dueFilter !== "all" || assignee !== "all" || source !== "all" || lane !== "all") && (
           <button onClick={() => { setDueFilter("all"); setAssignee("all"); setSource("all"); setLane("all"); }}
@@ -1875,7 +1918,6 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
                             busy={busyId === item.id}
                             onAssign={() => setAssignItem(item)}
                             onClose={(action, note) => closeOut(item, action, note)}
-                            canDismiss={canDismiss}
                             onDue={iso => setDue(item, iso)}
                           />
                         </td>
