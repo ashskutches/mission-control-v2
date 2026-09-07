@@ -67,6 +67,17 @@ export const getTickets = (o: {
   status?: string; category?: string; q?: string; limit?: number; outcome?: string;
 } = {}) => req<{ total: number; tickets: any[] }>(`/tickets${qs(o)}`);
 
+/**
+ * One count per inbox filter — including the ones that are zero.
+ *
+ * The inbox lands on "Awaiting approval", which is usually near-empty while
+ * hundreds of tickets sit behind the other pills. Without a number on every
+ * pill that reads as "mail stopped arriving", which is how it got reported.
+ * Takes the same `q` / `category` as getTickets so the two agree.
+ */
+export const getTicketCounts = (o: { q?: string; category?: string } = {}) =>
+  req<Record<string, number>>(`/tickets/counts${qs(o)}`);
+
 export const getTicket = (id: string) => req<any>(`/tickets/${id}`);
 
 /**

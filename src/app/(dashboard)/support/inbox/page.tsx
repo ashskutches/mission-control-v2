@@ -9,7 +9,7 @@ import {
   Panel, Pill, Confidence, Empty, ago, Btn, Loading, ErrorBox, NotConnected, OpsMark,
   STATUS_COLOR, STATUS_LABEL, SUPPORT_ACCENT,
 } from "../ui";
-import { getTickets, getSummary, runIngest, OUTCOME_LABELS, OUTCOME_COLOR } from "../api";
+import { getTickets, getTicketCounts, getSummary, runIngest, OUTCOME_LABELS, OUTCOME_COLOR } from "../api";
 
 /**
  * `followup` is a view, not a status.
@@ -40,6 +40,7 @@ export default function SupportInbox() {
   const [rows, setRows] = useState<any[] | null>(null);
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<any>(null);
+  const [counts, setCounts] = useState<Record<string, number> | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -47,11 +48,14 @@ export default function SupportInbox() {
   const load = useCallback(async () => {
     setErr(null);
     try {
-      const [res, sum] = await Promise.all([
+      const [res, sum, cts] = await Promise.all([
         getTickets({ status: filter, q: q.trim() || undefined, limit: 200 }),
         getSummary(),
+        // Same search term as the list, so a pill count and the list it opens
+        // cannot disagree.
+        getTicketCounts({ q: q.trim() || undefined }),
       ]);
-      setRows(res.tickets); setTotal(res.total); setSummary(sum);
+      setRows(res.tickets); setTotal(res.total); setSummary(sum); setCounts(cts);
     } catch (e: any) { setErr(e.message); setRows([]); }
   }, [filter, q]);
 
@@ -79,8 +83,9 @@ export default function SupportInbox() {
       {summary?.mail?.blockers?.length > 0 && <NotConnected blockers={summary.mail.blockers} />}
       {err && <ErrorBox error={err} onRetry={load} />}
 
-      {/* Two piles of work nobody was looking at, because nothing counted them. */}
-      {(summary?.openFollowups > 0 || summary?.undeliveredReplies > 0) && (
+      {/* Three piles of work nobody was looking at, because nothing counted them. */}
+      {(summary?.openFollowups > 0 || summary?.undeliveredReplies > 0
+        || (counts?.needs_human_only ?? 0) > 0) && (
         <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", marginBottom: "1rem" }}>
           {summary.openFollowups > 0 && (
             <div onClick={() => setFilter("followup")}
@@ -105,6 +110,20 @@ export default function SupportInbox() {
               </span>
             </div>
           )}
+          {/* Neither banner above can see these: a human-only ticket has
+              ops_state `none` and no outcome, so it owes no follow-up and never
+              failed to send. It is simply a real customer waiting, unread. */}
+          {(counts?.needs_human_only ?? 0) > 0 && (
+            <div onClick={() => setFilter("needs_human_only")}
+                 style={{ ...bannerStyle("#a78bfa"), cursor: "pointer" }}>
+              <UserCheck size={13} color="#a78bfa" />
+              <span>
+                <strong>{counts!.needs_human_only}</strong> ticket
+                {counts!.needs_human_only === 1 ? "" : "s"} need
+                {counts!.needs_human_only === 1 ? "s" : ""} a human — no draft will be written
+              </span>
+            </div>
+          )}
         </div>
       )}
       {note && (
@@ -121,7 +140,11 @@ export default function SupportInbox() {
                   color={f.color ?? (f.key === "all" ? SUPPORT_ACCENT : (STATUS_COLOR[f.key] ?? SUPPORT_ACCENT))}
                   active={filter === f.key} onClick={() => setFilter(f.key)}>
               {f.label}
-              {f.key === "followup" && summary?.openFollowups > 0 && ` (${summary.openFollowups})`}
+              {/* Every pill carries its number, zero included. Showing a count
+                  only when it is non-zero is what made this unreadable: a blank
+                  "Awaiting approval" and a blank "Human only" look identical,
+                  when one is empty and the other has people waiting. */}
+              {counts && typeof counts[f.key] === "number" && ` (${counts[f.key]})`}
             </Pill>
           ))}
         </div>
@@ -172,9 +195,13 @@ export default function SupportInbox() {
          : rows.length === 0 ? (
           <Empty icon={InboxIcon} title="Nothing here"
                  body={q ? "No tickets match that search."
-                   : summary?.mail?.configured
-                     ? "No tickets in this view. Hit “Check mail” to poll the mailbox."
-                     : "No tickets yet — and no mailbox is connected, so none will arrive."} />
+                   // An empty view over a full inbox is the thing that gets
+                   // reported as "email stopped syncing". Say which it is.
+                   : (counts?.all ?? 0) > 0
+                     ? `This view is empty — but the inbox holds ${counts!.all} ticket${counts!.all === 1 ? "" : "s"}. Try another filter above.`
+                     : summary?.mail?.configured
+                       ? "No tickets in this view. Hit “Check mail” to poll the mailbox."
+                       : "No tickets yet — and no mailbox is connected, so none will arrive."} />
         ) : rows.map((t, i) => {
           const overdue = t.status === "awaiting_approval" && t.awaitingMinutes > 60;
           return (
