@@ -182,7 +182,8 @@ export const runReflection = () => post<any>("/reflect");
 export const runIngest     = () => post<any>("/ingest");
 
 export const saveSettings = (p: {
-  mailAgentId?: string; sendEnabled?: boolean; ingestEnabled?: boolean; mailQuery?: string;
+  mailAgentId?: string; sendEnabled?: boolean; ingestEnabled?: boolean;
+  mailQuery?: string; mailExclude?: string;
 }) => put<any>("/settings", p);
 export const saveAssumption = (p: { key: string; value: number; basis: string; unit?: string }) =>
   put<any>("/assumptions", p);

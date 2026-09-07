@@ -26,6 +26,7 @@ export default function SupportSettings() {
   const [busy, setBusy] = useState(false);
   const [agentId, setAgentId] = useState("");
   const [mailQuery, setMailQuery] = useState("");
+  const [mailExclude, setMailExclude] = useState("");
   const [mailboxes, setMailboxes] = useState<any[]>([]);
   const [sig, setSig] = useState<any>(null);
 
@@ -41,6 +42,7 @@ export default function SupportSettings() {
       setS(d);
       setAgentId(d.mail?.agentId ?? "");
       setMailQuery(d.mail?.mailQuery ?? "");
+      setMailExclude(d.mail?.mailExclude ?? "");
       setMailboxes(boxes);
       setSig(d.signature ?? null);
     } catch (e: any) { setErr(e.message); }
@@ -120,14 +122,15 @@ export default function SupportSettings() {
             </div>
           )}
 
-          {/* Most of the connected accounts point at info@, which is a general
-              inbox. Without a scope, every supplier email and marketing reply
-              becomes a support ticket with a drafted response waiting on you. */}
-          <label style={label}>Scope filter (Gmail search)</label>
+          {/* The noise on a general inbox is handled by the exclusion list below,
+              which fails in the harmless direction. This field is the opposite —
+              it names what to KEEP, so anything it does not name is dropped
+              silently, including real customers who wrote to another address. */}
+          <label style={label}>Scope filter (Gmail search) — usually leave empty</label>
           <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.4rem" }}>
             <input
               value={mailQuery} onChange={e => setMailQuery(e.target.value)}
-              placeholder='e.g. to:support@leapsandrebounds.com   or   label:support'
+              placeholder="empty = ingest everything the exclusions below allow"
               style={input}
             />
             <Btn size="sm" variant="outline" color={SUPPORT_ACCENT}
@@ -138,12 +141,34 @@ export default function SupportSettings() {
           </div>
           <div style={{
             fontSize: 10.5, lineHeight: 1.55, marginBottom: "1.1rem",
-            color: mailQuery.trim() ? "var(--text-muted)" : "#f5a840",
+            color: mailQuery.trim() ? "#f5a840" : "var(--text-muted)",
           }}>
             {mailQuery.trim()
-              ? "ANDed onto the poll. Only matching mail becomes a ticket."
-              : "Empty means every message in the inbox becomes a ticket — only right for an "
-                + "address that receives nothing but support. On a shared inbox like info@, set one."}
+              ? "⚠ Only mail matching this becomes a ticket. Everything else is dropped without a "
+                + "trace — including customers who wrote to a different address, got CC'd onto a "
+                + "thread, or came through the website contact form. Clear it unless you meant it."
+              : "Empty is right for almost every setup: take everything, minus the exclusions below."}
+          </div>
+
+          {/* The list the build plan called for and that never got built. */}
+          <label style={label}>Exclusions (senders and labels to ignore)</label>
+          <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.4rem" }}>
+            <input
+              value={mailExclude} onChange={e => setMailExclude(e.target.value)}
+              placeholder="-from:noreply@ -from:klaviyo.com …"
+              style={input}
+            />
+            <Btn size="sm" variant="outline" color={SUPPORT_ACCENT}
+                 disabled={busy || mailExclude === (mail.mailExclude ?? "")}
+                 onClick={() => save({ mailExclude }, "Exclusions updated.")}>
+              <Save size={11} /> Save
+            </Btn>
+          </div>
+          <div style={{ fontSize: 10.5, lineHeight: 1.55, marginBottom: "1.1rem",
+                        color: "var(--text-muted)" }}>
+            Keeps no-reply addresses, Klaviyo, Shopify notifications and platform mail out of the
+            queue. This is the safe way to quieten a shared inbox: the worst case is a supplier
+            email you delete in two seconds, rather than a customer nobody ever sees.
           </div>
 
           <Toggle
