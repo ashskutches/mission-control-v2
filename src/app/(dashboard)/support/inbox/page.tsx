@@ -77,18 +77,24 @@ export default function SupportInbox() {
     setBusy(true); setNote(null);
     try {
       const r = await runIngest();
+      // Written as a sentence rather than a row of counters. "Fetched 12: 3 new,
+      // 2 reopened, 5 duplicates" is a log line; the reader wants to know whether
+      // anything needs them.
+      const parts: string[] = [];
+      if (r.created)          parts.push(`${r.created} new ticket${r.created === 1 ? "" : "s"}`);
+      if (r.reopened)         parts.push(`${r.reopened} customer repl${r.reopened === 1 ? "y" : "ies"}`);
+      if (r.drafted)          parts.push(`${r.drafted} repl${r.drafted === 1 ? "y" : "ies"} drafted for you`);
+      if (r.ordersMatched)    parts.push(`${r.ordersMatched} linked to an order`);
+      if (r.ownRepliesLinked) parts.push(`${r.ownRepliesLinked} of your Gmail repl${r.ownRepliesLinked === 1 ? "y" : "ies"} recorded`);
+
       setNote(r.skipped
-        ? `Nothing fetched — ${r.skipped}.`
-        : [
-            `Fetched ${r.fetched}: ${r.created} new, ${r.reopened} reopened,`,
-            `${r.duplicates} already seen, ${r.drafted} drafted.`,
-            // Both counts are new work the poll now does, and both are worth
-            // seeing: an order match is why a draft is answerable at all, and a
-            // linked Gmail reply is a training pair that used to be thrown away.
-            r.ordersMatched ? `${r.ordersMatched} matched to an order.` : "",
-            r.ownRepliesLinked ? `${r.ownRepliesLinked} Gmail repl${r.ownRepliesLinked === 1 ? "y" : "ies"} linked back.` : "",
-            r.errors?.length ? `${r.errors.length} error(s).` : "",
-          ].filter(Boolean).join(" "));
+        ? (r.skipped === "ingestion disabled"
+            ? "Checking for new email is turned off — switch it on in Settings."
+            : "No mailbox is set up yet — choose one in Settings.")
+        : parts.length
+          ? `Checked the mailbox: ${parts.join(", ")}.`
+          + (r.errors?.length ? ` ${r.errors.length} item${r.errors.length === 1 ? "" : "s"} had a problem.` : "")
+          : "Checked the mailbox — nothing new.");
       await load();
     } catch (e: any) { setErr(e.message); }
     finally { setBusy(false); }
@@ -97,10 +103,10 @@ export default function SupportInbox() {
   /**
    * How long ago the mailbox was actually polled.
    *
-   * Ingestion now runs on a three-minute cron, so this should always read
-   * "just now" — which is the point. It used to run only when somebody pressed
-   * the button, and nothing anywhere said when that last happened, so a queue
-   * that was nine days stale looked exactly like a quiet one.
+   * Checking now runs on a schedule (hourly by default, set in Settings), so
+   * this should read recently. It used to run only when somebody pressed the
+   * button, and nothing anywhere said when that last happened, so a queue that
+   * was nine days stale looked exactly like a quiet one.
    */
   const lastChecked = (() => {
     const m = summary?.mail?.staleMinutes;
@@ -110,7 +116,17 @@ export default function SupportInbox() {
     if (m < 1440) return `${Math.floor(m / 60)}h ago`;
     return `${Math.floor(m / 1440)}d ago`;
   })();
-  const stale = (summary?.mail?.staleMinutes ?? 0) > 60;
+
+  /**
+   * Late enough to be a problem, judged against the configured cadence.
+   *
+   * A fixed one-hour threshold would turn amber on every single hourly cycle,
+   * which trains the reader to ignore the one time it means something. The
+   * server computes the bound from the interval (three missed cycles) so this
+   * and the Settings blocker cannot disagree about what "late" is.
+   */
+  const stale = summary?.mail?.staleMinutes != null
+    && summary.mail.staleMinutes > (summary.mail.staleAfterMinutes ?? 180);
 
   return (
     <>
@@ -226,7 +242,7 @@ export default function SupportInbox() {
                        // The cron should make this unreachable. If it is showing,
                        // the poller is the thing to look at, not the queue.
                        ? "No tickets in this view — but the mailbox has not been polled recently, so this may not be the whole picture."
-                       : "No tickets in this view. The mailbox is polled every few minutes."} />
+                       : "No tickets in this view. We check the mailbox automatically — or press “Check mail” to look right now."} />
         ) : rows.map((t, i) => {
           const overdue = t.status === "awaiting_approval" && t.awaitingMinutes > 60;
           return (

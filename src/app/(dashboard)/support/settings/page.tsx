@@ -4,6 +4,28 @@ import { Mail, Send, Download, ShieldAlert, Save, Calculator, CheckCircle2, PenL
 import { Panel, Pill, Btn, SUPPORT_ACCENT, Loading, ErrorBox } from "../ui";
 import { getSettings, saveSettings, saveAssumption, getMailboxes, saveSignature } from "../api";
 
+/**
+ * How often to check, offered as named choices rather than a number box.
+ *
+ * Hourly is the default and the recommendation. Faster does not cost more in
+ * total — the same emails get classified and drafted either way — but it does
+ * mean a half-written thread gets a draft before the customer has finished
+ * sending follow-ups, and it puts the queue in front of someone constantly.
+ * Slower than four hours starts to feel like the tool is ignoring people.
+ */
+const POLL_CHOICES = [
+  { minutes: 15,   label: "Every 15 minutes" },
+  { minutes: 30,   label: "Every 30 minutes" },
+  { minutes: 60,   label: "Once an hour (recommended)" },
+  { minutes: 240,  label: "Every 4 hours" },
+  { minutes: 1440, label: "Once a day" },
+];
+
+const POLL_LABEL: Record<number, string> = {
+  15: "every 15 minutes", 30: "every 30 minutes", 60: "once an hour",
+  240: "every 4 hours", 1440: "once a day",
+};
+
 const ASSUMPTION_META: Record<string, { label: string; unit: string; help: string }> = {
   baseline_minutes_per_reply: {
     label: "Baseline minutes per reply", unit: "minutes",
@@ -27,6 +49,7 @@ export default function SupportSettings() {
   const [agentId, setAgentId] = useState("");
   const [mailQuery, setMailQuery] = useState("");
   const [mailExclude, setMailExclude] = useState("");
+  const [pollMinutes, setPollMinutes] = useState(60);
   const [mailboxes, setMailboxes] = useState<any[]>([]);
   const [sig, setSig] = useState<any>(null);
 
@@ -43,6 +66,7 @@ export default function SupportSettings() {
       setAgentId(d.mail?.agentId ?? "");
       setMailQuery(d.mail?.mailQuery ?? "");
       setMailExclude(d.mail?.mailExclude ?? "");
+      setPollMinutes(d.mail?.pollMinutes ?? 60);
       setMailboxes(boxes);
       setSig(d.signature ?? null);
     } catch (e: any) { setErr(e.message); }
@@ -76,7 +100,7 @@ export default function SupportSettings() {
       <div style={{ display: "grid", gap: "0.9rem",
                     gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", alignItems: "start" }}>
 
-        <Panel title="Mailbox" subtitle={`Adapter: ${mail.adapter ?? "—"}`}>
+        <Panel title="Email" subtitle="Which inbox we watch, and how often">
           <div style={{
             display: "flex", gap: 8, alignItems: "flex-start",
             background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.25)",
@@ -84,14 +108,13 @@ export default function SupportSettings() {
           }}>
             <ShieldAlert size={14} color="#f43f5e" style={{ marginTop: 1, flexShrink: 0 }} />
             <span style={{ fontSize: 11, lineHeight: 1.6, color: "var(--text-secondary)" }}>
-              <strong>Both switches are off by default and that is deliberate.</strong> Until sending
-              is enabled, approved replies are recorded but never leave the building. Turn it on only
-              once you have confirmed which mailbox this is pointed at — everything it sends goes to
-              a real customer.
+              <strong>Nothing is emailed to a customer until a person approves it</strong> — and, while
+              the last switch below is off, not even then. Turn that one on only once you have read a
+              few drafts and are happy with them. Everything it sends goes to a real customer.
             </span>
           </div>
 
-          <label style={label}>Mailbox</label>
+          <label style={label}>Which mailbox</label>
           <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.4rem" }}>
             <select
               value={agentId} onChange={e => setAgentId(e.target.value)}
@@ -112,21 +135,51 @@ export default function SupportSettings() {
 
           {mailboxes.length === 0 ? (
             <div style={{ fontSize: 10.5, color: "#f5a840", lineHeight: 1.55, marginBottom: "1.1rem" }}>
-              No Google accounts are connected to any agent yet. Connect one under
-              Agents → Email, then come back — Support reuses that same per-agent OAuth.
+              No Google account is connected yet, so there is no inbox to watch. Someone needs to
+              connect one under Agents → Email first, then come back here and pick it.
             </div>
           ) : (
             <div style={{ fontSize: 10.5, color: "var(--text-muted)", lineHeight: 1.55, marginBottom: "1.1rem" }}>
-              {mailboxes.length} connected account{mailboxes.length === 1 ? "" : "s"}, listed by address.
-              Several agents can share one address — picking any of them polls that inbox.
+              {mailboxes.length} connected account{mailboxes.length === 1 ? "" : "s"}. This is the inbox
+              customer emails arrive in — usually info@leapsandrebounds.com. If the same address is
+              listed twice, either one works.
             </div>
           )}
+
+          {/* Cadence is a setting rather than a cron expression because the people
+              who need to change it cannot deploy. Named choices rather than a
+              number box: "how often" has maybe four sensible answers and a free
+              number invites "1", which is the same cost as hourly concentrated
+              into whoever is watching. */}
+          <label style={label}>How often to check for new email</label>
+          <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.4rem" }}>
+            <select
+              value={String(pollMinutes)}
+              onChange={e => {
+                const next = Number(e.target.value);
+                setPollMinutes(next);
+                save({ pollMinutes: next }, `We'll now check for new email ${POLL_LABEL[next] ?? `every ${next} minutes`}.`);
+              }}
+              style={{ ...input, cursor: "pointer" }}
+              disabled={busy}
+            >
+              {POLL_CHOICES.map(c => (
+                <option key={c.minutes} value={c.minutes}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ fontSize: 10.5, lineHeight: 1.55, marginBottom: "1.1rem",
+                        color: "var(--text-muted)" }}>
+            You can always press <strong>Check mail</strong> on the Inbox to look right now, whatever
+            this is set to. Checking more often does not cost more overall — the same emails get
+            handled either way — it just spreads the work out.
+          </div>
 
           {/* The noise on a general inbox is handled by the exclusion list below,
               which fails in the harmless direction. This field is the opposite —
               it names what to KEEP, so anything it does not name is dropped
               silently, including real customers who wrote to another address. */}
-          <label style={label}>Scope filter (Gmail search) — usually leave empty</label>
+          <label style={label}>Only pick up certain emails — usually leave empty</label>
           <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.4rem" }}>
             <input
               value={mailQuery} onChange={e => setMailQuery(e.target.value)}
@@ -144,14 +197,16 @@ export default function SupportSettings() {
             color: mailQuery.trim() ? "#f5a840" : "var(--text-muted)",
           }}>
             {mailQuery.trim()
-              ? "⚠ Only mail matching this becomes a ticket. Everything else is dropped without a "
-                + "trace — including customers who wrote to a different address, got CC'd onto a "
-                + "thread, or came through the website contact form. Clear it unless you meant it."
-              : "Empty is right for almost every setup: take everything, minus the exclusions below."}
+              ? "⚠ Right now we ONLY pick up emails matching this. Everything else is ignored and "
+                + "never shows up here — including customers who wrote to a different address, were "
+                + "CC'd into a thread, or used the contact form on the website. Clear this box "
+                + "unless you specifically meant to do that."
+              : "Leave this empty. It means we pick up everything except the senders listed below, "
+                + "which is what you want on a shared inbox."}
           </div>
 
           {/* The list the build plan called for and that never got built. */}
-          <label style={label}>Exclusions (senders and labels to ignore)</label>
+          <label style={label}>Senders to ignore</label>
           <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.4rem" }}>
             <input
               value={mailExclude} onChange={e => setMailExclude(e.target.value)}
@@ -166,23 +221,28 @@ export default function SupportSettings() {
           </div>
           <div style={{ fontSize: 10.5, lineHeight: 1.55, marginBottom: "1.1rem",
                         color: "var(--text-muted)" }}>
-            Keeps no-reply addresses, Klaviyo, Shopify notifications and platform mail out of the
-            queue. This is the safe way to quieten a shared inbox: the worst case is a supplier
-            email you delete in two seconds, rather than a customer nobody ever sees.
+            Keeps automatic email out of your queue — order confirmations, Klaviyo, Shopify, "do not
+            reply" addresses. This is the safe way to quieten a shared inbox: the worst that happens
+            is a supplier email you delete in two seconds, instead of a customer nobody ever sees.
+            The defaults are already sensible; you probably never need to touch this.
           </div>
 
           <Toggle
-            icon={Download} label="Ingestion" on={!!mail.ingestEnabled}
-            desc="Poll the mailbox, create tickets, classify and draft."
+            icon={Download} label="Check for new email" on={!!mail.ingestEnabled}
+            desc="Read the inbox, turn customer emails into tickets, and write a suggested reply for each one."
             onClick={() => save({ ingestEnabled: !mail.ingestEnabled },
-              mail.ingestEnabled ? "Ingestion disabled." : "Ingestion enabled.")}
+              mail.ingestEnabled
+                ? "We'll stop checking for new email. Nothing new will appear in the Inbox."
+                : "We'll now check for new email automatically.")}
             disabled={busy || !mail.agentId}
           />
           <Toggle
-            icon={Send} label="Sending" on={!!mail.sendEnabled} danger
-            desc="Allow approved replies to actually be emailed to customers."
+            icon={Send} label="Send replies to customers" on={!!mail.sendEnabled} danger
+            desc="When someone approves a reply here, actually email it. With this off, approved replies are saved but never sent."
             onClick={() => save({ sendEnabled: !mail.sendEnabled },
-              mail.sendEnabled ? "Sending disabled." : "Sending ENABLED — replies will now reach customers.")}
+              mail.sendEnabled
+                ? "Replies will no longer be emailed. Anything you approve will sit here undelivered."
+                : "Replies you approve will now be emailed to real customers.")}
             disabled={busy || !mail.agentId}
           />
 
