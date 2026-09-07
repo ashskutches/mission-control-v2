@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Send, XCircle, RefreshCw, Bot, User, FileText,
   ShoppingBag, Sparkles, AlertTriangle, Info, CheckCircle2, Pencil, History,
-  Wrench, CheckSquare, ArrowUpRight, MailWarning, ListChecks, Clock,
+  Wrench, CheckSquare, ArrowUpRight, MailWarning, ListChecks, Clock, Paperclip,
 } from "lucide-react";
 import {
   Panel, Pill, Btn, Confidence, Empty, ago, Loading, ErrorBox, OpsMark,
@@ -334,6 +334,22 @@ export default function ApprovalInterface() {
                                 color: "var(--text-secondary)" }}>
                     {msg.body_text}
                   </div>
+                  {/* What the customer attached. Inline parts are filtered out —
+                      those are signature logos and email furniture, not something
+                      anybody chose to send. The draft is given the same list, so
+                      it stops asking for a photo that is sitting right here. */}
+                  {(msg.attachments ?? []).filter((a: any) => !a.inline).length > 0 && (
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8,
+                                  paddingTop: 7, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                      <Paperclip size={11} color="var(--text-muted)" style={{ marginTop: 2 }} />
+                      {msg.attachments.filter((a: any) => !a.inline).map((a: any, i: number) => (
+                        <Pill key={i} color="#a78bfa"
+                              title={`${a.mimeType}${a.bytes ? ` · ${Math.round(a.bytes / 1024)} KB` : ""}`}>
+                          {a.filename}
+                        </Pill>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -733,15 +749,21 @@ export default function ApprovalInterface() {
             )}
           </Panel>
 
-          {t.shopify_order_id && (
-            <Panel title="Linked order" right={<ShoppingBag size={13} color="var(--text-muted)" />}>
-              <Row k="Order" v={t.shopify_order_id} mono />
-              <div style={{ fontSize: 10.5, color: "var(--text-muted)", marginTop: 8, lineHeight: 1.5 }}>
-                A snapshot of what the agent saw is stored with the draft — order data changes,
-                and six weeks later you can't reconstruct why it said what it said.
-              </div>
-            </Panel>
-          )}
+          {/**
+            * The order the draft was allowed to talk about.
+            *
+            * This panel used to render only when `shopify_order_id` was set,
+            * which — for a ticket that came from a customer emailing in — was
+            * never, because nothing looked an order up. So the reviewer got no
+            * order facts, the writer got none either, and the most common
+            * ticket in the queue could not be answered by either of them.
+            *
+            * It now also renders when the lookup FAILED, because "we couldn't
+            * reach Shopify" and "this customer has no orders" are the two
+            * explanations for a thin draft and the reviewer cannot otherwise
+            * tell them apart.
+            */}
+          <OrderPanel t={t} />
 
           <Panel title="Docs the draft used" pad={false}>
             {!(t.citedDocs ?? []).length ? (
@@ -851,6 +873,110 @@ function Stat({ label, value, hint, color = "var(--text-primary)" }: {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The order facts the draft was working from — or why there were none.
+ *
+ * The reviewer's first question on any shipping ticket is "what does the order
+ * actually say", and until the ingestion lookup existed the answer was a bare
+ * Shopify id at best. Showing the same snapshot the writer saw is what makes
+ * the draft checkable rather than something to be taken on trust.
+ *
+ * `matchBasis` is on screen because picking the wrong order is the one failure
+ * in this feature that reaches a customer as a confident statement about the
+ * wrong parcel. If the basis reads "most recent of 4 orders", that is exactly
+ * when a human should look twice.
+ */
+function OrderPanel({ t }: { t: any }) {
+  const snap = t.context_snapshot ?? null;
+  const state = t.order_lookup_state ?? "not_attempted";
+
+  // A proactive order-exception ticket carries a snapshot but no lookup state;
+  // its order is named by definition, so treat a snapshot as sufficient.
+  const hasOrder = !!snap?.orderName;
+
+  if (!hasOrder && state === "matched") return null;
+
+  if (!hasOrder) {
+    const [title, body] =
+      state === "no_orders"
+        ? ["No orders for this address",
+           "Nothing is on file for this email. They may have ordered under a different address — "
+           + "the draft has been told to ask rather than to assert they have no order."]
+      : state === "unavailable"
+        ? ["Order lookup failed",
+           "Shopify could not be reached when this ticket arrived, so the draft was written "
+           + "without order facts. Regenerate to try the lookup again."]
+        : ["No order looked up",
+           "This ticket has no order attached, so the draft could not state any order facts."];
+
+    return (
+      <Panel title={title} right={<ShoppingBag size={13} color="var(--text-muted)" />}>
+        <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.6 }}>{body}</div>
+      </Panel>
+    );
+  }
+
+  const shipments: any[] = Array.isArray(snap.shipments) ? snap.shipments : [];
+  const items: any[] = Array.isArray(snap.items) ? snap.items : [];
+  const tracked = shipments.find((s: any) => s.trackingUrl || s.trackingNumber);
+
+  return (
+    <Panel title="Linked order" right={<ShoppingBag size={13} color="var(--text-muted)" />}>
+      <Row k="Order"     v={snap.orderName ?? t.shopify_order_id ?? "—"} mono />
+      {snap.placedAt   && <Row k="Placed"    v={new Date(snap.placedAt).toLocaleDateString()} />}
+      {snap.orderTotal && <Row k="Total"     v={String(snap.orderTotal)} mono />}
+      {snap.fulfillmentStatus && <Row k="Fulfilment" v={String(snap.fulfillmentStatus).toLowerCase().replace(/_/g, " ")} />}
+      {snap.financialStatus   && <Row k="Payment"    v={String(snap.financialStatus).toLowerCase().replace(/_/g, " ")} />}
+
+      {items.length > 0 && (
+        <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          {items.map((it: any, i: number) => (
+            <div key={i} style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+              {it.quantity}× {it.name}
+              {it.unshipped > 0 && (
+                <span style={{ color: "#f5a840", fontWeight: 700 }}> · {it.unshipped} unshipped</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tracked && (
+        <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <Row k="Carrier" v={tracked.carrier ?? "—"} />
+          {tracked.trackingUrl ? (
+            <a href={tracked.trackingUrl} target="_blank" rel="noreferrer"
+               style={{ fontSize: 11, color: SUPPORT_ACCENT, fontWeight: 700,
+                        fontFamily: "'JetBrains Mono', monospace", wordBreak: "break-all" }}>
+              {tracked.trackingNumber ?? "track"} <ArrowUpRight size={10} style={{ verticalAlign: -1 }} />
+            </a>
+          ) : (
+            <Row k="Tracking" v={tracked.trackingNumber ?? "—"} mono />
+          )}
+        </div>
+      )}
+
+      {(snap.exceptions ?? []).length > 0 && (
+        <div style={{ marginTop: 8, display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {snap.exceptions.map((e: any) => (
+            <Pill key={e.code} color="#f43f5e" title={e.detail}>{e.label}</Pill>
+          ))}
+        </div>
+      )}
+
+      {snap.matchBasis && (
+        <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.06)",
+                      fontSize: 10.5, color: snap.otherOrderCount > 0 ? "#f5a840" : "var(--text-muted)",
+                      lineHeight: 1.5 }}>
+          Matched because {snap.matchBasis}.
+          {snap.otherOrderCount > 0 && ` This customer has ${snap.otherOrderCount} other order${
+            snap.otherOrderCount === 1 ? "" : "s"} — check this is the right one.`}
+        </div>
+      )}
+    </Panel>
   );
 }
 

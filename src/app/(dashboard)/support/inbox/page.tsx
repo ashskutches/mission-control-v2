@@ -19,14 +19,26 @@ import { getTickets, getSummary, runIngest, OUTCOME_LABELS, OUTCOME_COLOR } from
  * is precisely why work done outside the platform used to be invisible: a
  * ticket that had been answered but not refunded sat in `sent` looking finished.
  */
+/**
+ * `needs_triage` and `spam` are here because their absence read as lost mail.
+ *
+ * Both statuses existed, had labels and colours, and had no way to reach them:
+ * a ticket whose classification threw landed in `triaged` with no draft, and a
+ * real customer the classifier called spam landed in `spam` — and neither had a
+ * chip or a count, so the only route to either was paging through "All". From a
+ * rep's seat that is indistinguishable from the tool having dropped the email,
+ * which is exactly the complaint that started this.
+ */
 const FILTERS = [
   { key: "awaiting_approval", label: "Awaiting approval" },
-  { key: "followup",          label: "Follow-up work",  color: "#f5a840" },
-  { key: "failed",            label: "Not delivered",   color: "#f43f5e" },
+  { key: "needs_triage",      label: "Needs triage",     color: "#4a9eff" },
+  { key: "followup",          label: "Follow-up work",   color: "#f5a840" },
+  { key: "failed",            label: "Not delivered",    color: "#f43f5e" },
   { key: "needs_human_only",  label: "Human only" },
   { key: "escalated",         label: "Escalated" },
   { key: "sent",              label: "Sent" },
   { key: "resolved",          label: "Resolved" },
+  { key: "spam",              label: "Spam" },
   { key: "all",               label: "All" },
 ];
 
@@ -67,12 +79,38 @@ export default function SupportInbox() {
       const r = await runIngest();
       setNote(r.skipped
         ? `Nothing fetched — ${r.skipped}.`
-        : `Fetched ${r.fetched}: ${r.created} new, ${r.reopened} reopened, ${r.duplicates} already seen, ${r.drafted} drafted.` +
-          (r.errors?.length ? ` ${r.errors.length} error(s).` : ""));
+        : [
+            `Fetched ${r.fetched}: ${r.created} new, ${r.reopened} reopened,`,
+            `${r.duplicates} already seen, ${r.drafted} drafted.`,
+            // Both counts are new work the poll now does, and both are worth
+            // seeing: an order match is why a draft is answerable at all, and a
+            // linked Gmail reply is a training pair that used to be thrown away.
+            r.ordersMatched ? `${r.ordersMatched} matched to an order.` : "",
+            r.ownRepliesLinked ? `${r.ownRepliesLinked} Gmail repl${r.ownRepliesLinked === 1 ? "y" : "ies"} linked back.` : "",
+            r.errors?.length ? `${r.errors.length} error(s).` : "",
+          ].filter(Boolean).join(" "));
       await load();
     } catch (e: any) { setErr(e.message); }
     finally { setBusy(false); }
   };
+
+  /**
+   * How long ago the mailbox was actually polled.
+   *
+   * Ingestion now runs on a three-minute cron, so this should always read
+   * "just now" — which is the point. It used to run only when somebody pressed
+   * the button, and nothing anywhere said when that last happened, so a queue
+   * that was nine days stale looked exactly like a quiet one.
+   */
+  const lastChecked = (() => {
+    const m = summary?.mail?.staleMinutes;
+    if (m == null) return null;
+    if (m < 2) return "just now";
+    if (m < 60) return `${m}m ago`;
+    if (m < 1440) return `${Math.floor(m / 60)}h ago`;
+    return `${Math.floor(m / 1440)}d ago`;
+  })();
+  const stale = (summary?.mail?.staleMinutes ?? 0) > 60;
 
   return (
     <>
@@ -121,7 +159,9 @@ export default function SupportInbox() {
                   color={f.color ?? (f.key === "all" ? SUPPORT_ACCENT : (STATUS_COLOR[f.key] ?? SUPPORT_ACCENT))}
                   active={filter === f.key} onClick={() => setFilter(f.key)}>
               {f.label}
-              {f.key === "followup" && summary?.openFollowups > 0 && ` (${summary.openFollowups})`}
+              {f.key === "followup"     && summary?.openFollowups > 0 && ` (${summary.openFollowups})`}
+              {f.key === "needs_triage" && summary?.needsTriage   > 0 && ` (${summary.needsTriage})`}
+              {f.key === "spam"         && summary?.spamTickets    > 0 && ` (${summary.spamTickets})`}
             </Pill>
           ))}
         </div>
@@ -140,6 +180,14 @@ export default function SupportInbox() {
             }}
           />
         </div>
+        {lastChecked && (
+          <span title={summary?.mail?.lastIngestAt ?? undefined}
+                style={{ fontSize: 10.5, fontWeight: 600, whiteSpace: "nowrap",
+                         color: stale ? "#f5a840" : "var(--text-dim)" }}>
+            {stale && <AlertTriangle size={10} style={{ verticalAlign: -1, marginRight: 3 }} />}
+            checked {lastChecked}
+          </span>
+        )}
         <Btn size="sm" variant="ghost" onClick={poll} disabled={busy}>
           <RefreshCw size={12} /> {busy ? "Checking…" : "Check mail"}
         </Btn>
@@ -172,9 +220,13 @@ export default function SupportInbox() {
          : rows.length === 0 ? (
           <Empty icon={InboxIcon} title="Nothing here"
                  body={q ? "No tickets match that search."
-                   : summary?.mail?.configured
-                     ? "No tickets in this view. Hit “Check mail” to poll the mailbox."
-                     : "No tickets yet — and no mailbox is connected, so none will arrive."} />
+                   : !summary?.mail?.configured
+                     ? "No tickets yet — and no mailbox is connected, so none will arrive."
+                     : stale
+                       // The cron should make this unreachable. If it is showing,
+                       // the poller is the thing to look at, not the queue.
+                       ? "No tickets in this view — but the mailbox has not been polled recently, so this may not be the whole picture."
+                       : "No tickets in this view. The mailbox is polled every few minutes."} />
         ) : rows.map((t, i) => {
           const overdue = t.status === "awaiting_approval" && t.awaitingMinutes > 60;
           return (
