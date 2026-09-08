@@ -15,7 +15,8 @@
  * The fix was a venue rather than a better guess. A message posted against an
  * insight is about that insight by construction — no rolling window, no
  * most-recent-unanswered heuristic that can staple one person's answer onto
- * another agent's question.
+ * another agent's question. As of 2026-09-08 that construction is the ONLY one:
+ * the DM reply path is removed, not merely deprecated.
  *
  * ## Two rows, one story
  *
@@ -25,6 +26,21 @@
  * weights: speech is the content, events are the spine it hangs on. Read top to
  * bottom it says "agent ran → asked Ryan what a mat costs → Ryan said $14 landed
  * → recalculated → completed", which is the thing nobody could see before.
+ *
+ * ## The answer has to be written HERE
+ *
+ * The first version of this treated the DM as a second, equally good entrance:
+ * "a DM is a transport, not a venue — people answer DMs and do not visit
+ * dashboards." Measured across the whole ledger on 2026-09-08: 84 DMs sent, 11
+ * replies ever captured, 10 of those never delivered, and ONE answer that
+ * actually reached an agent. Over the same period 18 human messages were posted
+ * through this page.
+ *
+ * So the DM is a notification with a link, and this composer is the only way an
+ * answer arrives. Ash's call — the DM round trip does not work and is not worth
+ * trying to fix. Every line of copy that implied otherwise is gone, because a
+ * promise the system cannot keep is worse than no promise: it is how somebody
+ * writes a careful answer into a void and assumes it landed.
  *
  * ## The composer does not guess what you meant
  *
@@ -158,10 +174,12 @@ function MessageRow({ m, answered }: { m: Message; answered: boolean }) {
           }}>
             <Icon size={9} /> {style.label}
           </span>
+          {/* Marks that the person was NOTIFIED by DM. It never means the message
+              arrived that way — answers only arrive here. */}
           {m.delivered_via === "discord_dm" && (
-            <span title="Sent or answered over Discord DM"
+            <span title="They were notified by Discord DM. Answers still have to be written here."
               style={{ fontSize: "9px", color: "#64748b", background: "rgba(255,255,255,0.04)", padding: "1px 6px", borderRadius: 4 }}>
-              discord
+              DM sent
             </span>
           )}
           <span style={{ fontSize: "10px", color: "#475569", marginLeft: "auto" }}>{when(m.created_at)}</span>
@@ -184,9 +202,14 @@ function MessageRow({ m, answered }: { m: Message; answered: boolean }) {
           </div>
         )}
 
+        {/*
+          This used to read "reply below, or in the Discord DM. Either lands
+          here." Only one of those was ever true — see the docblock. Saying the
+          DM works is how somebody answers carefully into a void.
+        */}
         {pending && (
           <p style={{ fontSize: "10.5px", color: ACCENT, margin: "7px 0 0", fontWeight: 600 }}>
-            Waiting on an answer — reply below, or in the Discord DM. Either lands here.
+            Waiting on an answer — write it below. Replying to the Discord DM does not reach the agent.
           </p>
         )}
       </div>

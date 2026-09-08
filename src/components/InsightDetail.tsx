@@ -274,8 +274,14 @@ export default function InsightDetail({ insightId }: { insightId: string }) {
             }}>
             <ArrowDown size={12} /> Answer it
           </button>
+          {/*
+            Was: "or just reply to the Discord DM — both land in the same place."
+            It did not. One answer reached an agent that way across 84 DMs, and
+            the person who wrote it had no way to tell it had not landed. The
+            answer has to be written here, and the copy says so.
+          */}
           <span style={{ fontSize: "10.5px", color: "#64748b", marginLeft: 10 }}>
-            or just reply to the Discord DM — both land in the same place
+            it has to be written here — replying to the DM does not reach them
           </span>
         </div>
       )}
