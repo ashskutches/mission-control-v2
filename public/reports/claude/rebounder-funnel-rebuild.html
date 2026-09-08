@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  Not for search engines. This page is reachable by anyone holding the link and
+  carries internal business analysis; robots.txt disallows /reports/ as well, but
+  a meta directive is the one that stops indexing of a page that IS fetched.
+-->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Rebounder Funnel Rebuild</title>
+<style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style>
+</head>
+<body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    color-scheme: light;
+    --paper:   #FFFFFF;
+    --cream:   #FAF6F0;
+    --sunk:    #F2EBE1;
+    --rule:    #E4DACB;
+    --rule-2:  #EFE7DA;
+
+    --ink:     #232323;
+    --ink-2:   #55504A;
+    --ink-3:   #837B70;
+
+    --orange:  #FCA248;
+    --orange-d:#E88828;
+    --orange-w:#FDF0E0;
+
+    --good:    #1C6B4A;
+    --good-w:  #E4F1E9;
+    --warn:    #97621A;
+    --warn-w:  #FBEEDC;
+    --bad:     #9A2F22;
+    --bad-w:   #F9E8E4;
+    --info:    #2A5DA8;
+    --info-w:  #E6EDF8;
+
+    --shadow: 0 1px 2px rgba(35,35,35,.05), 0 10px 26px -14px rgba(35,35,35,.18);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper:   #1A1917;
+      --cream:   #15140F;
+      --sunk:    #221F1B;
+      --rule:    #38332C;
+      --rule-2:  #2A2620;
+
+      --ink:     #F2EDE5;
+      --ink-2:   #BDB4A7;
+      --ink-3:   #8C8376;
+
+      --orange:  #FCA248;
+      --orange-d:#F7B36A;
+      --orange-w:#2E2317;
+
+      --good:    #6DC79C;
+      --good-w:  #16281F;
+      --warn:    #E0A75A;
+      --warn-w:  #2B2114;
+      --bad:     #EE8B7C;
+      --bad-w:   #2E1A16;
+      --info:    #7FA8E6;
+      --info-w:  #182337;
+
+      --shadow: 0 1px 2px rgba(0,0,0,.5), 0 12px 30px -16px rgba(0,0,0,.7);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper:   #1A1917;
+    --cream:   #15140F;
+    --sunk:    #221F1B;
+    --rule:    #38332C;
+    --rule-2:  #2A2620;
+
+    --ink:     #F2EDE5;
+    --ink-2:   #BDB4A7;
+    --ink-3:   #8C8376;
+
+    --orange:  #FCA248;
+    --orange-d:#F7B36A;
+    --orange-w:#2E2317;
+
+    --good:    #6DC79C;
+    --good-w:  #16281F;
+    --warn:    #E0A75A;
+    --warn-w:  #2B2114;
+    --bad:     #EE8B7C;
+    --bad-w:   #2E1A16;
+    --info:    #7FA8E6;
+    --info-w:  #182337;
+
+    --shadow: 0 1px 2px rgba(0,0,0,.5), 0 12px 30px -16px rgba(0,0,0,.7);
+  }
+
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 0 26px 110px; }
+  .prose { max-width: 70ch; }
+  p { margin: 0 0 1.05em; }
+  strong { font-weight: 600; color: var(--ink); }
+  a { color: var(--orange-d); text-underline-offset: 2px; }
+  a:focus-visible { outline: 2px solid var(--orange-d); outline-offset: 3px; border-radius: 2px; }
+
+  h1, h2, h3, .eyebrow, .ui { font-family: Archivo, sans-serif; }
+  .num, code, .path { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  .eyebrow {
+    font-size: 11px; font-weight: 700; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--orange-d); margin: 0 0 12px;
+  }
+  h1 {
+    font-size: clamp(36px, 6vw, 58px); font-weight: 800; line-height: 1.02;
+    letter-spacing: -.028em; text-wrap: balance; margin: 0 0 18px;
+  }
+  h2 {
+    font-size: clamp(23px, 3vw, 30px); font-weight: 700; line-height: 1.14;
+    letter-spacing: -.02em; text-wrap: balance; margin: 0 0 14px;
+  }
+  h3 {
+    font-size: 17.5px; font-weight: 700; line-height: 1.3;
+    letter-spacing: -.006em; margin: 0 0 8px;
+  }
+  .lede { font-size: clamp(18.5px, 2.1vw, 21px); line-height: 1.52; color: var(--ink-2); max-width: 62ch; }
+
+  header.mast { padding: 70px 0 34px; border-bottom: 2px solid var(--ink); margin-bottom: 46px; }
+  .mast-meta {
+    display: flex; flex-wrap: wrap; gap: 6px 24px; margin-top: 26px; padding-top: 20px;
+    border-top: 1px solid var(--rule); font-family: Archivo, sans-serif; font-size: 12.5px; color: var(--ink-3);
+  }
+  .mast-meta b { color: var(--ink-2); font-weight: 600; }
+
+  section { margin-bottom: 62px; }
+  .sec-head { margin-bottom: 24px; }
+
+  /* funnel */
+  .funnel { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin: 26px 0 10px; }
+  .step {
+    position: relative; background: var(--paper); border: 1px solid var(--rule);
+    border-top: 3px solid var(--orange); border-radius: 4px; padding: 16px 16px 14px; box-shadow: var(--shadow);
+  }
+  .step .n {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600;
+    color: var(--orange-d); letter-spacing: .08em;
+  }
+  .step h3 { margin: 6px 0 6px; font-size: 15.5px; }
+  .step p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--ink-2); }
+  .step ul { margin: 8px 0 0; padding-left: 15px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+  .step ul li { margin-bottom: 2px; }
+  .funnel-note { font-family: Archivo, sans-serif; font-size: 12.5px; color: var(--ink-3); margin: 4px 0 0; }
+
+  /* tiles */
+  .tiles { display: grid; gap: 2px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+           background: var(--rule-2); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; margin: 22px 0; }
+  .tile { background: var(--paper); padding: 16px 16px 14px; }
+  .tile .k { font-family: Archivo, sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: .1em;
+             text-transform: uppercase; color: var(--ink-3); margin: 0 0 8px; }
+  .tile .v { font-family: "IBM Plex Mono", monospace; font-size: 24px; font-weight: 500; letter-spacing: -.02em;
+             color: var(--ink); line-height: 1; margin: 0 0 6px; }
+  .tile .n { font-family: Archivo, sans-serif; font-size: 12px; line-height: 1.4; color: var(--ink-3); margin: 0; }
+
+  /* tables */
+  .tscroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  caption { text-align: left; font-family: Archivo, sans-serif; font-size: 11px; font-weight: 700;
+            letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); padding: 15px 16px 11px; }
+  th, td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--rule-2); vertical-align: top; }
+  th { font-family: Archivo, sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: .08em;
+       text-transform: uppercase; color: var(--ink-3); background: var(--sunk); border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  td.n, th.n { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: 0; }
+  .path { font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-family: Archivo, sans-serif;
+          font-size: 10.5px; font-weight: 700; letter-spacing: .04em; padding: 2px 8px; border-radius: 3px; white-space: nowrap; }
+  .chip.new  { background: var(--info-w); color: var(--info); }
+  .chip.edit { background: var(--warn-w); color: var(--warn); }
+  .chip.done { background: var(--good-w); color: var(--good); }
+  .chip.open { background: var(--warn-w); color: var(--warn); }
+  .chip.bad  { background: var(--bad-w);  color: var(--bad); }
+  .chip.idle { background: var(--sunk);   color: var(--ink-3); }
+
+  /* callouts */
+  .note { border: 1px solid var(--rule); border-left: 4px solid var(--orange); background: var(--paper);
+          border-radius: 0 4px 4px 0; padding: 18px 20px; margin: 0 0 22px; box-shadow: var(--shadow); }
+  .note.mine { border-left-color: var(--bad); }
+  .note.limit { border-left-color: var(--info); }
+  .note > :last-child { margin-bottom: 0; }
+  .note h3 { margin-bottom: 6px; }
+
+  ol.findings, ul.findings { margin: 0; padding: 0; list-style: none; }
+  ol.findings > li, ul.findings > li {
+    display: grid; grid-template-columns: 26px 1fr; gap: 12px;
+    padding: 14px 0; border-top: 1px solid var(--rule);
+  }
+  ol.findings > li:last-child, ul.findings > li:last-child { border-bottom: 1px solid var(--rule); }
+  .fnum { font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 600; color: var(--orange-d); padding-top: 3px; }
+  .fbody b { display: block; font-family: Archivo, sans-serif; font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+  .fbody span { font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+
+  ul.plain { margin: 0 0 1.05em; padding-left: 1.15em; }
+  ul.plain li { margin-bottom: .4em; }
+
+  footer.end { border-top: 2px solid var(--ink); padding-top: 24px; font-family: Archivo, sans-serif;
+               font-size: 12.5px; line-height: 1.55; color: var(--ink-3); }
+
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <p class="eyebrow">Leaps &amp; Rebounds &middot; Build report</p>
+    <h1>Rebounder Funnel Rebuild</h1>
+    <p class="lede">Eleven theme files, one funnel, twelve bugs found in the existing
+      site and six mistakes of my own. Everything staged on an unpublished theme —
+      nothing is live, and no blog content was touched.</p>
+    <div class="mast-meta">
+      <span><b>Theme</b> <span class="path">163676356824</span> &mdash; 8.2.0 Claude/Ash Changes</span>
+      <span><b>Status</b> unpublished, previewable</span>
+      <span><b>Live theme</b> <span class="path">163472212184</span> &mdash; untouched</span>
+      <span><b>Dates</b> 7–8 Sep 2026</span>
+    </div>
+  </header>
+
+  <!-- ══════ WHY ══════ -->
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">The problem this solves</p>
+      <h2>Buying intent was landing on blog posts</h2>
+    </div>
+
+    <div class="prose">
+      <p>Measured against Search Console over 28 days, before any of this work:</p>
+    </div>
+
+    <div class="tiles">
+      <div class="tile"><p class="k">Impressions</p><p class="v">492,620</p><p class="n">All organic search</p></div>
+      <div class="tile"><p class="k">Clicks</p><p class="v">4,302</p><p class="n">0.87% CTR</p></div>
+      <div class="tile"><p class="k">Buying-intent clicks</p><p class="v">48</p><p class="n">From 6,981 impressions</p></div>
+      <div class="tile"><p class="k">Answered by a blog post</p><p class="v">80.3%</p><p class="n">At avg position 15.7</p></div>
+      <div class="tile"><p class="k">Blog share of impressions</p><p class="v">79%</p><p class="n">Why the blog is the lever</p></div>
+    </div>
+
+    <div class="prose">
+      <p>Two findings set the direction. First, <strong>80.3% of commercial rebounder
+        queries are answered by a blog post</strong>, not a page that sells — so the blog
+        is where the funnel has to start. Second, our own click-through at positions 7–10
+        is a <strong>median 0.60%</strong> across 157 pages, where a healthy site earns
+        2–3%; that is the signature of ranking for questions our page isn't the answer to.</p>
+      <p><strong>Page speed was ruled out early.</strong> Field data from real Chrome
+        users: <strong>15 of 15 top pages pass Core Web Vitals, zero failing</strong>,
+        mobile LCP 1.3–1.5s. Worth knowing because a throttled Lighthouse score says the
+        opposite and has previously sent this project down that road.</p>
+    </div>
+  </section>
+
+  <!-- ══════ THE FUNNEL ══════ -->
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">What exists now</p>
+      <h2>The path, end to end</h2>
+    </div>
+
+    <div class="funnel">
+      <div class="step">
+        <span class="n">STEP 1</span>
+        <h3>Blog article</h3>
+        <p>528 <span class="path">news</span> articles. Four asks at distinct positions.</p>
+        <ul>
+          <li>Top banner</li>
+          <li>Mid-copy card (after &para;3)</li>
+          <li>Bottom card + guarantee</li>
+          <li>Sticky bar past 1,200px</li>
+        </ul>
+      </div>
+      <div class="step">
+        <span class="n">STEP 2</span>
+        <h3>Advertorial page</h3>
+        <p>Opens on the subject they just read, via <span class="path">?lrbctx=</span>.</p>
+        <ul>
+          <li>7 context variants</li>
+          <li>Sticky bar with the offer</li>
+          <li>3 existing CTAs</li>
+        </ul>
+      </div>
+      <div class="step">
+        <span class="n">STEP 3</span>
+        <h3>Discount applied</h3>
+        <p><span class="path">LP15OFFDEAL</span> — verified active, 15%, no expiry, no cap.</p>
+        <ul><li>Redirects straight to the product</li></ul>
+      </div>
+      <div class="step">
+        <span class="n">STEP 4</span>
+        <h3>Product page</h3>
+        <p>Native picker: 7 colours, 2 sizes, real cart.</p>
+        <ul><li>15% live at checkout</li></ul>
+      </div>
+    </div>
+    <p class="funnel-note">The collection page still exists and still serves the commercial
+      search that lands on it natively — it is simply no longer the blog's handoff.</p>
+  </section>
+
+  <!-- ══════ FILES ══════ -->
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">The work</p>
+      <h2>Every file that changed</h2>
+    </div>
+
+    <div class="tscroll">
+      <table>
+        <caption>Deployed to theme 163676356824 &middot; every one MD5-verified against local</caption>
+        <thead>
+          <tr><th>File</th><th></th><th>What it does</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="path">sections/lrb-article-cta.liquid</span></td><td><span class="chip new">NEW</span></td>
+            <td>The article conversion unit. Banner and card variants from one file. Whole card clickable.</td></tr>
+          <tr><td><span class="path">sections/lrb-sticky-cta.liquid</span></td><td><span class="chip new">NEW</span></td>
+            <td>Sticky buy bar. Appears past a threshold, hides near the footer, dismissible for the session.</td></tr>
+          <tr><td><span class="path">sections/lrb-context-bridge.liquid</span></td><td><span class="chip new">NEW</span></td>
+            <td>Reads <span class="path">?lrbctx=</span> and swaps one line of copy. 7 variants keyed to measured clusters.</td></tr>
+          <tr><td><span class="path">sections/lrb-model-picker.liquid</span></td><td><span class="chip new">NEW</span></td>
+            <td>Collection-page buying guide: size cards, spec chips, bungee-vs-spring table, FAQ with schema.</td></tr>
+          <tr><td><span class="path">sections/article-content.liquid</span></td><td><span class="chip edit">EDITED</span></td>
+            <td>Reading measure, image unfloat, and the mid-article CTA spliced in server-side.</td></tr>
+          <tr><td><span class="path">sections/blog-header-old.liquid</span></td><td><span class="chip edit">EDITED</span></td>
+            <td>Hero height made explicit; three broken font clamps fixed.</td></tr>
+          <tr><td><span class="path">sections/product-grid.liquid</span></td><td><span class="chip edit">EDITED</span></td>
+            <td>Two handle gates — hide the grid, or hide sold-out products, per collection.</td></tr>
+          <tr><td><span class="path">sections/page-header.liquid</span></td><td><span class="chip edit">EDITED</span></td>
+            <td>Handle gate to suppress the header image where the title should lead.</td></tr>
+          <tr><td><span class="path">templates/article.json</span></td><td><span class="chip edit">REWRITTEN</span></td>
+            <td>7 sections. Four CTAs consolidated into three placed ones, plus the sticky bar.</td></tr>
+          <tr><td><span class="path">templates/page.advertorial-landing.json</span></td><td><span class="chip edit">REWRITTEN</span></td>
+            <td>Context bridge on top, sticky bar carrying the 15% link.</td></tr>
+          <tr><td><span class="path">templates/collection.json</span></td><td><span class="chip edit">REWRITTEN</span></td>
+            <td>Wires the model picker and both grid gates.</td></tr>
+          <tr>
+            <td><span class="path">lrb-trust-strip</span>, <span class="path">lrb-how-it-works</span>, <span class="path">lrb-use-cases</span></td>
+            <td><span class="chip idle">INERT</span></td>
+            <td>Deployed but referenced by no template, so they render nowhere. Held as parts for a future sales page.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══════ MEASURED ══════ -->
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">Before and after</p>
+      <h2>What actually changed, measured</h2>
+    </div>
+
+    <div class="tscroll">
+      <table>
+        <caption>All figures measured in a real browser, not estimated</caption>
+        <thead><tr><th>Metric</th><th class="n">Before</th><th class="n">After</th><th>How</th></tr></thead>
+        <tbody>
+          <tr><td>Article characters per line</td><td class="n">~126</td><td class="n">72</td><td>Rendered line rectangles, median</td></tr>
+          <tr><td>Floated images crushing the text column</td><td class="n">3</td><td class="n">0</td><td>Computed <span class="path">float</span> per image</td></tr>
+          <tr><td>Blog hero height, desktop</td><td class="n">600px</td><td class="n">380px</td><td>At 1440px viewport</td></tr>
+          <tr><td>Blog hero height, narrow</td><td class="n">250px</td><td class="n">250px</td><td>Deliberately unchanged</td></tr>
+          <tr><td>First content position, desktop</td><td class="n">~715px</td><td class="n">495px</td><td>Offset of first element after the hero</td></tr>
+          <tr><td>Article CTAs stacked at the bottom</td><td class="n">3</td><td class="n">1</td><td>Consolidated, others repositioned</td></tr>
+          <tr><td><span class="path">/collections/sale</span> links from the article template</td><td class="n">1</td><td class="n">0</td><td>The extra hop, removed</td></tr>
+          <tr><td>Collection page hero tile</td><td class="n">1168&times;815px</td><td class="n">removed</td><td>One-item grid stretching full width</td></tr>
+          <tr><td>Advertorial CTA dead zone</td><td class="n">4,700px</td><td class="n">covered</td><td>Sticky bar spans it</td></tr>
+          <tr><td>Places the 15% offer is stated</td><td class="n">0</td><td class="n">4</td><td>Top, mid, bottom, sticky</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══════ THEIR BUGS ══════ -->
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">Found along the way</p>
+      <h2>Twelve things already broken</h2>
+      <p class="lede" style="font-size:18px">None of these were caused by this work. Several
+        are worth fixing whether or not the funnel ships.</p>
+    </div>
+
+    <ol class="findings">
+      <li><span class="fnum">01</span><div class="fbody"><b>Three font clamps that could never work</b><span>The blog hero used <span class="path">clamp(1.5rem, 4.0714rem, 3rem)</span>. A clamp whose preferred value is a fixed length larger than its own maximum can only return the maximum — so all three were fixed sizes wearing a clamp, and the title never scaled on any screen. Fixed.</span></div></li>
+      <li><span class="fnum">02</span><div class="fbody"><b>Personalization path-matching has never fired once</b><span><span class="path">lrb-personalization.js</span> derives visitor context from paths like <span class="path">/blogs/senior</span> and <span class="path">/blogs/knee</span>. Your blog handles are <span class="path">news</span> and <span class="path">mini-trampoline-workouts</span>, so those strings never occur. The senior, knee and athlete contexts the system was built to detect are dead code against this store's URLs. <span class="chip open">OPEN</span></span></div></li>
+      <li><span class="fnum">03</span><div class="fbody"><b>The product page shows "0 reviews &middot; 0.0 average"</b><span>On your highest-traffic page, that reads as "nobody bought this." Meanwhile the blog CTAs cite a 5-star rating. <span class="chip open">OPEN</span></span></div></li>
+      <li><span class="fnum">04</span><div class="fbody"><b>A byte-identical duplicate product</b><span><span class="path">the-best-fitness-trampoline</span> has the same description, the same SEO title <em>and</em> the same meta description as the main rebounder. It is in the rebounders collection and unpublished to the storefront. <span class="chip open">OPEN</span></span></div></li>
+      <li><span class="fnum">05</span><div class="fbody"><b>The product page contradicts itself four ways</b><span>Warranty (lifetime vs standard), assembly (~8 min vs "&lt;20 mins"), shipping ("2–6 business days" <em>and</em> "2–6 Weeks"), and colours — the copy lists Black, which doesn't exist, and omits Pink and Purple, which do. I used the conservative version of each. <span class="chip open">OPEN</span></span></div></li>
+      <li><span class="fnum">06</span><div class="fbody"><b>The category page ranks 55.8 for its own name</b><span><span class="path">/collections/rebounders</span> sits at position 55.8 for "rebounders" while the homepage (10.4) and the product page (13.9) outrank it. It's correctly titled and schema'd — it has no internal links. <span class="chip open">OPEN</span></span></div></li>
+      <li><span class="fnum">07</span><div class="fbody"><b>Two landing templates render identical output</b><span><span class="path">promo-landing</span> and <span class="path">promo-landing-v3</span> both return 95,817 bytes with the same section id. Editing one expecting a difference won't produce one. <span class="chip open">OPEN</span></span></div></li>
+      <li><span class="fnum">08</span><div class="fbody"><b>66% of buying queries are split across your own URLs</b><span>479 of 724 commercial queries are served by more than one page of yours — "best rebounder trampoline" across 53 URLs, "best rebounder for lymphatic drainage" across 36. <span class="chip open">OPEN</span></span></div></li>
+      <li><span class="fnum">09</span><div class="fbody"><b>Independent confirmation of that self-competition</b><span>Summed across the page dimension your impressions total 553,323 against a property total of 492,620. Google counts one impression per search event; the page dimension counts one per URL shown. That <strong>12.3% excess is your pages appearing beside each other.</strong></span></div></li>
+      <li><span class="fnum">10</span><div class="fbody"><b>"Compare Models" goes to the product page</b><span>On the 257 workout articles, hardcoded inside <span class="path">lrb-workout-show.liquid</span> — not to <span class="path">/pages/comparisons</span>. <span class="chip open">OPEN</span></span></div></li>
+      <li><span class="fnum">11</span><div class="fbody"><b>The cart app leaks to the sale collection</b><span>Rebuy Smart Cart's empty-cart message has a "Shop Now" button pointing at <span class="path">/collections/sale</span>. App setting, not theme. <span class="chip open">OPEN</span></span></div></li>
+      <li><span class="fnum">12</span><div class="fbody"><b>The 15% discount has 8 redemptions since May</b><span><span class="path">LP15OFFDEAL</span> is active with no expiry and no cap, and has been used eight times in four months. The advertorial page it lives on earns 5.78% search CTR — people arrive and don't buy. <span class="chip open">OPEN</span></span></div></li>
+    </ol>
+  </section>
+
+  <!-- ══════ MY MISTAKES ══════ -->
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">Corrections</p>
+      <h2>Six things I got wrong</h2>
+    </div>
+
+    <div class="note mine">
+      <h3>The one that nearly shipped a regression</h3>
+      <p>I set the article measure to 68 characters, measured
+        <span class="path">paragraph.getBoundingClientRect().width</span>, got "76 characters,
+        done" and moved on. But the paragraph <em>box</em> was 726px while the <em>text</em>
+        was wrapping around a 450px floated image into about 40 characters —
+        <strong>worse than the 1200px column it replaced.</strong> My check measured the box,
+        not the lines. I only caught it from a screenshot.</p>
+      <p style="margin:0">The second measurement used <span class="path">Range.getClientRects()</span>
+        — actual rendered line rectangles — which is what I should have done first.</p>
+    </div>
+
+    <ol class="findings">
+      <li><span class="fnum">02</span><div class="fbody"><b>Deployed a template before the section it configures</b><span>Shopify silently strips settings it doesn't recognise. Because the old schema was still live, <span class="path">size_option_value</span> and all six bridge settings were dropped — 200 response, no errors, plausible-looking file. Caught only by the stored byte count. Section before template from then on.</span></div></li>
+      <li><span class="fnum">03</span><div class="fbody"><b>Made the mobile header taller when the ask was desktop</b><span>The original was 50vw capped at 600px, so a 500px screen was already 250px. My flat 300px made narrow screens worse. Restored to the original curve.</span></div></li>
+      <li><span class="fnum">04</span><div class="fbody"><b>Overstated your own data as conversion evidence</b><span>I argued for a sales page partly on the advertorial page's 5.78% CTR. That page has <strong>no cart</strong> — so 5.78% is search click-through, not conversion. The honest position: the sales page is well-supported by infrastructure, not by measured conversion, because GA4 attributes $0 to every page.</span></div></li>
+      <li><span class="fnum">05</span><div class="fbody"><b>Said "all 785 articles" when it was 528</b><span>The workout blog uses a different template with no <span class="path">article-content</span> section at all, so the reading fix never reached its 257 articles.</span></div></li>
+      <li><span class="fnum">06</span><div class="fbody"><b>Three byte mismatches from editing copy mid-transcription</b><span>I improved a setting's label or info text while typing it into the deploy call but not in the local file. Harmless, but it meant local and theme had drifted. The byte-size check caught all three; everything is now in sync.</span></div></li>
+    </ol>
+  </section>
+
+  <!-- ══════ CONSTRAINTS ══════ -->
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">Platform limits</p>
+      <h2>Seven things the platform won't let us do</h2>
+      <p class="lede" style="font-size:18px">All verified against your store, not assumed.
+        These are the reasons several things are built the way they are.</p>
+    </div>
+
+    <ul class="findings">
+      <li><span class="fnum">01</span><div class="fbody"><b>Liquid cannot read query parameters</b><span>There is no <span class="path">request.params</span>. That is why <span class="path">lrb-personalization.js</span> uses <span class="path">URLSearchParams</span>, and why the context bridge has to be client-side. Its default copy is real HTML so crawlers and no-JS visitors still get something that stands alone.</span></div></li>
+      <li><span class="fnum">02</span><div class="fbody"><b>Only one personalization embed per page</b><span>This is the answer to abstracting the header and footer into two embeds. <span class="path">lrb-personalization.js</span> has a global run-once guard, reads a single <span class="path">EMBED_ID</span> from one global config, and mounts into one hardcoded element id. A second embed aborts itself. Two independent slots need the script reworked for multiple instances.</span></div></li>
+      <li><span class="fnum">03</span><div class="fbody"><b>The bandit's reward can't reach an article CTA</b><span>The two-level UCB1 engine already exists and variations are first-class, with per-variation impressions, clicks and add-to-carts. But it scores on <strong>add-to-carts</strong>, and the impression list resets per page load — so a CTA seen on the blog can never be credited for a cart two pages later. Reward stays 0 and the bandit degenerates into the round-robin its own code comments warn about. Ranking on clicks is the fix.</span></div></li>
+      <li><span class="fnum">04</span><div class="fbody"><b><span class="path">templateSuffix</span> lives on the record, not the theme</b><span>So a per-collection template can't be staged on an unpublished theme. Hence the handle-gate pattern now used in four sections: a comma-separated handle list, blank meaning "behave as before everywhere."</span></div></li>
+      <li><span class="fnum">05</span><div class="fbody"><b><span class="path">article.handle</span> is prefixed with the blog handle</b><span>It returns <span class="path">news/the-cons-of-rebounding</span>, not the slug alone — which put an unencoded slash in a query value until it was fixed.</span></div></li>
+      <li><span class="fnum">06</span><div class="fbody"><b>Never put <span class="path">utm_*</span> on an internal link</b><span>It starts a fresh GA4 session and re-attributes the visit away from its real source. The context parameter is deliberately named <span class="path">lrbctx</span>.</span></div></li>
+      <li><span class="fnum">07</span><div class="fbody"><b><span class="path">?view=</span> does work here</b><span>Verified: it renders a different product template on the same URL with the canonical unchanged and the full variant picker intact; a bogus value falls back to the default with a 200. That is the route to a page that converts in place, if the advertorial step is ever cut.</span></div></li>
+    </ul>
+  </section>
+
+  <!-- ══════ OPEN ══════ -->
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">Waiting on you</p>
+      <h2>Five open decisions</h2>
+    </div>
+
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Decision</th><th>Why it needs you</th></tr></thead>
+        <tbody>
+          <tr><td><strong>The workout blog</strong> — 257 articles</td>
+            <td>Different template, and its CTAs already go straight to the product page. So news articles now route through the advertorial and workout articles don't. Which way do you want them unified?</td></tr>
+          <tr><td><strong>The 5-variant test</strong></td>
+            <td>The engine exists but needs the reward changed to clicks, which is a gravity-claw change and a Railway deploy — bigger than theme work.</td></tr>
+          <tr><td><strong>Two embeds, header and footer</strong></td>
+            <td>Needs the same file reworked for multiple instances. Same deploy as the item above, so they're best done together.</td></tr>
+          <tr><td><strong>Four live-touching collection items</strong></td>
+            <td>The nav link, the 191-character meta description, the collection image alt text, and the duplicate product. The nav link is the one that moves position 55.8.</td></tr>
+          <tr><td><strong>GA4 purchase events</strong></td>
+            <td>$0 is attributed to every page, so none of this can be measured in revenue yet. Everything above is clicks and positions.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══════ SEE IT ══════ -->
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">Where to look</p>
+      <h2>Preview it yourself</h2>
+    </div>
+    <div class="prose">
+      <ul class="plain">
+        <li><strong>Article</strong> — <span class="path">/blogs/news/the-cons-of-rebounding?preview_theme_id=163676356824</span></li>
+        <li><strong>Advertorial with context</strong> — <span class="path">/pages/advertorial-landing?preview_theme_id=163676356824&amp;lrbctx=the-cons-of-rebounding</span></li>
+        <li><strong>Collection</strong> — <span class="path">/collections/rebounders?preview_theme_id=163676356824</span></li>
+        <li><strong>Theme editor</strong> — <span class="path">admin.shopify.com/store/leaps-rebounds/themes/163676356824/editor</span></li>
+      </ul>
+      <p>Those links need you signed into Shopify admin. To send one to anyone else, open
+        the preview and use <strong>Copy link</strong> in the black Shopify bar — the plain
+        <span class="path">?preview_theme_id=</span> link silently serves the live theme to
+        anyone not signed in.</p>
+    </div>
+  </section>
+
+  <footer class="end">
+    <p style="margin:0 0 6px"><strong style="color:var(--ink-2)">On the blog content.</strong>
+      Not one article record was modified. Every write in this project was
+      <span class="path">themeFilesUpsert</span> against the unpublished theme — no article,
+      product, collection, page or metafield writes. The mid-article CTA is spliced at render
+      time from the stored HTML, and the image unfloat is a CSS override of your inline
+      <span class="path">float:</span> styles. Both are toggleable, and removing them returns
+      every article to exactly how it rendered before.</p>
+    <p style="margin:0"><strong style="color:var(--ink-2)">On the numbers.</strong>
+      Search Console reads are paged to exhaustion, never derived from a capped top-N call.
+      Layout figures come from a real browser at stated viewports. Core Web Vitals are field
+      data only. No revenue figure appears anywhere, because none can currently be measured.</p>
+  </footer>
+
+</div>
+<!--
+  Appended, not prepended. These pages have their own sticky headers and hero
+  sections; injecting anything above the fold moves somebody's layout. At the end
+  it is findable and disturbs nothing.
+-->
+<footer style="font:12px -apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:28px 16px;border-top:1px solid rgba(0,0,0,.1);background:#faf9f5;color:#6b6b6b">
+  <a href="/reports/claude" style="color:#6b6b6b">← All reports</a>
+</footer>
+</body>
+</html>

@@ -1,0 +1,1225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  Not for search engines. This page is reachable by anyone holding the link and
+  carries internal business analysis; robots.txt disallows /reports/ as well, but
+  a meta directive is the one that stops indexing of a page that IS fetched.
+-->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Social Command</title>
+<style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style>
+</head>
+<body>
+<style>
+  :root {
+    /* Midnight Glass — taken from mission-control-v2/src/app/globals.css */
+    --bg-deep:     #1a1a1c;
+    --bg-darker:   #222224;
+    --bg-sidebar:  #1e1e20;
+    --bg-card:     rgba(30, 30, 32, 0.8);
+    --bg-elevated: rgba(255, 255, 255, 0.04);
+    --bg-sunken:   rgba(0, 0, 0, 0.25);
+
+    --accent-orange: #e98d20;
+    --accent-amber:  #f5a840;
+    --orange-dim:    rgba(233, 141, 32, 0.15);
+    --orange-glow:   rgba(233, 141, 32, 0.35);
+
+    /* Semantic state — deliberately NOT the accent hue */
+    --ok:    #22c55e;
+    --warn:  #f59e0b;
+    --crit:  #f43f5e;
+    --info:  #4a9eff;
+    --data:  #00c9d7;
+    --idle:  #6b6862;
+
+    --text-primary:   #f0ede8;
+    --text-secondary: #b8b4ae;
+    --text-muted:     rgba(184, 180, 174, 0.65);
+    --text-dim:       rgba(184, 180, 174, 0.3);
+
+    --border:       rgba(233, 141, 32, 0.12);
+    --border-plain: rgba(255, 255, 255, 0.07);
+
+    --r-sm: 8px;
+    --r-md: 14px;
+    --r-lg: 22px;
+
+    --font-ui:   'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --t-fast: all .18s cubic-bezier(.16,1,.3,1);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Shell ────────────────────────────────────────────────────────── */
+  .shell { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 248px; flex-shrink: 0;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    border-top: 2px solid var(--orange-glow);
+    padding: 22px 16px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 20px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 9px;
+    background: linear-gradient(145deg, var(--accent-amber), var(--accent-orange));
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 15px; color: #1a1a1c;
+  }
+  .brand-name { font-weight: 700; letter-spacing: .02em; font-size: 14px; }
+  .brand-sub { font-size: 10.5px; color: var(--text-muted); letter-spacing: .07em; text-transform: uppercase; }
+
+  .nav-group { margin-bottom: 18px; }
+  .nav-label {
+    font-size: 9.5px; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--text-dim); padding: 0 8px 7px; font-weight: 700;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 9px; border-radius: var(--r-sm);
+    color: var(--text-secondary); font-size: 13px;
+    cursor: default; transition: var(--t-fast);
+  }
+  .nav-item:hover { background: var(--bg-elevated); color: var(--text-primary); }
+  .nav-item.active {
+    background: var(--orange-dim); color: var(--accent-amber);
+    font-weight: 600; box-shadow: inset 2px 0 0 var(--accent-orange);
+  }
+  .nav-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .5; flex-shrink: 0; }
+  .nav-badge {
+    margin-left: auto; font-family: var(--font-mono); font-size: 10px;
+    background: var(--crit); color: #fff; border-radius: 20px;
+    padding: 1px 6px; font-weight: 600;
+  }
+
+  .main { flex-grow: 1; min-width: 0; padding: 26px 34px 60px; }
+
+  /* ── Page head ────────────────────────────────────────────────────── */
+  .page-head { display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; margin-bottom: 4px; }
+  h1 { font-size: 25px; font-weight: 700; margin: 0; letter-spacing: -.015em; text-wrap: balance; }
+  .page-sub { color: var(--text-muted); font-size: 13px; margin: 5px 0 0; max-width: 62ch; }
+
+  .mock-flag {
+    margin-left: auto; display: flex; align-items: center; gap: 7px;
+    font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; font-weight: 700;
+    color: var(--warn); border: 1px dashed rgba(245,158,11,.4);
+    background: rgba(245,158,11,.07); padding: 5px 11px; border-radius: 20px;
+  }
+
+  /* ── Tabs ─────────────────────────────────────────────────────────── */
+  .tabs {
+    display: flex; gap: 3px; margin: 22px 0 24px;
+    border-bottom: 1px solid var(--border-plain); flex-wrap: wrap;
+  }
+  .tab {
+    appearance: none; background: none; border: 0;
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    color: var(--text-muted); padding: 9px 14px; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: var(--t-fast); border-radius: var(--r-sm) var(--r-sm) 0 0;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .tab:hover { color: var(--text-primary); background: var(--bg-elevated); }
+  .tab[aria-selected="true"] { color: var(--accent-amber); border-bottom-color: var(--accent-orange); }
+  .tab:focus-visible { outline: 2px solid var(--accent-orange); outline-offset: 2px; }
+  .tab-count {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+    background: var(--bg-elevated); color: var(--text-secondary);
+    padding: 1px 6px; border-radius: 20px;
+  }
+  .tab[aria-selected="true"] .tab-count { background: var(--orange-dim); color: var(--accent-amber); }
+
+  .panel { display: none; animation: rise .28s cubic-bezier(.16,1,.3,1); }
+  .panel.active { display: block; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .panel { animation: none; }
+    * { transition: none !important; }
+  }
+
+  /* ── Cards ────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--r-md); padding: 18px 20px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35), 0 1px 0 rgba(233,141,32,.06);
+  }
+  .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .card-title { font-size: 13.5px; font-weight: 700; letter-spacing: .01em; }
+  .card-note { font-size: 11.5px; color: var(--text-muted); margin-left: auto; }
+  h2.sect {
+    font-size: 11px; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--text-dim); font-weight: 700; margin: 30px 0 12px;
+  }
+  h2.sect:first-child { margin-top: 0; }
+
+  .grid { display: grid; gap: 14px; }
+  .g2 { grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); }
+  .g3 { grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
+
+  /* ── Pills ────────────────────────────────────────────────────────── */
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 20px; white-space: nowrap;
+  }
+  .pill::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .pill.ok    { color: var(--ok);   background: rgba(34,197,94,.13); }
+  .pill.warn  { color: var(--warn); background: rgba(245,158,11,.13); }
+  .pill.crit  { color: var(--crit); background: rgba(244,63,94,.13); }
+  .pill.idle  { color: var(--text-muted); background: var(--bg-elevated); }
+  .pill.info  { color: var(--info); background: rgba(74,158,255,.13); }
+  .pill.flat::before { display: none; }
+
+  code, .mono { font-family: var(--font-mono); font-size: 12px; }
+  code {
+    background: var(--bg-sunken); padding: 1.5px 5px;
+    border-radius: 4px; color: var(--accent-amber);
+    border: 1px solid var(--border-plain);
+  }
+
+  /* ── Architecture switch ──────────────────────────────────────────── */
+  .arch {
+    background: linear-gradient(150deg, rgba(233,141,32,.06), transparent 65%), var(--bg-card);
+    border: 1px solid var(--border); border-radius: var(--r-lg);
+    padding: 20px 22px; margin-bottom: 26px;
+  }
+  .arch-top { display: flex; align-items: flex-start; gap: 18px; flex-wrap: wrap; margin-bottom: 16px; }
+  .arch-q { font-size: 15px; font-weight: 700; margin: 0 0 3px; }
+  .arch-hint { font-size: 12.5px; color: var(--text-muted); margin: 0; max-width: 58ch; }
+
+  .seg {
+    display: inline-flex; background: var(--bg-sunken);
+    border: 1px solid var(--border-plain); border-radius: 11px;
+    padding: 3px; gap: 3px; margin-left: auto; flex-shrink: 0;
+  }
+  .seg-btn {
+    appearance: none; border: 0; background: none; cursor: pointer;
+    font-family: inherit; font-size: 12.5px; font-weight: 700;
+    color: var(--text-muted); padding: 8px 16px; border-radius: 8px;
+    transition: var(--t-fast); white-space: nowrap;
+  }
+  .seg-btn:hover { color: var(--text-primary); }
+  .seg-btn[aria-pressed="true"] {
+    background: var(--accent-orange); color: #1a1a1c;
+    box-shadow: 0 2px 12px var(--orange-glow);
+  }
+  .seg-btn:focus-visible { outline: 2px solid var(--accent-amber); outline-offset: 2px; }
+
+  .arch-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1px; background: var(--border-plain); border-radius: var(--r-sm); overflow: hidden; }
+  .arch-stat { background: var(--bg-darker); padding: 12px 14px; }
+  .arch-stat-k { font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); font-weight: 700; }
+  .arch-stat-v { font-family: var(--font-mono); font-size: 19px; font-weight: 600; margin-top: 3px; letter-spacing: -.02em; }
+  .arch-stat-n { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+  /* ── Feed rows ────────────────────────────────────────────────────── */
+  .feed {
+    display: flex; align-items: center; gap: 13px;
+    padding: 13px 16px; background: var(--bg-card);
+    border: 1px solid var(--border-plain); border-radius: var(--r-md);
+    border-left: 3px solid var(--stripe, var(--idle));
+    transition: var(--t-fast);
+  }
+  .feed:hover { background: var(--bg-darker); }
+  .feed.s-ok   { --stripe: var(--ok); }
+  .feed.s-crit { --stripe: var(--crit); }
+  .feed.s-warn { --stripe: var(--warn); }
+  .feed.s-idle { --stripe: var(--idle); }
+
+  .glyph {
+    width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 14px; font-weight: 800;
+    background: var(--bg-elevated); color: var(--text-secondary);
+    font-family: var(--font-mono);
+  }
+  .feed-body { min-width: 0; flex-grow: 1; }
+  .feed-name { font-weight: 600; font-size: 13.5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .feed-msg { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .feed-msg strong { color: var(--text-secondary); font-weight: 600; }
+  .feed-right { flex-shrink: 0; text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .feed-env { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-dim); }
+
+  .role-tag {
+    font-size: 9.5px; font-weight: 800; letter-spacing: .1em;
+    padding: 2px 7px; border-radius: 4px;
+  }
+  .role-w { background: rgba(233,141,32,.18); color: var(--accent-amber); }
+  .role-r { background: rgba(0,201,215,.14); color: var(--data); }
+
+  /* ── Table ────────────────────────────────────────────────────────── */
+  .t-wrap { overflow-x: auto; border-radius: var(--r-md); border: 1px solid var(--border-plain); }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 560px; }
+  th {
+    text-align: left; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--text-dim); font-weight: 700; padding: 10px 14px;
+    background: var(--bg-darker); border-bottom: 1px solid var(--border-plain);
+    position: sticky; top: 0;
+  }
+  td { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr { transition: var(--t-fast); }
+  tbody tr:hover { background: var(--bg-elevated); }
+  td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+  .cap-yes { color: var(--ok); font-weight: 700; }
+  .cap-no  { color: var(--crit); font-weight: 700; }
+  .cap-unk { color: var(--warn); font-weight: 700; }
+  .cap-cell { font-size: 11.5px; }
+  .cap-cell small { display: block; color: var(--text-dim); font-size: 10.5px; }
+
+  /* ── Compose ──────────────────────────────────────────────────────── */
+  .compose { display: grid; grid-template-columns: minmax(0,1fr) 340px; gap: 18px; align-items: start; }
+  @media (max-width: 1080px) { .compose { grid-template-columns: 1fr; } }
+
+  .field { margin-bottom: 15px; }
+  .field-label {
+    display: block; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--text-dim); font-weight: 700; margin-bottom: 6px;
+  }
+  textarea, input[type=text] {
+    width: 100%; background: var(--bg-sunken); color: var(--text-primary);
+    border: 1px solid var(--border-plain); border-radius: var(--r-sm);
+    padding: 10px 12px; font-family: inherit; font-size: 13px; resize: vertical;
+    transition: var(--t-fast);
+  }
+  textarea:focus, input[type=text]:focus {
+    outline: none; border-color: var(--accent-orange);
+    box-shadow: 0 0 0 3px var(--orange-dim);
+  }
+
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    appearance: none; cursor: pointer; font-family: inherit;
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--bg-sunken); border: 1px solid var(--border-plain);
+    color: var(--text-secondary); border-radius: 20px;
+    padding: 6px 13px; font-size: 12.5px; font-weight: 600;
+    transition: var(--t-fast);
+  }
+  .chip:hover:not(:disabled) { border-color: var(--accent-orange); color: var(--text-primary); }
+  .chip[aria-pressed="true"] {
+    background: var(--orange-dim); border-color: var(--accent-orange); color: var(--accent-amber);
+  }
+  .chip:disabled { opacity: .38; cursor: not-allowed; text-decoration: line-through; }
+  .chip:focus-visible { outline: 2px solid var(--accent-orange); outline-offset: 2px; }
+  .chip-x { font-family: var(--font-mono); font-size: 10px; opacity: .8; }
+
+  .btn {
+    appearance: none; cursor: pointer; font-family: inherit;
+    font-size: 12.5px; font-weight: 700; letter-spacing: .03em;
+    padding: 9px 17px; border-radius: var(--r-sm);
+    border: 1px solid var(--border-plain); background: var(--bg-elevated);
+    color: var(--text-primary); transition: var(--t-fast);
+  }
+  .btn:hover { background: var(--bg-darker); border-color: var(--accent-orange); }
+  .btn:focus-visible { outline: 2px solid var(--accent-orange); outline-offset: 2px; }
+  .btn-primary {
+    background: var(--accent-orange); color: #1a1a1c; border-color: transparent;
+  }
+  .btn-primary:hover { filter: brightness(1.08); box-shadow: 0 0 22px var(--orange-glow); background: var(--accent-orange); }
+  .btn-danger { color: var(--crit); }
+  .btn-danger:hover { background: rgba(244,63,94,.1); border-color: var(--crit); }
+  .btn-row { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* phone preview */
+  .preview-frame {
+    background: var(--bg-sunken); border: 1px solid var(--border-plain);
+    border-radius: var(--r-md); overflow: hidden;
+  }
+  .pv-bar {
+    display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+    border-bottom: 1px solid var(--border-plain); background: var(--bg-darker);
+  }
+  .pv-av { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(140deg, var(--accent-amber), var(--accent-orange)); flex-shrink: 0; }
+  .pv-handle { font-size: 12px; font-weight: 700; }
+  .pv-plat { margin-left: auto; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); font-weight: 700; }
+  .pv-media {
+    aspect-ratio: var(--ar, 1); background:
+      radial-gradient(circle at 32% 28%, rgba(233,141,32,.30), transparent 58%),
+      radial-gradient(circle at 72% 76%, rgba(0,201,215,.16), transparent 55%),
+      var(--bg-darker);
+    display: grid; place-items: center; position: relative;
+  }
+  .pv-media span {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);
+    background: rgba(0,0,0,.42); padding: 4px 9px; border-radius: 20px;
+    border: 1px solid var(--border-plain);
+  }
+  .pv-ar {
+    position: absolute; top: 8px; right: 8px;
+    font-family: var(--font-mono); font-size: 9.5px; color: var(--text-dim);
+    background: rgba(0,0,0,.5); padding: 2px 6px; border-radius: 4px;
+  }
+  .pv-cap { padding: 11px 12px; font-size: 12.5px; line-height: 1.5; }
+  .pv-cap .tags { color: var(--info); }
+  .pv-cut { color: var(--text-dim); }
+  .pv-meta {
+    padding: 0 12px 11px; font-size: 10.5px; color: var(--text-dim);
+    font-family: var(--font-mono); display: flex; gap: 12px; flex-wrap: wrap;
+  }
+
+  /* ── Approval ─────────────────────────────────────────────────────── */
+  .appr { border-left: 3px solid var(--warn); }
+  .appr.done { border-left-color: var(--ok); opacity: .62; }
+  .appr.killed { border-left-color: var(--crit); opacity: .62; }
+  .kv { display: grid; grid-template-columns: 104px 1fr; gap: 6px 14px; font-size: 12.5px; margin: 12px 0; }
+  .kv dt { color: var(--text-dim); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; padding-top: 2px; }
+  .kv dd { margin: 0; }
+
+  .annot {
+    display: flex; gap: 9px; align-items: flex-start;
+    background: rgba(34,197,94,.06); border: 1px solid rgba(34,197,94,.22);
+    border-radius: var(--r-sm); padding: 9px 12px; font-size: 11.5px;
+    color: var(--text-secondary); margin-top: 12px;
+  }
+  .annot b { color: var(--ok); }
+  .annot::before { content: '▲'; color: var(--ok); font-size: 9px; padding-top: 3px; }
+
+  .callout {
+    display: flex; gap: 11px; align-items: flex-start;
+    border-radius: var(--r-md); padding: 13px 16px; font-size: 12.5px;
+    border: 1px solid var(--border-plain); background: var(--bg-card);
+    border-left: 3px solid var(--info); color: var(--text-secondary);
+  }
+  .callout.w { border-left-color: var(--warn); background: rgba(245,158,11,.05); }
+  .callout.c { border-left-color: var(--crit); background: rgba(244,63,94,.05); }
+  .callout strong { color: var(--text-primary); }
+  .callout-t { font-weight: 700; color: var(--text-primary); display: block; margin-bottom: 2px; font-size: 12.5px; }
+
+  /* ── Stat tiles ───────────────────────────────────────────────────── */
+  .tile { background: var(--bg-card); border: 1px solid var(--border-plain); border-radius: var(--r-md); padding: 14px 16px; }
+  .tile-k { font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .tile-v { font-family: var(--font-mono); font-size: 24px; font-weight: 600; letter-spacing: -.025em; margin: 5px 0 1px; font-variant-numeric: tabular-nums; }
+  .tile-d { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
+  .trend-up { color: var(--ok); font-weight: 700; }
+  .trend-dn { color: var(--crit); font-weight: 700; }
+  .spark { display: block; margin-top: 8px; width: 100%; height: 30px; }
+
+  .queue-row {
+    display: flex; align-items: center; gap: 13px; padding: 12px 15px;
+    background: var(--bg-card); border: 1px solid var(--border-plain);
+    border-radius: var(--r-md);
+  }
+  .when { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-secondary); flex-shrink: 0; width: 92px; }
+  .when small { display: block; color: var(--text-dim); font-size: 10px; }
+  .thumb { width: 38px; height: 38px; border-radius: var(--r-sm); flex-shrink: 0;
+    background: radial-gradient(circle at 35% 30%, rgba(233,141,32,.32), transparent 60%), var(--bg-darker);
+    border: 1px solid var(--border-plain); }
+  .q-cap { flex-grow: 1; min-width: 0; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .q-plats { display: flex; gap: 4px; flex-shrink: 0; }
+  .q-plat {
+    font-family: var(--font-mono); font-size: 9.5px; font-weight: 700;
+    width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center;
+    background: var(--bg-elevated); color: var(--text-secondary);
+  }
+
+  .empty { text-align: center; padding: 42px 20px; color: var(--text-muted); }
+  .empty-g { font-size: 26px; opacity: .28; margin-bottom: 8px; }
+
+  /* ── Toast ────────────────────────────────────────────────────────── */
+  .toasts { position: fixed; bottom: 22px; right: 22px; display: flex; flex-direction: column; gap: 9px; z-index: 50; }
+  .toast {
+    background: var(--bg-darker); border: 1px solid var(--border);
+    border-left: 3px solid var(--ok); border-radius: var(--r-sm);
+    padding: 11px 16px; font-size: 12.5px; min-width: 230px;
+    box-shadow: 0 12px 34px rgba(0,0,0,.55); animation: slide .26s cubic-bezier(.16,1,.3,1);
+  }
+  .toast.no { border-left-color: var(--crit); }
+  .toast b { display: block; font-size: 12.5px; margin-bottom: 1px; }
+  .toast span { color: var(--text-muted); font-size: 11.5px; }
+  @keyframes slide { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+
+  .foot { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--border-plain); font-size: 11.5px; color: var(--text-dim); }
+  .foot code { font-size: 11px; }
+</style>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">L</div>
+      <div>
+        <div class="brand-name">Mission Control</div>
+        <div class="brand-sub">Leaps &amp; Rebounds</div>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Operate</div>
+      <div class="nav-item"><span class="nav-dot"></span>Command Center</div>
+      <div class="nav-item"><span class="nav-dot"></span>Pipeline</div>
+      <div class="nav-item"><span class="nav-dot"></span>Work</div>
+      <div class="nav-item"><span class="nav-dot"></span>Quick Run</div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Channels</div>
+      <div class="nav-item active"><span class="nav-dot"></span>Social<span class="nav-badge">3</span></div>
+      <div class="nav-item"><span class="nav-dot"></span>Blog</div>
+      <div class="nav-item"><span class="nav-dot"></span>Support</div>
+      <div class="nav-item"><span class="nav-dot"></span>Logistics</div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Measure</div>
+      <div class="nav-item"><span class="nav-dot"></span>Profitability</div>
+      <div class="nav-item"><span class="nav-dot"></span>SEO</div>
+      <div class="nav-item"><span class="nav-dot"></span>Research</div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">System</div>
+      <div class="nav-item"><span class="nav-dot"></span>Agents</div>
+      <div class="nav-item"><span class="nav-dot"></span>Blockages</div>
+      <div class="nav-item"><span class="nav-dot"></span>Settings</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Social</h1>
+        <p class="page-sub">One approved write path, four independent read paths. Publishing is gated by <code>requireApproval()</code> — no agent posts unattended.</p>
+      </div>
+      <div class="mock-flag">Mockup · nothing is live</div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true"  data-p="conn">Connections <span class="tab-count">3</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-p="comp">Compose</button>
+      <button class="tab" role="tab" aria-selected="false" data-p="appr">Approvals <span class="tab-count">2</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-p="sched">Scheduled <span class="tab-count">5</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-p="perf">Performance</button>
+    </div>
+
+    <!-- ══ CONNECTIONS ══════════════════════════════════════════════ -->
+    <section class="panel active" id="p-conn">
+
+      <div class="arch">
+        <div class="arch-top">
+          <div>
+            <p class="arch-q">How should posts leave the building?</p>
+            <p class="arch-hint">This is the open decision. Flip it to see what actually changes — the credentials you go collect, what blocks launch, and what you give up. Everything below reacts.</p>
+          </div>
+          <div class="seg" role="group" aria-label="Publishing architecture">
+            <button class="seg-btn" aria-pressed="true"  data-arch="agg">Aggregator</button>
+            <button class="seg-btn" aria-pressed="false" data-arch="dir">Direct APIs</button>
+          </div>
+        </div>
+        <div class="arch-stats" id="archStats"></div>
+      </div>
+
+      <div id="archCallout" style="margin-bottom:26px"></div>
+
+      <h2 class="sect">Write path — the only thing that can publish</h2>
+      <div class="grid" style="gap:10px" id="writeFeeds"></div>
+
+      <h2 class="sect">Read paths — analytics only, and they fail separately</h2>
+      <div class="grid" style="gap:10px">
+        <div class="feed s-crit">
+          <div class="glyph">IG</div>
+          <div class="feed-body">
+            <div class="feed-name">Instagram Graph API <span class="role-tag role-r">READ</span></div>
+            <div class="feed-msg">Token not set. Hashtag &amp; mention discovery is dark — <strong>2 tools</strong> unavailable.</div>
+          </div>
+          <div class="feed-right">
+            <span class="pill crit">Broken</span>
+            <span class="feed-env">INSTAGRAM_GRAPH_API_TOKEN</span>
+          </div>
+        </div>
+
+        <div class="feed s-crit">
+          <div class="glyph">FB</div>
+          <div class="feed-body">
+            <div class="feed-name">Facebook Page <span class="role-tag role-r">READ</span></div>
+            <div class="feed-msg">Token not set. Comment &amp; message monitoring is dark — <strong>7 tools</strong> unavailable.</div>
+          </div>
+          <div class="feed-right">
+            <span class="pill crit">Broken</span>
+            <span class="feed-env">FB_PAGE_ACCESS_TOKEN</span>
+          </div>
+        </div>
+
+        <div class="feed s-crit">
+          <div class="glyph">TT</div>
+          <div class="feed-body">
+            <div class="feed-name">TikTok Business <span class="role-tag role-r">READ</span></div>
+            <div class="feed-msg">Token not set. <strong>6 tools</strong> newly wired and waiting — they were dead code until now.</div>
+          </div>
+          <div class="feed-right">
+            <span class="pill crit">Broken</span>
+            <span class="feed-env">TIKTOK_ACCESS_TOKEN</span>
+          </div>
+        </div>
+
+        <div class="feed s-ok">
+          <div class="glyph">YT</div>
+          <div class="feed-body">
+            <div class="feed-name">YouTube Data API <span class="role-tag role-r">READ</span></div>
+            <div class="feed-msg">Connected — <strong>Leaps &amp; Rebounds</strong>. Probe now costs <strong>1</strong> quota unit, down from 100.</div>
+          </div>
+          <div class="feed-right">
+            <span class="pill ok">Active</span>
+            <span class="feed-env">9,912 / 10,000 units left</span>
+          </div>
+        </div>
+      </div>
+
+      <h2 class="sect">Capability ceiling — what each path can actually post</h2>
+      <div class="callout w" style="margin-bottom:12px">
+        <div>
+          <span class="callout-t">The aggregator column is unverified</span>
+          Our <code>upload-post.ts</code> client was written against docs and has never made a live call — the response parsing is a guess. Treat every <span class="cap-unk">?</span> below as something to confirm in a trial account <em>before</em> committing, not as a finding.
+        </div>
+      </div>
+      <div class="t-wrap">
+        <table>
+          <thead>
+            <tr><th>Post type / feature</th><th>Via aggregator</th><th>Direct API</th><th>Matters because</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Single image / video</strong></td>
+              <td class="cap-cell"><span class="cap-yes">Yes</span></td>
+              <td class="cap-cell"><span class="cap-yes">Yes</span></td>
+              <td>The baseline. Both fine.</td>
+            </tr>
+            <tr>
+              <td><strong>Carousel</strong> (multi-image)</td>
+              <td class="cap-cell"><span class="cap-unk">?</span><small>one media object in our client</small></td>
+              <td class="cap-cell"><span class="cap-yes">Yes</span></td>
+              <td>Before/after and 5-exercise posts are carousels.</td>
+            </tr>
+            <tr>
+              <td><strong>Stories</strong></td>
+              <td class="cap-cell"><span class="cap-unk">?</span></td>
+              <td class="cap-cell"><span class="cap-yes">Yes</span></td>
+              <td>Highest-frequency IG surface for a fitness brand.</td>
+            </tr>
+            <tr>
+              <td><strong>Product tags / shopping</strong></td>
+              <td class="cap-cell"><span class="cap-no">No</span></td>
+              <td class="cap-cell"><span class="cap-yes">Yes</span></td>
+              <td>Direct path from post to the rebounder PDP.</td>
+            </tr>
+            <tr>
+              <td><strong>First comment</strong> (hashtag dump)</td>
+              <td class="cap-cell"><span class="cap-unk">?</span></td>
+              <td class="cap-cell"><span class="cap-yes">Yes</span></td>
+              <td>Keeps 20 hashtags out of the visible caption.</td>
+            </tr>
+            <tr>
+              <td><strong>Per-platform crop</strong></td>
+              <td class="cap-cell"><span class="cap-no">No</span><small>one media URL, all platforms</small></td>
+              <td class="cap-cell"><span class="cap-yes">Yes</span></td>
+              <td>4:5 for IG, 9:16 for TikTok, 1:1 for FB.</td>
+            </tr>
+            <tr>
+              <td><strong>Real API error on failure</strong></td>
+              <td class="cap-cell"><span class="cap-no">No</span><small>their error, not Meta's</small></td>
+              <td class="cap-cell"><span class="cap-yes">Yes</span></td>
+              <td>Debugging a silent drop through a proxy is painful.</td>
+            </tr>
+            <tr>
+              <td><strong>Ships without app review</strong></td>
+              <td class="cap-cell"><span class="cap-yes">Yes</span></td>
+              <td class="cap-cell"><span class="cap-no">No</span><small>Meta review + TikTok audit</small></td>
+              <td>The single strongest argument for the aggregator.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="foot">
+        Read paths are the direct platform APIs under <em>both</em> architectures — this decision only governs publishing.
+        Verify any time with <code>npx tsx src/dev/social-probe.ts</code>.
+      </div>
+    </section>
+
+    <!-- ══ COMPOSE ══════════════════════════════════════════════════ -->
+    <section class="panel" id="p-comp">
+      <div class="compose">
+        <div>
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">Brief the agent</span>
+              <span class="card-note">content-creator · <code>kie-lifestyle</code></span>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="brief">What is this post about?</label>
+              <textarea id="brief" rows="3">Spring reset — 10 minutes of rebounding beats a 30-minute jog for lymphatic drainage. Lead with the mat, not the frame.</textarea>
+            </div>
+
+            <div class="field">
+              <label class="field-label">Send to</label>
+              <div class="chips" id="platChips"></div>
+              <p style="font-size:11.5px;color:var(--text-muted);margin:9px 0 0" id="chipNote"></p>
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn-primary" id="genBtn">Generate draft</button>
+              <button class="btn" id="regenBtn">Regenerate image</button>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:14px">
+            <div class="card-head">
+              <span class="card-title">Draft</span>
+              <span class="pill info flat" id="draftState">Generated</span>
+              <span class="card-note">edit anything before it goes to approval</span>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="cap">Caption</label>
+              <textarea id="cap" rows="4">Ten minutes on the mat does what thirty on pavement can't. Your lymphatic system moves when you do — and rebounding moves it without pounding your knees.
+
+Spring reset starts on the mat.</textarea>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="tags">Hashtags <span style="text-transform:none;letter-spacing:0;color:var(--text-dim)">— stored separately, appended at publish</span></label>
+              <input type="text" id="tags" value="rebounding lymphaticdrainage lowimpact springreset homegym">
+            </div>
+
+            <div id="gateNote"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card" style="padding:14px 15px">
+            <div class="card-head" style="margin-bottom:11px">
+              <span class="card-title">Preview</span>
+              <span class="card-note" id="pvCount"></span>
+            </div>
+            <div class="chips" style="margin-bottom:12px" id="pvTabs"></div>
+            <div class="preview-frame" id="pvFrame"></div>
+            <p style="font-size:11px;color:var(--text-dim);margin:10px 0 0" id="pvNote"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ APPROVALS ════════════════════════════════════════════════ -->
+    <section class="panel" id="p-appr">
+      <div class="callout" style="margin-bottom:18px">
+        <div>
+          <span class="callout-t">This queue is the live-fire gate</span>
+          Every post an agent proposes stops here. Nothing reaches a platform until a human presses Approve — enforced in <code>action_gate.ts</code>, not in the prompt.
+        </div>
+      </div>
+      <div class="grid" style="gap:14px" id="apprList"></div>
+    </section>
+
+    <!-- ══ SCHEDULED ════════════════════════════════════════════════ -->
+    <section class="panel" id="p-sched">
+      <h2 class="sect">Approved and queued</h2>
+      <div class="grid" style="gap:9px">
+        <div class="queue-row">
+          <div class="when">Tue 9:00a<small>in 14 hours</small></div>
+          <div class="thumb"></div>
+          <div class="q-cap">Ten minutes on the mat does what thirty on pavement can't…</div>
+          <div class="q-plats"><span class="q-plat">IG</span><span class="q-plat">FB</span></div>
+          <span class="pill ok">Approved</span>
+        </div>
+        <div class="queue-row">
+          <div class="when">Wed 12:30p<small>in 2 days</small></div>
+          <div class="thumb"></div>
+          <div class="q-cap">The clip that snaps is sewn into the mat. Here's the fix we're shipping…</div>
+          <div class="q-plats"><span class="q-plat">IG</span><span class="q-plat">TT</span></div>
+          <span class="pill ok">Approved</span>
+        </div>
+        <div class="queue-row">
+          <div class="when">Thu 8:00a<small>in 3 days</small></div>
+          <div class="thumb"></div>
+          <div class="q-cap">Three rebounder mistakes that cost you the lymphatic benefit…</div>
+          <div class="q-plats"><span class="q-plat">TT</span></div>
+          <span class="pill ok">Approved</span>
+        </div>
+        <div class="queue-row">
+          <div class="when">Fri 5:00p<small>in 4 days</small></div>
+          <div class="thumb"></div>
+          <div class="q-cap">Customer rebuild: 41 claims, one very patient man, and what we learned…</div>
+          <div class="q-plats"><span class="q-plat">FB</span></div>
+          <span class="pill warn">Holding — media 404</span>
+        </div>
+        <div class="queue-row">
+          <div class="when">Sat 10:00a<small>in 5 days</small></div>
+          <div class="thumb"></div>
+          <div class="q-cap">Weekend reset: the 8-minute routine our warranty data says is easiest…</div>
+          <div class="q-plats"><span class="q-plat">IG</span><span class="q-plat">FB</span><span class="q-plat">TT</span></div>
+          <span class="pill ok">Approved</span>
+        </div>
+      </div>
+
+      <h2 class="sect">Published</h2>
+      <div class="empty">
+        <div class="empty-g">◌</div>
+        <strong>Nothing published yet</strong>
+        <p style="font-size:12px;margin:5px 0 0">This fills in once a write path is connected. It reads back from the platform, not from our own send log — a post we <em>think</em> shipped and a post that is actually live are different facts.</p>
+      </div>
+    </section>
+
+    <!-- ══ PERFORMANCE ══════════════════════════════════════════════ -->
+    <section class="panel" id="p-perf">
+      <div class="callout w" style="margin-bottom:18px">
+        <div>
+          <span class="callout-t">Illustrative numbers, from read APIs that aren't connected yet</span>
+          Shown so the layout can be judged. Three of four read tokens are unset, so today this page would render mostly empty states. It will never show a revenue figure it cannot source — same rule as the SEO surface.
+        </div>
+      </div>
+
+      <div class="grid g3">
+        <div class="tile">
+          <div class="tile-k">Followers · all platforms</div>
+          <div class="tile-v">48,205</div>
+          <div class="tile-d"><span class="trend-up">▲ 2.4%</span> vs prior 28d</div>
+          <svg class="spark" viewBox="0 0 200 30" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0,24 L28,22 L56,23 L84,18 L112,15 L140,13 L168,9 L196,6" fill="none" stroke="#22c55e" stroke-width="1.8"/>
+            <path d="M0,24 L28,22 L56,23 L84,18 L112,15 L140,13 L168,9 L196,6 L196,30 L0,30 Z" fill="rgba(34,197,94,.12)"/>
+            <circle cx="196" cy="6" r="2.6" fill="#22c55e"/>
+          </svg>
+        </div>
+        <div class="tile">
+          <div class="tile-k">Engagement rate</div>
+          <div class="tile-v">3.8%</div>
+          <div class="tile-d"><span class="trend-up">▲ 0.6pt</span> mat posts outperform</div>
+          <svg class="spark" viewBox="0 0 200 30" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0,20 L28,24 L56,17 L84,19 L112,12 L140,16 L168,10 L196,8" fill="none" stroke="#e98d20" stroke-width="1.8"/>
+            <path d="M0,20 L28,24 L56,17 L84,19 L112,12 L140,16 L168,10 L196,8 L196,30 L0,30 Z" fill="rgba(233,141,32,.12)"/>
+            <circle cx="196" cy="8" r="2.6" fill="#e98d20"/>
+          </svg>
+        </div>
+        <div class="tile">
+          <div class="tile-k">Posts published · 28d</div>
+          <div class="tile-v">0</div>
+          <div class="tile-d">No write path connected</div>
+          <svg class="spark" viewBox="0 0 200 30" preserveAspectRatio="none" aria-hidden="true">
+            <line x1="0" y1="28" x2="196" y2="28" stroke="rgba(184,180,174,.22)" stroke-width="1.6" stroke-dasharray="3 4"/>
+          </svg>
+        </div>
+        <div class="tile">
+          <div class="tile-k">Attributed revenue</div>
+          <div class="tile-v" style="color:var(--text-dim)">—</div>
+          <div class="tile-d">Unpriced, never estimated</div>
+          <svg class="spark" viewBox="0 0 200 30" preserveAspectRatio="none" aria-hidden="true">
+            <line x1="0" y1="28" x2="196" y2="28" stroke="rgba(184,180,174,.22)" stroke-width="1.6" stroke-dasharray="3 4"/>
+          </svg>
+        </div>
+      </div>
+
+      <h2 class="sect">By platform</h2>
+      <div class="t-wrap">
+        <table>
+          <thead>
+            <tr><th>Platform</th><th>Read status</th><th class="num">Followers</th><th class="num">Eng. rate</th><th class="num">Posts 28d</th><th>Top format</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Instagram</strong></td>
+              <td><span class="pill crit">Broken</span></td>
+              <td class="num" style="color:var(--text-dim)">—</td>
+              <td class="num" style="color:var(--text-dim)">—</td>
+              <td class="num">0</td>
+              <td style="color:var(--text-dim)">unknown</td>
+            </tr>
+            <tr>
+              <td><strong>Facebook</strong></td>
+              <td><span class="pill crit">Broken</span></td>
+              <td class="num" style="color:var(--text-dim)">—</td>
+              <td class="num" style="color:var(--text-dim)">—</td>
+              <td class="num">0</td>
+              <td style="color:var(--text-dim)">unknown</td>
+            </tr>
+            <tr>
+              <td><strong>TikTok</strong></td>
+              <td><span class="pill crit">Broken</span></td>
+              <td class="num" style="color:var(--text-dim)">—</td>
+              <td class="num" style="color:var(--text-dim)">—</td>
+              <td class="num">0</td>
+              <td style="color:var(--text-dim)">unknown</td>
+            </tr>
+            <tr>
+              <td><strong>YouTube</strong></td>
+              <td><span class="pill ok">Active</span></td>
+              <td class="num">12,480</td>
+              <td class="num">2.9%</td>
+              <td class="num">3</td>
+              <td>Shorts</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="foot">Every dash is a feed that is not connected — not a zero. A zero and an unmeasured thing are indistinguishable in a tool response, so this table refuses to draw one as the other.</p>
+    </section>
+  </main>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Tabs ─────────────────────────────────────────────────────────────
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () {
+      tabs.forEach(function (x) { x.setAttribute('aria-selected', 'false'); });
+      t.setAttribute('aria-selected', 'true');
+      document.querySelectorAll('.panel').forEach(function (p) { p.classList.remove('active'); });
+      document.getElementById('p-' + t.dataset.p).classList.add('active');
+    });
+  });
+
+  // ── Toast ────────────────────────────────────────────────────────────
+  function toast(title, sub, bad) {
+    var el = document.createElement('div');
+    el.className = 'toast' + (bad ? ' no' : '');
+    el.innerHTML = '<b></b><span></span>';
+    el.querySelector('b').textContent = title;
+    el.querySelector('span').textContent = sub;
+    document.getElementById('toasts').appendChild(el);
+    setTimeout(function () { el.remove(); }, 3600);
+  }
+
+  // ── Architecture model ───────────────────────────────────────────────
+  var ARCH = {
+    agg: {
+      stats: [
+        ['Credentials to get', '1', 'one API key'],
+        ['Blocks launch', 'None', 'ships this week'],
+        ['Platforms covered', '8', '3 we would enable'],
+        ['Code to maintain', '1', 'one client module'],
+        ['Recurring cost', 'Yes', 'per-seat / per-post']
+      ],
+      feeds: [{
+        cls: 's-crit', glyph: 'UP', name: 'Upload-Post', role: 'WRITE',
+        msg: 'Key not set. <strong>Nothing can post.</strong> One credential fans out to Instagram, Facebook and TikTok.',
+        pill: 'crit', pillText: 'Not set', env: 'UPLOAD_POST_API_KEY'
+      }],
+      callout: {
+        cls: 'w',
+        title: 'The failure mode to design against',
+        body: 'A valid key with <em>no linked account</em> is worse than no key: upload-post accepts the post, reports it <code>scheduled</code>, and it silently never appears — the agent reads success. The live-check therefore compares <em>linked accounts</em> against <code>ENABLED_PLATFORMS</code> rather than just validating the key.'
+      }
+    },
+    dir: {
+      stats: [
+        ['Credentials to get', '5', 'across 3 platforms'],
+        ['Blocks launch', '2', 'Meta review, TikTok audit'],
+        ['Platforms covered', '3', 'each built separately'],
+        ['Code to maintain', '3', 'plus token refresh each'],
+        ['Recurring cost', 'None', 'no third party']
+      ],
+      feeds: [
+        {
+          cls: 's-warn', glyph: 'IG', name: 'Instagram Content Publishing', role: 'WRITE',
+          msg: 'Needs <strong>Meta app review</strong> before it may post. Business account must be linked to a Facebook Page.',
+          pill: 'warn', pillText: 'Review required', env: 'INSTAGRAM_GRAPH_API_TOKEN'
+        },
+        {
+          cls: 's-warn', glyph: 'FB', name: 'Facebook Page Publishing', role: 'WRITE',
+          msg: 'Needs <code>pages_manage_posts</code>. Closest to reachable — the ads token is already on this business.',
+          pill: 'warn', pillText: 'Scopes needed', env: 'FB_PAGE_ACCESS_TOKEN'
+        },
+        {
+          cls: 's-crit', glyph: 'TT', name: 'TikTok Content Posting', role: 'WRITE',
+          msg: 'Needs an <strong>app audit</strong>. Unaudited apps can only post private-to-self — useless for marketing.',
+          pill: 'crit', pillText: 'Audit required', env: 'TIKTOK_ACCESS_TOKEN'
+        }
+      ],
+      callout: {
+        cls: 'c',
+        title: 'Nothing posts until the reviews clear',
+        body: 'Three approval processes on three timetables, none of which you control. The upside is real: full capability, the platform’s own error messages, no third party in the path, no recurring fee. <strong>The question worth researching is only how long those reviews actually take</strong> — if it is days rather than weeks for a business with a live storefront, the aggregator’s main advantage mostly evaporates.'
+      }
+    }
+  };
+
+  var arch = 'agg';
+
+  function paintArch() {
+    var m = ARCH[arch];
+
+    document.getElementById('archStats').innerHTML = m.stats.map(function (s) {
+      return '<div class="arch-stat"><div class="arch-stat-k">' + s[0] + '</div>' +
+             '<div class="arch-stat-v">' + s[1] + '</div>' +
+             '<div class="arch-stat-n">' + s[2] + '</div></div>';
+    }).join('');
+
+    document.getElementById('writeFeeds').innerHTML = m.feeds.map(function (f) {
+      return '<div class="feed ' + f.cls + '">' +
+        '<div class="glyph">' + f.glyph + '</div>' +
+        '<div class="feed-body"><div class="feed-name">' + f.name +
+        ' <span class="role-tag role-w">' + f.role + '</span></div>' +
+        '<div class="feed-msg">' + f.msg + '</div></div>' +
+        '<div class="feed-right"><span class="pill ' + f.pill + '">' + f.pillText + '</span>' +
+        '<span class="feed-env">' + f.env + '</span></div></div>';
+    }).join('');
+
+    document.getElementById('archCallout').innerHTML =
+      '<div class="callout ' + m.callout.cls + '"><div><span class="callout-t">' +
+      m.callout.title + '</span>' + m.callout.body + '</div></div>';
+
+    document.querySelectorAll('.seg-btn').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.arch === arch));
+    });
+
+    paintCompose();
+  }
+
+  document.querySelectorAll('.seg-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      arch = b.dataset.arch;
+      paintArch();
+      toast(arch === 'agg' ? 'Aggregator' : 'Direct APIs',
+            arch === 'agg' ? '1 credential, ships now' : '5 credentials, 2 reviews first');
+    });
+  });
+
+  // ── Compose ──────────────────────────────────────────────────────────
+  var PLATS = [
+    { id: 'instagram', label: 'Instagram', ab: 'IG', ar: '4 / 5',  ratio: '4:5',  limit: 2200 },
+    { id: 'facebook',  label: 'Facebook',  ab: 'FB', ar: '1 / 1',  ratio: '1:1',  limit: 63206 },
+    { id: 'tiktok',    label: 'TikTok',    ab: 'TT', ar: '9 / 16', ratio: '9:16', limit: 2200 },
+    { id: 'pinterest', label: 'Pinterest', ab: 'PN', ar: '2 / 3',  ratio: '2:3',  limit: 500, off: true },
+    { id: 'linkedin',  label: 'LinkedIn',  ab: 'LI', ar: '1 / 1',  ratio: '1:1',  limit: 3000, off: true }
+  ];
+
+  var picked = { instagram: true, facebook: true, tiktok: false };
+  var pvActive = 'instagram';
+
+  function chosen() {
+    return PLATS.filter(function (p) { return picked[p.id] && !p.off; });
+  }
+
+  function paintCompose() {
+    // platform chips
+    document.getElementById('platChips').innerHTML = PLATS.map(function (p) {
+      return '<button class="chip" data-pid="' + p.id + '" aria-pressed="' +
+        (picked[p.id] && !p.off ? 'true' : 'false') + '"' + (p.off ? ' disabled' : '') + '>' +
+        p.label + '<span class="chip-x">' + p.ratio + '</span></button>';
+    }).join('');
+
+    document.getElementById('platChips').querySelectorAll('.chip').forEach(function (c) {
+      c.addEventListener('click', function () {
+        var id = c.dataset.pid;
+        picked[id] = !picked[id];
+        if (picked[id]) pvActive = id;
+        else if (pvActive === id && chosen().length) pvActive = chosen()[0].id;
+        paintCompose();
+      });
+    });
+
+    document.getElementById('chipNote').innerHTML =
+      'Pinterest and LinkedIn are struck through because they are not in <code>ENABLED_PLATFORMS</code>. ' +
+      'The tool refuses them rather than letting them be accepted and dropped.';
+
+    // gating note reacts to architecture
+    var multi = chosen().length > 1;
+    var g = document.getElementById('gateNote');
+    if (arch === 'agg' && multi) {
+      g.innerHTML = '<div class="callout w" style="margin-top:4px"><div>' +
+        '<span class="callout-t">One media file for ' + chosen().length + ' platforms</span>' +
+        'The aggregator takes a single <code>media_url</code>, so every platform gets the same crop — ' +
+        chosen().map(function (p) { return p.ratio; }).join(' vs ') +
+        ' cannot be served at once. Direct APIs would let you upload a per-platform render.</div></div>';
+    } else if (arch === 'dir' && multi) {
+      g.innerHTML = '<div class="callout" style="margin-top:4px"><div>' +
+        '<span class="callout-t">Per-platform renders available</span>' +
+        'Each platform gets its own crop and its own first comment. ' +
+        chosen().map(function (p) { return p.label + ' ' + p.ratio; }).join(' · ') +
+        '.</div></div>';
+    } else {
+      g.innerHTML = '';
+    }
+
+    // preview tabs
+    var ch = chosen();
+    document.getElementById('pvCount').textContent =
+      ch.length ? ch.length + (ch.length === 1 ? ' platform' : ' platforms') : 'none selected';
+
+    document.getElementById('pvTabs').innerHTML = ch.map(function (p) {
+      return '<button class="chip" data-pv="' + p.id + '" aria-pressed="' +
+        (pvActive === p.id ? 'true' : 'false') + '">' + p.ab + '</button>';
+    }).join('');
+
+    document.getElementById('pvTabs').querySelectorAll('.chip').forEach(function (c) {
+      c.addEventListener('click', function () { pvActive = c.dataset.pv; paintCompose(); });
+    });
+
+    paintPreview();
+  }
+
+  function paintPreview() {
+    var ch = chosen();
+    var frame = document.getElementById('pvFrame');
+    var note = document.getElementById('pvNote');
+
+    if (!ch.length) {
+      frame.innerHTML = '<div class="empty" style="padding:34px 16px"><div class="empty-g">◌</div>' +
+        '<strong>No platform selected</strong><p style="font-size:11.5px;margin:4px 0 0">' +
+        'An empty target list is refused, not treated as "all".</p></div>';
+      note.textContent = '';
+      return;
+    }
+
+    var p = ch.filter(function (x) { return x.id === pvActive; })[0] || ch[0];
+    pvActive = p.id;
+
+    var capText = document.getElementById('cap').value.trim();
+    var tagText = document.getElementById('tags').value.trim();
+    var tags = tagText ? tagText.split(/\s+/).map(function (t) {
+      return '#' + t.replace(/^#/, '');
+    }).join(' ') : '';
+
+    var body = capText.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    var over = (capText.length + tags.length + 2) > p.limit;
+
+    // TikTok shows a short caption; IG/FB show more
+    var shown = p.id === 'tiktok' && body.length > 150
+      ? body.slice(0, 150) + '<span class="pv-cut"> … more</span>'
+      : body.replace(/\n/g, '<br>');
+
+    frame.innerHTML =
+      '<div class="pv-bar"><div class="pv-av"></div>' +
+      '<div><div class="pv-handle">leapsandrebounds</div></div>' +
+      '<div class="pv-plat">' + p.label + '</div></div>' +
+      '<div class="pv-media" style="--ar:' + p.ar + '">' +
+      '<span>agent-generated · kie-lifestyle</span>' +
+      '<div class="pv-ar">' + p.ratio + '</div></div>' +
+      '<div class="pv-cap">' + shown +
+      (tags ? '<br><br><span class="tags">' + tags + '</span>' : '') + '</div>' +
+      '<div class="pv-meta"><span>' + (capText.length + tags.length + 2) + ' / ' + p.limit.toLocaleString() + ' chars</span>' +
+      '<span>' + p.ratio + '</span></div>';
+
+    note.innerHTML = over
+      ? '<span style="color:var(--crit);font-weight:700">Over ' + p.label + '’s limit.</span> Caught here, not at publish.'
+      : 'Hashtags render appended, as they will be sent — they are stored apart from the caption so each platform can place them differently.';
+  }
+
+  ['cap', 'tags'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', paintPreview);
+  });
+
+  document.getElementById('genBtn').addEventListener('click', function () {
+    document.getElementById('draftState').textContent = 'Regenerated';
+    toast('Draft generated', 'Caption + image ready for review');
+  });
+  document.getElementById('regenBtn').addEventListener('click', function () {
+    toast('Image regenerated', 'Reference image: bungee rebounder, black padding');
+  });
+
+  // ── Approvals ────────────────────────────────────────────────────────
+  var APPR = [
+    {
+      id: 'a1', agent: 'Content Creator', when: '4 minutes ago', prio: 5,
+      title: 'Post to instagram, facebook',
+      plats: 'instagram, facebook',
+      caption: 'Ten minutes on the mat does what thirty on pavement can’t. Your lymphatic system moves when you do — and rebounding moves it without pounding your knees.',
+      tags: '#rebounding #lymphaticdrainage #lowimpact #springreset #homegym',
+      media: 'image — https://cdn.leapsandrebounds.com/gen/spring-reset-4x5.jpg',
+      sched: 'Tue 9:00 AM ET'
+    },
+    {
+      id: 'a2', agent: 'Influencing Agent', when: '1 hour ago', prio: 7,
+      title: 'Post to tiktok',
+      plats: 'tiktok',
+      caption: 'The clip that snaps is sewn into the mat. That’s why a whole mat ships for a few cents of plastic — and why we’re changing it.',
+      tags: '#rebounder #warranty #buildquality',
+      media: 'video — https://cdn.leapsandrebounds.com/gen/clip-fix-9x16.mp4',
+      sched: 'immediately on approval'
+    }
+  ];
+
+  function paintAppr() {
+    document.getElementById('apprList').innerHTML = APPR.map(function (a) {
+      return '<div class="card appr" id="c-' + a.id + '">' +
+        '<div class="card-head"><span class="card-title">' + a.title + '</span>' +
+        '<span class="pill warn">Awaiting approval</span>' +
+        '<span class="card-note">' + a.agent + ' · ' + a.when + ' · priority ' + a.prio + '</span></div>' +
+
+        '<dl class="kv">' +
+        '<dt>Platforms</dt><dd><strong>' + a.plats + '</strong></dd>' +
+        '<dt>Caption</dt><dd>' + a.caption + '</dd>' +
+        '<dt>Hashtags</dt><dd style="color:var(--info)">' + a.tags + '</dd>' +
+        '<dt>Media</dt><dd class="mono" style="font-size:11px;word-break:break-all">' + a.media + '</dd>' +
+        '<dt>When</dt><dd>' + a.sched + '</dd>' +
+        '</dl>' +
+
+        '<div class="annot"><div><b>Fixed:</b> this card used to read “Platform: All” on every post — ' +
+        'the gate read <code>input.platform</code>, a field the schema never set. ' +
+        'You were approving posts without being shown where they landed.</div></div>' +
+
+        '<div class="btn-row" style="margin-top:14px">' +
+        '<button class="btn btn-primary" data-ok="' + a.id + '">Approve &amp; schedule</button>' +
+        '<button class="btn" data-edit="' + a.id + '">Edit first</button>' +
+        '<button class="btn btn-danger" data-no="' + a.id + '">Reject</button>' +
+        '</div></div>';
+    }).join('');
+
+    document.getElementById('apprList').querySelectorAll('[data-ok]').forEach(function (b) {
+      b.addEventListener('click', function () { settle(b.dataset.ok, true); });
+    });
+    document.getElementById('apprList').querySelectorAll('[data-no]').forEach(function (b) {
+      b.addEventListener('click', function () { settle(b.dataset.no, false); });
+    });
+    document.getElementById('apprList').querySelectorAll('[data-edit]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        toast('Opened for editing', 'Your wording replaces the draft before send');
+      });
+    });
+  }
+
+  function settle(id, ok) {
+    var card = document.getElementById('c-' + id);
+    if (!card) return;
+    card.classList.add(ok ? 'done' : 'killed');
+    card.querySelector('.pill').className = 'pill ' + (ok ? 'ok' : 'crit');
+    card.querySelector('.pill').textContent = ok ? 'Approved' : 'Rejected';
+    card.querySelectorAll('.btn').forEach(function (b) { b.disabled = true; });
+
+    var a = APPR.filter(function (x) { return x.id === id; })[0];
+    if (ok) {
+      toast('Approved', a.plats + ' · ' + a.sched);
+    } else {
+      toast('Rejected', 'Nothing was sent. Agent is told why.', true);
+    }
+
+    var left = document.querySelectorAll('.appr:not(.done):not(.killed)').length;
+    var c = document.querySelector('.tab[data-p="appr"] .tab-count');
+    if (c) c.textContent = String(left);
+    var badge = document.querySelector('.nav-badge');
+    if (badge) badge.textContent = String(left + 1);
+  }
+
+  paintArch();
+  paintAppr();
+})();
+</script>
+<!--
+  Appended, not prepended. These pages have their own sticky headers and hero
+  sections; injecting anything above the fold moves somebody's layout. At the end
+  it is findable and disturbs nothing.
+-->
+<footer style="font:12px -apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:28px 16px;border-top:1px solid rgba(0,0,0,.1);background:#faf9f5;color:#6b6b6b">
+  <a href="/reports/claude" style="color:#6b6b6b">← All reports</a>
+</footer>
+</body>
+</html>

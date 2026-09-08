@@ -61,6 +61,11 @@ const nextConfig: NextConfig = {
             // Everything else under /commerce, including /commerce itself.
             { source: "/commerce", destination: "/", permanent: true },
             { source: "/commerce/:path*", destination: "/", permanent: true },
+            // Bare /reports 404s otherwise, and it is the obvious thing to type
+            // when somebody half-remembers the link. Not `permanent`: if a second
+            // report set ever lands under /reports, this becomes an index of its
+            // own and a 308 cached in everyone's browser would be in the way.
+            { source: "/reports", destination: "/reports/claude", permanent: false },
         ];
     },
 };

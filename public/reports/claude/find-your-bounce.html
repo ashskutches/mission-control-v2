@@ -1,0 +1,995 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  Not for search engines. This page is reachable by anyone holding the link and
+  carries internal business analysis; robots.txt disallows /reports/ as well, but
+  a meta directive is the one that stops indexing of a page that IS fetched.
+-->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Find Your Bounce</title>
+<style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
+<style>/* Palette + type lifted from the live Leaps & Rebounds theme
+   (config/settings_data.json: color_primary #fca248, color_secondary #232323,
+    color_body_bg #ffffff, color_body_bg_alt #f4f4f4, color_borders #e9e9e9,
+    color_text_titles #111111, color_text_general #343434, color_text_alternate #7a7a7a,
+    color_footer_bg #000000, typography Montserrat) */
+:root{
+  --accent:#fca248; --accent-ink:#a75c14; --accent-soft:rgba(252,162,72,.14);
+  --secondary:#232323; --footer-bg:#000000;
+  --ground:#ffffff; --ground-2:#f4f4f4; --card:#ffffff; --line:#e9e9e9;
+  --ink:#111111; --ink-2:#343434; --muted:#7a7a7a;
+  --on-dark:#ffffff; --on-dark-2:#c9c9c9; --on-dark-3:#8f8f8f;
+  --radius:3px;
+  --maxw:1180px;
+  --font-head:"Montserrat","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --font-body:"Montserrat","Helvetica Neue",Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#131313; --ground-2:#1b1b1b; --card:#1c1c1c; --line:#2e2e2e;
+    --ink:#f2f2f2; --ink-2:#cfcfcf; --muted:#8f8f8f;
+    --accent-ink:#fcb96f; --accent-soft:rgba(252,162,72,.16);
+    --secondary:#000000; --footer-bg:#000000;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#131313; --ground-2:#1b1b1b; --card:#1c1c1c; --line:#2e2e2e;
+  --ink:#f2f2f2; --ink-2:#cfcfcf; --muted:#8f8f8f;
+  --accent-ink:#fcb96f; --accent-soft:rgba(252,162,72,.16);
+  --secondary:#000000; --footer-bg:#000000;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink-2);font-family:var(--font-body);
+  font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+img{max-width:100%;display:block}
+a{color:inherit}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:focus-visible{outline:2.5px solid var(--accent);outline-offset:3px}
+
+h1,h2,h3{font-family:var(--font-head);font-weight:700;text-wrap:balance;margin:0;
+  color:var(--ink);letter-spacing:-.01em;line-height:1.12;text-transform:uppercase}
+.eyebrow{font-family:var(--font-head);font-size:.7rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.18em;color:var(--accent-ink);margin:0 0 .9rem}
+
+/* ---------- hero ---------- */
+.hero{background:var(--secondary);color:var(--on-dark);padding:clamp(3rem,7vw,5rem) 1.5rem 0;
+  position:relative;overflow:hidden}
+.hero__inner{max-width:var(--maxw);margin:0 auto;position:relative}
+.hero .eyebrow{color:var(--accent)}
+.hero h1{font-size:clamp(2.1rem,5.6vw,3.9rem);max-width:20ch;color:var(--on-dark);
+  letter-spacing:-.005em}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.hero__sub{max-width:54ch;margin:1.4rem 0 0;color:var(--on-dark-2);font-size:1.02rem}
+.hero__meta{display:flex;flex-wrap:wrap;gap:.55rem 1.6rem;margin:2rem 0 0;padding:0;list-style:none;
+  font-size:.72rem;font-weight:600;letter-spacing:.14em;color:var(--on-dark-3);text-transform:uppercase}
+.hero__meta li{display:flex;align-items:center;gap:.5rem}
+.hero__meta li::before{content:"";width:6px;height:6px;background:var(--accent)}
+.hero__arcs{position:absolute;top:clamp(2rem,6vw,4rem);right:max(1.5rem,calc(50vw - var(--maxw)/2));
+  width:min(36vw,400px);height:auto;pointer-events:none}
+.hero__arcs text{font-family:var(--font-head);font-weight:700;font-size:14px;letter-spacing:2px;
+  text-transform:uppercase;fill:#8f8f8f}
+@media (max-width:1000px){.hero__arcs{display:none}}
+
+/* ---------- sticky chip nav ---------- */
+.nav{position:sticky;top:0;z-index:20;background:var(--secondary);overflow:hidden;
+  border-top:1px solid rgba(252,162,72,.3);margin-top:clamp(2.5rem,5vw,3.5rem)}
+.nav__inner{max-width:var(--maxw);margin:0 auto;display:flex;gap:.5rem;padding:.7rem 1.5rem;
+  overflow-x:auto;scrollbar-width:none}
+.nav__inner::-webkit-scrollbar{display:none}
+.nav::after{content:"";position:absolute;top:0;right:0;bottom:0;width:40px;pointer-events:none;
+  background:linear-gradient(to right,transparent,var(--secondary))}
+.chipbtn{flex:0 0 auto;font-family:var(--font-head);font-size:.72rem;font-weight:700;cursor:pointer;
+  text-transform:uppercase;letter-spacing:.11em;
+  background:transparent;color:var(--on-dark-2);border:1px solid rgba(255,255,255,.26);
+  border-radius:var(--radius);padding:.5rem 1rem;transition:background .18s,color .18s,border-color .18s}
+.chipbtn:hover{border-color:var(--accent);color:#fff}
+.chipbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#231603}
+
+/* ---------- bands ---------- */
+.band{padding:clamp(2.75rem,5.5vw,4.25rem) 1.5rem;border-bottom:1px solid var(--line)}
+.band--alt{background:var(--ground-2)}
+.band[hidden]{display:none}
+.band__inner{max-width:var(--maxw);margin:0 auto;display:grid;
+  grid-template-columns:minmax(0,330px) minmax(0,1fr);gap:clamp(2rem,4vw,3.25rem);align-items:start}
+.band__lede h2{font-size:clamp(1.6rem,3vw,2.25rem)}
+.tagline{font-family:var(--font-head);font-weight:700;font-size:1rem;color:var(--ink);
+  margin:.75rem 0 0;text-wrap:balance;
+  border-left:3px solid var(--accent);padding-left:.75rem}
+.body{color:var(--ink-2);font-size:.94rem;margin:1rem 0 0;max-width:46ch}
+
+.specs{display:flex;flex-direction:column;gap:0;margin:1.5rem 0 0;border-top:1px solid var(--line)}
+.specs__row{display:flex;justify-content:space-between;gap:1rem;padding:.55rem 0;
+  border-bottom:1px solid var(--line)}
+.specs dt{font-size:.68rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.14em;color:var(--muted);margin:0}
+.specs dd{margin:0;font-size:.8rem;font-weight:700;letter-spacing:.02em;
+  color:var(--ink);font-variant-numeric:tabular-nums}
+
+.swatches{display:flex;gap:.45rem;margin:1.4rem 0 0}
+.swatch{width:24px;height:24px;border-radius:50%;background:var(--sw);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.18),0 1px 3px rgba(0,0,0,.14);display:block}
+
+.textlink{display:inline-flex;align-items:center;gap:.4rem;margin-top:1.6rem;
+  font-family:var(--font-head);font-weight:700;font-size:.74rem;text-transform:uppercase;
+  letter-spacing:.13em;color:var(--ink);text-decoration:none;
+  border:1px solid var(--accent);padding:.62rem 1.05rem;border-radius:var(--radius);
+  transition:background .18s,color .18s}
+.textlink:hover{background:var(--accent);color:#231603}
+
+/* ---------- product cards ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(198px,1fr));gap:1.1rem}
+.grid--four{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+.card{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden;text-decoration:none;
+  transition:border-color .2s ease,box-shadow .2s ease}
+.card:hover{border-color:var(--accent);box-shadow:0 6px 20px -12px rgba(0,0,0,.35)}
+.card__frame{position:relative;display:block;aspect-ratio:1/1;background:var(--ground-2);overflow:hidden}
+.card__frame img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  transition:transform .35s ease}
+.card:hover .card__frame img{transform:scale(1.04)}
+.card__fallback{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:.55rem;padding:.9rem;color:var(--accent);
+  background:linear-gradient(160deg,var(--accent-soft),transparent 62%),var(--ground-2)}
+.card__fallback svg{width:44px;height:auto;opacity:.75}
+.card__fallback span{font-family:var(--font-head);font-weight:700;font-size:.63rem;
+  text-transform:uppercase;letter-spacing:.18em;color:var(--muted)}
+.card__body{display:flex;flex-direction:column;gap:.25rem;padding:.85rem .9rem 1rem;flex:1}
+.card__title{font-family:var(--font-head);font-weight:700;font-size:.85rem;line-height:1.35;
+  color:var(--ink);text-transform:uppercase;letter-spacing:.01em;text-wrap:balance}
+.card__meta{font-size:.8rem;color:var(--muted);line-height:1.45}
+.card__foot{margin-top:auto;padding-top:.7rem;display:flex;align-items:center;
+  justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.price{font-family:var(--font-head);font-size:.88rem;font-weight:700;color:var(--ink);
+  font-variant-numeric:tabular-nums}
+.chip{font-family:var(--font-head);font-size:.6rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.12em;padding:.22rem .45rem;border-radius:var(--radius);white-space:nowrap}
+.chip--oos{background:var(--accent-soft);color:var(--accent-ink);
+  box-shadow:inset 0 0 0 1px rgba(252,162,72,.5)}
+
+/* ---------- feature bands ---------- */
+.feature{padding:clamp(2.75rem,5.5vw,4.25rem) 1.5rem}
+.feature--dark{background:var(--secondary);color:var(--on-dark-2)}
+.feature--dark h2{color:var(--on-dark)}
+.feature--dark .eyebrow{color:var(--accent)}
+.feature--dark .tagline{color:var(--on-dark)}
+.feature--dark .body{color:var(--on-dark-2)}
+.feature--dark .card{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.15)}
+.feature--dark .card__title,.feature--dark .price{color:var(--on-dark)}
+.feature--dark .card__meta{color:var(--on-dark-3)}
+.feature--dark .card__frame{background:#161616}
+.feature--dark .card__fallback{background:linear-gradient(160deg,rgba(252,162,72,.16),transparent 62%),#161616}
+.feature--dark .card__fallback span{color:var(--on-dark-3)}
+.feature--sand{background:var(--ground-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.feature__inner{max-width:var(--maxw);margin:0 auto;display:flex;flex-direction:column;gap:2.25rem}
+.feature__lede{max-width:62ch}
+.feature__lede h2{font-size:clamp(1.6rem,3vw,2.25rem)}
+
+/* ---------- promise strip ---------- */
+.promise{background:var(--card);border-bottom:1px solid var(--line);padding:1.5rem}
+.promise__inner{max-width:var(--maxw);margin:0 auto;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1.25rem}
+.promise__item{display:flex;flex-direction:column;gap:.2rem;
+  border-left:3px solid var(--accent);padding-left:.85rem}
+.promise__item b{font-family:var(--font-head);font-size:.86rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em;color:var(--ink)}
+.promise__item span{font-size:.83rem;color:var(--muted);line-height:1.45}
+
+/* ---------- sizing table ---------- */
+.sizer{padding:clamp(2.75rem,5.5vw,4.25rem) 1.5rem;background:var(--ground)}
+.sizer__inner{max-width:var(--maxw);margin:0 auto}
+.sizer h2{font-size:clamp(1.5rem,2.7vw,2rem)}
+.sizer__scroll{overflow-x:auto;margin-top:1.6rem;border:1px solid var(--line);
+  border-radius:var(--radius);background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:.9rem}
+th,td{text-align:left;padding:.8rem 1.1rem;border-bottom:1px solid var(--line)}
+thead th{font-family:var(--font-head);font-size:.65rem;text-transform:uppercase;letter-spacing:.15em;
+  color:var(--muted);font-weight:700;background:var(--ground-2)}
+tbody tr:last-child td{border-bottom:0}
+td:first-child{font-family:var(--font-head);font-weight:700;text-transform:uppercase;font-size:.82rem}
+td .price{font-size:.85rem}
+
+/* ---------- closer ---------- */
+.closer{background:var(--footer-bg);color:var(--on-dark-2);padding:clamp(2.75rem,6vw,4.5rem) 1.5rem}
+.closer h2{color:var(--on-dark);font-size:clamp(1.6rem,3.4vw,2.6rem);max-width:22ch}
+.closer .eyebrow{color:var(--accent)}
+.closer__inner{max-width:var(--maxw);margin:0 auto;display:flex;flex-wrap:wrap;
+  gap:2rem;align-items:end;justify-content:space-between}
+.closer p{color:var(--on-dark-3);max-width:44ch;margin:.9rem 0 0}
+.btn{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#231603;
+  font-family:var(--font-head);font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+  font-size:.78rem;text-decoration:none;
+  padding:.9rem 1.6rem;border-radius:var(--radius);transition:filter .18s}
+.btn:hover{filter:brightness(1.07)}
+.foot{padding:1.4rem 1.5rem;background:var(--footer-bg);color:#757575;font-size:.78rem;
+  border-top:1px solid #222}
+.foot__inner{max-width:var(--maxw);margin:0 auto;display:flex;flex-wrap:wrap;gap:.75rem 1.5rem;
+  justify-content:space-between}
+.foot a{color:#9a9a9a;text-decoration:none;border-bottom:1px solid #333}
+.foot a:hover{color:var(--accent)}
+
+@media (max-width:860px){
+  .band__inner{grid-template-columns:1fr}
+  .specs{max-width:420px}
+}
+@media (prefers-reduced-motion: reduce){
+  *{transition-duration:.01ms !important;animation-duration:.01ms !important}
+}
+</style>
+
+<header class="hero">
+  <svg class="hero__arcs" viewBox="0 0 420 340" fill="none" aria-hidden="true">
+    <line x1="10" y1="300" x2="410" y2="300" stroke="#3d3d3d" stroke-width="1.5"/>
+    <g stroke="#fca248" stroke-width="1.6" opacity=".8">
+      <path d="M28 300 C 62 236, 122 236, 156 300"/>
+      <path d="M92 300 C 140 160, 236 160, 284 300"/>
+      <path d="M172 300 C 232 62, 348 62, 408 300"/>
+    </g>
+    <g fill="#fca248"><circle cx="92" cy="252" r="5"/><circle cx="188" cy="188" r="5"/><circle cx="290" cy="112" r="5"/></g>
+    <text x="28" y="326">Low</text><text x="176" y="326">Moderate</text><text x="336" y="326">High</text>
+  </svg>
+  <div class="hero__inner">
+    <p class="eyebrow">The Leaps &amp; Rebounds Fitness Guide &middot; 2026</p>
+    <h1>However you move, <em>land soft</em>.</h1>
+    <p class="hero__sub">Every body on a rebounder is doing something slightly different &mdash; rebuilding balance, chasing a sprint, squeezing cardio into a spare corner. So this guide is sorted by what you are training for rather than by product category &mdash; pick the row that sounds like you, and the shortlist is already made.</p>
+    <ul class="hero__meta">
+      <li>Est. 2016</li><li>30-day jump trial</li><li>Lifetime frame warranty</li><li>Free US shipping</li>
+    </ul>
+  </div>
+  <nav class="nav" aria-label="Filter the guide by goal">
+    <div class="nav__inner">
+      <button type="button" class="chipbtn" data-cat="all" aria-pressed="true">Everything</button><button type="button" class="chipbtn" data-cat="start" aria-pressed="false">Start Here</button><button type="button" class="chipbtn" data-cat="training" aria-pressed="false">Training</button><button type="button" class="chipbtn" data-cat="homegym" aria-pressed="false">Home Gym</button><button type="button" class="chipbtn" data-cat="color" aria-pressed="false">Color</button><button type="button" class="chipbtn" data-cat="longevity" aria-pressed="false">Longevity</button><button type="button" class="chipbtn" data-cat="care" aria-pressed="false">Parts &amp; Care</button><button type="button" class="chipbtn" data-cat="apparel" aria-pressed="false">Apparel</button>
+    </div>
+  </nav>
+</header>
+
+<div class="promise">
+  <div class="promise__inner">
+    <div class="promise__item"><b>70% less joint impact</b><span>than running the same minutes on a treadmill</span></div>
+    <div class="promise__item"><b>30-day jump trial</b><span>bounce on it at home, send it back if it isn&#39;t you</span></div>
+    <div class="promise__item"><b>Lifetime frame warranty</b><span>on rebounders and stability bars</span></div>
+    <div class="promise__item"><b>Every part replaceable</b><span>cords, mat and hardware sold separately</span></div>
+  </div>
+</div>
+
+<main>
+<section class="band" id="start" data-cat="start">
+  <div class="band__inner">
+    <div class="band__lede">
+      <p class="eyebrow">New to rebounding</p>
+      <h2>Start Here</h2>
+      <p class="tagline">Land soft. Learn the rhythm. Build the habit.</p>
+      <p class="body">A bungee rebounder is not a backyard trampoline — the cords stretch under you and give the energy back, so your knees and hips take about 70% less impact than treadmill running. Begin at the 40&quot; size with the bar in place, five minutes at a time.</p>
+      
+      <dl class="specs"><div class="specs__row"><dt>Impact</dt><dd>Low</dd></div><div class="specs__row"><dt>Best size</dt><dd>40&quot;</dd></div><div class="specs__row"><dt>Floor space</dt><dd>4 × 4 ft</dd></div></dl>
+      <a class="textlink" href="https://www.leapsandrebounds.com/collections/rebounders">Shop rebounders<span aria-hidden="true">&#8599;</span></a>
+    </div>
+    <div class="grid">
+      <a class="card" href="https://www.leapsandrebounds.com/products/the-best-fitness-trampoline">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Rebounder</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/blue_fitness_rebounder_leaps_and_rebounds_65141d67-08ce-4c45-973f-5c629bcc4ca4.webp?v=1764743413" alt="The Fitness Trampoline" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">The Fitness Trampoline</span>
+    <span class="card__meta">40&quot; or 48&quot; · 5 colors</span>
+    <span class="card__foot"><span class="price">from $220</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/stability-bar">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Stability bar</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/2_5.webp?v=1755034668" alt="Adjustable Stability Bar" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Adjustable Stability Bar</span>
+    <span class="card__meta">3 height settings</span>
+    <span class="card__foot"><span class="price">$93</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/40-fitness-trampoline-stability-bar">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bundle</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/L_R_Villa_Jiwa_100624_C2_2676.webp?v=1730495683" alt="40&quot; Trampoline + Stability Bar" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">40&quot; Trampoline + Stability Bar</span>
+    <span class="card__meta">Save vs. buying separately</span>
+    <span class="card__foot"><span class="price">$313</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/leaps-rebounds-socks">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Apparel</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/colorful-socks.png?v=1729112682" alt="No-slip Grip Socks" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">No-slip Grip Socks</span>
+    <span class="card__meta">Ankle or tall</span>
+    <span class="card__foot"><span class="price">$20</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/softer-bungees">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bungees</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Untitled_design_-_2024-11-15T202759.917.png?v=1731720483" alt="Premium Soft Bungees" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Premium Soft Bungees</span>
+    <span class="card__meta">Deeper, gentler landing</span>
+    <span class="card__foot"><span class="price">$25</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/back-to-school-bundle">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bundle</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/back_to7.png?v=1723862317" alt="Back to School Bundle" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Back to School Bundle</span>
+    <span class="card__meta">3-in-1 starter set</span>
+    <span class="card__foot"><span class="price">from $240</span></span>
+  </span>
+</a>
+    </div>
+  </div>
+</section><section class="band band--alt" id="training" data-cat="training">
+  <div class="band__inner">
+    <div class="band__lede">
+      <p class="eyebrow">Athletes &amp; high output</p>
+      <h2>Serious Training</h2>
+      <p class="tagline">Deeper mat. Firmer cords. Harder sessions.</p>
+      <p class="body">The 48&quot; mat gives you room for split jumps, lateral work and sprint intervals without clipping the frame. Firm bungees tighten the rebound so every landing loads faster, and the band kit turns the frame into an upper-body station between rounds.</p>
+      
+      <dl class="specs"><div class="specs__row"><dt>Impact</dt><dd>High</dd></div><div class="specs__row"><dt>Best size</dt><dd>48&quot;</dd></div><div class="specs__row"><dt>Floor space</dt><dd>5 × 5 ft</dd></div></dl>
+      <a class="textlink" href="https://www.leapsandrebounds.com/collections/rebounders">Shop rebounders<span aria-hidden="true">&#8599;</span></a>
+    </div>
+    <div class="grid">
+      <a class="card" href="https://www.leapsandrebounds.com/products/48-fitness-trampoline-stabilizer-bar">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bundle</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/5_502f3942-4160-48c1-b2d7-e765c75aee65.webp?v=1754508601" alt="48&quot; Trampoline + Stability Bar" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">48&quot; Trampoline + Stability Bar</span>
+    <span class="card__meta">Widest mat, deepest bounce</span>
+    <span class="card__foot"><span class="price">$373</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/bungee-rebounders-mini-trampoline">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Rebounder</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/blue_fitness_rebounder_leaps_and_rebounds_65141d67-08ce-4c45-973f-5c629bcc4ca4.webp?v=1764743413" alt="Mini Trampoline Rebounder" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Mini Trampoline Rebounder</span>
+    <span class="card__meta">Bungee suspension · adults</span>
+    <span class="card__foot"><span class="price">from $220</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/firm-bungees">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bungees</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Firm_Bungees.webp?v=1781293822" alt="Premium Firm Bungees" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Premium Firm Bungees</span>
+    <span class="card__meta">Tighter, more responsive bounce</span>
+    <span class="card__foot"><span class="price">$23</span><span class="chip chip--oos">Out of stock</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/resistance-band-kit">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Accessory</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/FullSet.webp?v=1756499381" alt="Resistance Band Kit" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Resistance Band Kit</span>
+    <span class="card__meta">With carry bag</span>
+    <span class="card__foot"><span class="price">$75</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/small-sports-bra">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Apparel</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/sportsBraFrontLogo.png?v=1729798867" alt="High-Performance Sports Bra" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">High-Performance Sports Bra</span>
+    <span class="card__meta">High-impact support</span>
+    <span class="card__foot"><span class="price">$40</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/insulated-water-bottle">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Accessory</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/White_Bottle_1_16f76fb0-4c25-40e1-93f9-cc35521daf50.webp?v=1752696813" alt="Insulated Water Bottle" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Insulated Water Bottle</span>
+    <span class="card__meta">Keeps cold 24 hours</span>
+    <span class="card__foot"><span class="price">$22</span></span>
+  </span>
+</a>
+    </div>
+  </div>
+</section><section class="band" id="homegym" data-cat="homegym">
+  <div class="band__inner">
+    <div class="band__lede">
+      <p class="eyebrow">Small spaces</p>
+      <h2>The Home Gym Setup</h2>
+      <p class="tagline">A full workout in four square feet.</p>
+      <p class="body">No membership, no drive, no waiting for a machine. A rebounder folds against a wall, and these are the pieces that make it a room you actually want to train in — a warm mat surface underfoot, a cork mat alongside for floor work, water within reach.</p>
+      
+      <dl class="specs"><div class="specs__row"><dt>Impact</dt><dd>Your call</dd></div><div class="specs__row"><dt>Best size</dt><dd>40&quot; or 48&quot;</dd></div><div class="specs__row"><dt>Storage</dt><dd>Folds flat</dd></div></dl>
+      <a class="textlink" href="https://www.leapsandrebounds.com/collections/accessories">Shop accessories<span aria-hidden="true">&#8599;</span></a>
+    </div>
+    <div class="grid">
+      <a class="card" href="https://www.leapsandrebounds.com/products/40-fitness-trampoline-stability-bar">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bundle</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/L_R_Villa_Jiwa_100624_C2_2676.webp?v=1730495683" alt="40&quot; Trampoline + Stability Bar" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">40&quot; Trampoline + Stability Bar</span>
+    <span class="card__meta">Save vs. buying separately</span>
+    <span class="card__foot"><span class="price">$313</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/furry-matt-cover">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Accessory</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Mat_Cover_Gray_Model.webp?v=1752694851" alt="Furry Mat Cover" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Furry Mat Cover</span>
+    <span class="card__meta">Warmer, softer surface</span>
+    <span class="card__foot"><span class="price">$75</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/nomad-cork-yoga-mat">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Yoga mat</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Nomad-Cork-Yoga-Mat.jpg?v=1786565593" alt="Nomad Cork Yoga Mat" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Nomad Cork Yoga Mat</span>
+    <span class="card__meta">Natural cork surface</span>
+    <span class="card__foot"><span class="price">$119</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/resistance-band-kit">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Accessory</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/FullSet.webp?v=1756499381" alt="Resistance Band Kit" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Resistance Band Kit</span>
+    <span class="card__meta">With carry bag</span>
+    <span class="card__foot"><span class="price">$75</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/insulated-water-bottle">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Accessory</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/White_Bottle_1_16f76fb0-4c25-40e1-93f9-cc35521daf50.webp?v=1752696813" alt="Insulated Water Bottle" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Insulated Water Bottle</span>
+    <span class="card__meta">Keeps cold 24 hours</span>
+    <span class="card__foot"><span class="price">$22</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/40-gray-mat">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Parts</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Untitled_design58.png?v=1726787577" alt="Rebounder Mat Replacements" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Rebounder Mat Replacements</span>
+    <span class="card__meta">40&quot; and 48&quot;</span>
+    <span class="card__foot"><span class="price">$50</span></span>
+  </span>
+</a>
+    </div>
+  </div>
+</section><section class="band band--alt" id="color" data-cat="color">
+  <div class="band__inner">
+    <div class="band__lede">
+      <p class="eyebrow">Make it yours</p>
+      <h2>Pick Your Color</h2>
+      <p class="tagline">The rebounder you like looking at is the one you&#x27;ll use.</p>
+      <p class="body">Five frame colors, and bungee cords you can swap in an afternoon with the bungee tool — so the same rebounder can look completely different a year from now. The 3-in-1 bundles pair a frame with matching cords and socks.</p>
+      <div class="swatches"><span class="swatch" style="--sw:#2f7d54" title="Green"><span class="vh">Green</span></span><span class="swatch" style="--sw:#2b5fa8" title="Blue"><span class="vh">Blue</span></span><span class="swatch" style="--sw:#e2622a" title="Orange"><span class="vh">Orange</span></span><span class="swatch" style="--sw:#b0322c" title="Red"><span class="vh">Red</span></span><span class="swatch" style="--sw:#6b6f76" title="Gray"><span class="vh">Gray</span></span></div>
+      <dl class="specs"><div class="specs__row"><dt>Frame colors</dt><dd>5</dd></div><div class="specs__row"><dt>Cord packs</dt><dd>18+</dd></div><div class="specs__row"><dt>Swap time</dt><dd>~20 min</dd></div></dl>
+      <a class="textlink" href="https://www.leapsandrebounds.com/collections/bungees">Shop bungee cords<span aria-hidden="true">&#8599;</span></a>
+    </div>
+    <div class="grid">
+      <a class="card" href="https://www.leapsandrebounds.com/products/the-best-fitness-trampoline">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Rebounder</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/blue_fitness_rebounder_leaps_and_rebounds_65141d67-08ce-4c45-973f-5c629bcc4ca4.webp?v=1764743413" alt="The Fitness Trampoline" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">The Fitness Trampoline</span>
+    <span class="card__meta">40&quot; or 48&quot; · 5 colors</span>
+    <span class="card__foot"><span class="price">from $220</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/bungees-for-leaps-rebounds">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bungees</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/bungees-for-all-rebounders-and-mini-trampolines-rainbow-rebounding_-_Edited.webp?v=1757703077" alt="Colorful Bungee Replacements" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Colorful Bungee Replacements</span>
+    <span class="card__meta">Fits every L&amp;R rebounder</span>
+    <span class="card__foot"><span class="price">$20</span><span class="chip chip--oos">Out of stock</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/think-pink-bundle">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bundle</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Thinkpinkbundle.png?v=1717621619" alt="Think Pink Bundle" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Think Pink Bundle</span>
+    <span class="card__meta">Rebounder + socks + bungees</span>
+    <span class="card__foot"><span class="price">from $240</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/fresh-green-bundle">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bundle</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/freshgreen_productimage2.webp?v=1742596111" alt="Fresh Green Bundle" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Fresh Green Bundle</span>
+    <span class="card__meta">3-in-1 in green</span>
+    <span class="card__foot"><span class="price">from $240</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/exclusive-purple-and-pink-bungees">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bungees</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/9099ee24-7eb5-443f-a24b-8664b7a9e447.png?v=1777493827" alt="Purple &amp; Pink Bungees" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Purple &amp; Pink Bungees</span>
+    <span class="card__meta">Limited run</span>
+    <span class="card__foot"><span class="price">$23</span><span class="chip chip--oos">Out of stock</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/cotton-candy-bungee-pack">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bungees</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Untitleddesign_42_6ac23f09-1f58-4b85-b02a-dee362185c76.png?v=1770234848" alt="Cotton Candy Bungees" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Cotton Candy Bungees</span>
+    <span class="card__meta">Pink &amp; blue</span>
+    <span class="card__foot"><span class="price">$23</span><span class="chip chip--oos">Out of stock</span></span>
+  </span>
+</a>
+    </div>
+  </div>
+</section><section class="band" id="longevity" data-cat="longevity">
+  <div class="band__inner">
+    <div class="band__lede">
+      <p class="eyebrow">Active agers</p>
+      <h2>Low-Impact &amp; Longevity</h2>
+      <p class="tagline">Balance first. Strength follows. Nothing hurts tomorrow.</p>
+      <p class="body">Rebounding trains the small stabilizing muscles that keep you steady on stairs and curbs, and the bungee suspension means you can do it daily without the joint cost of walking on pavement. Keep the stability bar in place, use the soft cords, and let the bounce stay small.</p>
+      
+      <dl class="specs"><div class="specs__row"><dt>Impact</dt><dd>Lowest</dd></div><div class="specs__row"><dt>Best size</dt><dd>40&quot;</dd></div><div class="specs__row"><dt>Bar</dt><dd>Recommended</dd></div></dl>
+      <a class="textlink" href="https://www.leapsandrebounds.com/collections/rebounding">Shop rebounders &amp; bars<span aria-hidden="true">&#8599;</span></a>
+    </div>
+    <div class="grid">
+      <a class="card" href="https://www.leapsandrebounds.com/products/the-best-fitness-trampoline">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Rebounder</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/blue_fitness_rebounder_leaps_and_rebounds_65141d67-08ce-4c45-973f-5c629bcc4ca4.webp?v=1764743413" alt="The Fitness Trampoline" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">The Fitness Trampoline</span>
+    <span class="card__meta">40&quot; or 48&quot; · 5 colors</span>
+    <span class="card__foot"><span class="price">from $220</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/stability-bar">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Stability bar</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/2_5.webp?v=1755034668" alt="Adjustable Stability Bar" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Adjustable Stability Bar</span>
+    <span class="card__meta">3 height settings</span>
+    <span class="card__foot"><span class="price">$93</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/softer-bungees">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bungees</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Untitled_design_-_2024-11-15T202759.917.png?v=1731720483" alt="Premium Soft Bungees" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Premium Soft Bungees</span>
+    <span class="card__meta">Deeper, gentler landing</span>
+    <span class="card__foot"><span class="price">$25</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/leaps-rebounds-socks">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Apparel</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/colorful-socks.png?v=1729112682" alt="No-slip Grip Socks" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">No-slip Grip Socks</span>
+    <span class="card__meta">Ankle or tall</span>
+    <span class="card__foot"><span class="price">$20</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/non-slip-cork-yoga-mat-wisdom-tree">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Yoga mat</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/wisdome-tree-cork-yoga-mat.jpg?v=1729622775" alt="Cork Yoga Mat · Wisdom Tree" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Cork Yoga Mat · Wisdom Tree</span>
+    <span class="card__meta">Non-slip, even damp</span>
+    <span class="card__foot"><span class="price">$120</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/furry-matt-cover">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Accessory</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Mat_Cover_Gray_Model.webp?v=1752694851" alt="Furry Mat Cover" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Furry Mat Cover</span>
+    <span class="card__meta">Warmer, softer surface</span>
+    <span class="card__foot"><span class="price">$75</span></span>
+  </span>
+</a>
+    </div>
+  </div>
+</section><section class="band band--alt" id="care" data-cat="care">
+  <div class="band__inner">
+    <div class="band__lede">
+      <p class="eyebrow">Parts &amp; maintenance</p>
+      <h2>Keep It Bouncing</h2>
+      <p class="tagline">Ten years of jumping, one part at a time.</p>
+      <p class="body">Everything that wears out is a part you can replace yourself — cords, mat, hardware. That is the whole reason the frame carries a lifetime warranty: nothing about a worn bungee should mean a new rebounder.</p>
+      
+      <dl class="specs"><div class="specs__row"><dt>Warranty</dt><dd>Lifetime frame</dd></div><div class="specs__row"><dt>Cord life</dt><dd>6–18 mo</dd></div><div class="specs__row"><dt>Tools</dt><dd>Included</dd></div></dl>
+      <a class="textlink" href="https://www.leapsandrebounds.com/collections/bungees">Shop bungee cords<span aria-hidden="true">&#8599;</span></a>
+    </div>
+    <div class="grid">
+      <a class="card" href="https://www.leapsandrebounds.com/products/firm-bungees">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bungees</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Firm_Bungees.webp?v=1781293822" alt="Premium Firm Bungees" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Premium Firm Bungees</span>
+    <span class="card__meta">Tighter, more responsive bounce</span>
+    <span class="card__foot"><span class="price">$23</span><span class="chip chip--oos">Out of stock</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/softer-bungees">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bungees</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Untitled_design_-_2024-11-15T202759.917.png?v=1731720483" alt="Premium Soft Bungees" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Premium Soft Bungees</span>
+    <span class="card__meta">Deeper, gentler landing</span>
+    <span class="card__foot"><span class="price">$25</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/bungees-for-leaps-rebounds">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bungees</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/bungees-for-all-rebounders-and-mini-trampolines-rainbow-rebounding_-_Edited.webp?v=1757703077" alt="Colorful Bungee Replacements" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Colorful Bungee Replacements</span>
+    <span class="card__meta">Fits every L&amp;R rebounder</span>
+    <span class="card__foot"><span class="price">$20</span><span class="chip chip--oos">Out of stock</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/40-gray-mat">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Parts</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Untitled_design58.png?v=1726787577" alt="Rebounder Mat Replacements" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Rebounder Mat Replacements</span>
+    <span class="card__meta">40&quot; and 48&quot;</span>
+    <span class="card__foot"><span class="price">$50</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/bungee-tool">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Parts</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Bungee_Tool.webp?v=1781901948" alt="Bungee Tool" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Bungee Tool</span>
+    <span class="card__meta">Swap cords in minutes</span>
+    <span class="card__foot"><span class="price">$10</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/stability-bar-assembly-items">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Parts</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Stablity_Bar_Toolkit.png?v=1782172282" alt="Stability Bar Toolkit" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Stability Bar Toolkit</span>
+    <span class="card__meta">Replacement hardware</span>
+    <span class="card__foot"><span class="price">$10</span></span>
+  </span>
+</a>
+    </div>
+  </div>
+</section><section class="band" id="apparel" data-cat="apparel">
+  <div class="band__inner">
+    <div class="band__lede">
+      <p class="eyebrow">What to wear</p>
+      <h2>Dressed for the Bounce</h2>
+      <p class="tagline">Grip at the feet, support everywhere else.</p>
+      <p class="body">Two things actually matter on a rebounder: socks that grip the mat instead of sliding on it, and a top that holds still when you do not. The rest is just the good kind of comfortable.</p>
+      
+      <dl class="specs"><div class="specs__row"><dt>Sizes</dt><dd>XS–XXL</dd></div><div class="specs__row"><dt>Socks</dt><dd>Ankle or tall</dd></div><div class="specs__row"><dt>Fit</dt><dd>Unisex &amp; women&#x27;s</dd></div></dl>
+      <a class="textlink" href="https://www.leapsandrebounds.com/collections/apparel">Shop apparel<span aria-hidden="true">&#8599;</span></a>
+    </div>
+    <div class="grid">
+      <a class="card" href="https://www.leapsandrebounds.com/products/leaps-rebounds-socks">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Apparel</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/colorful-socks.png?v=1729112682" alt="No-slip Grip Socks" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">No-slip Grip Socks</span>
+    <span class="card__meta">Ankle or tall</span>
+    <span class="card__foot"><span class="price">$20</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/small-sports-bra">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Apparel</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/sportsBraFrontLogo.png?v=1729798867" alt="High-Performance Sports Bra" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">High-Performance Sports Bra</span>
+    <span class="card__meta">High-impact support</span>
+    <span class="card__foot"><span class="price">$40</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/leaps-and-rebounds-official-sweatsuit">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Apparel</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/20240320_133220_b978c8f7-c494-461b-8737-cbd9505bba4d.jpg?v=1715806645" alt="Official Sweatsuit Bundle" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Official Sweatsuit Bundle</span>
+    <span class="card__meta">Sweatshirt + sweatpants</span>
+    <span class="card__foot"><span class="price">$70</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/shorts">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Apparel</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Untitleddesign_29.png?v=1715808663" alt="Women&#x27;s Workout Shorts" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Women&#x27;s Workout Shorts</span>
+    <span class="card__meta">Stay-put waistband</span>
+    <span class="card__foot"><span class="price">$40</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/shirt">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Apparel</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Untitleddesign_25.png?v=1713497267" alt="Official Workout T-Shirt" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Official Workout T-Shirt</span>
+    <span class="card__meta">Breathable cotton blend</span>
+    <span class="card__foot"><span class="price">$20</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/sweatpants">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Apparel</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/20240320_133257_37e0adc1-bd7f-49c6-b499-7b587afbbfbb.jpg?v=1715806623" alt="Sweatpants" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Sweatpants</span>
+    <span class="card__meta">Tapered, no drag</span>
+    <span class="card__foot"><span class="price">$40</span></span>
+  </span>
+</a>
+    </div>
+  </div>
+</section>
+<section class="feature feature--dark" id="pro">
+  <div class="feature__inner">
+    <div class="feature__lede">
+      <p class="eyebrow">Professional grade</p>
+      <h2>Built in the USA</h2>
+      <p class="tagline">Top-tier frames. No compromises.</p>
+      <p class="body">Studio owners, trainers and anyone who plans to jump every day for the next decade: these are the heaviest builds we make.</p>
+    </div>
+    <div class="grid grid--four">
+      <a class="card" href="https://www.leapsandrebounds.com/products/american-tough-rebounder">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Rebounder</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/Balcony_Rebounding.webp?v=1730315758" alt="American Tough Rebounder" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">American Tough Rebounder</span>
+    <span class="card__meta">Heaviest-duty build</span>
+    <span class="card__foot"><span class="price">$650</span><span class="chip chip--oos">Out of stock</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/made-in-usa-rebounder-pro-blue">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Rebounder</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/products/Leaps_ReBounds-August-21-36.jpg?v=1637800829" alt="Made in USA PROFESSIONAL" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Made in USA PROFESSIONAL</span>
+    <span class="card__meta">Studio-grade frame</span>
+    <span class="card__foot"><span class="price">$495</span><span class="chip chip--oos">Out of stock</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/48-fitness-trampoline-stabilizer-bar">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bundle</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/5_502f3942-4160-48c1-b2d7-e765c75aee65.webp?v=1754508601" alt="48&quot; Trampoline + Stability Bar" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">48&quot; Trampoline + Stability Bar</span>
+    <span class="card__meta">Widest mat, deepest bounce</span>
+    <span class="card__foot"><span class="price">$373</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/tough-pro-made-in-usa-bundle">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bundle</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/L_R_Villa_Jiwa_100624_C3_3113.webp?v=1737666407" alt="PRO Bundle · USA Rebounder Pack" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">PRO Bundle · USA Rebounder Pack</span>
+    <span class="card__meta">Rebounder + bar + bungees</span>
+    <span class="card__foot"><span class="price">$763</span><span class="chip chip--oos">Out of stock</span></span>
+  </span>
+</a>
+    </div>
+  </div>
+</section>
+<section class="sizer" id="sizer">
+  <div class="sizer__inner">
+    <p class="eyebrow">Choosing a frame</p>
+    <h2>Which rebounder, in one table</h2>
+    <p class="body" style="max-width:60ch">If you are between sizes: the 40&quot; suits most people under 5&#39;8&quot; and anyone tight on floor space, and the 48&quot; is worth it the moment you plan to move sideways rather than straight up.</p>
+    <div class="sizer__scroll">
+      <table>
+        <thead><tr><th scope="col">Model</th><th scope="col">Who it&#39;s for</th><th scope="col">Intensity</th><th scope="col">Space</th><th scope="col">Price</th></tr></thead>
+        <tbody><tr><td><a href="https://www.leapsandrebounds.com/products/the-best-fitness-trampoline" style="text-decoration:none;border-bottom:2px solid var(--accent)">40&quot; Fitness Trampoline</a></td><td>Beginners, active agers, small rooms</td><td>Low–moderate</td><td class="price">4 × 4 ft</td><td class="price">from $220</td></tr><tr><td><a href="https://www.leapsandrebounds.com/products/bungee-rebounders-mini-trampoline" style="text-decoration:none;border-bottom:2px solid var(--accent)">48&quot; Fitness Trampoline</a></td><td>Taller jumpers, interval and athletic work</td><td>Moderate–high</td><td class="price">5 × 5 ft</td><td class="price">from $220</td></tr><tr><td><a href="https://www.leapsandrebounds.com/products/made-in-usa-rebounder-pro-blue" style="text-decoration:none;border-bottom:2px solid var(--accent)">Made in USA PROFESSIONAL</a></td><td>Daily use, studios, trainers</td><td>High</td><td class="price">5 × 5 ft</td><td class="price">$495</td></tr><tr><td><a href="https://www.leapsandrebounds.com/products/american-tough-rebounder" style="text-decoration:none;border-bottom:2px solid var(--accent)">American Tough Rebounder</a></td><td>Heaviest loads, commercial settings</td><td>High</td><td class="price">5 × 5 ft</td><td class="price">$650</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+<section class="feature feature--sand" id="gifts">
+  <div class="feature__inner">
+    <div class="feature__lede">
+      <p class="eyebrow">Bundles &amp; gifting</p>
+      <h2>Give the Bounce</h2>
+      <p class="tagline">Everything they need, in one box.</p>
+      <p class="body">Every bundle pairs a rebounder with the two things people buy second anyway — a stability bar and a set of cords — at less than the parts cost separately.</p>
+    </div>
+    <div class="grid grid--four">
+      <a class="card" href="https://www.leapsandrebounds.com/products/mothers-day-bundle">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bundle</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/mothers_day_bundle.webp?v=1776919102" alt="Mother&#x27;s Day Bundle" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Mother&#x27;s Day Bundle</span>
+    <span class="card__meta">Rebounder + bar + bungees</span>
+    <span class="card__foot"><span class="price">from $336</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/fathers-day-bundle">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bundle</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/fathersdaypp.webp?v=1780606603" alt="Father&#x27;s Day Bundle" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Father&#x27;s Day Bundle</span>
+    <span class="card__meta">Save 15%</span>
+    <span class="card__foot"><span class="price">from $355</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/valentine-bundle-fitness-rebounder">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bundle</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/BUNDLE_SPECIAL_1.webp?v=1769555548" alt="Valentine&#x27;s Bundle" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Valentine&#x27;s Bundle</span>
+    <span class="card__meta">14% off the 3-piece set</span>
+    <span class="card__foot"><span class="price">from $336</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/st-patrick-s-day-lucky-bounce-bundle">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bundle</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/stpatrick_sbundle_750x500px.webp?v=1773073973" alt="Lucky Bounce Bundle" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Lucky Bounce Bundle</span>
+    <span class="card__meta">Rebounder + bar + bungees</span>
+    <span class="card__foot"><span class="price">from $336</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/halloween-bundle">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bundle</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/halloween_750x500px_1.webp?v=1759983317" alt="Halloween Bundle" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Halloween Bundle</span>
+    <span class="card__meta">Seasonal 3-in-1</span>
+    <span class="card__foot"><span class="price">from $242</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/memorial-day-bundle">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bundle</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/memroialdaybundlebanner.webp?v=1778873423" alt="Memorial Day Bundle" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Memorial Day Bundle</span>
+    <span class="card__meta">Save 15%</span>
+    <span class="card__foot"><span class="price">from $336</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/american-tough-rebounder-christmas-bundle">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Bundle</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/GET_15_OFF.jpg?v=1733782781" alt="American Tough Christmas Bundle" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">American Tough Christmas Bundle</span>
+    <span class="card__meta">Top-of-line gift set</span>
+    <span class="card__foot"><span class="price">$763</span><span class="chip chip--oos">Out of stock</span></span>
+  </span>
+</a><a class="card" href="https://www.leapsandrebounds.com/products/leaps-and-rebounds-gift-card">
+  <span class="card__frame">
+    <span class="card__fallback" aria-hidden="true"><svg viewBox="0 0 64 34" fill="none" aria-hidden="true"><path d="M4 30 C 14 4, 50 4, 60 30" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="9.2" r="4" fill="currentColor"/></svg><span>Gift card</span></span>
+    <img src="https://cdn.shopify.com/s/files/1/1257/4773/files/online-store-credit-10-00-5554503974981_2000x_47e641e5-2fdc-4a16-bbb5-9cadcd25c5ab.jpg?v=1718222550" alt="Gift Card" loading="lazy" onerror="this.remove()">
+  </span>
+  <span class="card__body">
+    <span class="card__title">Gift Card</span>
+    <span class="card__meta">They pick the color</span>
+    <span class="card__foot"><span class="price">from $10</span></span>
+  </span>
+</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<section class="closer">
+  <div class="closer__inner">
+    <div>
+      <p class="eyebrow">Still deciding</p>
+      <h2>Those that don&#39;t jump will never fly.</h2>
+      <p>Start with the 40&quot; and the bar. It is the setup we would hand a friend, and the trial means the decision isn&#39;t final for thirty days.</p>
+    </div>
+    <a class="btn" href="https://www.leapsandrebounds.com/collections/rebounders">Shop rebounders <span aria-hidden="true">&#8594;</span></a>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="foot__inner">
+    <span>Leaps &amp; Rebounds &middot; Prices and availability shown as of August 2026.</span>
+    <span><a href="https://www.leapsandrebounds.com/collections/all">Shop all</a> &nbsp; <a href="https://www.leapsandrebounds.com/collections/sale">Sales &amp; bundles</a> &nbsp; <a href="https://www.leapsandrebounds.com">leapsandrebounds.com</a></span>
+  </div>
+</footer>
+<script>
+(function(){
+  var btns = Array.prototype.slice.call(document.querySelectorAll('.chipbtn'));
+  var bands = Array.prototype.slice.call(document.querySelectorAll('.band'));
+  btns.forEach(function(b){
+    b.addEventListener('click', function(){
+      var cat = b.getAttribute('data-cat');
+      btns.forEach(function(o){ o.setAttribute('aria-pressed', String(o === b)); });
+      bands.forEach(function(s){
+        s.hidden = !(cat === 'all' || s.getAttribute('data-cat') === cat);
+      });
+      if (cat !== 'all') {
+        var t = document.getElementById(cat);
+        if (t) window.scrollTo({top: t.offsetTop - 70, behavior: 'smooth'});
+      }
+    });
+  });
+})();
+</script>
+<!--
+  Appended, not prepended. These pages have their own sticky headers and hero
+  sections; injecting anything above the fold moves somebody's layout. At the end
+  it is findable and disturbs nothing.
+-->
+<footer style="font:12px -apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:28px 16px;border-top:1px solid rgba(0,0,0,.1);background:#faf9f5;color:#6b6b6b">
+  <a href="/reports/claude" style="color:#6b6b6b">← All reports</a>
+</footer>
+</body>
+</html>

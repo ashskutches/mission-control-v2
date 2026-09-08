@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  Not for search engines. This page is reachable by anyone holding the link and
+  carries internal business analysis; robots.txt disallows /reports/ as well, but
+  a meta directive is the one that stops indexing of a page that IS fetched.
+-->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Leaps &amp; Rebounds Email Audit</title>
+<style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --ground:#F6F7F5;
+  --surface:#FCFCFB;
+  --surface-2:#EFF1EE;
+  --ink:#14181F;
+  --ink-2:#3D4654;
+  --ink-3:#6B7585;
+  --rule:#DCDFDA;
+  --rule-strong:#C3C8C1;
+
+  --teal:#0E8F86;
+  --clay:#BF4A38;
+  --teal-soft:rgba(14,143,134,.13);
+  --clay-soft:rgba(191,74,56,.13);
+
+  --crit:#A3342A;
+  --crit-bg:rgba(163,52,42,.09);
+  --warn:#8A6012;
+  --warn-bg:rgba(176,122,30,.13);
+  --good:#2F7D4F;
+  --good-bg:rgba(47,125,79,.11);
+
+  --shadow:0 1px 2px rgba(20,24,31,.05), 0 6px 20px -12px rgba(20,24,31,.18);
+
+  --display:"Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body:"Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#131614;
+    --surface:#1A1E1B;
+    --surface-2:#222724;
+    --ink:#EDEFEA;
+    --ink-2:#BFC5BD;
+    --ink-3:#8B9389;
+    --rule:#2E342F;
+    --rule-strong:#414841;
+
+    --teal:#1C9F96;
+    --clay:#D96E57;
+    --teal-soft:rgba(28,159,150,.17);
+    --clay-soft:rgba(217,110,87,.17);
+
+    --crit:#E0796A;
+    --crit-bg:rgba(224,121,106,.13);
+    --warn:#D9A542;
+    --warn-bg:rgba(217,165,66,.13);
+    --good:#5FB582;
+    --good-bg:rgba(95,181,130,.13);
+
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 20px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#131614;
+  --surface:#1A1E1B;
+  --surface-2:#222724;
+  --ink:#EDEFEA;
+  --ink-2:#BFC5BD;
+  --ink-3:#8B9389;
+  --rule:#2E342F;
+  --rule-strong:#414841;
+
+  --teal:#1C9F96;
+  --clay:#D96E57;
+  --teal-soft:rgba(28,159,150,.17);
+  --clay-soft:rgba(217,110,87,.17);
+
+  --crit:#E0796A;
+  --crit-bg:rgba(224,121,106,.13);
+  --warn:#D9A542;
+  --warn-bg:rgba(217,165,66,.13);
+  --good:#5FB582;
+  --good-bg:rgba(95,181,130,.13);
+
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 20px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--body);
+  font-size:17px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1120px;margin:0 auto;padding:0 28px 96px}
+.col{max-width:660px}
+h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;margin:0}
+a{color:var(--teal)}
+:focus-visible{outline:2px solid var(--teal);outline-offset:3px;border-radius:2px}
+
+/* ---------- masthead ---------- */
+.mast{padding:64px 0 40px;border-bottom:2px solid var(--ink)}
+.eyebrow{
+  font-family:var(--mono);font-size:11.5px;font-weight:500;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
+}
+.mast h1{
+  font-size:clamp(38px,6.2vw,64px);font-weight:700;line-height:1.02;
+  letter-spacing:-.028em;margin:18px 0 0;
+}
+.mast .thesis{
+  font-size:clamp(18px,2.2vw,21px);line-height:1.55;color:var(--ink-2);
+  margin:22px 0 0;max-width:620px;
+}
+.mast .thesis strong{color:var(--ink);font-weight:600}
+.mast-meta{
+  display:flex;flex-wrap:wrap;gap:8px 26px;margin-top:30px;
+  font-family:var(--mono);font-size:12px;color:var(--ink-3);
+}
+
+/* ---------- tiles ---------- */
+.tiles{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));
+  gap:1px;background:var(--rule);border:1px solid var(--rule);
+  margin:48px 0 0;border-radius:3px;overflow:hidden;
+}
+.tile{background:var(--surface);padding:22px 20px 20px}
+.tile .k{
+  font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-3);line-height:1.4;
+}
+.tile .v{
+  font-family:var(--display);font-size:31px;font-weight:700;letter-spacing:-.02em;
+  margin-top:12px;font-variant-numeric:tabular-nums;line-height:1.05;
+}
+.tile .sub{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-top:7px;line-height:1.45}
+.v.is-crit{color:var(--crit)}
+.v.is-good{color:var(--teal)}
+
+/* ---------- sections ---------- */
+section{margin-top:76px;scroll-margin-top:20px}
+.sec-head{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--rule-strong);padding-bottom:12px;margin-bottom:28px}
+.sec-head h2{font-size:26px;font-weight:600;letter-spacing:-.018em}
+.sec-head .n{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--ink-3);letter-spacing:.08em}
+p{margin:0 0 18px}
+.lede{font-size:19px;color:var(--ink-2)}
+strong{font-weight:600}
+.num{font-family:var(--mono);font-size:.94em;font-variant-numeric:tabular-nums;font-weight:500}
+
+/* ---------- figure ---------- */
+figure{margin:32px 0;background:var(--surface);border:1px solid var(--rule);border-radius:3px;padding:26px 24px 20px;box-shadow:var(--shadow)}
+figcaption{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);line-height:1.55;margin-top:18px;padding-top:14px;border-top:1px solid var(--rule)}
+.fig-title{font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:-.01em;margin-bottom:4px}
+.fig-sub{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-bottom:22px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:20px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{width:11px;height:11px;border-radius:2px;flex:none}
+
+/* proportion bars */
+.prop{display:flex;flex-direction:column;gap:22px}
+.prop-row .lab{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);margin-bottom:7px}
+.prop-bar{display:flex;height:34px;border-radius:3px;overflow:hidden;gap:2px;background:var(--surface)}
+.prop-seg{display:flex;align-items:center;padding:0 10px;font-family:var(--mono);font-size:11.5px;font-weight:500;color:#fff;min-width:0;border-radius:2px}
+.prop-seg.sm{padding:0 4px;justify-content:center}
+
+/* hbars */
+.hbars{display:flex;flex-direction:column;gap:9px}
+.hb{display:grid;grid-template-columns:210px 1fr 62px;align-items:center;gap:14px}
+.hb .n2{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);text-align:right;line-height:1.3}
+.hb .track{height:20px;position:relative}
+.hb .fill{height:100%;border-radius:0 3px 3px 0;background:var(--teal)}
+.hb.alt .fill{background:var(--clay)}
+.hb .val{font-family:var(--mono);font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)}
+
+svg{display:block;width:100%;height:auto;overflow:visible}
+.chart-hold{position:relative}
+.tip{
+  position:absolute;pointer-events:none;opacity:0;transition:opacity .12s;
+  background:var(--ink);color:var(--ground);font-family:var(--mono);font-size:11.5px;
+  line-height:1.5;padding:8px 11px;border-radius:4px;white-space:nowrap;z-index:5;
+  transform:translate(-50%,-100%);box-shadow:0 4px 14px rgba(0,0,0,.22);
+}
+.tip b{font-weight:600;color:var(--ground)}
+
+/* ---------- findings ---------- */
+.finds{display:flex;flex-direction:column;gap:16px}
+.find{
+  background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--rule-strong);
+  border-radius:3px;padding:22px 24px;box-shadow:var(--shadow);
+}
+.find.crit{border-left-color:var(--crit)}
+.find.warn{border-left-color:var(--warn)}
+.find.opp{border-left-color:var(--teal)}
+.find-top{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:11px}
+.chip{
+  font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;
+  padding:4px 9px;border-radius:3px;flex:none;
+}
+.chip.crit{background:var(--crit-bg);color:var(--crit)}
+.chip.warn{background:var(--warn-bg);color:var(--warn)}
+.chip.opp{background:var(--teal-soft);color:var(--teal)}
+.find h3{font-size:18.5px;font-weight:600;letter-spacing:-.012em;line-height:1.3}
+.find p{margin:0 0 12px;font-size:16.5px;color:var(--ink-2)}
+.find p:last-child{margin-bottom:0}
+.find p strong{color:var(--ink)}
+.eviden{
+  font-family:var(--mono);font-size:12px;line-height:1.65;color:var(--ink-2);
+  background:var(--surface-2);border-radius:3px;padding:12px 14px;margin:14px 0 0;
+}
+.eviden div{display:flex;justify-content:space-between;gap:16px;padding:2.5px 0}
+.eviden div span:last-child{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* ---------- recommendations ---------- */
+.recs{display:flex;flex-direction:column;gap:2px}
+.rec{
+  display:grid;grid-template-columns:52px 1fr;gap:22px;
+  background:var(--surface);border:1px solid var(--rule);border-radius:3px;
+  padding:24px;box-shadow:var(--shadow);
+}
+.rec + .rec{margin-top:14px}
+.rec .rank{
+  font-family:var(--display);font-size:30px;font-weight:700;color:var(--teal);
+  line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums;
+}
+.rec h3{font-size:19px;font-weight:600;letter-spacing:-.012em;margin-bottom:9px;line-height:1.3}
+.rec p{font-size:16.5px;color:var(--ink-2);margin-bottom:12px}
+.rec ul{margin:0 0 14px;padding-left:19px;color:var(--ink-2);font-size:16px}
+.rec li{margin-bottom:6px}
+.rec li::marker{color:var(--ink-3)}
+.tags{display:flex;flex-wrap:wrap;gap:8px;font-family:var(--mono);font-size:11px}
+.tag{border:1px solid var(--rule-strong);border-radius:3px;padding:4px 9px;color:var(--ink-2)}
+.tag b{color:var(--ink);font-weight:600}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto;margin:26px 0;border:1px solid var(--rule);border-radius:3px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:12.5px}
+th,td{padding:10px 14px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--rule)}
+th:first-child,td:first-child{text-align:left}
+thead th{
+  font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);background:var(--surface-2);position:sticky;top:0;
+}
+tbody td{font-variant-numeric:tabular-nums;color:var(--ink-2)}
+tbody td:first-child{color:var(--ink)}
+tbody tr:last-child td{border-bottom:none}
+tfoot td{font-weight:600;color:var(--ink);background:var(--surface-2);border-top:2px solid var(--rule-strong);border-bottom:none;font-variant-numeric:tabular-nums}
+.pos{color:var(--teal);font-weight:600}
+.neg{color:var(--crit);font-weight:600}
+
+/* ---------- notes ---------- */
+.notes{background:var(--surface-2);border-radius:3px;padding:26px 28px;margin-top:34px}
+.notes h3{font-size:14px;font-weight:600;letter-spacing:.03em;margin-bottom:14px}
+.notes ul{margin:0;padding-left:19px;font-size:15px;color:var(--ink-2);line-height:1.6}
+.notes li{margin-bottom:9px}
+.notes li:last-child{margin-bottom:0}
+
+@media (max-width:720px){
+  body{font-size:16px}
+  .wrap{padding:0 18px 64px}
+  .hb{grid-template-columns:130px 1fr 56px;gap:10px}
+  .rec{grid-template-columns:1fr;gap:10px}
+  .tile .v{font-size:26px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <div class="eyebrow">Klaviyo Account VgHbYz · Leaps and Rebounds</div>
+    <h1>Email Audit</h1>
+    <p class="thesis">Email drives <strong>24% of store revenue</strong> on autopilot — but the list that produces it is <strong>shrinking by roughly 6,000 people a year</strong>, and the sends doing 89% of the volume return 5% of the value per email.</p>
+    <div class="mast-meta">
+      <span>Window: 8 Sep 2025 – 8 Sep 2026</span>
+      <span>143 campaigns · 26 active flows</span>
+      <span>Source: Klaviyo Reporting API</span>
+    </div>
+  </header>
+
+  <div class="tiles">
+    <div class="tile"><div class="k">Store revenue</div><div class="v">$1.44M</div><div class="sub">6,446 orders · $224 AOV</div></div>
+    <div class="tile"><div class="k">Email-attributed</div><div class="v is-good">$348.7K</div><div class="sub">24.2% of revenue · 1,609 orders</div></div>
+    <div class="tile"><div class="k">Revenue per send</div><div class="v">$1.25<span style="font-size:17px;color:var(--ink-3)"> / $0.07</span></div><div class="sub">Flows vs campaigns — 19×</div></div>
+    <div class="tile"><div class="k">Net list change</div><div class="v is-crit">−5,939</div><div class="sub">9,188 joined · 15,127 left</div></div>
+    <div class="tile"><div class="k">Flow spam rate</div><div class="v is-crit">0.107%</div><div class="sub">5.4× target · Gmail cuts at 0.30%</div></div>
+    <div class="tile"><div class="k">Campaign click rate</div><div class="v is-crit">1.09%</div><div class="sub">55% open · 2.0% click-to-open</div></div>
+  </div>
+
+  <!-- ============ 1 ============ -->
+  <section>
+    <div class="sec-head"><span class="n">01</span><h2>Where the value actually sits</h2></div>
+    <div class="col">
+      <p class="lede">Automated flows and one-off campaigns are not close to equal, and the account is investing almost entirely in the weaker one.</p>
+      <p>Over the year, flows sent <span class="num">193,681</span> emails and returned <span class="num">$242,875</span>. Campaigns sent <span class="num">1,597,645</span> emails — <strong>8× the volume</strong> — and returned <span class="num">$105,838</span>. Every flow email is worth <strong>19× more</strong> than every campaign email.</p>
+      <p>This is normal in direction but extreme in degree. The problem is not that campaigns underperform flows; it's that campaigns are absorbing nearly nine-tenths of the sending — and with it, nearly all of the unsubscribe and spam-complaint cost that is destroying the list.</p>
+    </div>
+
+    <figure>
+      <div class="fig-title">Nine-tenths of the sending, three-tenths of the revenue</div>
+      <div class="fig-sub">Share of email volume and of email-attributed revenue, 8 Sep 2025 – 8 Sep 2026</div>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--teal)"></i>Flows (automated)</span>
+        <span><i class="sw" style="background:var(--clay)"></i>Campaigns (one-off)</span>
+      </div>
+      <div class="prop">
+        <div class="prop-row">
+          <div class="lab"><span>Emails sent</span><span>1,791,326 total</span></div>
+          <div class="prop-bar">
+            <div class="prop-seg sm" style="background:var(--teal);width:10.8%">11%</div>
+            <div class="prop-seg" style="background:var(--clay);width:89.2%">89% — campaigns</div>
+          </div>
+        </div>
+        <div class="prop-row">
+          <div class="lab"><span>Revenue produced</span><span>$348,713 total</span></div>
+          <div class="prop-bar">
+            <div class="prop-seg" style="background:var(--teal);width:69.6%">70% — flows</div>
+            <div class="prop-seg" style="background:var(--clay);width:30.4%">30%</div>
+          </div>
+        </div>
+      </div>
+      <figcaption>Flows: $242,875 from 193,681 sends ($1.25 each). Campaigns: $105,838 from 1,597,645 sends ($0.066 each). Klaviyo last-touch attribution on the Shopify <em>Placed Order</em> metric.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ============ 2 ============ -->
+  <section>
+    <div class="sec-head"><span class="n">02</span><h2>The list is being consumed faster than it is built</h2></div>
+    <div class="col">
+      <p class="lede">This is the finding that governs everything else. An email program is an asset that compounds — this one is depreciating.</p>
+      <p><strong>9,188 people opted in. 15,127 opted out.</strong> That is 1.65 people leaving for every one who joins, and a net loss of <span class="num">5,939</span> subscribers over the year. Every month of sending at the current rate makes next year's email revenue smaller.</p>
+      <p>The relationship to send volume is direct and visible in the data. October 2025 — 13 campaigns, 170,205 emails — cost <span class="num">3,138</span> unsubscribes. June 2026, when no campaigns went out at all, cost <span class="num">164</span>. The two months that ran the lightest schedules, May and June 2026, are the only two months in the window where the list <em>grew</em>.</p>
+    </div>
+
+    <figure>
+      <div class="fig-title">Subscribers gained and lost, by month</div>
+      <div class="fig-sub">Only May and June 2026 finished positive. Both edge months are partial.</div>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--teal)"></i>Joined</span>
+        <span><i class="sw" style="background:var(--clay)"></i>Unsubscribed</span>
+      </div>
+      <div class="chart-hold" id="hold-churn">
+        <svg id="churn" viewBox="0 0 780 310" role="img" aria-label="Column chart of monthly email subscribers gained versus lost. Losses exceed gains in every month except May and June 2026, with a peak of 3,138 unsubscribes in October 2025."></svg>
+        <div class="tip" id="tip-churn"></div>
+      </div>
+      <figcaption>Klaviyo <em>Subscribed to Email Marketing</em> and <em>Unsubscribed from Email Marketing</em> events. Both bars share one scale. Sep 2025 and Sep 2026 cover partial months.</figcaption>
+    </figure>
+
+    <div class="col">
+      <p>Behind the flow, the composition is worse than the totals suggest. <strong>23,245 profiles have not engaged in 365 days</strong> — against roughly 37,000 mailable in total, that is close to two-thirds of the list already dead. The <em>Engaged 180 Days</em> segment stands at 3,571 and has lost 3,017 members in the past 30 days alone.</p>
+    </div>
+  </section>
+
+  <!-- ============ 3 ============ -->
+  <section>
+    <div class="sec-head"><span class="n">03</span><h2>Findings</h2></div>
+    <div class="finds">
+
+      <div class="find crit">
+        <div class="find-top"><span class="chip crit">Critical</span><h3>Spam complaints are within range of Gmail's enforcement threshold</h3></div>
+        <p>Flows are averaging a <strong>0.107% spam-complaint rate</strong> — more than five times the 0.02% that mailbox providers treat as healthy. Gmail begins throttling and bulk-foldering at 0.30%, and four individual flows are already sitting near it. If deliverability degrades, every number in this report falls at once, including the flows that are working.</p>
+        <div class="eviden">
+          <div><span>Browse Abandonment Black Friday [Retention]</span><span>0.346%</span></div>
+          <div><span>K | Welcome Black Friday</span><span>0.267%</span></div>
+          <div><span>Sunset Flow #2</span><span>0.253%</span></div>
+          <div><span>K | Welcome XMAS (popups)</span><span>0.240%</span></div>
+          <div><span>Healthy target / Gmail throttle point</span><span>0.020% / 0.300%</span></div>
+        </div>
+      </div>
+
+      <div class="find crit">
+        <div class="find-top"><span class="chip crit">Critical</span><h3>Six campaigns shipped with no working link</h3></div>
+        <p>Six sends over 2,000 recipients recorded <strong>literally zero clicks</strong> against normal open rates — the signature of a broken or missing call to action, not weak copy. That is <strong>84,416 emails</strong> that could not convert by construction.</p>
+        <p>"October Campaign 3 — Something Big Is Coming" reached 15,395 people, earned zero clicks and zero revenue, and <strong>cost 502 unsubscribes</strong> at a 3.26% rate. There is no QA gate catching this.</p>
+        <div class="eviden">
+          <div><span>Dec 5 — Thank You Email</span><span>18,217 · 0 clicks</span></div>
+          <div><span>Dec 6 — Christmas Sale Soon</span><span>16,431 · 0 clicks</span></div>
+          <div><span>Oct 3 — Something Big Is Coming</span><span>15,395 · 0 clicks</span></div>
+          <div><span>Oct 4 — Tomorrow at 10:30 AM EST</span><span>14,873 · 0 clicks</span></div>
+          <div><span>Dec 18 — Merry Christmas</span><span>12,511 · 0 clicks</span></div>
+          <div><span>Aug 9 — Sarah's Note</span><span>6,989 · 0 clicks</span></div>
+        </div>
+      </div>
+
+      <div class="find warn">
+        <div class="find-top"><span class="chip warn">High</span><h3>People open, then don't click</h3></div>
+        <p>Campaigns average a <strong>55.1% open rate and a 1.09% click rate</strong> — a click-to-open of just 2.0%. Subject lines are doing their job; the emails behind them are not. (Treat the open rate as directional — Apple Mail Privacy Protection inflates it.)</p>
+        <p>The cost lands as churn rather than indifference: <strong>0.75% of recipients unsubscribe per campaign</strong>, roughly 10× a healthy rate. Across ~43 campaigns a year, that arithmetic alone accounts for the list decline. Twelve of 143 campaigns produced no revenue at all.</p>
+        <div class="eviden">
+          <div><span>Oct 2 — 30-day Jump Trial</span><span>5.24% unsub · $942</span></div>
+          <div><span>Oct 3 — Something Big Is Coming</span><span>3.26% unsub · $0</span></div>
+          <div><span>Feb 7 — 14% Off Sitewide Last Chance</span><span>2.22% unsub · $1,137</span></div>
+          <div><span>Oct 5 — Halloween Sale #1</span><span>2.08% unsub · $1,526</span></div>
+        </div>
+      </div>
+
+      <div class="find warn">
+        <div class="find-top"><span class="chip warn">High</span><h3>Four cart-recovery ideas have been forked into 24 live flows</h3></div>
+        <p>Abandoned Cart exists as 6 separate flows, Browse Abandonment as 8, Abandoned Checkout as 7, Site Abandonment as 4 — variants suffixed <em>[Retention]</em>, <em>Triple Pixel</em>, <em>Triple Whale</em> and <em>Black Friday</em>, many running simultaneously against overlapping triggers.</p>
+        <p>The effect is over-messaging the same person from parallel flows, split data that makes none of the variants conclusive, and seasonal flows still live in September. <strong>Abandoned Cart 2.0 Triple Whale</strong> earned $755 all year from 710 sends while contributing to the same fatigue as the flows that earn real money.</p>
+      </div>
+
+      <div class="find warn">
+        <div class="find-top"><span class="chip warn">High</span><h3>The welcome series stops working after email one</h3></div>
+        <p>Welcome flows are the single best asset in the account — <strong>$133,117</strong>, or 55% of all flow revenue. But the value is concentrated almost entirely in the first message, and the rest of the sequence is close to dead weight.</p>
+        <p>On the Top Bar series, email one returns <strong>$27.68 per recipient</strong> and carries 75% of the flow's revenue; emails two through eight return $0.86–$2.93, and one of them returns nothing at all on 618 sends. Meanwhile welcome email one is itself running a <strong>2.4% unsubscribe rate</strong> — the highest-value message in the account is also among its most costly.</p>
+        <div class="eviden">
+          <div><span>Top Bar · email 1</span><span>$27.68 / recipient</span></div>
+          <div><span>Top Bar · emails 2–8</span><span>$0.00–$9.94</span></div>
+          <div><span>Popups · email 1</span><span>$5.96 / recipient</span></div>
+          <div><span>Popups · emails 2–8</span><span>$0.46–$1.79</span></div>
+        </div>
+      </div>
+
+      <div class="find opp">
+        <div class="find-top"><span class="chip opp">Opportunity</span><h3>The best-converting flow gets the least traffic</h3></div>
+        <p><strong>Abandoned Checkout 2.0 earns $4.81 per recipient</strong> — it caught someone mid-purchase, and it converts. It reached 4,620 people all year. <strong>Site Abandonment 2.0 earns $1.40</strong> and reached 16,217 — 3.5× the volume for the same total revenue.</p>
+        <p>Volume is flowing to the weakest intent signal. The checkout-abandon trigger is either under-firing or under-covered, and closing that gap is the cheapest revenue in this report.</p>
+      </div>
+
+      <div class="find opp">
+        <div class="find-top"><span class="chip opp">Opportunity</span><h3>Flows that should exist, don't — and one that does, doesn't work</h3></div>
+        <p>There is <strong>no Back in Stock flow</strong>. The <em>Subscribed to Back in Stock</em> metric is live, a dedicated "American Rebounder Back in Stock Subscribers" list is collecting people, and no flow is triggered by it. Those are buyers who named the exact product they want and are waiting.</p>
+        <p>There is also no winback or lapsed-customer flow for the 23,245 unengaged profiles — they are going straight to sunset without an attempt to reactivate. <strong>VIP Flow &amp; Referral</strong> has been live since 2023 and has produced <strong>$0</strong> from 576 sends. SMS is effectively unbuilt: four recipients in the entire year.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 4 ============ -->
+  <section>
+    <div class="sec-head"><span class="n">04</span><h2>What a single send is worth</h2></div>
+    <div class="col">
+      <p class="lede">Ranking every flow by revenue per recipient shows exactly where an extra email is worth sending — and where it is destroying value.</p>
+    </div>
+    <figure>
+      <div class="fig-title">Revenue per recipient, by flow</div>
+      <div class="fig-sub">Top flows against the campaign average, 8 Sep 2025 – 8 Sep 2026</div>
+      <div class="hbars" id="hbars"></div>
+      <figcaption>Welcome and checkout-abandon messages are worth 30–400× a campaign email. The gap is the argument for shifting effort from broadcast to triggered sending.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ============ 5 ============ -->
+  <section>
+    <div class="sec-head"><span class="n">05</span><h2>Recommendations</h2></div>
+    <div class="col">
+      <p class="lede">Ordered by return on effort. The first three are defensive — they stop losses that compound — and should run before anything designed to add volume.</p>
+    </div>
+
+    <div class="recs">
+
+      <div class="rec">
+        <div class="rank">1</div>
+        <div>
+          <h3>Stop sending to people who aren't reading</h3>
+          <p>The single highest-value change, and it costs nothing but restraint. Campaigns are going to audiences far wider than the engaged base, and paying for it in unsubscribes and spam complaints.</p>
+          <ul>
+            <li>Cap all promotional campaigns to <strong>engaged-120-day</strong> as the default audience; require a deliberate exception to go wider.</li>
+            <li>Add a <strong>preference centre</strong> — "fewer emails" is an option 15,127 people were never offered before they chose "none."</li>
+            <li>Suppress the <strong>23,245 unengaged</strong> from broadcast entirely, and route them to a winback sequence instead of a single 37,000-recipient sunset blast at a 0.25% complaint rate.</li>
+            <li>Set a hard frequency cap per profile per week across flows <em>and</em> campaigns combined.</li>
+          </ul>
+          <div class="tags"><span class="tag">Impact <b>+$56K/yr</b></span><span class="tag">Effort <b>Medium</b></span><span class="tag">Also protects <b>all other revenue</b></span></div>
+        </div>
+      </div>
+
+      <div class="rec">
+        <div class="rank">2</div>
+        <div>
+          <h3>Put a QA gate in front of every send</h3>
+          <p>Six broken campaigns and 84,416 wasted emails is a process failure, not a copy failure. This is a checklist, not a project.</p>
+          <ul>
+            <li>Send a seed test to a real inbox and <strong>click every link</strong> before scheduling — no exceptions.</li>
+            <li>Add an automatic check that a campaign cannot schedule with zero tracked links.</li>
+            <li>Review the 12 zero-revenue campaigns for the same defect before reusing those templates.</li>
+          </ul>
+          <div class="tags"><span class="tag">Impact <b>+$5.6K/yr</b></span><span class="tag">Effort <b>Low</b></span><span class="tag">Prevents <b>~500 unsubs/incident</b></span></div>
+        </div>
+      </div>
+
+      <div class="rec">
+        <div class="rank">3</div>
+        <div>
+          <h3>Consolidate 24 cart-recovery flows into 4</h3>
+          <p>One canonical flow per intent — cart, checkout, browse, site — each with a single tested variant. Archive the <em>Triple Pixel</em>, <em>Triple Whale</em> and seasonal duplicates.</p>
+          <ul>
+            <li>Keep the best-performing variant per family; archive the rest rather than pausing them.</li>
+            <li>Turn off <strong>Black Friday flows</strong> still live in September, and schedule them as seasonal activations instead.</li>
+            <li>Consolidating also fixes the split-data problem: one flow per intent finally produces a readable test.</li>
+          </ul>
+          <div class="tags"><span class="tag">Impact <b>Reduces fatigue</b></span><span class="tag">Effort <b>Low</b></span><span class="tag">Unblocks <b>real testing</b></span></div>
+        </div>
+      </div>
+
+      <div class="rec">
+        <div class="rank">4</div>
+        <div>
+          <h3>Rebuild welcome emails two through eight</h3>
+          <p>Email one proves the audience converts. The rest of the sequence isn't earning its place — and it's where the 2.4% unsubscribe rate is being paid.</p>
+          <ul>
+            <li>Cut both welcome series to <strong>4–5 messages</strong> and rewrite the survivors around objections rather than repeated discounts: sizing and space, joint impact versus running, the 30-day trial, assembly and warranty.</li>
+            <li>Consolidate the <strong>nine welcome variants</strong> into one series with a single offer test running at a time.</li>
+            <li>Move the strongest offer out of email one alone and give email three a distinct reason to act.</li>
+          </ul>
+          <div class="tags"><span class="tag">Impact <b>+$25–35K/yr</b></span><span class="tag">Effort <b>Medium</b></span><span class="tag">Base <b>$133K flow</b></span></div>
+        </div>
+      </div>
+
+      <div class="rec">
+        <div class="rank">5</div>
+        <div>
+          <h3>Build the three flows that are missing</h3>
+          <p>Each targets people who have already signalled intent, which is why flow economics apply rather than campaign economics.</p>
+          <ul>
+            <li><strong>Back in Stock</strong> — the list and the trigger metric already exist; only the flow is missing. Highest intent in the account.</li>
+            <li><strong>Winback</strong> for lapsed customers, ahead of sunset — a rebounder is a considered purchase with real accessory and replacement follow-on.</li>
+            <li><strong>Post-purchase cross-sell</strong> — <em>Order Delivered</em> reaches 21,495 people at $0.20 each. That is a large, warm, well-timed audience being used only for logistics.</li>
+            <li>Either rebuild or archive <strong>VIP Flow &amp; Referral</strong>; at $0 across three years it is currently just fatigue.</li>
+          </ul>
+          <div class="tags"><span class="tag">Impact <b>+$15–25K/yr</b></span><span class="tag">Effort <b>Medium</b></span></div>
+        </div>
+      </div>
+
+      <div class="rec">
+        <div class="rank">6</div>
+        <div>
+          <h3>Fix checkout-abandon coverage, then fix campaign clicks</h3>
+          <p>Two separate jobs, both about converting attention that already exists.</p>
+          <ul>
+            <li>Audit why <strong>Abandoned Checkout</strong> reached only 4,620 people while Site Abandonment reached 16,217 — check trigger conditions, exclusion filters and flow-priority conflicts across the duplicate flows.</li>
+            <li>On campaigns, a 2.0% click-to-open against a 55% open rate is a body-content problem: one clear offer per email, one primary button above the fold, and real product imagery instead of discount-only layouts.</li>
+            <li>Test on the <strong>engaged segment only</strong>, so a losing test costs clicks rather than subscribers.</li>
+          </ul>
+          <div class="tags"><span class="tag">Impact <b>+$49–69K/yr</b></span><span class="tag">Effort <b>Medium–High</b></span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 6 ============ -->
+  <section>
+    <div class="sec-head"><span class="n">06</span><h2>Modeled opportunity</h2></div>
+    <div class="col">
+      <p>Each line holds current conversion rates constant and changes one variable. These are estimates from the account's own measured rates, not forecasts — the assumption is stated so you can disagree with it.</p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Move</th><th>Annual impact</th><th>Basis</th><th>Effort</th></tr></thead>
+        <tbody>
+          <tr><td>Stop list attrition (reach net-zero)</td><td>+$56,000</td><td>5,939 profiles × $9.42 email revenue per mailable profile</td><td>Medium</td></tr>
+          <tr><td>Lift campaign click-to-open 2.0% → 4.0%</td><td>+$30–50,000</td><td>Clicks double at unchanged conversion rate</td><td>High</td></tr>
+          <tr><td>Rebuild welcome emails 2–8</td><td>+$25–35,000</td><td>~24,000 downstream sends, $1.20 → $2.50 each</td><td>Medium</td></tr>
+          <tr><td>Back in Stock + winback + cross-sell flows</td><td>+$15–25,000</td><td>Typical triggered rates on existing audiences</td><td>Medium</td></tr>
+          <tr><td>Expand checkout-abandon coverage</td><td>+$19,000</td><td>4,620 → 10,000 sends at $3.50 (vs $4.81 today)</td><td>Low</td></tr>
+          <tr><td>Fix broken sends + QA gate</td><td>+$5,600</td><td>84,416 emails at the $0.066 campaign average</td><td>Low</td></tr>
+        </tbody>
+        <tfoot><tr><td>Total against a $348,713 base</td><td>+$150–190K</td><td>43–55% lift</td><td>—</td></tr></tfoot>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 7 ============ -->
+  <section>
+    <div class="sec-head"><span class="n">07</span><h2>Monthly detail</h2></div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Month</th><th>Store revenue</th><th>Email revenue</th><th>Email share</th><th>Campaigns</th><th>Joined</th><th>Left</th><th>Net</th></tr></thead>
+        <tbody id="monthly"></tbody>
+        <tfoot><tr><td>Total</td><td>$1,442,392</td><td>$349,221</td><td>24.2%</td><td>143</td><td>9,188</td><td>15,127</td><td class="neg">−5,939</td></tr></tfoot>
+      </table>
+    </div>
+    <div class="col">
+      <p style="margin-top:22px">The pattern worth noticing: <strong>May and June 2026 ran 4 campaigns and 0 campaigns</strong> respectively and were the only months the list grew. June also produced the year's lowest email revenue, so this is a genuine trade — but it is the trade the program is currently making by accident, in the wrong direction, every other month of the year.</p>
+    </div>
+  </section>
+
+  <!-- ============ notes ============ -->
+  <section>
+    <div class="sec-head"><span class="n">—</span><h2>Method and caveats</h2></div>
+    <div class="notes">
+      <h3>How to read these numbers</h3>
+      <ul>
+        <li><strong>Attribution is Klaviyo's,</strong> measured against the Shopify <em>Placed Order</em> metric on a last-touch basis. Email's true incremental contribution is lower than $348,713 — some of those buyers would have purchased anyway. The figure is right for comparing flows against campaigns, which is what it's used for here.</li>
+        <li><strong>Open rates are inflated by Apple Mail Privacy Protection</strong> and should be read as directional only. The 55% campaign open rate against a 1.09% click rate is partly an MPP artefact — which is exactly why click-to-open, not open rate, is the metric used in the findings.</li>
+        <li><strong>Flow and campaign reports are send-time based;</strong> the store-revenue and subscriber figures come from event-time aggregates. The two methods put email-attributed revenue at $348,713 and $349,221 respectively — a 0.15% difference, well within tolerance.</li>
+        <li><strong>Both edge months are partial</strong> (8–30 Sep 2025 and 1–8 Sep 2026), so the first and last rows of the monthly table are not comparable to full months.</li>
+        <li><strong>The ~37,000 mailable figure is inferred</strong> from the reach of Sunset Flow #2, which sent to 37,006 profiles in one message. Segment counts are current as of 8 Sep 2026, not period averages.</li>
+        <li><strong>Opportunity figures are models, not forecasts.</strong> Each holds current conversion rates constant and varies one input; the basis column states the assumption in each case.</li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var churn = [
+    {m:"Sep 25", sub:548,  uns:703,  partial:true},
+    {m:"Oct 25", sub:524,  uns:3138},
+    {m:"Nov 25", sub:932,  uns:1679},
+    {m:"Dec 25", sub:941,  uns:1483},
+    {m:"Jan 26", sub:1108, uns:1144},
+    {m:"Feb 26", sub:997,  uns:1813},
+    {m:"Mar 26", sub:875,  uns:1092},
+    {m:"Apr 26", sub:777,  uns:736},
+    {m:"May 26", sub:684,  uns:392},
+    {m:"Jun 26", sub:456,  uns:164},
+    {m:"Jul 26", sub:654,  uns:1023},
+    {m:"Aug 26", sub:560,  uns:625},
+    {m:"Sep 26", sub:132,  uns:1135, partial:true}
+  ];
+
+  var css = getComputedStyle(document.documentElement);
+  function tok(n){ return css.getPropertyValue(n).trim(); }
+
+  /* ---------- churn column chart ---------- */
+  var svg = document.getElementById("churn");
+  var tip = document.getElementById("tip-churn");
+  var hold = document.getElementById("hold-churn");
+  var W=780, H=310, L=52, R=8, T=16, B=42;
+  var pw = W-L-R, ph = H-T-B;
+  var maxUp=1200, maxDn=3200, span=maxUp+maxDn;
+  var s = ph/span;                 // one shared scale
+  var zero = T + maxUp*s;
+  var slot = pw/churn.length, bw = Math.min(30, slot*0.56);
+
+  var NS="http://www.w3.org/2000/svg";
+  function el(n,a){ var e=document.createElementNS(NS,n); for(var k in a) e.setAttribute(k,a[k]); return e; }
+
+  // gridlines
+  [-3000,-2000,-1000,0,1000].forEach(function(v){
+    var y = zero - v*s;
+    svg.appendChild(el("line",{x1:L,x2:W-R,y1:y,y2:y,stroke:v===0?tok("--rule-strong"):tok("--rule"),"stroke-width":v===0?1.5:1}));
+    var t = el("text",{x:L-10,y:y+4,"text-anchor":"end",fill:tok("--ink-3"),"font-family":"IBM Plex Mono, monospace","font-size":"10.5"});
+    t.textContent = v===0 ? "0" : Math.abs(v/1000)+"k";
+    svg.appendChild(t);
+  });
+
+  churn.forEach(function(d,i){
+    var cx = L + slot*i + slot/2;
+    var hu = d.sub*s, hd = d.uns*s;
+
+    var up = el("rect",{x:cx-bw/2, y:zero-hu, width:bw, height:hu, rx:3, fill:tok("--teal")});
+    var dn = el("rect",{x:cx-bw/2, y:zero+2, width:bw, height:Math.max(hd-2,1), rx:3, fill:tok("--clay")});
+    svg.appendChild(up); svg.appendChild(dn);
+
+    // month label
+    var lab = el("text",{x:cx, y:H-B+26, "text-anchor":"middle", fill:tok("--ink-3"),
+      "font-family":"IBM Plex Mono, monospace","font-size":"10"});
+    lab.textContent = d.m;
+    svg.appendChild(lab);
+
+    // net marker for positive months
+    if(d.sub > d.uns){
+      var star = el("text",{x:cx, y:zero-hu-9, "text-anchor":"middle", fill:tok("--teal"),
+        "font-family":"IBM Plex Mono, monospace","font-size":"10","font-weight":"600"});
+      star.textContent = "+"+(d.sub-d.uns);
+      svg.appendChild(star);
+    }
+
+    // generous hit target
+    var hit = el("rect",{x:cx-slot/2, y:T, width:slot, height:ph, fill:"transparent", style:"cursor:pointer"});
+    hit.addEventListener("mouseenter", function(){
+      var net = d.sub - d.uns;
+      tip.innerHTML = "<b>"+d.m+(d.partial?" (partial)":"")+"</b><br>Joined "+d.sub.toLocaleString()+
+                      "<br>Left "+d.uns.toLocaleString()+
+                      "<br>Net "+(net>0?"+":"")+net.toLocaleString();
+      tip.style.opacity = 1;
+      var rect = hold.getBoundingClientRect();
+      tip.style.left = (cx/W*rect.width)+"px";
+      tip.style.top  = ((zero-Math.max(hu,0))/H*rect.height - 8)+"px";
+    });
+    hit.addEventListener("mouseleave", function(){ tip.style.opacity = 0; });
+    svg.appendChild(hit);
+  });
+
+  /* ---------- revenue per recipient ---------- */
+  var rpr = [
+    {n:"Welcome · XMAS (top bar)", v:10.62},
+    {n:"Welcome · Offer Testing",  v:7.31},
+    {n:"Welcome · Top Bar",        v:7.06},
+    {n:"Welcome · Anniversary",    v:6.41},
+    {n:"Welcome · V-day",          v:6.17},
+    {n:"Abandoned Checkout 2.0",   v:4.81},
+    {n:"Welcome · Popups",         v:1.78},
+    {n:"Site Abandonment 2.0",     v:1.40},
+    {n:"Order Delivered",          v:0.20},
+    {n:"Campaign average",         v:0.066, alt:true}
+  ];
+  var maxV = 10.62;
+  var host = document.getElementById("hbars");
+  rpr.forEach(function(d){
+    var row = document.createElement("div");
+    row.className = "hb" + (d.alt ? " alt" : "");
+    var pct = Math.max(d.v/maxV*100, 0.6);
+    row.innerHTML =
+      '<div class="n2">'+d.n+'</div>'+
+      '<div class="track"><div class="fill" style="width:'+pct+'%"></div></div>'+
+      '<div class="val">$'+(d.v < 1 ? d.v.toFixed(2) : d.v.toFixed(2))+'</div>';
+    host.appendChild(row);
+  });
+
+  /* ---------- monthly table ---------- */
+  var months = [
+    ["Sep 2025*", 55444,  20094,  9,  548,  703],
+    ["Oct 2025",  76300,  21492, 13,  524, 3138],
+    ["Nov 2025", 165159,  41334, 16,  932, 1679],
+    ["Dec 2025", 181863,  53321, 19,  941, 1483],
+    ["Jan 2026",  95037,  27588, 14, 1108, 1144],
+    ["Feb 2026", 128208,  32527, 12,  997, 1813],
+    ["Mar 2026", 116883,  27687, 14,  875, 1092],
+    ["Apr 2026", 108569,  24964, 12,  777,  736],
+    ["May 2026", 179581,  24367,  4,  684,  392],
+    ["Jun 2026", 104722,  11029,  0,  456,  164],
+    ["Jul 2026", 116046,  28669, 15,  654, 1023],
+    ["Aug 2026",  94562,  27109, 11,  560,  625],
+    ["Sep 2026*", 20019,   9040,  4,  132, 1135]
+  ];
+  var tb = document.getElementById("monthly");
+  months.forEach(function(r){
+    var net = r[4]-r[5];
+    var tr = document.createElement("tr");
+    tr.innerHTML =
+      "<td>"+r[0]+"</td>"+
+      "<td>$"+r[1].toLocaleString()+"</td>"+
+      "<td>$"+r[2].toLocaleString()+"</td>"+
+      "<td>"+(r[2]/r[1]*100).toFixed(1)+"%</td>"+
+      "<td>"+r[3]+"</td>"+
+      "<td>"+r[4].toLocaleString()+"</td>"+
+      "<td>"+r[5].toLocaleString()+"</td>"+
+      '<td class="'+(net>0?"pos":"neg")+'">'+(net>0?"+":"−")+Math.abs(net).toLocaleString()+"</td>";
+    tb.appendChild(tr);
+  });
+})();
+</script>
+<!--
+  Appended, not prepended. These pages have their own sticky headers and hero
+  sections; injecting anything above the fold moves somebody's layout. At the end
+  it is findable and disturbs nothing.
+-->
+<footer style="font:12px -apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:28px 16px;border-top:1px solid rgba(0,0,0,.1);background:#faf9f5;color:#6b6b6b">
+  <a href="/reports/claude" style="color:#6b6b6b">← All reports</a>
+</footer>
+</body>
+</html>

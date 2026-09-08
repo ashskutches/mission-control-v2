@@ -32,7 +32,23 @@ import { canAccess, isAdminPath, landingFor } from "@/app/lib/access";
 // holds no session cookie. Listed as the full route path rather than `/api/raven` so
 // the subtree rule above cannot silently exempt a future sibling route — a second
 // Raven endpoint has to be added here on purpose.
-const PUBLIC_PATHS = ["/login", "/admin", "/no-access", "/api/auth", "/api/raven/pipeline"];
+//
+// `/reports` is public on purpose. The reports under it were published as Claude
+// artifacts, which are shareable only with people holding a seat in the same
+// Claude organisation — so the team they were written for could not open a single
+// one. They are exported to `public/reports/claude/*.html` and served from here
+// instead.
+//
+// ⚠️ The matcher at the bottom of this file excludes `.png`/`.txt`/`.json` and
+// friends but NOT `.html`, so without this entry every exported report would be
+// 307'd to /login. Adding html to that extension list instead would exempt any
+// .html anywhere; this is the narrower change.
+//
+// Anyone with the link can read them, and some carry real revenue figures. That
+// is accepted rather than overlooked — see the docblock on
+// app/reports/claude/page.tsx and the SECURITY_HOLD note in its manifest for what
+// is deliberately NOT published there.
+const PUBLIC_PATHS = ["/login", "/admin", "/no-access", "/api/auth", "/api/raven/pipeline", "/reports"];
 
 const isPublic = (pathname: string) =>
     PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));

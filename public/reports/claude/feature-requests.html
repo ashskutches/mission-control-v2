@@ -1,0 +1,1269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  Not for search engines. This page is reachable by anyone holding the link and
+  carries internal business analysis; robots.txt disallows /reports/ as well, but
+  a meta directive is the one that stops indexing of a page that IS fetched.
+-->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Feature Requests — Blockages</title>
+<style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style>
+</head>
+<body>
+<style>
+  :root {
+    --ink:        #1a1a1c;
+    --panel:      #202022;
+    --panel-2:    #262628;
+    --raised:     rgba(255,255,255,.035);
+    --line:       rgba(233,141,32,.13);
+    --line-quiet: rgba(255,255,255,.075);
+    --orange:     #e98d20;
+    --orange-dim: rgba(233,141,32,.13);
+    --orange-mid: rgba(233,141,32,.32);
+    --white:      #f0ede8;
+    --gray:       #b8b4ae;
+    --muted:      rgba(184,180,174,.55);
+    --dim:        rgba(184,180,174,.3);
+    --emerald:    #22c55e;
+    --gold:       #f59e0b;
+    --rose:       #f43f5e;
+    --blue:       #4a9eff;
+    --cyan:       #00c9d7;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--white);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── shared atoms ─────────────────────────────────────────── */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  button { font-family: inherit; }
+  button:focus-visible,
+  a:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  input:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 2px;
+  }
+
+  .btn {
+    border: 1px solid var(--line-quiet);
+    background: var(--raised);
+    color: var(--gray);
+    border-radius: 7px;
+    padding: 7px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .16s, border-color .16s, color .16s;
+  }
+  .btn:hover { background: rgba(255,255,255,.07); color: var(--white); }
+
+  .btn-primary {
+    background: var(--orange);
+    border-color: var(--orange);
+    color: #1a1a1c;
+    font-weight: 700;
+  }
+  .btn-primary:hover { background: #f5a840; border-color: #f5a840; color: #1a1a1c; }
+  .btn-primary:disabled { opacity: .35; cursor: not-allowed; }
+  .btn-primary:disabled:hover { background: var(--orange); }
+
+  .btn-ghost { background: transparent; border-color: transparent; color: var(--muted); }
+  .btn-ghost:hover { background: transparent; color: var(--gray); text-decoration: underline; }
+
+  /* ── page chrome ──────────────────────────────────────────── */
+  .shell { max-width: 1180px; margin: 0 auto; padding: 0 26px 90px; }
+
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 20px; flex-wrap: wrap;
+    padding: 22px 0 16px;
+  }
+  .crumb { font-family: var(--mono); font-size: 11px; letter-spacing: .05em; color: var(--dim); }
+  .crumb strong { color: var(--gray); font-weight: 600; }
+
+  .roleswitch { display: flex; align-items: center; gap: 9px; }
+  .roleswitch .eyebrow { color: var(--dim); }
+  .seg {
+    display: flex; gap: 2px; padding: 2px;
+    background: var(--panel); border: 1px solid var(--line-quiet); border-radius: 8px;
+  }
+  .seg button {
+    border: 0; background: transparent; color: var(--muted);
+    font-size: 11.5px; font-weight: 600; padding: 5px 12px; border-radius: 6px; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--orange-dim); color: var(--orange); }
+
+  h1.page {
+    font-size: 26px; font-weight: 700; letter-spacing: -.02em;
+    margin: 0 0 4px; text-wrap: balance;
+  }
+  .page-sub { color: var(--muted); font-size: 13px; margin: 0 0 20px; max-width: 62ch; }
+
+  .tabs {
+    display: flex; gap: 26px; border-bottom: 1px solid var(--line-quiet);
+    margin-bottom: 26px;
+  }
+  .tabs button {
+    border: 0; background: transparent; cursor: pointer;
+    padding: 0 0 11px; margin-bottom: -1px;
+    font-size: 13px; font-weight: 600; color: var(--muted);
+    border-bottom: 2px solid transparent;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .tabs button:hover { color: var(--gray); }
+  .tabs button[aria-selected="true"] { color: var(--white); border-bottom-color: var(--orange); }
+  .pill-count {
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    background: var(--orange-dim); color: var(--orange);
+    border-radius: 20px; padding: 1px 7px;
+  }
+  .pill-count.quiet { background: rgba(255,255,255,.06); color: var(--muted); }
+
+  /* ── two-pane stage ───────────────────────────────────────── */
+  .stage { display: grid; grid-template-columns: minmax(0,1fr) 340px; gap: 26px; align-items: start; }
+  @media (max-width: 900px) { .stage { grid-template-columns: minmax(0,1fr); } }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+
+  /* ── conversation column ──────────────────────────────────── */
+  #thread { display: flex; flex-direction: column; gap: 14px; }
+
+  .turn { display: flex; gap: 12px; }
+  .turn .avatar {
+    width: 26px; height: 26px; border-radius: 7px; flex: 0 0 26px;
+    display: grid; place-items: center;
+    font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: .02em;
+    margin-top: 2px;
+  }
+  .turn.you .avatar  { background: rgba(255,255,255,.07); color: var(--gray); }
+  .turn.bot .avatar  { background: var(--orange-dim); color: var(--orange); border: 1px solid var(--orange-mid); }
+  .turn .body { flex: 1; min-width: 0; }
+
+  .said {
+    background: var(--raised); border: 1px solid var(--line-quiet);
+    border-radius: 10px; padding: 11px 14px;
+    color: var(--white); font-size: 13.5px; line-height: 1.6;
+  }
+
+  .ask { padding-top: 1px; }
+  .ask h3 {
+    margin: 0 0 3px; font-size: 15.5px; font-weight: 650;
+    letter-spacing: -.01em; color: var(--white); text-wrap: balance;
+  }
+  .ask .why { margin: 0 0 12px; font-size: 12px; color: var(--muted); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 11px; }
+  .chip {
+    border: 1px solid var(--line-quiet); background: var(--raised);
+    color: var(--gray); border-radius: 999px;
+    padding: 7px 14px; font-size: 12.5px; cursor: pointer;
+    transition: border-color .16s, color .16s, background .16s;
+    text-align: left;
+  }
+  .chip:hover { border-color: var(--orange-mid); color: var(--white); background: var(--orange-dim); }
+
+  .freerow { display: flex; gap: 8px; align-items: center; }
+  .freerow input {
+    flex: 1; min-width: 0;
+    background: rgba(0,0,0,.28); border: 1px solid var(--line-quiet);
+    border-radius: 8px; color: var(--white); font-size: 13px;
+    padding: 9px 12px; font-family: inherit;
+  }
+  .freerow input::placeholder { color: var(--dim); }
+
+  .thinking { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12.5px; }
+  .dot3 { display: inline-flex; gap: 3px; }
+  .dot3 i {
+    width: 4px; height: 4px; border-radius: 50%; background: var(--orange);
+    animation: bounce 1.1s infinite ease-in-out;
+  }
+  .dot3 i:nth-child(2) { animation-delay: .15s; }
+  .dot3 i:nth-child(3) { animation-delay: .3s; }
+  @keyframes bounce { 0%,80%,100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+
+  .fade-in { animation: fade .28s ease both; }
+  @keyframes fade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+
+  /* verdict cards */
+  .verdict { border-radius: 10px; padding: 14px 16px; border: 1px solid; }
+  .verdict h4 { margin: 0 0 5px; font-size: 14px; font-weight: 650; }
+  .verdict p  { margin: 0 0 10px; font-size: 12.8px; color: var(--gray); line-height: 1.6; }
+  .verdict .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .v-exists { background: rgba(34,197,94,.06);  border-color: rgba(34,197,94,.26); }
+  .v-exists h4 { color: var(--emerald); }
+  .v-dupe   { background: rgba(74,158,255,.06); border-color: rgba(74,158,255,.26); }
+  .v-dupe h4 { color: var(--blue); }
+  .v-bug    { background: rgba(244,63,94,.06);  border-color: rgba(244,63,94,.26); }
+  .v-bug h4 { color: var(--rose); }
+
+  .quoteref {
+    background: rgba(0,0,0,.3); border-radius: 7px; padding: 9px 12px;
+    margin: 0 0 11px; border-left: 2px solid var(--line-quiet);
+  }
+  .quoteref .t { font-size: 12.5px; color: var(--white); font-weight: 600; }
+  .quoteref .m { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  /* ── compose ──────────────────────────────────────────────── */
+  .compose { padding: 18px; }
+  .compose textarea {
+    width: 100%; min-height: 92px; resize: vertical;
+    background: rgba(0,0,0,.28); border: 1px solid var(--line-quiet);
+    border-radius: 9px; color: var(--white);
+    font-family: inherit; font-size: 14px; line-height: 1.6; padding: 12px 14px;
+  }
+  .compose textarea::placeholder { color: var(--dim); }
+  .compose-foot {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .compose-foot select {
+    background: var(--panel-2); border: 1px solid var(--line-quiet);
+    border-radius: 7px; color: var(--gray); font-size: 12.5px;
+    padding: 7px 10px; font-family: inherit;
+  }
+  .spacer { flex: 1; }
+
+  .mic {
+    width: 34px; height: 34px; border-radius: 8px; flex: 0 0 34px;
+    border: 1px solid var(--line-quiet); background: var(--raised);
+    color: var(--gray); cursor: pointer; display: grid; place-items: center;
+  }
+  .mic:hover { border-color: var(--orange-mid); color: var(--orange); }
+  .mic[data-live="1"] { border-color: var(--rose); color: var(--rose); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 5px rgba(244,63,94,.13); } }
+
+  .seeds { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line-quiet); }
+  .seeds .eyebrow { margin-bottom: 8px; }
+  .seedrow { display: flex; flex-wrap: wrap; gap: 7px; }
+  .seed {
+    border: 1px dashed var(--line-quiet); background: transparent; color: var(--muted);
+    border-radius: 7px; padding: 6px 11px; font-size: 12px; cursor: pointer; text-align: left;
+  }
+  .seed:hover { border-color: var(--orange-mid); color: var(--orange); border-style: solid; }
+
+  /* ── request sheet (right rail) ───────────────────────────── */
+  .sheet { padding: 16px 17px; position: sticky; top: 20px; }
+  .sheet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 3px; }
+  .sheet-head h2 { margin: 0; font-size: 13.5px; font-weight: 650; }
+  .sheet-note { font-size: 11.5px; color: var(--muted); margin: 0 0 14px; line-height: 1.5; }
+
+  .meter { height: 3px; border-radius: 3px; background: rgba(255,255,255,.07); overflow: hidden; margin-bottom: 16px; }
+  .meter i { display: block; height: 100%; width: 0; background: var(--orange); transition: width .45s cubic-bezier(.16,1,.3,1); }
+
+  .slots { display: flex; flex-direction: column; gap: 13px; }
+  .slot { padding-left: 11px; border-left: 2px solid rgba(255,255,255,.08); transition: border-color .3s; }
+  .slot[data-filled="1"] { border-left-color: var(--orange); }
+  .slot .k { font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); }
+  .slot .v { font-size: 12.8px; color: var(--dim); margin-top: 3px; line-height: 1.5; }
+  .slot[data-filled="1"] .v { color: var(--white); }
+  .slot .q { font-size: 11.5px; color: var(--muted); font-style: italic; margin-top: 4px; line-height: 1.5; }
+
+  .sheet-foot { margin-top: 16px; padding-top: 13px; border-top: 1px solid var(--line-quiet); }
+  .statusline { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .led { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
+  .led.gold { background: var(--gold); box-shadow: 0 0 0 3px rgba(245,158,11,.14); }
+  .led.emerald { background: var(--emerald); box-shadow: 0 0 0 3px rgba(34,197,94,.14); }
+
+  /* ── final spec review ────────────────────────────────────── */
+  .spec { border: 1px solid var(--orange-mid); background: rgba(233,141,32,.045); border-radius: 11px; padding: 16px 18px; }
+  .spec .title {
+    font-size: 16px; font-weight: 680; letter-spacing: -.01em; margin: 6px 0 14px;
+    color: var(--white);
+  }
+  .spec .title[contenteditable="true"]:focus { outline: 1px dashed var(--orange-mid); outline-offset: 4px; border-radius: 3px; }
+  .specgrid { display: flex; flex-direction: column; gap: 11px; margin-bottom: 15px; }
+  .specrow { display: grid; grid-template-columns: 112px minmax(0,1fr); gap: 12px; align-items: start; }
+  .specrow .k { font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+  .specrow .v { font-size: 13px; color: var(--white); line-height: 1.55; }
+  .specrow .v[contenteditable="true"]:focus { outline: 1px dashed var(--orange-mid); outline-offset: 3px; border-radius: 3px; }
+  .editnote { font-size: 11.5px; color: var(--muted); margin: 0 0 14px; }
+
+  /* ── sent state ───────────────────────────────────────────── */
+  .sent { text-align: left; padding: 22px; }
+  .sent .tick { width: 34px; height: 34px; border-radius: 9px; background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3); display: grid; place-items: center; margin-bottom: 12px; }
+  .sent h3 { margin: 0 0 6px; font-size: 17px; font-weight: 650; }
+  .sent p { margin: 0 0 16px; color: var(--gray); font-size: 13px; max-width: 52ch; }
+  .next { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+  .nextitem { display: flex; gap: 10px; align-items: flex-start; font-size: 12.8px; color: var(--gray); }
+  .nextitem .mk { font-family: var(--mono); font-size: 10px; color: var(--orange); padding-top: 2px; flex: 0 0 auto; }
+
+  /* ── owner triage ─────────────────────────────────────────── */
+  .reqcard {
+    background: var(--panel); border: 1px solid var(--line-quiet);
+    border-left: 3px solid var(--gold);
+    border-radius: 10px; margin-bottom: 11px; overflow: hidden;
+  }
+  .reqcard[data-state="accepted"] { border-left-color: var(--emerald); }
+  .reqcard[data-state="shipped"]  { border-left-color: var(--cyan); }
+  .reqcard[data-state="declined"] { border-left-color: var(--rose); opacity: .62; }
+  .reqcard[data-state="merged"]   { border-left-color: var(--blue); opacity: .62; }
+
+  .reqhead { display: flex; align-items: center; gap: 10px; padding: 13px 15px; cursor: pointer; }
+  .reqhead .who {
+    font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: .06em;
+    background: rgba(255,255,255,.06); border: 1px solid var(--line-quiet);
+    color: var(--muted); border-radius: 8px; padding: 2px 7px; white-space: nowrap;
+  }
+  .reqhead .t { flex: 1; font-size: 13.5px; font-weight: 650; color: var(--white); min-width: 0; }
+  .reqhead .age { font-family: var(--mono); font-size: 10px; color: var(--muted); white-space: nowrap; }
+  .reqbody { padding: 0 15px 14px; border-top: 1px solid var(--line-quiet); }
+
+  .sig { display: flex; gap: 16px; flex-wrap: wrap; padding: 12px 0 14px; }
+  .sigcell .k { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .sigcell .v { font-size: 12.5px; color: var(--white); font-weight: 600; margin-top: 2px; }
+
+  .actbar { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--line-quiet); }
+  .btn-accept  { border-color: rgba(34,197,94,.32);  background: rgba(34,197,94,.1);  color: var(--emerald); }
+  .btn-accept:hover  { background: rgba(34,197,94,.18); color: var(--emerald); }
+  .btn-decline { border-color: rgba(244,63,94,.28);  background: transparent; color: var(--rose); }
+  .btn-decline:hover { background: rgba(244,63,94,.1); color: var(--rose); }
+  .btn-merge   { border-color: rgba(74,158,255,.28); background: transparent; color: var(--blue); }
+  .btn-merge:hover   { background: rgba(74,158,255,.1); color: var(--blue); }
+
+  .outcome { margin-top: 12px; border-radius: 8px; padding: 11px 13px; font-size: 12.5px; line-height: 1.6; }
+  .outcome.ok  { background: rgba(34,197,94,.07); border: 1px solid rgba(34,197,94,.24); color: var(--gray); }
+  .outcome.no  { background: rgba(244,63,94,.06); border: 1px solid rgba(244,63,94,.22); color: var(--gray); }
+  .outcome strong { color: var(--white); }
+  .outcome textarea {
+    width: 100%; margin-top: 8px; min-height: 52px; resize: vertical;
+    background: rgba(0,0,0,.3); border: 1px solid var(--line-quiet); border-radius: 7px;
+    color: var(--white); font-family: inherit; font-size: 12.5px; padding: 8px 10px;
+  }
+
+  .transcript { margin-top: 12px; }
+  .transcript summary { cursor: pointer; font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .transcript summary:hover { color: var(--gray); }
+  .transcript .log { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; padding-left: 12px; border-left: 1px solid var(--line-quiet); }
+  .transcript .log div { font-size: 12.3px; line-height: 1.55; }
+  .transcript .log .q { color: var(--muted); }
+  .transcript .log .a { color: var(--white); }
+
+  .emptynote { color: var(--muted); font-size: 13px; padding: 30px 0; text-align: center; }
+
+  /* ── ship + notify ────────────────────────────────────────── */
+  .btn-ship { border-color: rgba(0,201,215,.3); background: rgba(0,201,215,.09); color: var(--cyan); }
+  .btn-ship:hover { background: rgba(0,201,215,.17); color: var(--cyan); }
+
+  .notify { margin-top: 12px; border: 1px solid rgba(0,201,215,.24); background: rgba(0,201,215,.05); border-radius: 9px; padding: 14px 15px; }
+  .notify .eyebrow { color: var(--cyan); margin-bottom: 9px; }
+
+  .rawnote {
+    font-family: var(--mono); font-size: 11.5px; line-height: 1.6;
+    color: var(--muted); background: rgba(0,0,0,.3);
+    border-radius: 7px; padding: 9px 11px; margin-bottom: 12px;
+    overflow-x: auto; white-space: pre-wrap;
+  }
+  .rawnote .tag { color: var(--dim); display: block; margin-bottom: 3px; letter-spacing: .1em; }
+
+  .arrowdown { text-align: center; color: var(--dim); font-size: 11px; margin-bottom: 10px; font-family: var(--mono); letter-spacing: .1em; }
+
+  .msgdraft {
+    background: var(--panel-2); border: 1px solid var(--line-quiet);
+    border-radius: 9px; padding: 13px 15px; margin-bottom: 12px;
+  }
+  .msgdraft h5 { margin: 0 0 7px; font-size: 13.5px; font-weight: 650; color: var(--white); }
+  .msgdraft p  { margin: 0 0 9px; font-size: 12.8px; color: var(--gray); line-height: 1.65; }
+  .msgdraft p:last-child { margin-bottom: 0; }
+  .msgdraft [contenteditable="true"]:focus { outline: 1px dashed rgba(0,201,215,.5); outline-offset: 3px; border-radius: 3px; }
+  .msgdraft .check {
+    border-left: 2px solid var(--cyan); padding-left: 11px;
+    font-size: 12.5px; color: var(--white); line-height: 1.6; margin: 0 0 9px;
+  }
+  .msgdraft .check em { color: var(--gray); font-style: italic; }
+
+  .sendto { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .sendto .chan {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .07em;
+    color: var(--muted); border: 1px solid var(--line-quiet);
+    border-radius: 6px; padding: 3px 8px;
+  }
+
+  /* ── requester's own request list ─────────────────────────── */
+  .mine { margin-top: 34px; }
+  .mine > h2 { font-size: 16px; font-weight: 650; margin: 0 0 3px; letter-spacing: -.01em; }
+  .mine > p.lead { font-size: 12.8px; color: var(--muted); margin: 0 0 16px; max-width: 60ch; }
+
+  .mycard {
+    background: var(--panel); border: 1px solid var(--line-quiet);
+    border-left: 3px solid var(--gold); border-radius: 10px;
+    margin-bottom: 10px; overflow: hidden;
+  }
+  .mycard[data-s="shipped"]  { border-left-color: var(--cyan); }
+  .mycard[data-s="declined"] { border-left-color: var(--rose); }
+
+  .myhead { display: flex; align-items: center; gap: 10px; padding: 13px 15px; cursor: pointer; }
+  .myhead .t { flex: 1; font-size: 13.5px; font-weight: 620; color: var(--white); min-width: 0; }
+  .myhead .age { font-family: var(--mono); font-size: 10px; color: var(--dim); white-space: nowrap; }
+
+  .schip {
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase;
+    border-radius: 20px; padding: 2px 9px; white-space: nowrap;
+  }
+  .schip.wait { background: rgba(245,158,11,.13); color: var(--gold); border: 1px solid rgba(245,158,11,.28); }
+  .schip.done { background: rgba(0,201,215,.13); color: var(--cyan); border: 1px solid rgba(0,201,215,.3); }
+  .schip.no   { background: rgba(244,63,94,.1);  color: var(--rose); border: 1px solid rgba(244,63,94,.26); }
+
+  .mybody { padding: 0 15px 14px; border-top: 1px solid var(--line-quiet); }
+  .mybody > .inner { padding-top: 13px; }
+
+  .verify { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--line-quiet); }
+  .verify .ask { font-size: 12.5px; color: var(--gray); width: 100%; margin: 0 0 4px; }
+  .btn-yes { border-color: rgba(34,197,94,.3); background: rgba(34,197,94,.1); color: var(--emerald); }
+  .btn-yes:hover { background: rgba(34,197,94,.18); color: var(--emerald); }
+
+  .callout {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; margin-bottom: 22px;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .callout .mk { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; color: var(--orange); padding-top: 3px; flex: 0 0 auto; }
+  .callout p { margin: 0; font-size: 12.8px; color: var(--gray); line-height: 1.6; }
+  .callout strong { color: var(--white); font-weight: 600; }
+
+  .hidden { display: none !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  }
+</style>
+
+<div class="shell">
+  <div class="topbar">
+    <div class="crumb">Mission Control &nbsp;/&nbsp; <strong>Blockages</strong></div>
+    <div class="roleswitch">
+      <span class="eyebrow">Prototype — view as</span>
+      <div class="seg" role="group" aria-label="Switch view">
+        <button id="asReq" aria-pressed="true">Requester</button>
+        <button id="asOwn" aria-pressed="false">Owner</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="false">Queue <span class="pill-count quiet num">12</span></button>
+    <button role="tab" aria-selected="true">Requests <span class="pill-count num" id="tabCount">3</span></button>
+    <button role="tab" aria-selected="false">Resolved</button>
+  </div>
+
+  <!-- ══ REQUESTER ═══════════════════════════════════════════ -->
+  <section id="viewRequester">
+    <h1 class="page">Ask for something</h1>
+    <p class="page-sub">Describe it however it comes out. You'll get a few short questions, then you approve exactly what gets sent — nothing is filed until you say so.</p>
+
+    <div class="stage">
+      <div>
+        <div id="thread"></div>
+
+        <div class="panel compose" id="composeBox" style="margin-top:14px;">
+          <textarea id="opening" placeholder="What do you wish this app could do?" aria-label="Describe what you want"></textarea>
+          <div class="compose-foot">
+            <button class="mic" id="micBtn" title="Say it out loud instead" aria-label="Dictate">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+            </button>
+            <select id="whoBox" aria-label="Who's asking">
+              <option>Ash Skutches</option>
+              <option>Alex Rivera</option>
+              <option>Joe Brennan</option>
+              <option>Someone else…</option>
+            </select>
+            <span class="spacer"></span>
+            <button class="btn btn-primary" id="startBtn" disabled>Send</button>
+          </div>
+
+          <div class="seeds">
+            <p class="eyebrow">Try one of these — each takes a different path</p>
+            <div class="seedrow">
+              <button class="seed" data-seed="exists">"I can't find anywhere to put in our monthly rent"</button>
+              <button class="seed" data-seed="feature">"It should just email me the profit numbers"</button>
+              <button class="seed" data-seed="bug">"The ad spend number looks wrong"</button>
+              <button class="seed" data-seed="dupe">"Warn me before we run out of stock"</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- request sheet -->
+      <aside class="panel sheet" id="sheet">
+        <div class="sheet-head">
+          <h2>Your request</h2>
+          <span class="eyebrow num" id="slotCount">0/5</span>
+        </div>
+        <p class="sheet-note">This fills in as you answer. Every line stays in your words.</p>
+        <div class="meter"><i id="meterFill"></i></div>
+        <div class="slots" id="slots"></div>
+        <div class="sheet-foot">
+          <div class="statusline"><span class="led" id="led"></span><span id="statusText">Nothing filed yet</span></div>
+        </div>
+      </aside>
+    </div>
+
+    <section class="mine">
+      <h2>What you've asked for</h2>
+      <p class="lead">Every request ends with an answer — including the ones that don't get built.</p>
+      <div id="mineList"></div>
+    </section>
+  </section>
+
+  <!-- ══ OWNER ═══════════════════════════════════════════════ -->
+  <section id="viewOwner" class="hidden">
+    <h1 class="page">Requests waiting on you</h1>
+    <p class="page-sub">Requests land here, not in the queue. Accepting one writes a blockage row; everything else closes out with a reason the requester can read.</p>
+
+    <div class="callout">
+      <span class="mk">WHY</span>
+      <p>Deflected requests never reach this screen. Of the last 11 submissions, <strong>4 were answered automatically</strong> (the feature already existed), <strong>2 were merged</strong> into an open request, and <strong>2 became bug reports</strong>. Only these 3 needed a decision.</p>
+    </div>
+
+    <div id="reqList"></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ── slot definitions ────────────────────────────────────────
+  var SLOTS = [
+    { key: "workaround", label: "What happens today" },
+    { key: "trigger",    label: "When it comes up" },
+    { key: "cost",       label: "What it costs" },
+    { key: "done",       label: "Done looks like" },
+    { key: "where",      label: "Which screen" }
+  ];
+
+  // ── scripted scenarios ──────────────────────────────────────
+  var SCENARIOS = {
+    feature: {
+      opening: "It should just email me the profit numbers so I don't have to go looking every week",
+      verdict: null,
+      questions: [
+        { slot: "workaround",
+          q: "How do you get those numbers right now?",
+          why: "Whatever you do instead is usually the real thing to replace.",
+          chips: ["I open the Profit page myself", "I ask someone to pull it", "I copy it into a spreadsheet", "I mostly don't bother"] },
+        { slot: "trigger",
+          q: "When do you need them in front of you?",
+          why: "How often it comes up sets the priority — not how urgent it feels today.",
+          chips: ["Monday morning", "Every day", "Before a meeting", "Whenever something looks off"] },
+        { slot: "cost",
+          q: "What goes wrong when you don't have them?",
+          why: "",
+          chips: ["I make a call without the numbers", "It's 20+ minutes of digging", "I find out too late to act", "Nothing serious, just annoying"] },
+        { slot: "done",
+          q: "How would you know this was working?",
+          why: "This becomes the test for whether it actually got built right.",
+          chips: ["An email is waiting before I start", "I stop opening the Profit page manually", "The team sees the same numbers I do"] },
+        { slot: "where",
+          q: "Where does this belong?",
+          why: "",
+          chips: ["Profit", "Command Center", "Somewhere new", "Not sure — you pick"] }
+      ],
+      spec: {
+        title: "Weekly profit summary emailed Monday morning",
+        problem: "Checking the week's profit means opening the Profit page and reading it manually. It gets skipped, so decisions get made without it.",
+        approach: "Requester suggested an email. A Monday routine posting to Discord would also satisfy the stated outcome."
+      }
+    },
+    exists: {
+      opening: "I can't find anywhere to put in our monthly rent",
+      verdict: {
+        kind: "exists",
+        head: "This is already in the app",
+        body: "Fixed monthly costs like rent go in <strong>Profit → Costs → Overhead</strong>. It's not linked from the sidebar, which is almost certainly why you couldn't find it.",
+        ref: { t: "Profit · Costs · Overhead", m: "/profitability?tab=costs" },
+        yes: "That's it, thanks",
+        no: "That's not what I meant"
+      }
+    },
+    bug: {
+      opening: "The ad spend number looks wrong, I think Google is missing from it",
+      verdict: {
+        kind: "bug",
+        head: "That sounds like something's broken, not missing",
+        body: "Ad spend is meant to include Google. If it isn't, the connection has probably dropped — that's a <strong>fix</strong>, and it goes straight to the queue rather than through feature questions.",
+        ref: { t: "Report as: Google Ads spend missing from totals", m: "type: bug · goes to queue immediately" },
+        yes: "Yes, report it as broken",
+        no: "No, it's something new"
+      }
+    },
+    dupe: {
+      opening: "Warn me before we run out of stock on something",
+      verdict: {
+        kind: "dupe",
+        head: "Someone already asked for this",
+        body: "Alex asked for low-stock warnings 6 days ago and it's still waiting for a decision. Adding your name to it makes it more likely to get picked up.",
+        ref: { t: "Low-stock warning before a product sells out", m: "asked by Alex · 6 days ago · 2 people waiting" },
+        yes: "Same thing — add me",
+        no: "Mine's different"
+      }
+    }
+  };
+
+  // ── state ───────────────────────────────────────────────────
+  var st = { scenario: null, qIndex: 0, answers: {}, opening: "", who: "Ash Skutches", busy: false };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var thread = $("thread");
+
+  function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  function el(html) {
+    var d = document.createElement("div");
+    d.innerHTML = html.trim();
+    return d.firstElementChild;
+  }
+
+  function push(node) {
+    node.classList.add("fade-in");
+    thread.appendChild(node);
+    node.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    return node;
+  }
+
+  // ── sheet ───────────────────────────────────────────────────
+  function renderSheet() {
+    var wrap = $("slots");
+    wrap.innerHTML = "";
+    var filled = 0;
+
+    SLOTS.forEach(function (s) {
+      var a = st.answers[s.key];
+      if (a) filled++;
+      var row = el(
+        '<div class="slot" data-filled="' + (a ? 1 : 0) + '">' +
+          '<div class="k">' + esc(s.label) + "</div>" +
+          '<div class="v">' + (a ? esc(a.summary) : "—") + "</div>" +
+        "</div>"
+      );
+      wrap.appendChild(row);
+    });
+
+    $("slotCount").textContent = filled + "/5";
+    $("meterFill").style.width = (filled / 5 * 100) + "%";
+
+    var led = $("led"), status = $("statusText");
+    led.className = "led";
+    if (filled === 0)      { status.textContent = "Nothing filed yet"; }
+    else if (filled < 5)   { led.classList.add("gold"); status.textContent = "Draft — not sent"; }
+    else                   { led.classList.add("gold"); status.textContent = "Ready to review"; }
+  }
+
+  function markSent() {
+    $("led").className = "led emerald";
+    $("statusText").textContent = "Sent for triage";
+  }
+
+  // ── turns ───────────────────────────────────────────────────
+  function youSaid(text) {
+    return push(el(
+      '<div class="turn you"><div class="avatar">YOU</div>' +
+      '<div class="body"><div class="said">' + esc(text) + "</div></div></div>"
+    ));
+  }
+
+  function botTurn(innerHtml) {
+    return push(el(
+      '<div class="turn bot"><div class="avatar">AI</div>' +
+      '<div class="body">' + innerHtml + "</div></div>"
+    ));
+  }
+
+  function think(label, ms, then) {
+    st.busy = true;
+    var node = botTurn('<div class="thinking"><span class="dot3"><i></i><i></i><i></i></span>' + esc(label) + "</div>");
+    setTimeout(function () {
+      node.remove();
+      st.busy = false;
+      then();
+    }, ms);
+  }
+
+  // ── flow ────────────────────────────────────────────────────
+  function begin(text, key) {
+    st.scenario = SCENARIOS[key] || SCENARIOS.feature;
+    st.qIndex = 0;
+    st.answers = {};
+    st.opening = text;
+    st.who = $("whoBox").value;
+
+    $("composeBox").classList.add("hidden");
+    youSaid(text);
+    renderSheet();
+
+    think("Checking whether this already exists…", 1100, function () {
+      if (st.scenario.verdict) showVerdict(st.scenario.verdict);
+      else askNext();
+    });
+  }
+
+  function showVerdict(v) {
+    var cls = v.kind === "exists" ? "v-exists" : v.kind === "bug" ? "v-bug" : "v-dupe";
+    var node = botTurn(
+      '<div class="verdict ' + cls + '">' +
+        "<h4>" + v.head + "</h4>" +
+        "<p>" + v.body + "</p>" +
+        '<div class="quoteref"><div class="t">' + esc(v.ref.t) + '</div><div class="m">' + esc(v.ref.m) + "</div></div>" +
+        '<div class="acts">' +
+          '<button class="btn btn-primary" data-act="accept">' + esc(v.yes) + "</button>" +
+          '<button class="btn" data-act="reject">' + esc(v.no) + "</button>" +
+        "</div>" +
+      "</div>"
+    );
+
+    node.querySelector('[data-act="accept"]').addEventListener("click", function () {
+      node.querySelector(".acts").remove();
+      closedEarly(v.kind);
+    });
+    node.querySelector('[data-act="reject"]').addEventListener("click", function () {
+      node.querySelector(".acts").remove();
+      youSaid(v.no);
+      think("Right — let's work out what you need.", 900, askNext);
+    });
+  }
+
+  function closedEarly(kind) {
+    var msg = {
+      exists: { h: "Sorted — nothing filed", p: "You didn't need a feature request, so none was created. Overhead costs live on the Profit page under Costs.", led: "Answered — nothing filed" },
+      bug:    { h: "Filed as a fix", p: "This went straight to the queue as a bug. You'll get a message here when the ad spend figures are back to normal.", led: "Filed to queue as a bug" },
+      dupe:   { h: "Added to the existing request", p: "Three people are now waiting on low-stock warnings. You'll hear about it at the same time Alex does.", led: "Added to an existing request" }
+    }[kind];
+
+    botTurn(
+      '<div class="sent" style="padding:0">' +
+        '<div class="tick"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>' +
+        "<h3>" + esc(msg.h) + "</h3><p>" + esc(msg.p) + "</p>" +
+        '<button class="btn" data-act="again">Ask for something else</button>' +
+      "</div>"
+    ).querySelector('[data-act="again"]').addEventListener("click", reset);
+
+    $("led").className = "led emerald";
+    $("statusText").textContent = msg.led;
+  }
+
+  function askNext() {
+    var qs = st.scenario.questions;
+    if (!qs || st.qIndex >= qs.length) { showSpec(); return; }
+
+    var q = qs[st.qIndex];
+    var stepMark = "Question " + (st.qIndex + 1) + " of " + qs.length;
+
+    var node = botTurn(
+      '<div class="ask">' +
+        '<p class="eyebrow num" style="margin-bottom:6px;">' + stepMark + "</p>" +
+        "<h3>" + esc(q.q) + "</h3>" +
+        (q.why ? '<p class="why">' + esc(q.why) + "</p>" : "") +
+        '<div class="chips">' +
+          q.chips.map(function (c, i) {
+            return '<button class="chip" data-i="' + i + '">' + esc(c) + "</button>";
+          }).join("") +
+        "</div>" +
+        '<div class="freerow">' +
+          '<input type="text" placeholder="…or say it your own way" aria-label="Your own answer">' +
+          '<button class="btn" data-act="skip">Skip</button>' +
+        "</div>" +
+      "</div>"
+    );
+
+    function answer(text) {
+      node.querySelector(".chips").remove();
+      node.querySelector(".freerow").remove();
+      youSaid(text);
+      // stored verbatim — the sheet shows the person's own words, never a paraphrase
+      st.answers[q.slot] = { summary: text };
+      renderSheet();
+      st.qIndex++;
+      setTimeout(askNext, 420);
+    }
+
+    Array.prototype.forEach.call(node.querySelectorAll(".chip"), function (b) {
+      b.addEventListener("click", function () { answer(b.textContent); });
+    });
+    var input = node.querySelector(".freerow input");
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && input.value.trim()) answer(input.value.trim());
+    });
+    node.querySelector('[data-act="skip"]').addEventListener("click", function () {
+      node.querySelector(".chips").remove();
+      node.querySelector(".freerow").remove();
+      st.qIndex++;
+      setTimeout(askNext, 250);
+    });
+  }
+
+  function showSpec() {
+    think("Writing it up…", 1200, function () {
+      var s = st.scenario.spec || { title: "Your request", problem: st.opening, approach: "" };
+      var a = st.answers;
+      var g = function (k) { return a[k] ? a[k].summary : "Not answered"; };
+
+      var node = botTurn(
+        '<div class="spec">' +
+          '<p class="eyebrow">Ready to send — check it reads right</p>' +
+          '<div class="title" contenteditable="true" spellcheck="false">' + esc(s.title) + "</div>" +
+          '<div class="specgrid">' +
+            row("The problem", s.problem) +
+            row("Today", g("workaround")) +
+            row("Comes up", g("trigger")) +
+            row("Cost", g("cost")) +
+            row("Done when", g("done")) +
+            row("Screen", g("where")) +
+            row("Your idea", s.approach) +
+            row("From", st.who) +
+          "</div>" +
+          '<p class="editnote">Click any line to change the wording. Nothing goes anywhere until you press send.</p>' +
+          '<div class="acts">' +
+            '<button class="btn btn-primary" data-act="send">Send it</button>' +
+            '<button class="btn btn-ghost" data-act="cancel">Throw it away</button>' +
+          "</div>" +
+        "</div>"
+      );
+
+      node.querySelector('[data-act="send"]').addEventListener("click", function () {
+        node.querySelector(".acts").remove();
+        node.querySelector(".editnote").remove();
+        Array.prototype.forEach.call(node.querySelectorAll('[contenteditable]'), function (n) {
+          n.setAttribute("contenteditable", "false");
+        });
+        sent();
+      });
+      node.querySelector('[data-act="cancel"]').addEventListener("click", reset);
+    });
+
+    function row(k, v) {
+      return '<div class="specrow"><div class="k">' + esc(k) + '</div>' +
+             '<div class="v" contenteditable="true" spellcheck="false">' + esc(v) + "</div></div>";
+    }
+  }
+
+  function sent() {
+    markSent();
+    var node = botTurn(
+      '<div class="sent" style="padding:0">' +
+        '<div class="tick"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>' +
+        "<h3>Sent</h3>" +
+        "<p>It's waiting on a decision. You'll get an answer either way — including if it's a no.</p>" +
+        '<div class="next">' +
+          '<div class="nextitem"><span class="mk">NOW&nbsp;</span><span>Waiting on a decision — you\'ll see it below.</span></div>' +
+          '<div class="nextitem"><span class="mk">OR&nbsp;&nbsp;&nbsp;</span><span>Declined → you get the reason, not silence.</span></div>' +
+          '<div class="nextitem"><span class="mk">DONE</span><span>When it\'s built, a message here explains what changed — in the same words you used.</span></div>' +
+        "</div>" +
+        '<button class="btn" data-act="again">Ask for something else</button>' +
+      "</div>"
+    );
+    node.querySelector('[data-act="again"]').addEventListener("click", reset);
+    $("tabCount").textContent = String(Number($("tabCount").textContent) + 1);
+
+    // it appears in their own list straight away, so "sent" isn't a dead end
+    var s = st.scenario.spec || {};
+    MINE.unshift({
+      s: "wait", chip: "Waiting on a decision",
+      title: s.title || st.opening.slice(0, 70),
+      age: "just now",
+      inner: '<p style="margin:0;font-size:12.8px;color:var(--gray);line-height:1.6;">' +
+             "Nobody has looked at it yet. You'll hear either way — there's no version of this " +
+             "where it just goes quiet.</p>"
+    });
+    renderMine();
+  }
+
+  function reset() {
+    thread.innerHTML = "";
+    st.answers = {}; st.qIndex = 0;
+    $("opening").value = "";
+    $("startBtn").disabled = true;
+    $("composeBox").classList.remove("hidden");
+    renderSheet();
+    $("opening").focus();
+  }
+
+  // ── compose wiring ──────────────────────────────────────────
+  $("opening").addEventListener("input", function () {
+    $("startBtn").disabled = !this.value.trim();
+  });
+  $("startBtn").addEventListener("click", function () {
+    var t = $("opening").value.trim();
+    if (t) begin(t, "feature");
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".seed"), function (b) {
+    b.addEventListener("click", function () {
+      var key = b.getAttribute("data-seed");
+      begin(SCENARIOS[key].opening, key);
+    });
+  });
+
+  // dictation — simulated for the prototype
+  var micTimer = null;
+  $("micBtn").addEventListener("click", function () {
+    var mic = this, box = $("opening");
+    if (mic.getAttribute("data-live") === "1") {
+      mic.setAttribute("data-live", "0"); clearInterval(micTimer); return;
+    }
+    mic.setAttribute("data-live", "1");
+    box.value = "";
+    var words = ("so every week I'm trying to work out where we actually landed on profit and I have to go " +
+      "digging through the pages and honestly half the time I just don't bother").split(" ");
+    var i = 0;
+    micTimer = setInterval(function () {
+      box.value += (i ? " " : "") + words[i++];
+      $("startBtn").disabled = false;
+      if (i >= words.length) { clearInterval(micTimer); mic.setAttribute("data-live", "0"); }
+    }, 95);
+  });
+
+  // ── owner view ──────────────────────────────────────────────
+  var REQUESTS = [
+    {
+      id: "r1", who: "Ash", age: "just now", title: "Weekly profit summary emailed Monday morning",
+      sig: [["Comes up", "Weekly"], ["Cost", "20+ min of digging"], ["Screen", "Profit"], ["Also wanted by", "1 other"]],
+      problem: "Checking the week's profit means opening the Profit page manually. It gets skipped, so decisions get made without it.",
+      done: "An email is waiting before the work day starts.",
+      log: [["How do you get those numbers right now?", "I open the Profit page myself"],
+            ["When do you need them in front of you?", "Monday morning"],
+            ["What goes wrong when you don't have them?", "It's 20+ minutes of digging"],
+            ["How would you know this was working?", "An email is waiting before I start"],
+            ["Where does this belong?", "Profit"]],
+      accept: "Blockage created — <strong>Weekly profit summary emailed Monday morning</strong>, type <strong>feature_request</strong>. Ash gets a message with the link.",
+      resolution: "Added profit_weekly_digest routine (Mon 06:00 America/New_York). Renders QTD P&L + WoW delta, sends via Klaviyo transactional template wk-profit. Recipients from team_members.email where role in (owner, ops).",
+      msg: {
+        head: "Your Monday profit email is live",
+        check: "an email is waiting before I start",
+        checkTail: "From this Monday it will be — it sends at 6am.",
+        body: "Nothing to set up. It covers the week just closed and uses the same numbers as the Profit page, so you shouldn't need to open it.",
+        tail: "If a figure ever looks off, reply to the email and it comes straight back here."
+      }
+    },
+    {
+      id: "r2", who: "Alex", age: "2d", title: "Flag when the same customer orders twice in a week",
+      sig: [["Comes up", "A few times a month"], ["Cost", "Refunds we could've caught"], ["Screen", "Orders"], ["Also wanted by", "—"]],
+      problem: "Duplicate orders are only spotted when the customer emails about being charged twice.",
+      done: "The second order shows a flag on the Orders page before it ships.",
+      log: [["What do you do about it today?", "Nothing — we find out when they email"],
+            ["How often does this happen?", "A few times a month"],
+            ["What does it cost when it slips?", "A refund and a shipping charge we eat"],
+            ["How would you know it's working?", "I see a flag on the order before it ships"],
+            ["Where does it belong?", "Orders"]],
+      accept: "Blockage created — <strong>Flag repeat orders from one customer within 7 days</strong>, type <strong>feature_request</strong>.",
+      resolution: "repeat_order_7d check added to the orders sync — flags when customer_id has >=2 orders in a trailing 7d window. Badge on /orders row; creates an agent_work task above $150.",
+      msg: {
+        head: "Repeat orders get flagged before they ship",
+        check: "I see a flag on the order before it ships",
+        checkTail: "That's live on the Orders page now.",
+        body: "Any customer who orders twice inside a week shows a badge on their order. Above $150 it also raises a task, so it doesn't slip on a busy day.",
+        tail: "Nothing changes for orders that are genuinely separate — you can clear the flag from the order."
+      }
+    },
+    {
+      id: "r3", who: "Joe", age: "5d", title: "Let me add a cost without picking a category",
+      sig: [["Comes up", "Every time I add a cost"], ["Cost", "I give up and skip it"], ["Screen", "Profit · Costs"], ["Also wanted by", "—"]],
+      problem: "The cost form demands a category. When none of them fit, the cost never gets entered at all — so the numbers are wrong in a quieter way.",
+      done: "I can save a cost with a plain description and sort it out later.",
+      log: [["What stops you finishing the form?", "None of the categories match what I'm entering"],
+            ["What do you do instead?", "I close it and don't add the cost"],
+            ["What does that cost?", "Our overhead number is missing things"],
+            ["How would you know it's fixed?", "I can save it and categorise it later"],
+            ["Where does it belong?", "Profit · Costs"]],
+      accept: "Blockage created — <strong>Allow uncategorised costs with a description</strong>, type <strong>feature_request</strong>.",
+      resolution: "cost_assumptions.category made nullable. Added an 'Uncategorised' bucket to the costs table with a filter chip; uncategorised rows still roll into the overhead total.",
+      msg: {
+        head: "You can save a cost without picking a category",
+        check: "I can save it and categorise it later",
+        checkTail: "That works now — leave the category blank and it saves.",
+        body: "Uncategorised costs sit at the top of the Costs list so they're easy to come back to, and they still count toward overhead in the meantime.",
+        tail: "So the costs you were skipping can go in today, even if you're not sure where they belong."
+      }
+    }
+  ];
+
+  // Resolving the queue item doesn't close the request — it triggers the
+  // explanation. The engineer's resolution note is rewritten in the requester's
+  // own terms, led by the "done when" line they gave in question 4.
+  function shipStep(card, out, r) {
+    card.setAttribute("data-state", "shipped");
+    out.innerHTML = "";
+    out.classList.remove("ok", "no");
+
+    var panel = el(
+      '<div class="notify">' +
+        '<p class="eyebrow">Queue item resolved — tell ' + esc(r.who) + " what changed</p>" +
+        '<div class="rawnote"><span class="tag">RESOLUTION NOTE AS WRITTEN</span>' + esc(r.resolution) + "</div>" +
+        '<div class="arrowdown">↓ REWRITTEN FOR THE PERSON WHO ASKED ↓</div>' +
+        '<div class="msgdraft">' +
+          '<h5 contenteditable="true" spellcheck="false">' + esc(r.msg.head) + "</h5>" +
+          '<p class="check">You said you\'d know this worked when <em>“' + esc(r.msg.check) + '”</em> — ' +
+            esc(r.msg.checkTail) + "</p>" +
+          '<p contenteditable="true" spellcheck="false">' + esc(r.msg.body) + "</p>" +
+          '<p contenteditable="true" spellcheck="false">' + esc(r.msg.tail) + "</p>" +
+        "</div>" +
+        '<div class="sendto">' +
+          '<button class="btn btn-primary" data-a3="send">Send to ' + esc(r.who) + "</button>" +
+          '<span class="chan">DISCORD DM</span><span class="chan">IN-APP</span>' +
+          '<span class="spacer"></span>' +
+          '<button class="btn btn-ghost" data-a3="skip">Close without telling them</button>' +
+        "</div>" +
+      "</div>"
+    );
+
+    panel.querySelector('[data-a3="send"]').addEventListener("click", function () {
+      out.className = "outcome ok";
+      out.innerHTML = "<strong>Sent to " + esc(r.who) + ".</strong> The request is marked shipped, and " +
+        "they get one question back: did this actually solve it? A “not quite” reopens it rather than " +
+        "letting it close on our say-so.";
+    });
+    panel.querySelector('[data-a3="skip"]').addEventListener("click", function () {
+      out.className = "outcome no";
+      out.innerHTML = "<strong>Closed silently.</strong> " + esc(r.who) + " asked for this and never found out " +
+        "it landed — which is how people stop bothering to ask.";
+    });
+
+    out.appendChild(panel);
+  }
+
+  function renderOwner() {
+    var list = $("reqList");
+    list.innerHTML = "";
+    REQUESTS.forEach(function (r) {
+      var card = el(
+        '<article class="reqcard" data-state="pending">' +
+          '<div class="reqhead">' +
+            '<span class="who">' + esc(r.who) + "</span>" +
+            '<span class="t">' + esc(r.title) + "</span>" +
+            '<span class="age num">' + esc(r.age) + "</span>" +
+          "</div>" +
+          '<div class="reqbody">' +
+            '<div class="sig">' +
+              r.sig.map(function (c) {
+                return '<div class="sigcell"><div class="k">' + esc(c[0]) + '</div><div class="v">' + esc(c[1]) + "</div></div>";
+              }).join("") +
+            "</div>" +
+            '<p style="margin:0 0 10px;font-size:13px;color:var(--gray);line-height:1.6;">' + esc(r.problem) + "</p>" +
+            '<p style="margin:0;font-size:12.8px;color:var(--muted);"><span class="eyebrow">Done when</span> &nbsp;' + esc(r.done) + "</p>" +
+            '<details class="transcript"><summary>How they described it</summary>' +
+              '<div class="log">' +
+                r.log.map(function (l) {
+                  return "<div><span class=\"q\">" + esc(l[0]) + "</span><br><span class=\"a\">" + esc(l[1]) + "</span></div>";
+                }).join("") +
+              "</div>" +
+            "</details>" +
+            '<div class="actbar">' +
+              '<button class="btn btn-accept" data-a="accept">Accept → queue</button>' +
+              '<button class="btn btn-merge" data-a="merge">Merge into another</button>' +
+              '<button class="btn" data-a="answer">Answer it</button>' +
+              '<button class="btn btn-decline" data-a="decline">Decline</button>' +
+            "</div>" +
+            '<div class="outcome hidden"></div>' +
+          "</div>" +
+        "</article>"
+      );
+
+      var out = card.querySelector(".outcome");
+      var bar = card.querySelector(".actbar");
+
+      card.querySelector(".reqhead").addEventListener("click", function () {
+        var b = card.querySelector(".reqbody");
+        b.classList.toggle("hidden");
+      });
+
+      Array.prototype.forEach.call(card.querySelectorAll("[data-a]"), function (btn) {
+        btn.addEventListener("click", function () {
+          var a = btn.getAttribute("data-a");
+          bar.classList.add("hidden");
+          out.classList.remove("hidden", "ok", "no");
+
+          if (a === "accept") {
+            card.setAttribute("data-state", "accepted");
+            out.classList.add("ok");
+            out.innerHTML = r.accept +
+              '<div style="margin-top:11px;padding-top:10px;border-top:1px solid var(--line-quiet);' +
+              'display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+                '<span style="font-size:12.3px;color:var(--muted);">' +
+                  "Later, when the queue item is resolved:</span>" +
+                '<button class="btn btn-ship" data-a2="ship">Mark shipped</button>' +
+              "</div>";
+            out.querySelector('[data-a2="ship"]').addEventListener("click", function () {
+              shipStep(card, out, r);
+            });
+          } else if (a === "merge") {
+            card.setAttribute("data-state", "merged");
+            out.classList.add("ok");
+            out.innerHTML = "Merged into an open request. " + esc(r.who) + " is now listed as also waiting, and this row closes.";
+          } else if (a === "answer") {
+            card.setAttribute("data-state", "merged");
+            out.classList.add("ok");
+            out.innerHTML = '<strong>Reply to ' + esc(r.who) + "</strong>" +
+              '<textarea placeholder="Point them at where it already is…"></textarea>';
+          } else {
+            card.setAttribute("data-state", "declined");
+            out.classList.add("no");
+            out.innerHTML = "<strong>Why not?</strong> " + esc(r.who) + " sees this — a reason keeps people filing good requests." +
+              '<textarea placeholder="e.g. Worth doing, but not before the Q4 close."></textarea>';
+          }
+          var ta = out.querySelector("textarea");
+          if (ta) ta.focus();
+        });
+      });
+
+      list.appendChild(card);
+    });
+  }
+
+  // ── the requester's own list — the loop closing ─────────────
+  var MINE = [
+    {
+      s: "wait", chip: "In the queue", title: "Weekly profit summary emailed Monday morning",
+      age: "asked 2d ago",
+      inner: '<p style="margin:0;font-size:12.8px;color:var(--gray);line-height:1.6;">' +
+             "Accepted 2 days ago and sitting in the work queue. You'll get a message here when it's " +
+             "done — you don't need to check back." +
+             "</p>"
+    },
+    {
+      s: "shipped", chip: "Done", title: "Show me which products get bought together",
+      age: "asked 6d ago · done 2d later",
+      msg: {
+        head: "Products bought together is on the Orders page",
+        check: "I can see what to bundle without exporting anything",
+        checkTail: "It's on screen now — no export.",
+        body: "Orders → Buying Patterns lists which products share a basket, with the attach rate beside each pair so you can see how often it actually happens.",
+        tail: "The arithmetic is shown next to each number, so you can check it rather than trust it."
+      },
+      verify: true
+    },
+    {
+      s: "declined", chip: "Not doing it", title: "Bulk-edit product prices from a spreadsheet",
+      age: "asked 3w ago",
+      inner: '<div class="outcome no" style="margin-top:0;">' +
+             "<strong>Declined — here's why.</strong> A bad paste would hit live prices on the store " +
+             "with nothing to catch it, and the safeguards for that don't exist yet. It's a real " +
+             "problem and the request stays on file; revisit after the Q4 close." +
+             '<div style="margin-top:8px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;' +
+             'color:var(--muted);">DECLINED BY ASH · 3 WEEKS AGO</div>' +
+             "</div>"
+    }
+  ];
+
+  function renderMine() {
+    var list = $("mineList");
+    list.innerHTML = "";
+
+    MINE.forEach(function (m) {
+      var chipCls = m.s === "shipped" ? "done" : m.s === "declined" ? "no" : "wait";
+      var inner = m.inner || "";
+
+      if (m.msg) {
+        inner =
+          '<div class="msgdraft">' +
+            "<h5>" + esc(m.msg.head) + "</h5>" +
+            '<p class="check">You said you\'d know this worked when <em>“' + esc(m.msg.check) +
+              '”</em> — ' + esc(m.msg.checkTail) + "</p>" +
+            "<p>" + esc(m.msg.body) + "</p>" +
+            "<p>" + esc(m.msg.tail) + "</p>" +
+          "</div>";
+      }
+
+      var card = el(
+        '<article class="mycard" data-s="' + m.s + '">' +
+          '<div class="myhead">' +
+            '<span class="schip ' + chipCls + '">' + esc(m.chip) + "</span>" +
+            '<span class="t">' + esc(m.title) + "</span>" +
+            '<span class="age">' + esc(m.age) + "</span>" +
+          "</div>" +
+          '<div class="mybody"><div class="inner">' + inner + "</div></div>" +
+        "</article>"
+      );
+
+      if (m.verify) {
+        var v = el(
+          '<div class="verify">' +
+            '<p class="ask">Did that actually solve it?</p>' +
+            '<button class="btn btn-yes" data-v="yes">Yes, that\'s it</button>' +
+            '<button class="btn" data-v="no">Not quite</button>' +
+          "</div>"
+        );
+        v.querySelector('[data-v="yes"]').addEventListener("click", function () {
+          v.innerHTML = '<p class="ask" style="color:var(--emerald);margin:0;">Closed. Thanks — ' +
+            "that confirmation is what keeps the next one moving.</p>";
+        });
+        v.querySelector('[data-v="no"]').addEventListener("click", function () {
+          card.setAttribute("data-s", "wait");
+          card.querySelector(".schip").className = "schip wait";
+          card.querySelector(".schip").textContent = "Reopened";
+          v.innerHTML =
+            '<p class="ask" style="margin:0 0 8px;">What\'s still missing? This goes straight back ' +
+            "to whoever built it — it doesn't start over.</p>" +
+            '<textarea style="width:100%;min-height:56px;resize:vertical;background:rgba(0,0,0,.3);' +
+            'border:1px solid var(--line-quiet);border-radius:7px;color:var(--white);' +
+            'font-family:inherit;font-size:12.5px;padding:8px 10px;" ' +
+            'placeholder="e.g. It shows the pairs, but not how much each one is worth"></textarea>';
+          var ta = v.querySelector("textarea");
+          if (ta) ta.focus();
+        });
+        card.querySelector(".inner").appendChild(v);
+      }
+
+      card.querySelector(".myhead").addEventListener("click", function () {
+        card.querySelector(".mybody").classList.toggle("hidden");
+      });
+
+      list.appendChild(card);
+    });
+  }
+
+  // ── view switch ─────────────────────────────────────────────
+  function setView(which) {
+    var req = which === "req";
+    $("viewRequester").classList.toggle("hidden", !req);
+    $("viewOwner").classList.toggle("hidden", req);
+    $("asReq").setAttribute("aria-pressed", String(req));
+    $("asOwn").setAttribute("aria-pressed", String(!req));
+  }
+  $("asReq").addEventListener("click", function () { setView("req"); });
+  $("asOwn").addEventListener("click", function () { setView("own"); });
+
+  renderSheet();
+  renderOwner();
+  renderMine();
+})();
+</script>
+<!--
+  Appended, not prepended. These pages have their own sticky headers and hero
+  sections; injecting anything above the fold moves somebody's layout. At the end
+  it is findable and disturbs nothing.
+-->
+<footer style="font:12px -apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:28px 16px;border-top:1px solid rgba(0,0,0,.1);background:#faf9f5;color:#6b6b6b">
+  <a href="/reports/claude" style="color:#6b6b6b">← All reports</a>
+</footer>
+</body>
+</html>
