@@ -9,7 +9,7 @@ import {
   Panel, Pill, Confidence, Empty, ago, Btn, Loading, ErrorBox, NotConnected, OpsMark,
   STATUS_COLOR, STATUS_LABEL, SUPPORT_ACCENT,
 } from "../ui";
-import { getTickets, getSummary, runIngest, OUTCOME_LABELS, OUTCOME_COLOR } from "../api";
+import { getTickets, getSummary, getTicketCounts, runIngest, OUTCOME_LABELS, OUTCOME_COLOR } from "../api";
 
 /**
  * `followup` is a view, not a status.
@@ -52,6 +52,7 @@ export default function SupportInbox() {
   const [rows, setRows] = useState<any[] | null>(null);
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<any>(null);
+  const [counts, setCounts] = useState<Record<string, number> | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -59,11 +60,12 @@ export default function SupportInbox() {
   const load = useCallback(async () => {
     setErr(null);
     try {
-      const [res, sum] = await Promise.all([
+      const [res, sum, cnt] = await Promise.all([
         getTickets({ status: filter, q: q.trim() || undefined, limit: 200 }),
         getSummary(),
+        getTicketCounts(),
       ]);
-      setRows(res.tickets); setTotal(res.total); setSummary(sum);
+      setRows(res.tickets); setTotal(res.total); setSummary(sum); setCounts(cnt);
     } catch (e: any) { setErr(e.message); setRows([]); }
   }, [filter, q]);
 
@@ -134,8 +136,28 @@ export default function SupportInbox() {
       {err && <ErrorBox error={err} onRetry={load} />}
 
       {/* Two piles of work nobody was looking at, because nothing counted them. */}
-      {(summary?.openFollowups > 0 || summary?.undeliveredReplies > 0) && (
+      {(summary?.openFollowups > 0 || summary?.undeliveredReplies > 0
+        || (counts?.needs_human_only ?? 0) > 0) && (
         <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+          {/*
+            * Tickets the pipeline has handed to a person and stopped on.
+            *
+            * These are the ones with a real customer at the other end — a
+            * warranty claim, a broken leg, a refund — and nothing was
+            * counting them. They sit in `needs_human_only` with ops_state
+            * `none`, so neither the follow-up banner nor the undelivered
+            * banner sees them, and the inbox lands on a different tab.
+            */}
+          {(counts?.needs_human_only ?? 0) > 0 && (
+            <div onClick={() => setFilter("needs_human_only")}
+                 style={{ ...bannerStyle("#00c9d7"), cursor: "pointer" }}>
+              <UserCheck size={13} color="#00c9d7" />
+              <span>
+                <strong>{counts!.needs_human_only}</strong> customer
+                {counts!.needs_human_only === 1 ? " is" : "s are"} waiting on a human
+              </span>
+            </div>
+          )}
           {summary.openFollowups > 0 && (
             <div onClick={() => setFilter("followup")}
                  style={{ ...bannerStyle("#f5a840"), cursor: "pointer" }}>
@@ -175,9 +197,18 @@ export default function SupportInbox() {
                   color={f.color ?? (f.key === "all" ? SUPPORT_ACCENT : (STATUS_COLOR[f.key] ?? SUPPORT_ACCENT))}
                   active={filter === f.key} onClick={() => setFilter(f.key)}>
               {f.label}
-              {f.key === "followup"     && summary?.openFollowups > 0 && ` (${summary.openFollowups})`}
-              {f.key === "needs_triage" && summary?.needsTriage   > 0 && ` (${summary.needsTriage})`}
-              {f.key === "spam"         && summary?.spamTickets    > 0 && ` (${summary.spamTickets})`}
+              {/*
+                * Every pill carries its count, including the zeroes.
+                *
+                * Showing a count only when it is non-zero is what made the
+                * original bug unreadable: the landing tab said "Awaiting
+                * approval" with 1 of 137 tickets behind it, and the 136
+                * elsewhere were equally silent. An explicit "(0)" beside
+                * "Human only (13)" and "All (137)" says the queue is empty
+                * and the mail arrived — two different facts that a blank
+                * pill collapses into one.
+                */}
+              {counts?.[f.key] != null && ` (${counts[f.key]})`}
             </Pill>
           ))}
         </div>

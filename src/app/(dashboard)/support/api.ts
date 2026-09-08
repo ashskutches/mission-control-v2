@@ -67,6 +67,15 @@ export const getTickets = (o: {
   status?: string; category?: string; q?: string; limit?: number; outcome?: string;
 } = {}) => req<{ total: number; tickets: any[] }>(`/tickets${qs(o)}`);
 
+/**
+ * One count per inbox pill, so an empty tab cannot read as lost mail.
+ *
+ * Keyed by filter key, including the `followup` and `needs_triage` views —
+ * the server computes each one the same way the list query does, so a count
+ * and the list it opens cannot disagree.
+ */
+export const getTicketCounts = () => req<Record<string, number>>("/tickets/counts");
+
 export const getTicket = (id: string) => req<any>(`/tickets/${id}`);
 
 /**
