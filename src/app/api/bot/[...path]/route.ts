@@ -70,6 +70,19 @@ const STRIP_RESPONSE = new Set([
  */
 const ADMIN_ONLY = [
     /^admin\/team\/[^/]+\/permission$/,
+    /**
+     * Authorising an agent to email somebody outside the company, and the two
+     * switches behind it (whether outreach sends at all, and what it signs as).
+     *
+     * This is the owner's call, and the split against approving an individual
+     * draft — which is open to teammates below — is the shape of the whole
+     * feature. A mandate says what the business is willing to offer a stranger;
+     * reviewing a draft checks copy against a standard somebody else already set.
+     * Reversing the two makes the owner a copy editor and leaves the decision
+     * unowned.
+     */
+    /^admin\/outreach\/insight\/[^/]+\/mandate$/,
+    /^admin\/outreach\/settings\//,
     // Closing a limitation out on /agent-behavior. It asserts that a capability
     // gap no longer exists, which only the person who built the tool or granted
     // the access can know — and a wrongly-closed one silently removes the
@@ -116,6 +129,23 @@ const NOT_GUESTS: { pattern: RegExp; methods?: string[] }[] = [
     { pattern: /^admin\/insights\/[^/]+$/, methods: ["PATCH", "DELETE"] },
     // Board-wide, and irreversible for everyone. Admin, not teammate.
     { pattern: /^admin\/insights\/(sweep|purge)$/, methods: ["POST"] },
+    /**
+     * Approving or rejecting a live-fire action — which, for outreach, is an
+     * email leaving the company over its own name.
+     *
+     * Teammate rather than admin, matching the rest of this list: the mandate it
+     * is checked against is admin-only (see ADMIN_ONLY), so what is delegated
+     * here is judgement about copy inside boundaries the owner already drew. A
+     * guest is not on this page at all and has no business pressing Send.
+     *
+     * ⚠️ Every approve MUST come through this proxy and not NEXT_PUBLIC_BOT_URL.
+     * It is what stamps `approved_by` from the signed session, and "a human
+     * approved this email" is the entire safety claim of the outreach flow. The
+     * work drawer was calling it direct and recorded no approver at all.
+     */
+    { pattern: /^admin\/tasks\/[^/]+\/(approve|reject)$/, methods: ["POST"] },
+    // Ending an outreach conversation. Withdraws any draft still waiting on it.
+    { pattern: /^admin\/outreach\/threads\/[^/]+\/close$/, methods: ["POST"] },
 ];
 
 /** The two board-wide ones above are owner-only despite living in that list. */
@@ -207,6 +237,24 @@ const IDENTITY_STAMPED: { pattern: RegExp; fields: { id: string; name: string };
     // admin-gated either way, so a break-glass session should be able to make it
     // without a byline rather than be refused for lacking one.
     { pattern: /^admin\/agent-behavior\/limitations\/[^/]+$/, fields: { id: "resolved_by_id", name: "actor_name" }, optional: true },
+    /**
+     * Approving a live-fire action. NOT optional, and this is the strictest entry
+     * in the table for a reason: an outreach approval is a person putting the
+     * company's name to words a stranger will read, and the row it writes is the
+     * only evidence anybody did. A break-glass password session carries no Discord
+     * identity, so it is refused rather than recorded as approved by nobody.
+     *
+     * Before this the route stored `human_note` and nothing else, and the only UI
+     * calling it went straight at NEXT_PUBLIC_BOT_URL — so the claim was not one
+     * the data could support.
+     */
+    { pattern: /^admin\/tasks\/[^/]+\/approve$/, fields: { id: "approved_by_id", name: "approved_by" } },
+    // Rejecting one. The reason is posted into the insight's conversation as a
+    // `redirect`, so it is signed for the same reason a thread message is.
+    { pattern: /^admin\/tasks\/[^/]+\/reject$/, fields: { id: "rejected_by_id", name: "rejected_by" } },
+    // Authorising an agent to contact somebody, and ending that conversation.
+    { pattern: /^admin\/outreach\/insight\/[^/]+\/mandate$/, fields: { id: "set_by_id", name: "set_by" } },
+    { pattern: /^admin\/outreach\/threads\/[^/]+\/close$/, fields: { id: "closed_by_id", name: "closed_by" } },
 ];
 
 async function proxy(req: NextRequest, path: string[]) {
@@ -276,11 +324,17 @@ async function proxy(req: NextRequest, path: string[]) {
 
     const init: RequestInit = { method: req.method, headers, redirect: "manual" };
     if (req.method !== "GET" && req.method !== "HEAD") {
-        // POST and PATCH. Every entry in the table is scoped by its own path
-        // pattern, so admitting a second verb widens nothing on its own — but the
+        // POST, PATCH and PUT. Every entry in the table is scoped by its own path
+        // pattern, so admitting another verb widens nothing on its own — but the
         // check has to admit PATCH, or the limitation resolve silently loses its
-        // actor, which is the exact failure this whole mechanism exists to fix.
-        const stamped = req.method === "POST" || req.method === "PATCH"
+        // actor, which is the exact failure this whole mechanism exists to fix,
+        // and PUT for the same reason: the outreach mandate is a PUT (it creates
+        // or updates one authorisation), and an unsigned mandate is not a mandate.
+        //
+        // An unlisted verb here fails in the dangerous direction — silently, with
+        // the write going through unstamped — so this list and the routes' own
+        // methods have to be kept in step by hand.
+        const stamped = req.method === "POST" || req.method === "PATCH" || req.method === "PUT"
             ? IDENTITY_STAMPED.find((r) => r.pattern.test(upstreamPath))
             : undefined;
 

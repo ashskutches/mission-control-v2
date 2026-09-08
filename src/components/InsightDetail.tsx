@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import InsightThread, { COMPOSER_ID } from "@/components/InsightThread";
 import InsightActions from "@/components/InsightActions";
+import OutreachPanel from "@/components/OutreachPanel";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
 /** Posting into the thread must go through the proxy — it is what stamps who is
@@ -444,6 +445,18 @@ export default function InsightDetail({ insightId }: { insightId: string }) {
           </p>
         </div>
       )}
+
+      {/*
+        Above the conversation, not inside it.
+
+        `insight_messages` holds what we say to each other; this is what we said
+        to somebody outside the company, and the two must not read as one list —
+        the panel is also where a draft is approved, and an Approve button
+        interleaved with internal chatter is one nobody reads the context of.
+        The thread still carries a note for each send and each reply, so read top
+        to bottom the story stays whole.
+      */}
+      <OutreachPanel insightId={insight.id} onChanged={onChanged} />
 
       <InsightThread insightId={insight.id} reloadToken={reloadToken} />
     </div>
