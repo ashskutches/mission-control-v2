@@ -56,6 +56,16 @@ export const SECURITY_HOLD = {
 
 export const REPORTS: Report[] = [
   {
+    slug: "doubled-brand",
+    title: "The Doubled Brand",
+    blurb:
+      "Five of the ten highest-traffic pages print the brand name twice in the title tag, pushing " +
+      "every one past Google's cut-off. The cause is one line of Liquid, and the fix changes no copy.",
+    date: "2026-09-09",
+    kind: "analysis",
+    stat: { value: "21,026", label: "monthly impressions affected" },
+  },
+  {
     slug: "off-topic-half-million",
     title: "The Off-Topic Half-Million",
     blurb:
