@@ -45,7 +45,7 @@ interface ScreenVerdict {
 interface Plate {
   engine: string; label: string; ok: boolean; url?: string; storedUrl?: string | null;
   model?: string; nativeWidth?: number; upscaled?: boolean; error?: string;
-  latencyMs: number; screen?: ScreenVerdict;
+  mirrorError?: string | null; latencyMs: number; screen?: ScreenVerdict;
 }
 interface CopyResult {
   provider: string; label: string; ok: boolean;
@@ -614,6 +614,11 @@ export default function PromotionsPage() {
                           <p style={{ fontSize: 10, color: "#475569", marginTop: "0.3rem" }}>
                             {p.nativeWidth}px native{p.upscaled && " · upscaled"} · {(p.latencyMs / 1000).toFixed(0)}s
                             {p.storedUrl === null && " · not archived, link expires"}
+                          </p>
+                        )}
+                        {p.ok && p.storedUrl === null && p.mirrorError && (
+                          <p style={{ fontSize: 10, color: "#b45309", marginTop: "0.25rem", lineHeight: 1.4 }}>
+                            Archiving failed: {p.mirrorError}
                           </p>
                         )}
                         {p.screen?.screened && p.screen.note && (
