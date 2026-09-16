@@ -2,12 +2,13 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Megaphone, Radar, Lightbulb } from "lucide-react";
+import { BarChart3, Megaphone, Radar, Lightbulb, Tag } from "lucide-react";
 
 const NAV = [
   { href: "/marketing",      label: "Dashboard", icon: BarChart3, color: "#e98d20", exact: true },
   { href: "/marketing/insights", label: "Insights", icon: Lightbulb, color: "#e98d20" },
   { href: "/marketing/ads",  label: "Ads",       icon: Megaphone, color: "#f43f5e" },
+  { href: "/marketing/promotions", label: "Promotions", icon: Tag, color: "#e98d20" },
 ];
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
