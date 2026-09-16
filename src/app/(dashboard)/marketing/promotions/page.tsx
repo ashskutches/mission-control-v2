@@ -22,7 +22,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { motion } from "framer-motion";
 import {
   Sparkles, Package, RefreshCw, AlertTriangle, Check, X, Clock,
-  Monitor, Smartphone, Eye, ChevronLeft, ChevronRight, Loader2,
+  Monitor, Smartphone, Eye, ChevronLeft, ChevronRight, Loader2, ChevronDown,
 } from "lucide-react";
 import { BOT_URL, CARD, LABEL, Panel, EmptyState } from "@/components/MarketingShared";
 
@@ -180,6 +180,7 @@ export default function PromotionsPage() {
   const [error,      setError]      = useState<string | null>(null);
   const [notice,     setNotice]     = useState<string | null>(null);
   const [queueing,   setQueueing]   = useState(false);
+  const [helpOpen,   setHelpOpen]   = useState(true);
   const [packaging,  setPackaging]  = useState(false);
 
   const [pickedPlate, setPickedPlate] = useState<string | null>(null);
@@ -343,22 +344,71 @@ export default function PromotionsPage() {
 
   return (
     <div>
-      {blocked.length > 0 && (
-        <div style={{
-          display: "flex", gap: "0.6rem", alignItems: "flex-start", marginBottom: "1.25rem",
-          background: "rgba(180,83,9,0.06)", border: "1px solid rgba(180,83,9,0.18)",
-          borderRadius: 10, padding: "0.85rem",
-        }}>
-          <AlertTriangle size={14} color="#b45309" style={{ flexShrink: 0, marginTop: 2 }} />
-          <p style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.55 }}>
-            <strong style={{ color: "#cbd5e1" }}>Download the package and upload it by hand.</strong>{" "}
-            {blocked.map(s => s.label).join(", ")} {blocked.length === 1 ? "has" : "have"} no field on the{" "}
-            <code style={{ color: ACCENT }}>marketing_event</code> metaobject yet. The zip carries the
-            hero at every width the theme&apos;s srcset names, both previews, and the copy labelled with
-            where each line goes.
-          </p>
-        </div>
-      )}
+      {/* How this works. Three steps, collapsible — it is orientation for a
+          first-timer, not something a regular should have to scroll past. */}
+      <div style={{
+        marginBottom: "1.25rem", background: "rgba(255,255,255,0.02)",
+        border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10,
+        padding: helpOpen ? "0.9rem 1rem" : "0.6rem 1rem",
+      }}>
+        <button
+          onClick={() => setHelpOpen(o => !o)}
+          style={{
+            display: "flex", alignItems: "center", gap: "0.45rem", width: "100%",
+            background: "none", border: "none", cursor: "pointer", padding: 0,
+            color: "#cbd5e1", fontSize: 12, fontWeight: 700,
+            textTransform: "uppercase", letterSpacing: "0.07em",
+          }}
+        >
+          <ChevronDown size={13} style={{
+            transform: helpOpen ? "none" : "rotate(-90deg)", transition: "transform .15s",
+          }} />
+          How this works
+        </button>
+
+        {helpOpen && (
+          <div style={{
+            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+            gap: "1rem", marginTop: "0.85rem",
+          }}>
+            {[
+              ["1", "Describe the sale",
+               "Fill in the offer on the left, pick a look, and add it to the queue. It runs in the background — usually a minute or two. You can close the tab."],
+              ["2", "Pick what you like",
+               "Each image engine gets one attempt, so you get a few different takes, plus three versions of the wording. Judge them in the preview — that is the real homepage, scrim and all."],
+              ["3", "Download and follow the steps",
+               "The zip has the images, the wording, and a START-HERE file with numbered instructions and direct links into Shopify. No guesswork needed."],
+            ].map(([n, title, body]) => (
+              <div key={n} style={{ display: "flex", gap: "0.6rem" }}>
+                <span style={{
+                  flexShrink: 0, width: 20, height: 20, borderRadius: 10,
+                  background: `${ACCENT}20`, color: ACCENT, fontSize: 11, fontWeight: 800,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>{n}</span>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#cbd5e1", marginBottom: 2 }}>{title}</div>
+                  <p style={{ fontSize: 11, color: "#64748b", lineHeight: 1.5 }}>{body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {helpOpen && blocked.length > 0 && (
+          <div style={{
+            display: "flex", gap: "0.5rem", alignItems: "flex-start", marginTop: "0.9rem",
+            paddingTop: "0.8rem", borderTop: "1px solid rgba(255,255,255,0.05)",
+          }}>
+            <AlertTriangle size={13} color="#b45309" style={{ flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontSize: 11, color: "#64748b", lineHeight: 1.5 }}>
+              Everything is uploaded to Shopify by hand for now — this tool makes the files and the
+              text, it does not publish them. {blocked.map(s => s.label).join(" and ")}{" "}
+              {blocked.length === 1 ? "has" : "have"} no field on the marketing event yet, so{" "}
+              {blocked.length === 1 ? "it is" : "they are"} noted in the zip rather than entered.
+            </p>
+          </div>
+        )}
+      </div>
 
       {notice && (
         <div style={{
@@ -580,8 +630,8 @@ export default function PromotionsPage() {
                   </button>
                 )}
                 <p style={{ fontSize: 10, color: "#475569", marginTop: "0.45rem", lineHeight: 1.45 }}>
-                  Hero at 960 / 1440 / 1920 / 3840 — the three widths the theme&apos;s srcset names, plus the
-                  retina plate — both previews, and the copy labelled with its destination field.
+                  Contains the four image sizes Shopify needs, both previews, every event field with the
+                  exact text to paste, and numbered setup steps with direct links into the admin.
                 </p>
               </Panel>
 
