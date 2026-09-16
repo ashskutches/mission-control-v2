@@ -22,7 +22,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { motion } from "framer-motion";
 import {
   Sparkles, Package, RefreshCw, AlertTriangle, Check, X, Clock,
-  Monitor, Smartphone, Eye, ChevronLeft, ChevronRight, Loader2, ChevronDown,
+  Monitor, Smartphone, Eye, ChevronLeft, ChevronRight, Loader2, ChevronDown, CalendarDays,
 } from "lucide-react";
 import { BOT_URL, CARD, LABEL, Panel, EmptyState } from "@/components/MarketingShared";
 
@@ -183,11 +183,53 @@ export default function PromotionsPage() {
   const [helpOpen,   setHelpOpen]   = useState(true);
   const [packaging,  setPackaging]  = useState(false);
 
+  // ── Prefill from the sales calendar ─────────────────────────────────────────
+  // Arriving as ?planId=… means "this brief is for that planned sale". The brief
+  // is a DRAFT: it fills the form and stops. Nothing generates until the button
+  // is pressed, because every run spends money across three image engines.
+  //
+  // Read on mount from window.location, deliberately NOT useSearchParams — that
+  // hook opts a statically-prerendered route into client-only rendering, which is
+  // the measured reason the Command Center avoids it too. The calendar links here
+  // with a plain anchor so this page gets a real load and the read is reliable.
+  const [planId,       setPlanId]       = useState<string | null>(null);
+  const [planTitle,    setPlanTitle]    = useState<string | null>(null);
+  const [planWarnings, setPlanWarnings] = useState<string[]>([]);
+
+  useEffect(() => {
+    setPlanId(new URLSearchParams(window.location.search).get("planId"));
+  }, []);
+
   const [pickedPlate, setPickedPlate] = useState<string | null>(null);
   const [pickedCopy,  setPickedCopy]  = useState(0);
   const [viewport,    setViewport]    = useState<"desktop" | "mobile">("desktop");
   const [previewSrc,  setPreviewSrc]  = useState<string | null>(null);
   const [previewing,  setPreviewing]  = useState(false);
+
+  useEffect(() => {
+    if (!planId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`${BOT_URL}/admin/marketing-calendar/plan/${planId}/brief`);
+        const d = await r.json();
+        if (cancelled || d.error) return;
+        setBrief({
+          name:      d.brief.name      ?? "",
+          offer:     d.brief.offer     ?? "",
+          promoCode: d.brief.promoCode ?? "",
+          startDate: d.brief.startDate ?? "",
+          endDate:   d.brief.endDate   ?? "",
+          angle:     d.brief.angle     ?? "",
+          season:    d.brief.season    ?? "",
+          style:     d.brief.style     ?? "lifestyle",
+        });
+        setPlanTitle(d.brief.name ?? null);
+        setPlanWarnings(d.warnings ?? []);
+      } catch { /* the form still works unfilled */ }
+    })();
+    return () => { cancelled = true; };
+  }, [planId]);
 
   // ── Reference data ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -253,10 +295,18 @@ export default function PromotionsPage() {
   const queue = useCallback(async () => {
     setQueueing(true); setError(null); setNotice(null);
     try {
-      const r = await fetch(`${BOT_URL}/admin/promotions/jobs`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...brief, slot: "hero_plate" }),
-      });
+      // With a linked sale the run goes through the calendar, which records the
+      // job id against the plan row and advances it out of `planned`. Without one
+      // it is an ad-hoc brief and goes straight to the studio queue.
+      const r = planId
+        ? await fetch(`${BOT_URL}/admin/marketing-calendar/plan/${planId}/generate`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ brief, slot: "hero_plate" }),
+          })
+        : await fetch(`${BOT_URL}/admin/promotions/jobs`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...brief, slot: "hero_plate" }),
+          });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "Could not queue");
       setNotice(`Queued "${d.job.brief.name}".`);
@@ -265,7 +315,7 @@ export default function PromotionsPage() {
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally { setQueueing(false); }
-  }, [brief, loadActive, select]);
+  }, [brief, loadActive, select, planId]);
 
   /**
    * Cancel. The server's note is shown verbatim rather than a flat "cancelled",
@@ -427,7 +477,30 @@ export default function PromotionsPage() {
 
         {/* ── Left rail: brief, queue, history ─────────────────────────────── */}
         <div>
-          <Panel title="New promotion">
+          {planTitle && (
+            <div style={{
+              ...CARD, marginBottom: "0.75rem", padding: "0.75rem",
+              borderColor: `${ACCENT}35`, background: "rgba(233,141,32,0.05)",
+            }}>
+              <p style={{ fontSize: 11.5, fontWeight: 800, color: ACCENT, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <CalendarDays size={12} /> From the sales calendar
+              </p>
+              <p style={{ fontSize: 11.5, color: "#cbd5e1", marginTop: "0.25rem", lineHeight: 1.5 }}>
+                Prefilled for <strong>{planTitle}</strong>. Edit anything below — this run
+                will be recorded against that sale.
+              </p>
+              {planWarnings.map((w, i) => (
+                <p key={i} style={{ fontSize: 10.5, color: "#eab308", marginTop: "0.35rem", lineHeight: 1.5 }}>
+                  <AlertTriangle size={10} style={{ display: "inline", marginRight: 3 }} />{w}
+                </p>
+              ))}
+              <a href="/marketing/calendar" style={{ fontSize: 10.5, color: "#64748b", marginTop: "0.4rem", display: "inline-block" }}>
+                ← back to the calendar
+              </a>
+            </div>
+          )}
+
+          <Panel title={planTitle ? "Brief" : "New promotion"}>
             <Field label="Event name">
               <input style={inputStyle} value={brief.name} placeholder="Black Friday 2026"
                 onChange={e => setBrief({ ...brief, name: e.target.value })} />
