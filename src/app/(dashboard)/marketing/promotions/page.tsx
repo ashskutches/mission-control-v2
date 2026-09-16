@@ -23,6 +23,7 @@ import { motion } from "framer-motion";
 import {
   Sparkles, Package, RefreshCw, AlertTriangle, Check, X, Clock,
   Monitor, Smartphone, Eye, ChevronLeft, ChevronRight, Loader2, ChevronDown, CalendarDays,
+  MessageSquare, Copy, ExternalLink,
 } from "lucide-react";
 import { BOT_URL, CARD, LABEL, Panel, EmptyState } from "@/components/MarketingShared";
 
@@ -206,6 +207,13 @@ export default function PromotionsPage() {
   const [previewSrc,  setPreviewSrc]  = useState<string | null>(null);
   const [previewing,  setPreviewing]  = useState(false);
 
+  // The hand-off prompt. Editable, because the point of it is that a human is
+  // about to take this somewhere else and will want to push on the wording.
+  const [promptOpen,    setPromptOpen]    = useState(false);
+  const [promptText,    setPromptText]    = useState("");
+  const [promptLoading, setPromptLoading] = useState(false);
+  const [copied,        setCopied]        = useState(false);
+
   useEffect(() => {
     if (!planId) return;
     let cancelled = false;
@@ -288,7 +296,9 @@ export default function PromotionsPage() {
   }, [active.length, page, selectedId, loadActive, loadHistory, refreshSelected]);
 
   const select = useCallback((id: string) => {
-    setSelectedId(id); setJob(null); setPreviewSrc(null); void refreshSelected(id);
+    setSelectedId(id); setJob(null); setPreviewSrc(null);
+    setPromptOpen(false); setPromptText(""); setCopied(false);
+    void refreshSelected(id);
   }, [refreshSelected]);
 
   // ── Actions ─────────────────────────────────────────────────────────────────
@@ -359,6 +369,49 @@ export default function PromotionsPage() {
       setError(e instanceof Error ? e.message : String(e));
     } finally { setPackaging(false); }
   }, [job, pickedPlate, pickedCopy]);
+
+  /**
+   * The prompt for taking this plate somewhere else.
+   *
+   * Fetched rather than assembled here: the style recipes, the safe-area
+   * percentages and the product description all live in `promo-studio/spec.ts`,
+   * and a second copy of them in the dashboard would be wrong within a month.
+   */
+  const togglePrompt = useCallback(async () => {
+    if (!job) return;
+    if (promptOpen) { setPromptOpen(false); return; }
+    setPromptLoading(true); setError(null); setCopied(false);
+    try {
+      const d = await (await fetch(`${BOT_URL}/admin/promotions/jobs/${job.id}/image-prompt`)).json();
+      if (d.error) throw new Error(d.error);
+      setPromptText(d.prompt ?? "");
+      setPromptOpen(true);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally { setPromptLoading(false); }
+  }, [job, promptOpen]);
+
+  const copyPrompt = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(promptText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard access can be refused outright. The text is already in a
+      // textarea, so say so rather than failing silently.
+      setNotice("Could not reach the clipboard — select the text and copy it by hand.");
+    }
+  }, [promptText]);
+
+  /**
+   * ChatGPT takes a prefilled prompt in `?q=`. It is copied to the clipboard on
+   * the way out regardless, because a long prompt can be dropped by the URL and
+   * a paste always works.
+   */
+  const openInChatGPT = useCallback(() => {
+    void navigator.clipboard.writeText(promptText).catch(() => {});
+    window.open(`https://chatgpt.com/?q=${encodeURIComponent(promptText)}`, "_blank", "noopener,noreferrer");
+  }, [promptText]);
 
   // ── Preview ─────────────────────────────────────────────────────────────────
   const chosenCopy = useMemo(() => {
@@ -691,17 +744,75 @@ export default function PromotionsPage() {
                 </div>
 
                 {pickedPlate && (
-                  <button onClick={downloadPackage} disabled={packaging}
-                    style={{
-                      marginTop: "0.85rem", cursor: packaging ? "wait" : "pointer",
-                      background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
-                      color: "#cbd5e1", borderRadius: 8, padding: "0.55rem 0.95rem",
-                      fontSize: 11.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "0.45rem",
-                    }}>
-                    {packaging ? <RefreshCw size={12} className="spin" /> : <Package size={12} />}
-                    {packaging ? "Building package…" : "Download package (.zip)"}
-                  </button>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.85rem" }}>
+                    <button onClick={downloadPackage} disabled={packaging}
+                      style={{
+                        cursor: packaging ? "wait" : "pointer",
+                        background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                        color: "#cbd5e1", borderRadius: 8, padding: "0.55rem 0.95rem",
+                        fontSize: 11.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "0.45rem",
+                      }}>
+                      {packaging ? <RefreshCw size={12} className="spin" /> : <Package size={12} />}
+                      {packaging ? "Building package…" : "Download package (.zip)"}
+                    </button>
+
+                    {/* The escape hatch for when all three engines miss. */}
+                    <button onClick={togglePrompt} disabled={promptLoading}
+                      style={{
+                        cursor: promptLoading ? "wait" : "pointer",
+                        background: promptOpen ? `${ACCENT}18` : "rgba(255,255,255,0.05)",
+                        border: promptOpen ? `1px solid ${ACCENT}40` : "1px solid rgba(255,255,255,0.1)",
+                        color: promptOpen ? ACCENT : "#cbd5e1", borderRadius: 8, padding: "0.55rem 0.95rem",
+                        fontSize: 11.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "0.45rem",
+                      }}>
+                      {promptLoading ? <RefreshCw size={12} className="spin" /> : <MessageSquare size={12} />}
+                      Prompt an LLM for the image
+                    </button>
+                  </div>
                 )}
+
+                {promptOpen && (
+                  <div style={{
+                    marginTop: "0.75rem", background: "rgba(255,255,255,0.02)",
+                    border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "0.7rem",
+                  }}>
+                    <p style={{ fontSize: 10.5, color: "#94a3b8", marginBottom: "0.5rem", lineHeight: 1.5 }}>
+                      The same brief the engines got, written for a chat model — including the framing rule
+                      the plates keep breaking. Edit it if you want, then paste it into ChatGPT, Gemini or
+                      anything else that makes images. Bring the file back and upload it to Shopify in place
+                      of <code style={{ color: "#cbd5e1" }}>hero_3840.webp</code>.
+                    </p>
+                    <textarea
+                      value={promptText}
+                      onChange={e => setPromptText(e.target.value)}
+                      spellCheck={false}
+                      style={{
+                        ...inputStyle, minHeight: 190, resize: "vertical", lineHeight: 1.5,
+                        fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11,
+                      }}
+                    />
+                    <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
+                      <button onClick={copyPrompt}
+                        style={{
+                          cursor: "pointer", background: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.1)", color: copied ? "#4ade80" : "#cbd5e1",
+                          borderRadius: 8, padding: "0.45rem 0.8rem", fontSize: 11, fontWeight: 700,
+                          display: "inline-flex", alignItems: "center", gap: "0.4rem",
+                        }}>
+                        {copied ? <Check size={12} /> : <Copy size={12} />}{copied ? "Copied" : "Copy"}
+                      </button>
+                      <button onClick={openInChatGPT}
+                        style={{
+                          cursor: "pointer", background: `${ACCENT}18`, border: `1px solid ${ACCENT}40`,
+                          color: ACCENT, borderRadius: 8, padding: "0.45rem 0.8rem", fontSize: 11, fontWeight: 700,
+                          display: "inline-flex", alignItems: "center", gap: "0.4rem",
+                        }}>
+                        <ExternalLink size={12} />Open in ChatGPT
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <p style={{ fontSize: 10, color: "#475569", marginTop: "0.45rem", lineHeight: 1.45 }}>
                   Contains the four image sizes Shopify needs, both previews, every event field with the
                   exact text to paste, and numbered setup steps with direct links into the admin.
