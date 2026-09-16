@@ -2,37 +2,35 @@
 /**
  * Marketing → Promotions (Promo Studio)
  *
- * Brief in, promotional material out. A team member types the offer, picks a
- * visual style, and gets background plates from several image engines plus copy
- * sets from several text providers — then judges them in a faithful mock of the
- * real homepage hero rather than in isolation.
+ * Queue a brief, watch it run, pull the finished package.
+ *
+ * WHY IT IS A QUEUE AND NOT A BUTTON
+ * ----------------------------------
+ * A run takes 50-220s: three image engines and three text providers, with a Kie
+ * 4K plate as the long pole. The synchronous version made that a dead wait in the
+ * tab, and closing the tab lost both the work and the money. Jobs are rows now,
+ * so several briefs can be lined up, and finished ones stay browsable.
  *
  * WHY THE PREVIEW IS THE CENTRE OF THE SCREEN
  * -------------------------------------------
  * The live hero lays a dark scrim over the whole image and centres white type on
- * top. A plate judged as a bare thumbnail looks great and then turns out to have
+ * it. A plate judged as a bare thumbnail looks great and then turns out to have
  * the headline sitting on someone's face. The preview rebuilds the scrim, the
- * type, the BUY NOW button and the banner strip, so what you approve is what ships.
- *
- * WHY NOTHING PUBLISHES YET
- * -------------------------
- * Three of the five slots have no field on the `marketing_event` metaobject —
- * the backend reports which, and the UI says so plainly rather than offering a
- * button that cannot work. Download and paste until the fields exist.
+ * type, the button and the banner strip, so what is approved is what ships.
  */
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import {
-  Sparkles, Download, RefreshCw, AlertTriangle, Check, X,
-  Monitor, Smartphone, Eye,
+  Sparkles, Package, RefreshCw, AlertTriangle, Check, X, Clock,
+  Monitor, Smartphone, Eye, ChevronLeft, ChevronRight, Loader2,
 } from "lucide-react";
 import { BOT_URL, CARD, LABEL, Panel, EmptyState } from "@/components/MarketingShared";
 
-// ── Types mirroring /admin/promotions ─────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Slot {
   key: string; label: string; kind: "image" | "text" | "html";
-  metaobjectField: string | null; publishable: boolean; blockedReason: string | null;
+  metaobjectField: string | null; publishable: boolean;
   width?: number; height?: number; maxChars?: number; brief: string;
 }
 interface Style {
@@ -42,73 +40,121 @@ interface Style {
 interface EngineInfo { id: string; label: string; strength: string; configured: boolean; envKey: string }
 interface ScreenVerdict {
   screened: boolean; usable: boolean; typeLegibility: number;
-  subjectCentred: boolean; hasBakedText: boolean; note: string;
+  subjectCentred: boolean; hasBakedText: boolean; note: string; sourceWidth?: number;
 }
 interface Plate {
-  engine: string; label: string; ok: boolean; url?: string; model?: string;
-  nativeWidth?: number; upscaled?: boolean; error?: string; latencyMs: number;
-  screen?: ScreenVerdict;
+  engine: string; label: string; ok: boolean; url?: string; storedUrl?: string | null;
+  model?: string; nativeWidth?: number; upscaled?: boolean; error?: string;
+  latencyMs: number; screen?: ScreenVerdict;
 }
 interface CopyResult {
   provider: string; label: string; ok: boolean;
   copy?: Record<string, string>; overLimit?: string[]; error?: string; latencyMs: number;
 }
-interface GenerateResponse {
-  brief: Record<string, unknown>; slot: string;
-  plates: Plate[]; copy: CopyResult[];
-  summary: { platesOk: number; platesTotal: number; copyOk: number; copyTotal: number };
-}
-interface CalendarEvent { id: string; name: string; startDate: string | null; endDate: string | null; promoCode: string | null }
-interface CalendarResponse {
-  available: boolean; events: CalendarEvent[];
-  overlaps: { a: string; b: string; note: string }[]; error?: string;
+type JobStatus = "queued" | "running" | "done" | "failed" | "cancelled";
+interface Job {
+  id: string; status: JobStatus;
+  brief: { name: string; offer: string; style: string; promoCode?: string };
+  slot: string; error: string | null;
+  cancel_requested: boolean; cancelled_while_running: boolean;
+  created_at: string; started_at: string | null; finished_at: string | null;
+  result?: {
+    plates: Plate[]; copy: CopyResult[];
+    summary: { platesOk: number; platesTotal: number; copyOk: number; copyTotal: number; mirrored?: number };
+  } | null;
 }
 
 const ACCENT = "#e98d20";
+const PAGE   = 8;
 
-// ── Small chrome ──────────────────────────────────────────────────────────────
+const STATUS_COLOR: Record<JobStatus, string> = {
+  queued: "#64748b", running: ACCENT, done: "#4ade80", failed: "#f43f5e", cancelled: "#94a3b8",
+};
+
+// ── Chrome ────────────────────────────────────────────────────────────────────
 
 const inputStyle: React.CSSProperties = {
   width: "100%", background: "rgba(255,255,255,0.04)",
   border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8,
-  padding: "0.5rem 0.7rem", color: "#e2e8f0", fontSize: 13, outline: "none",
+  padding: "0.45rem 0.65rem", color: "#e2e8f0", fontSize: 12.5, outline: "none",
 };
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: "0.85rem" }}>
-      <label style={{ ...LABEL, display: "block", marginBottom: "0.35rem" }}>{label}</label>
+    <div style={{ marginBottom: "0.7rem" }}>
+      <label style={{ ...LABEL, display: "block", marginBottom: "0.3rem" }}>{label}</label>
       {children}
-      {hint && <p style={{ fontSize: 10.5, color: "#475569", marginTop: "0.3rem", lineHeight: 1.45 }}>{hint}</p>}
+      {hint && <p style={{ fontSize: 10, color: "#475569", marginTop: "0.25rem", lineHeight: 1.4 }}>{hint}</p>}
     </div>
   );
 }
 
-/** A screener verdict, rendered so a human can disagree with it at a glance. */
 function ScreenBadge({ v }: { v?: ScreenVerdict }) {
   if (!v) return null;
   if (!v.screened) {
-    return (
-      <span style={{ fontSize: 10, color: "#64748b", display: "inline-flex", alignItems: "center", gap: 4 }}>
-        <Eye size={10} /> not screened
-      </span>
-    );
+    return <span style={{ fontSize: 10, color: "#64748b", display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <Eye size={10} /> not screened
+    </span>;
   }
   const bad = !v.usable;
   const color = bad ? "#f43f5e" : v.typeLegibility >= 70 ? "#4ade80" : "#eab308";
   return (
-    <span
-      title={v.note}
+    <span title={v.note} style={{
+      fontSize: 10, color, display: "inline-flex", alignItems: "center", gap: 4,
+      fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em",
+    }}>
+      {bad ? <X size={10} /> : <Check size={10} />}type {v.typeLegibility}
+      {v.hasBakedText && " · baked text"}{!v.subjectCentred && " · off-centre"}
+    </span>
+  );
+}
+
+const when = (iso: string) => new Date(iso).toLocaleString(undefined, {
+  month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+});
+
+/** One row in the queue or the history list. */
+function JobRow({ job, selected, onSelect, onCancel }: {
+  job: Job; selected: boolean; onSelect: () => void; onCancel?: () => void;
+}) {
+  const active = job.status === "queued" || job.status === "running";
+  return (
+    <div
+      onClick={onSelect}
       style={{
-        fontSize: 10, color, display: "inline-flex", alignItems: "center", gap: 4,
-        fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em",
+        display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer",
+        background: selected ? `${ACCENT}14` : "rgba(255,255,255,0.02)",
+        border: selected ? `1px solid ${ACCENT}40` : "1px solid rgba(255,255,255,0.05)",
+        borderRadius: 8, padding: "0.45rem 0.6rem", marginBottom: "0.3rem",
       }}
     >
-      {bad ? <X size={10} /> : <Check size={10} />}
-      type {v.typeLegibility}
-      {v.hasBakedText && " · baked text"}
-      {!v.subjectCentred && " · off-centre"}
-    </span>
+      <span style={{
+        width: 6, height: 6, borderRadius: 3, flexShrink: 0,
+        background: STATUS_COLOR[job.status],
+      }} />
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{
+          fontSize: 11.5, fontWeight: 700, color: selected ? ACCENT : "#cbd5e1",
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+        }}>{job.brief?.name ?? "Untitled"}</div>
+        <div style={{ fontSize: 9.5, color: "#475569", marginTop: 1 }}>
+          {job.status === "running" ? "running…" : job.status}
+          {" · "}{job.brief?.style}
+          {" · "}{when(job.created_at)}
+        </div>
+      </div>
+      {job.status === "running" && <Loader2 size={11} color={ACCENT} className="spin" />}
+      {active && onCancel && (
+        <button
+          onClick={e => { e.stopPropagation(); onCancel(); }}
+          title="Cancel"
+          style={{
+            cursor: "pointer", background: "transparent", border: "none",
+            color: "#64748b", padding: 2, display: "flex", flexShrink: 0,
+          }}
+        ><X size={13} /></button>
+      )}
+    </div>
   );
 }
 
@@ -118,112 +164,186 @@ export default function PromotionsPage() {
   const [slots,   setSlots]   = useState<Slot[]>([]);
   const [styles,  setStyles]  = useState<Style[]>([]);
   const [engines, setEngines] = useState<EngineInfo[]>([]);
-  const [calendar, setCalendar] = useState<CalendarResponse | null>(null);
 
   const [brief, setBrief] = useState({
     name: "", offer: "", promoCode: "", startDate: "", endDate: "",
     angle: "", season: "", style: "lifestyle",
   });
 
-  const [result,   setResult]   = useState<GenerateResponse | null>(null);
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState<string | null>(null);
+  const [active,  setActive]  = useState<Job[]>([]);
+  const [history, setHistory] = useState<Job[]>([]);
+  const [page,    setPage]    = useState(0);
+  const [total,   setTotal]   = useState(0);
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [job,        setJob]        = useState<Job | null>(null);
+  const [error,      setError]      = useState<string | null>(null);
+  const [notice,     setNotice]     = useState<string | null>(null);
+  const [queueing,   setQueueing]   = useState(false);
+  const [packaging,  setPackaging]  = useState(false);
 
   const [pickedPlate, setPickedPlate] = useState<string | null>(null);
-  const [pickedCopy,  setPickedCopy]  = useState<number>(0);
+  const [pickedCopy,  setPickedCopy]  = useState(0);
   const [viewport,    setViewport]    = useState<"desktop" | "mobile">("desktop");
   const [previewSrc,  setPreviewSrc]  = useState<string | null>(null);
   const [previewing,  setPreviewing]  = useState(false);
 
-  // ── Load reference data ─────────────────────────────────────────────────────
+  // ── Reference data ──────────────────────────────────────────────────────────
   useEffect(() => {
     fetch(`${BOT_URL}/admin/promotions/slots`)
       .then(r => r.json())
       .then(d => { setSlots(d.slots ?? []); setStyles(d.styles ?? []); setEngines(d.engines ?? []); })
       .catch(() => setError("Could not reach the promotions API."));
-
-    fetch(`${BOT_URL}/admin/promotions/calendar`)
-      .then(r => r.json()).then(setCalendar).catch(() => {});
   }, []);
 
-  const activeStyle = useMemo(() => styles.find(s => s.key === brief.style), [styles, brief.style]);
-
-  const chosenCopy = useMemo(() => {
-    const ok = result?.copy.filter(c => c.ok) ?? [];
-    return ok[pickedCopy]?.copy ?? {};
-  }, [result, pickedCopy]);
-
-  // ── Generate ────────────────────────────────────────────────────────────────
-  const generate = useCallback(async () => {
-    setLoading(true); setError(null); setResult(null);
-    setPickedPlate(null); setPickedCopy(0); setPreviewSrc(null);
+  const loadActive = useCallback(async () => {
     try {
-      const r = await fetch(`${BOT_URL}/admin/promotions/generate`, {
+      const d = await (await fetch(`${BOT_URL}/admin/promotions/jobs?view=active&limit=25`)).json();
+      setActive(d.jobs ?? []);
+      return (d.jobs ?? []) as Job[];
+    } catch { return []; }
+  }, []);
+
+  const loadHistory = useCallback(async (p: number) => {
+    try {
+      const d = await (await fetch(`${BOT_URL}/admin/promotions/jobs?view=history&limit=${PAGE}&offset=${p * PAGE}`)).json();
+      setHistory(d.jobs ?? []); setTotal(d.total ?? 0);
+    } catch { /* leave the list as it was */ }
+  }, []);
+
+  useEffect(() => { void loadActive(); }, [loadActive]);
+  useEffect(() => { void loadHistory(page); }, [page, loadHistory]);
+
+  const refreshSelected = useCallback(async (id: string) => {
+    try {
+      const d = await (await fetch(`${BOT_URL}/admin/promotions/jobs/${id}`)).json();
+      if (!d.job) return;
+      setJob(d.job);
+      const plates: Plate[] = d.job.result?.plates ?? [];
+      const best = plates.find(p => p.ok && p.screen?.usable !== false) ?? plates.find(p => p.ok);
+      setPickedPlate(best?.storedUrl ?? best?.url ?? null);
+      setPickedCopy(0);
+    } catch { /* ignore */ }
+  }, []);
+
+  // Poll only while something is actually in flight. A queue at rest does not
+  // need a heartbeat, and this page is often left open.
+  const prevActive = useRef(0);
+  useEffect(() => {
+    if (!active.length) return;
+    const t = setInterval(async () => {
+      const now = await loadActive();
+      // Something finished — refresh history and pull the finished job into view.
+      if (now.length < prevActive.current) {
+        void loadHistory(page);
+        if (selectedId) void refreshSelected(selectedId);
+      }
+      prevActive.current = now.length;
+    }, 3000);
+    prevActive.current = active.length;
+    return () => clearInterval(t);
+  }, [active.length, page, selectedId, loadActive, loadHistory, refreshSelected]);
+
+  const select = useCallback((id: string) => {
+    setSelectedId(id); setJob(null); setPreviewSrc(null); void refreshSelected(id);
+  }, [refreshSelected]);
+
+  // ── Actions ─────────────────────────────────────────────────────────────────
+  const queue = useCallback(async () => {
+    setQueueing(true); setError(null); setNotice(null);
+    try {
+      const r = await fetch(`${BOT_URL}/admin/promotions/jobs`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...brief, slot: "hero_plate" }),
       });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error ?? "Generation failed");
-      setResult(d);
-      const firstGood = d.plates.find((p: Plate) => p.ok && p.url && p.screen?.usable !== false)
-        ?? d.plates.find((p: Plate) => p.ok && p.url);
-      if (firstGood?.url) setPickedPlate(firstGood.url);
+      if (!r.ok) throw new Error(d.error ?? "Could not queue");
+      setNotice(`Queued "${d.job.brief.name}".`);
+      await loadActive();
+      select(d.job.id);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [brief]);
+    } finally { setQueueing(false); }
+  }, [brief, loadActive, select]);
 
-  // ── Preview — re-renders whenever the plate, the copy or the viewport moves ──
+  /**
+   * Cancel. The server's note is shown verbatim rather than a flat "cancelled",
+   * because the two cases genuinely differ: a queued job stops clean, a running
+   * one has already committed spend upstream that nobody can recall.
+   */
+  const cancel = useCallback(async (id: string) => {
+    try {
+      const d = await (await fetch(`${BOT_URL}/admin/promotions/jobs/${id}/cancel`, { method: "POST" })).json();
+      setNotice(d.note ?? "Cancel requested.");
+      await loadActive(); await loadHistory(page);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }, [loadActive, loadHistory, page]);
+
+  const downloadPackage = useCallback(async () => {
+    if (!job) return;
+    setPackaging(true); setError(null);
+    try {
+      const plates: Plate[] = job.result?.plates ?? [];
+      const chosen = plates.find(p => (p.storedUrl ?? p.url) === pickedPlate);
+      const okCopies = (job.result?.copy ?? []).filter(c => c.ok);
+
+      const r = await fetch(`${BOT_URL}/admin/promotions/jobs/${job.id}/package`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          engine: chosen?.engine,
+          copyProvider: okCopies[pickedCopy]?.provider,
+        }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error ?? "Packaging failed");
+
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      const name = r.headers.get("content-disposition")?.match(/filename="(.+?)"/)?.[1];
+      a.href = url; a.download = name ?? "promo-package.zip"; a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally { setPackaging(false); }
+  }, [job, pickedPlate, pickedCopy]);
+
+  // ── Preview ─────────────────────────────────────────────────────────────────
+  const chosenCopy = useMemo(() => {
+    const ok = job?.result?.copy.filter(c => c.ok) ?? [];
+    return ok[pickedCopy]?.copy ?? {};
+  }, [job, pickedCopy]);
+
   useEffect(() => {
     if (!pickedPlate) { setPreviewSrc(null); return; }
     let cancelled = false;
     let objectUrl: string | null = null;
-
     setPreviewing(true);
+
     fetch(`${BOT_URL}/admin/promotions/preview`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ imageUrl: pickedPlate, copy: chosenCopy, viewport }),
     })
       .then(r => { if (!r.ok) throw new Error("preview failed"); return r.blob(); })
-      .then(b => {
-        if (cancelled) return;
-        objectUrl = URL.createObjectURL(b);
-        setPreviewSrc(objectUrl);
-      })
+      .then(b => { if (cancelled) return; objectUrl = URL.createObjectURL(b); setPreviewSrc(objectUrl); })
       .catch(() => { if (!cancelled) setPreviewSrc(null); })
       .finally(() => { if (!cancelled) setPreviewing(false); });
 
     return () => {
       cancelled = true;
-      // Revoke on replacement, or the blob leaks on every keystroke-driven re-render.
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);   // or it leaks on every change
     };
   }, [pickedPlate, chosenCopy, viewport]);
 
-  const download = useCallback(async () => {
-    if (!pickedPlate) return;
-    const r = await fetch(`${BOT_URL}/admin/promotions/render`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imageUrl: pickedPlate, slot: "hero_plate" }),
-    });
-    if (!r.ok) return;
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "hero_plate-3840x960.webp";
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [pickedPlate]);
-
-  const okCopy = result?.copy.filter(c => c.ok) ?? [];
-  const blockedSlots = slots.filter(s => !s.publishable);
+  const activeStyle = useMemo(() => styles.find(s => s.key === brief.style), [styles, brief.style]);
+  const okCopy      = job?.result?.copy.filter(c => c.ok) ?? [];
+  const blocked     = slots.filter(s => !s.publishable);
+  const pages       = Math.max(1, Math.ceil(total / PAGE));
 
   return (
     <div>
-      {/* ── The standing caveat. Not an error — a fact about the backend. ── */}
-      {blockedSlots.length > 0 && (
+      {blocked.length > 0 && (
         <div style={{
           display: "flex", gap: "0.6rem", alignItems: "flex-start", marginBottom: "1.25rem",
           background: "rgba(180,83,9,0.06)", border: "1px solid rgba(180,83,9,0.18)",
@@ -231,20 +351,33 @@ export default function PromotionsPage() {
         }}>
           <AlertTriangle size={14} color="#b45309" style={{ flexShrink: 0, marginTop: 2 }} />
           <p style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.55 }}>
-            <strong style={{ color: "#cbd5e1" }}>Download and paste for now.</strong>{" "}
-            {blockedSlots.map(s => s.label).join(", ")} {blockedSlots.length === 1 ? "has" : "have"} no
-            field on the <code style={{ color: ACCENT }}>marketing_event</code> metaobject yet, so nothing
-            can be pushed to Shopify automatically. The banner and top-bar text do have fields — those
-            can be pasted straight into the event entry.
+            <strong style={{ color: "#cbd5e1" }}>Download the package and upload it by hand.</strong>{" "}
+            {blocked.map(s => s.label).join(", ")} {blocked.length === 1 ? "has" : "have"} no field on the{" "}
+            <code style={{ color: ACCENT }}>marketing_event</code> metaobject yet. The zip carries the
+            hero at every width the theme&apos;s srcset names, both previews, and the copy labelled with
+            where each line goes.
           </p>
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: "1.25rem", alignItems: "start" }}>
+      {notice && (
+        <div style={{
+          marginBottom: "1rem", background: "rgba(74,222,128,0.06)",
+          border: "1px solid rgba(74,222,128,0.18)", borderRadius: 10, padding: "0.7rem 0.85rem",
+          display: "flex", justifyContent: "space-between", gap: "1rem",
+        }}>
+          <p style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.5 }}>{notice}</p>
+          <button onClick={() => setNotice(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#475569" }}>
+            <X size={13} />
+          </button>
+        </div>
+      )}
 
-        {/* ── Brief ───────────────────────────────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: "1.25rem", alignItems: "start" }}>
+
+        {/* ── Left rail: brief, queue, history ─────────────────────────────── */}
         <div>
-          <Panel title="The offer" note="Everything else is derived from this.">
+          <Panel title="New promotion">
             <Field label="Event name">
               <input style={inputStyle} value={brief.name} placeholder="Black Friday 2026"
                 onChange={e => setBrief({ ...brief, name: e.target.value })} />
@@ -253,7 +386,7 @@ export default function PromotionsPage() {
               <input style={inputStyle} value={brief.offer} placeholder="20% off sitewide"
                 onChange={e => setBrief({ ...brief, offer: e.target.value })} />
             </Field>
-            <Field label="Promo code" hint="Leave blank if the discount applies automatically.">
+            <Field label="Promo code" hint="Blank if it applies automatically.">
               <input style={inputStyle} value={brief.promoCode} placeholder="BF2026"
                 onChange={e => setBrief({ ...brief, promoCode: e.target.value })} />
             </Field>
@@ -267,81 +400,141 @@ export default function PromotionsPage() {
                   onChange={e => setBrief({ ...brief, endDate: e.target.value })} />
               </Field>
             </div>
-            <Field label="Angle" hint="Optional. One sentence of intent — what this sale is really about.">
-              <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={brief.angle}
+            <Field label="Angle" hint="Optional. One sentence — what this sale is really about.">
+              <textarea style={{ ...inputStyle, minHeight: 52, resize: "vertical" }} value={brief.angle}
                 onChange={e => setBrief({ ...brief, angle: e.target.value })} />
             </Field>
-          </Panel>
 
-          <Panel title="Style" note={activeStyle?.useWhen}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+            <label style={{ ...LABEL, display: "block", marginBottom: "0.3rem" }}>Style</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", marginBottom: "0.5rem" }}>
               {styles.map(s => {
-                const active = s.key === brief.style;
+                const on = s.key === brief.style;
                 return (
                   <button key={s.key} onClick={() => setBrief({ ...brief, style: s.key })}
                     style={{
                       textAlign: "left", cursor: "pointer",
-                      background: active ? `${ACCENT}18` : "rgba(255,255,255,0.03)",
-                      border: active ? `1px solid ${ACCENT}40` : "1px solid rgba(255,255,255,0.06)",
-                      borderRadius: 8, padding: "0.5rem 0.7rem",
+                      background: on ? `${ACCENT}18` : "rgba(255,255,255,0.03)",
+                      border: on ? `1px solid ${ACCENT}40` : "1px solid rgba(255,255,255,0.06)",
+                      borderRadius: 7, padding: "0.4rem 0.6rem",
                     }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: active ? ACCENT : "#cbd5e1" }}>{s.label}</div>
-                    <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 2, lineHeight: 1.4 }}>{s.blurb}</div>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, color: on ? ACCENT : "#cbd5e1" }}>{s.label}</div>
+                    <div style={{ fontSize: 10, color: "#64748b", marginTop: 1, lineHeight: 1.35 }}>{s.blurb}</div>
                   </button>
                 );
               })}
             </div>
+
             {brief.style === "seasonal" && (
-              <div style={{ marginTop: "0.75rem" }}>
-                <Field label="Season" hint="Fills the colour story — 'Black Friday', 'Memorial Day', 'midwinter'.">
-                  <input style={inputStyle} value={brief.season}
-                    onChange={e => setBrief({ ...brief, season: e.target.value })} />
-                </Field>
-              </div>
+              <Field label="Season" hint="'Black Friday', 'Memorial Day', 'midwinter'.">
+                <input style={inputStyle} value={brief.season}
+                  onChange={e => setBrief({ ...brief, season: e.target.value })} />
+              </Field>
+            )}
+
+            <button onClick={queue} disabled={queueing || !brief.name.trim() || !brief.offer.trim()}
+              style={{
+                width: "100%", cursor: queueing ? "wait" : "pointer", marginTop: "0.5rem",
+                background: ACCENT, color: "#1a1a1a", border: "none", borderRadius: 9,
+                padding: "0.65rem", fontSize: 12.5, fontWeight: 800,
+                textTransform: "uppercase", letterSpacing: "0.06em",
+                opacity: (!brief.name.trim() || !brief.offer.trim()) ? 0.4 : 1,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "0.45rem",
+              }}>
+              {queueing ? <RefreshCw size={13} className="spin" /> : <Sparkles size={13} />}
+              {queueing ? "Queueing…" : "Add to queue"}
+            </button>
+
+            {activeStyle && (
+              <p style={{ fontSize: 10, color: "#475569", marginTop: "0.5rem", lineHeight: 1.45 }}>
+                {activeStyle.engines.map(e => engines.find(x => x.id === e)?.label ?? e).join(" + ")} + 3 copy
+                providers. Typically 50–220s — it runs in the background, you can close this.
+              </p>
             )}
           </Panel>
 
-          <button
-            onClick={generate}
-            disabled={loading || !brief.name.trim() || !brief.offer.trim()}
-            style={{
-              width: "100%", cursor: loading ? "wait" : "pointer",
-              background: ACCENT, color: "#1a1a1a", border: "none", borderRadius: 10,
-              padding: "0.75rem", fontSize: 13, fontWeight: 800,
-              textTransform: "uppercase", letterSpacing: "0.06em",
-              opacity: (!brief.name.trim() || !brief.offer.trim()) ? 0.4 : 1,
-              display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem",
-            }}>
-            {loading ? <RefreshCw size={14} className="spin" /> : <Sparkles size={14} />}
-            {loading ? "Generating…" : "Generate"}
-          </button>
+          <Panel title={`Queue${active.length ? ` — ${active.length}` : ""}`}
+                 note={active.length ? "Runs one at a time, oldest first." : undefined}>
+            {active.length === 0
+              ? <p style={{ fontSize: 11.5, color: "#475569" }}>Nothing running.</p>
+              : active.map(j => (
+                  <JobRow key={j.id} job={j} selected={j.id === selectedId}
+                    onSelect={() => select(j.id)} onCancel={() => cancel(j.id)} />
+                ))}
+          </Panel>
 
-          {activeStyle && (
-            <p style={{ fontSize: 10.5, color: "#475569", marginTop: "0.6rem", lineHeight: 1.5 }}>
-              Fans out across {activeStyle.engines.map(e => engines.find(x => x.id === e)?.label ?? e).join(" + ")}
-              {" "}and three copy providers. {activeStyle.productVisible
-                ? "The product is visible in this style, so reference-conditioned engines lead."
-                : "No product in frame, so photorealism leads."}
-            </p>
-          )}
+          <Panel
+            title="Completed"
+            right={total > PAGE ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                  style={{ background: "none", border: "none", cursor: page === 0 ? "default" : "pointer",
+                           color: page === 0 ? "#334155" : "#94a3b8", padding: 0, display: "flex" }}>
+                  <ChevronLeft size={14} />
+                </button>
+                <span style={{ fontSize: 10, color: "#64748b" }}>{page + 1}/{pages}</span>
+                <button onClick={() => setPage(p => Math.min(pages - 1, p + 1))} disabled={page >= pages - 1}
+                  style={{ background: "none", border: "none", cursor: page >= pages - 1 ? "default" : "pointer",
+                           color: page >= pages - 1 ? "#334155" : "#94a3b8", padding: 0, display: "flex" }}>
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            ) : undefined}
+          >
+            {history.length === 0
+              ? <p style={{ fontSize: 11.5, color: "#475569" }}>No finished runs yet.</p>
+              : history.map(j => (
+                  <JobRow key={j.id} job={j} selected={j.id === selectedId} onSelect={() => select(j.id)} />
+                ))}
+            {total > 0 && (
+              <p style={{ fontSize: 10, color: "#475569", marginTop: "0.5rem" }}>{total} total</p>
+            )}
+          </Panel>
         </div>
 
-        {/* ── Output ──────────────────────────────────────────────────────── */}
+        {/* ── Right: the selected job ──────────────────────────────────────── */}
         <div>
           {error && <div style={{ marginBottom: "1.25rem" }}><EmptyState reason={error} /></div>}
 
-          {!result && !loading && (
-            <Panel title="Preview" note="The plate shown inside the real homepage hero — scrim, headline, button and banner strip.">
-              <EmptyState reason="Fill in the offer and hit Generate. Plates and copy are produced in parallel, so this takes one wait, not three." />
+          {!job && (
+            <Panel title="Preview" note="The plate shown inside the real homepage hero.">
+              <EmptyState reason={
+                selectedId ? "Loading…"
+                : "Fill in the offer and add it to the queue. Finished runs stay in Completed on the left."
+              } />
             </Panel>
           )}
 
-          {result && (
+          {job && job.status !== "done" && (
+            <Panel title={job.brief?.name ?? "Job"}>
+              {job.status === "running" || job.status === "queued" ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.5rem 0" }}>
+                  {job.status === "running"
+                    ? <Loader2 size={15} color={ACCENT} className="spin" />
+                    : <Clock size={15} color="#64748b" />}
+                  <p style={{ fontSize: 12.5, color: "#94a3b8" }}>
+                    {job.status === "running"
+                      ? "Generating — plates and copy are running in parallel. Usually 50–220s."
+                      : "Queued. It starts when the job ahead of it finishes."}
+                    {job.cancel_requested && " Cancellation requested; stopping at the next checkpoint."}
+                  </p>
+                </div>
+              ) : (
+                <EmptyState reason={
+                  job.status === "cancelled"
+                    ? (job.cancelled_while_running
+                        ? "Cancelled after it had started. The image tasks already sent upstream still completed and still billed — we stopped waiting and discarded the result."
+                        : "Cancelled before it started. Nothing was spent.")
+                    : job.error ?? "This run failed."
+                } />
+              )}
+            </Panel>
+          )}
+
+          {job?.status === "done" && job.result && (
             <>
-              {/* Preview — the thing being judged */}
               <Panel
                 title="Preview"
-                note="This is the real hero geometry: 35% scrim, centred white type, BUY NOW, and the banner strip over the bottom. Judge the plate here, not as a thumbnail."
+                note="Real hero geometry: 35% scrim, centred white type, BUY NOW, banner strip over the bottom."
                 right={
                   <div style={{ display: "flex", gap: "0.3rem" }}>
                     {(["desktop", "mobile"] as const).map(v => (
@@ -361,11 +554,11 @@ export default function PromotionsPage() {
               >
                 <div style={{
                   position: "relative", background: "#111", borderRadius: 8, overflow: "hidden",
-                  minHeight: 200, display: "flex", alignItems: "center", justifyContent: "center",
+                  minHeight: 180, display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
                   {previewing && (
                     <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center",
-                      justifyContent: "center", background: "rgba(0,0,0,0.5)", zIndex: 2 }}>
+                                  justifyContent: "center", background: "rgba(0,0,0,0.5)", zIndex: 2 }}>
                       <RefreshCw size={18} color={ACCENT} className="spin" />
                     </div>
                   )}
@@ -375,57 +568,56 @@ export default function PromotionsPage() {
                 </div>
 
                 {pickedPlate && (
-                  <button onClick={download}
+                  <button onClick={downloadPackage} disabled={packaging}
                     style={{
-                      marginTop: "0.85rem", cursor: "pointer", background: "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(255,255,255,0.1)", color: "#cbd5e1", borderRadius: 8,
-                      padding: "0.5rem 0.9rem", fontSize: 11.5, fontWeight: 700,
-                      display: "inline-flex", alignItems: "center", gap: "0.45rem",
+                      marginTop: "0.85rem", cursor: packaging ? "wait" : "pointer",
+                      background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                      color: "#cbd5e1", borderRadius: 8, padding: "0.55rem 0.95rem",
+                      fontSize: 11.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "0.45rem",
                     }}>
-                    <Download size={12} /> Download plate — 3840×960 webp
+                    {packaging ? <RefreshCw size={12} className="spin" /> : <Package size={12} />}
+                    {packaging ? "Building package…" : "Download package (.zip)"}
                   </button>
                 )}
+                <p style={{ fontSize: 10, color: "#475569", marginTop: "0.45rem", lineHeight: 1.45 }}>
+                  Hero at 960 / 1440 / 1920 / 3840 — the three widths the theme&apos;s srcset names, plus the
+                  retina plate — both previews, and the copy labelled with its destination field.
+                </p>
               </Panel>
 
-              {/* Plates */}
-              <Panel
-                title="Plates"
-                note={`${result.summary.platesOk} of ${result.summary.platesTotal} engines returned. Each engine gets one swing — different models fail in different ways, which is the point.`}
-              >
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "0.75rem" }}>
-                  {result.plates.map(p => {
-                    const picked = p.url === pickedPlate;
+              <Panel title="Plates" note={
+                `${job.result.summary.platesOk} of ${job.result.summary.platesTotal} engines returned. ` +
+                `Each engine gets one swing — different models fail in different ways, which is the point.`
+              }>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: "0.75rem" }}>
+                  {job.result.plates.map(p => {
+                    const src    = p.storedUrl ?? p.url;
+                    const picked = src === pickedPlate;
                     return (
                       <motion.div key={p.engine} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                        onClick={() => p.ok && p.url && setPickedPlate(p.url)}
-                        style={{
-                          ...CARD, padding: "0.6rem", cursor: p.ok ? "pointer" : "default",
-                          border: picked ? `1px solid ${ACCENT}` : CARD.border,
-                        }}>
-                        <div style={{
-                          aspectRatio: "4/1", background: "#0b0b0b", borderRadius: 6,
-                          overflow: "hidden", marginBottom: "0.5rem",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                        }}>
-                          {p.ok && p.url
-                            ? <img src={p.url} alt={p.label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        onClick={() => p.ok && src && setPickedPlate(src)}
+                        style={{ ...CARD, padding: "0.55rem", cursor: p.ok ? "pointer" : "default",
+                                 border: picked ? `1px solid ${ACCENT}` : CARD.border }}>
+                        <div style={{ aspectRatio: "4/1", background: "#0b0b0b", borderRadius: 6,
+                                      overflow: "hidden", marginBottom: "0.45rem",
+                                      display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {p.ok && src
+                            ? <img src={src} alt={p.label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                             : <X size={16} color="#f43f5e" />}
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.4rem" }}>
                           <span style={{ fontSize: 11, fontWeight: 700, color: picked ? ACCENT : "#cbd5e1" }}>{p.label}</span>
                           <ScreenBadge v={p.screen} />
                         </div>
-                        {/* Failures say why. An engine that is merely unconfigured is not a failure. */}
-                        {!p.ok && (
-                          <p style={{ fontSize: 10, color: "#f43f5e", marginTop: "0.35rem", lineHeight: 1.45 }}>{p.error}</p>
-                        )}
+                        {!p.ok && <p style={{ fontSize: 10, color: "#f43f5e", marginTop: "0.3rem", lineHeight: 1.4 }}>{p.error}</p>}
                         {p.ok && (
-                          <p style={{ fontSize: 10, color: "#475569", marginTop: "0.35rem" }}>
-                            {p.nativeWidth}px native{p.upscaled && " · upscaled to fit"} · {(p.latencyMs / 1000).toFixed(1)}s
+                          <p style={{ fontSize: 10, color: "#475569", marginTop: "0.3rem" }}>
+                            {p.nativeWidth}px native{p.upscaled && " · upscaled"} · {(p.latencyMs / 1000).toFixed(0)}s
+                            {p.storedUrl === null && " · not archived, link expires"}
                           </p>
                         )}
                         {p.screen?.screened && p.screen.note && (
-                          <p style={{ fontSize: 10, color: "#64748b", marginTop: "0.3rem", lineHeight: 1.45 }}>{p.screen.note}</p>
+                          <p style={{ fontSize: 10, color: "#64748b", marginTop: "0.25rem", lineHeight: 1.4 }}>{p.screen.note}</p>
                         )}
                       </motion.div>
                     );
@@ -433,11 +625,10 @@ export default function PromotionsPage() {
                 </div>
               </Panel>
 
-              {/* Copy */}
-              <Panel
-                title="Copy"
-                note={`${result.summary.copyOk} of ${result.summary.copyTotal} providers returned. Voices differ — Claude runs restrained, GPT punchier, Gemini blunter.`}
-              >
+              <Panel title="Copy" note={
+                `${job.result.summary.copyOk} of ${job.result.summary.copyTotal} providers returned. ` +
+                `Voices differ — Claude restrained, GPT punchier, Gemini blunter.`
+              }>
                 <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.85rem", flexWrap: "wrap" }}>
                   {okCopy.map((c, i) => (
                     <button key={c.provider} onClick={() => setPickedCopy(i)}
@@ -459,7 +650,7 @@ export default function PromotionsPage() {
                   </div>
                 ) : null}
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
                   {slots.filter(s => s.kind !== "image").map(s => {
                     const v = chosenCopy[s.key] ?? "";
                     const len = v.replace(/<[^>]+>/g, "").length;
@@ -467,9 +658,9 @@ export default function PromotionsPage() {
                     return (
                       <div key={s.key} style={{
                         background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)",
-                        borderRadius: 8, padding: "0.6rem 0.75rem",
+                        borderRadius: 8, padding: "0.55rem 0.7rem",
                       }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
                           <span style={{ ...LABEL, fontSize: 10 }}>
                             {s.label}
                             {s.metaobjectField
@@ -478,7 +669,8 @@ export default function PromotionsPage() {
                           </span>
                           <span style={{ fontSize: 10, color: over ? "#f43f5e" : "#475569" }}>{len}/{s.maxChars}</span>
                         </div>
-                        <p style={{ fontSize: 13, color: "#e2e8f0", lineHeight: 1.45, fontFamily: s.kind === "html" ? "ui-monospace, monospace" : undefined }}>
+                        <p style={{ fontSize: 12.5, color: "#e2e8f0", lineHeight: 1.45,
+                                    fontFamily: s.kind === "html" ? "ui-monospace, monospace" : undefined }}>
                           {v || <span style={{ color: "#475569" }}>—</span>}
                         </p>
                       </div>
@@ -487,13 +679,6 @@ export default function PromotionsPage() {
                 </div>
               </Panel>
             </>
-          )}
-
-          {/* Calendar clashes — read-only, and non-fatal when Shopify is unreachable */}
-          {calendar?.available && calendar.overlaps.length > 0 && (
-            <Panel title="Calendar clash">
-              <EmptyState reason={calendar.overlaps.map(o => o.note).join(" ")} />
-            </Panel>
           )}
         </div>
       </div>
