@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Wand2, Upload, X, ImageIcon, Sparkles, RefreshCw,
-  ChevronDown, ExternalLink, Copy, Check, AlertCircle,
+  ChevronDown, ExternalLink, Copy, Check, AlertCircle, Download,
   Loader2, BookOpen, ZoomIn, Package, Search, ChevronRight,
 } from "lucide-react";
 
@@ -25,6 +25,13 @@ interface GeneratedImage {
   prompt: string;
   enhanced_prompt: string;
   image_url: string;
+  /**
+   * The name this image should be SAVED as, worked out server-side from the
+   * prompt. Null on rows generated before naming existed — the card falls back to
+   * the URL's own segment and says so rather than inventing a name for a file
+   * somebody may already have downloaded under the old one.
+   */
+  file_name?: string | null;
   size: string;
   quality: string;
   created_at: string;
@@ -474,6 +481,9 @@ function RefImageZone({
 function ImageCard({ img, highlight = false }: { img: GeneratedImage; highlight?: boolean }) {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [saving, setSaving]     = useState(false);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
+  const [nameCopied, setNameCopied] = useState(false);
 
   const copyUrl = () => {
     navigator.clipboard.writeText(img.image_url);
@@ -482,6 +492,45 @@ function ImageCard({ img, highlight = false }: { img: GeneratedImage; highlight?
   };
 
   const isStudio = img.agent_name === "mission-control/studio";
+
+  /**
+   * Save the image under the name the server worked out for it.
+   *
+   * WHY IT FETCHES A BLOB INSTEAD OF SETTING `download` ON A LINK
+   * ------------------------------------------------------------
+   * `<a download>` is ignored for a cross-origin URL — the browser navigates to
+   * the image instead of saving it, and the file lands in Downloads called
+   * whatever the generator called it, which is the whole problem. Fetching the
+   * bytes and saving an object URL is the only way the name survives.
+   *
+   * The generator's host may refuse the CORS read, so the failure path is real
+   * and is handled by telling the truth: the name goes to the clipboard, the
+   * image opens in a tab, and the operator saves it by hand. Silently opening a
+   * tab would look like the button did nothing.
+   */
+  const download = async () => {
+    const name = img.file_name?.trim();
+    setSaving(true);
+    try {
+      const r = await fetch(img.image_url);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name || "image.png";
+      a.click();
+      URL.revokeObjectURL(url);
+      setSaveNote(null);
+    } catch {
+      if (name) await navigator.clipboard.writeText(name).catch(() => {});
+      window.open(img.image_url, "_blank", "noopener,noreferrer");
+      setSaveNote(name
+        ? "That host would not let us save it directly. The filename is on your clipboard — save the image as that."
+        : "That host would not let us save it directly. It is open in a new tab.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <motion.div
@@ -532,12 +581,48 @@ function ImageCard({ img, highlight = false }: { img: GeneratedImage; highlight?
                 color: copied ? "#10b981" : "#475569", display: "flex" }}>
               {copied ? <Check size={12} /> : <Copy size={12} />}
             </button>
+            <button onClick={download} disabled={saving} title="Download with its SEO filename"
+              style={{ background: "none", border: "none", cursor: saving ? "wait" : "pointer", padding: 3,
+                color: "#475569", display: "flex" }}>
+              <Download size={12} />
+            </button>
             <a href={img.image_url} target="_blank" rel="noopener noreferrer"
               style={{ color: "#475569", display: "flex", padding: 3 }} title="Open full size">
               <ExternalLink size={12} />
             </a>
           </div>
         </div>
+
+        {/* The filename, shown rather than hidden behind the download button.
+            It is what the file will be called on the storefront once it is
+            uploaded, so it is something to read and disagree with before saving —
+            not a surprise discovered in the Downloads folder. */}
+        {img.file_name && (
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(img.file_name!).catch(() => {});
+              setNameCopied(true);
+              setTimeout(() => setNameCopied(false), 2000);
+            }}
+            title="Copy the filename"
+            style={{
+              display: "flex", alignItems: "center", gap: 4, width: "100%",
+              background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 6, padding: "3px 6px", marginBottom: "0.4rem", cursor: "pointer",
+              fontSize: 9.5, color: nameCopied ? "#10b981" : "#64748b", textAlign: "left",
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
+            {nameCopied ? <Check size={9} /> : <Copy size={9} />}
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{img.file_name}</span>
+          </button>
+        )}
+
+        {saveNote && (
+          <p style={{ fontSize: 9.5, color: "#eab308", marginBottom: "0.4rem", lineHeight: 1.4 }}>
+            {saveNote}
+          </p>
+        )}
         <p
           onClick={() => setExpanded(e => !e)}
           style={{
@@ -628,6 +713,7 @@ export default function ImageStudioPage() {
         prompt: json.prompt,
         enhanced_prompt: json.prompt,
         image_url: json.url,
+        file_name: json.filename ?? null,
         size: json.size,
         quality: json.quality,
         created_at: new Date().toISOString(),
