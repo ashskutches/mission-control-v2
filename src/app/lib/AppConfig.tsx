@@ -22,6 +22,7 @@ import {
     ShoppingCart,
     Warehouse,
     Users2,
+    Activity,
 } from 'lucide-react';
 
 export const APP_CONFIG = {
@@ -163,6 +164,16 @@ export const APP_CONFIG = {
         // each other. Still a guest path (lib/access.ts GUEST_PATHS); the group it is
         // drawn in has no bearing on who can reach it.
         { id: 'chats',         group: 'agents', href: '/chats',      icon: MessageSquare, label: 'Chats',      color: '#6b7280' },
+        // Where the agents get stuck, and how much of it they say themselves.
+        //
+        // Beside the roster rather than in Tools, because you open it to manage an
+        // AGENT rather than to move a piece of work — the same test that puts Chats
+        // here and Insights up there. It is deliberately not a tab on /agents: that
+        // page carries AgentMetrics, which reports runs, cost and success rate, and
+        // a "success" there only means the run did not throw. This measures the
+        // walls, which is the opposite instrument, and burying it under a throughput
+        // dashboard is how it would get read as one.
+        { id: 'agent-behavior', group: 'agents', href: '/agent-behavior', icon: Activity, label: 'Behaviour', color: '#6b7280' },
         // Roundtable is the fifth way work could reach an agent, and deliberately the
         // one that produces no work at all: N agents, one question, a transcript and a
         // report. It writes no insight, no blockage and no task — every write tool is

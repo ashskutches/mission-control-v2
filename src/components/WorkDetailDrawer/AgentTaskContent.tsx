@@ -4,7 +4,6 @@ import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { MetadataFooter } from "./MetadataFooter";
-import { BOT_URL } from "./constants";
 import { ActionBtn, SectionLabel } from "./primitives";
 import type { AgentTask } from "./types";
 
@@ -33,7 +32,12 @@ export function AgentTaskContent({
       setActing(true);
       setError(null);
       try {
-        const res = await fetch(`${BOT_URL}/admin/tasks/${agentTask.id}/${endpoint}`, {
+        // Through the proxy, NOT BOT_URL. It is what stamps `approved_by` /
+        // `rejected_by` from the signed session — an approval of a live-fire
+        // action with no name on it is not evidence anybody approved it, and
+        // this drawer was the only caller of the route, so nothing ever
+        // recorded an approver. See IDENTITY_STAMPED in api/bot/[...path].
+        const res = await fetch(`/api/bot/admin/tasks/${agentTask.id}/${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: body ? JSON.stringify(body) : undefined,

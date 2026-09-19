@@ -1,0 +1,9 @@
+# Leaps & Rebounds internal dashboard. Nothing here is meant for search.
+#
+# Everything except /reports/ is behind a Discord sign-in and would answer a
+# crawler with a redirect to /login anyway. /reports/ is deliberately reachable
+# without a session, so it is named here as well as carrying `noindex` on every
+# page — robots.txt stops the fetch, the meta tag stops the indexing of a page
+# that got fetched some other way, and neither is reliable alone.
+User-agent: *
+Disallow: /

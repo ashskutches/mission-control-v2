@@ -82,6 +82,20 @@ export const TEAMMATE_PATHS = [
     // numbers on Command Center, which is in this list. Narrowing it later means
     // splitting the detail page out from the board, not removing this line.
     "/pipeline",                  // Insights + per-insight conversation
+    // Agent Behaviour — where the agents get stuck and how much of it they say
+    // themselves.
+    //
+    // Opted in rather than left admin-only by default, because it is the same
+    // class of information as /blockages and /work, which are both on this list:
+    // agent operational state, no customer data, no revenue figures. And the
+    // people most likely to notice that an agent has been quietly stuck for a
+    // week are the ones being DM'd by it, not the owner.
+    //
+    // The one write on the page — closing a limitation out — is admin-only, and
+    // enforced by the proxy rather than by hiding the button. Asserting that a
+    // capability gap is gone is a claim only the person who built or granted the
+    // thing can make.
+    "/agent-behavior",            // Agent Behaviour
     "/settings",                  // Settings
 ] as const;
 

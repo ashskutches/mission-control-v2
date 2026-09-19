@@ -27,6 +27,9 @@ interface AgentDef {
         sms?: boolean;
         social?: boolean;
         calls?: boolean;
+        /** Mandate-bound negotiation by email. Separate from `email` on purpose —
+         *  see ActionPerms in gravity-claw's agency/base-agent.ts. */
+        outreach?: boolean;
     };
     personality?: string;
     mission?: string;
@@ -156,7 +159,7 @@ function slugify(name: string) {
 const blank: Partial<AgentDef> = {
     name: "", discordChannelId: "", discordManagerId: "", type: "worker",
     specialization: "General Tasks", role: "general",
-    action_perms: { email: false, sms: false, social: false, calls: false },
+    action_perms: { email: false, sms: false, social: false, calls: false, outreach: false },
     personality: "", mission: "", context: "", constraints: "", emoji: "🤖",
 };
 
@@ -474,6 +477,12 @@ function AgentSetupModal({
                                 { key: "sms" as const,    label: "📱 SMS",         desc: "Send SMS / broadcasts via Twilio" },
                                 { key: "social" as const, label: "📢 Social Post", desc: "Publish to social accounts" },
                                 { key: "calls" as const,  label: "📞 Calls",       desc: "Initiate outbound phone calls" },
+                                // Its own grant, deliberately not folded into Email.
+                                // gmail_send reads the `email` key and is an unbounded
+                                // message to any address; outreach is bound to a mandate
+                                // a person wrote, capped at a number of rounds, and
+                                // approved message by message on the insight page.
+                                { key: "outreach" as const, label: "🤝 Outreach", desc: "Negotiate by email under a mandate a person set — every draft still needs approval" },
                             ] as const).map(({ key, label, desc }) => {
                                 const active = !!(form.action_perms?.[key]);
                                 return (
@@ -651,6 +660,7 @@ function AgentRosterCard({
                             {agent.action_perms.sms    && <span title="SMS" style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} />}
                             {agent.action_perms.social && <span title="Social Post" style={{ width: 6, height: 6, borderRadius: "50%", background: "#a855f7" }} />}
                             {agent.action_perms.calls  && <span title="Calls" style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e" }} />}
+                            {agent.action_perms.outreach && <span title="Outreach (mandate-bound email)" style={{ width: 6, height: 6, borderRadius: "50%", background: "#e98d20" }} />}
                         </span>
                     )}
                 </div>

@@ -9,7 +9,7 @@ import {
   Panel, Pill, Confidence, Empty, ago, Btn, Loading, ErrorBox, NotConnected, OpsMark,
   STATUS_COLOR, STATUS_LABEL, SUPPORT_ACCENT,
 } from "../ui";
-import { getTickets, getTicketCounts, getSummary, runIngest, OUTCOME_LABELS, OUTCOME_COLOR } from "../api";
+import { getTickets, getSummary, getTicketCounts, runIngest, OUTCOME_LABELS, OUTCOME_COLOR } from "../api";
 
 /**
  * `followup` is a view, not a status.
@@ -19,14 +19,26 @@ import { getTickets, getTicketCounts, getSummary, runIngest, OUTCOME_LABELS, OUT
  * is precisely why work done outside the platform used to be invisible: a
  * ticket that had been answered but not refunded sat in `sent` looking finished.
  */
+/**
+ * `needs_triage` and `spam` are here because their absence read as lost mail.
+ *
+ * Both statuses existed, had labels and colours, and had no way to reach them:
+ * a ticket whose classification threw landed in `triaged` with no draft, and a
+ * real customer the classifier called spam landed in `spam` — and neither had a
+ * chip or a count, so the only route to either was paging through "All". From a
+ * rep's seat that is indistinguishable from the tool having dropped the email,
+ * which is exactly the complaint that started this.
+ */
 const FILTERS = [
   { key: "awaiting_approval", label: "Awaiting approval" },
-  { key: "followup",          label: "Follow-up work",  color: "#f5a840" },
-  { key: "failed",            label: "Not delivered",   color: "#f43f5e" },
+  { key: "needs_triage",      label: "Needs triage",     color: "#4a9eff" },
+  { key: "followup",          label: "Follow-up work",   color: "#f5a840" },
+  { key: "failed",            label: "Not delivered",    color: "#f43f5e" },
   { key: "needs_human_only",  label: "Human only" },
   { key: "escalated",         label: "Escalated" },
   { key: "sent",              label: "Sent" },
   { key: "resolved",          label: "Resolved" },
+  { key: "spam",              label: "Spam" },
   { key: "all",               label: "All" },
 ];
 
@@ -69,14 +81,56 @@ export default function SupportInbox() {
     setBusy(true); setNote(null);
     try {
       const r = await runIngest();
+      // Written as a sentence rather than a row of counters. "Fetched 12: 3 new,
+      // 2 reopened, 5 duplicates" is a log line; the reader wants to know whether
+      // anything needs them.
+      const parts: string[] = [];
+      if (r.created)          parts.push(`${r.created} new ticket${r.created === 1 ? "" : "s"}`);
+      if (r.reopened)         parts.push(`${r.reopened} customer repl${r.reopened === 1 ? "y" : "ies"}`);
+      if (r.drafted)          parts.push(`${r.drafted} repl${r.drafted === 1 ? "y" : "ies"} drafted for you`);
+      if (r.ordersMatched)    parts.push(`${r.ordersMatched} linked to an order`);
+      if (r.ownRepliesLinked) parts.push(`${r.ownRepliesLinked} of your Gmail repl${r.ownRepliesLinked === 1 ? "y" : "ies"} recorded`);
+
       setNote(r.skipped
-        ? `Nothing fetched — ${r.skipped}.`
-        : `Fetched ${r.fetched}: ${r.created} new, ${r.reopened} reopened, ${r.duplicates} already seen, ${r.drafted} drafted.` +
-          (r.errors?.length ? ` ${r.errors.length} error(s).` : ""));
+        ? (r.skipped === "ingestion disabled"
+            ? "Checking for new email is turned off — switch it on in Settings."
+            : "No mailbox is set up yet — choose one in Settings.")
+        : parts.length
+          ? `Checked the mailbox: ${parts.join(", ")}.`
+          + (r.errors?.length ? ` ${r.errors.length} item${r.errors.length === 1 ? "" : "s"} had a problem.` : "")
+          : "Checked the mailbox — nothing new.");
       await load();
     } catch (e: any) { setErr(e.message); }
     finally { setBusy(false); }
   };
+
+  /**
+   * How long ago the mailbox was actually polled.
+   *
+   * Checking now runs on a schedule (hourly by default, set in Settings), so
+   * this should read recently. It used to run only when somebody pressed the
+   * button, and nothing anywhere said when that last happened, so a queue that
+   * was nine days stale looked exactly like a quiet one.
+   */
+  const lastChecked = (() => {
+    const m = summary?.mail?.staleMinutes;
+    if (m == null) return null;
+    if (m < 2) return "just now";
+    if (m < 60) return `${m}m ago`;
+    if (m < 1440) return `${Math.floor(m / 60)}h ago`;
+    return `${Math.floor(m / 1440)}d ago`;
+  })();
+
+  /**
+   * Late enough to be a problem, judged against the configured cadence.
+   *
+   * A fixed one-hour threshold would turn amber on every single hourly cycle,
+   * which trains the reader to ignore the one time it means something. The
+   * server computes the bound from the interval (three missed cycles) so this
+   * and the Settings blocker cannot disagree about what "late" is.
+   */
+  const stale = summary?.mail?.staleMinutes != null
+    && summary.mail.staleMinutes > (summary.mail.staleAfterMinutes ?? 180);
 
   return (
     <>
@@ -87,6 +141,25 @@ export default function SupportInbox() {
       {(summary?.openFollowups > 0 || summary?.undeliveredReplies > 0
         || (counts?.needs_human_only ?? 0) > 0) && (
         <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+          {/*
+            * Tickets the pipeline has handed to a person and stopped on.
+            *
+            * These are the ones with a real customer at the other end — a
+            * warranty claim, a broken leg, a refund — and nothing was
+            * counting them. They sit in `needs_human_only` with ops_state
+            * `none`, so neither the follow-up banner nor the undelivered
+            * banner sees them, and the inbox lands on a different tab.
+            */}
+          {(counts?.needs_human_only ?? 0) > 0 && (
+            <div onClick={() => setFilter("needs_human_only")}
+                 style={{ ...bannerStyle("#00c9d7"), cursor: "pointer" }}>
+              <UserCheck size={13} color="#00c9d7" />
+              <span>
+                <strong>{counts!.needs_human_only}</strong> customer
+                {counts!.needs_human_only === 1 ? " is" : "s are"} waiting on a human
+              </span>
+            </div>
+          )}
           {summary.openFollowups > 0 && (
             <div onClick={() => setFilter("followup")}
                  style={{ ...bannerStyle("#f5a840"), cursor: "pointer" }}>
@@ -140,11 +213,18 @@ export default function SupportInbox() {
                   color={f.color ?? (f.key === "all" ? SUPPORT_ACCENT : (STATUS_COLOR[f.key] ?? SUPPORT_ACCENT))}
                   active={filter === f.key} onClick={() => setFilter(f.key)}>
               {f.label}
-              {/* Every pill carries its number, zero included. Showing a count
-                  only when it is non-zero is what made this unreadable: a blank
-                  "Awaiting approval" and a blank "Human only" look identical,
-                  when one is empty and the other has people waiting. */}
-              {counts && typeof counts[f.key] === "number" && ` (${counts[f.key]})`}
+              {/*
+                * Every pill carries its count, including the zeroes.
+                *
+                * Showing a count only when it is non-zero is what made the
+                * original bug unreadable: the landing tab said "Awaiting
+                * approval" with 1 of 137 tickets behind it, and the 136
+                * elsewhere were equally silent. An explicit "(0)" beside
+                * "Human only (13)" and "All (137)" says the queue is empty
+                * and the mail arrived — two different facts that a blank
+                * pill collapses into one.
+                */}
+              {counts?.[f.key] != null && ` (${counts[f.key]})`}
             </Pill>
           ))}
         </div>
@@ -163,6 +243,14 @@ export default function SupportInbox() {
             }}
           />
         </div>
+        {lastChecked && (
+          <span title={summary?.mail?.lastIngestAt ?? undefined}
+                style={{ fontSize: 10.5, fontWeight: 600, whiteSpace: "nowrap",
+                         color: stale ? "#f5a840" : "var(--text-dim)" }}>
+            {stale && <AlertTriangle size={10} style={{ verticalAlign: -1, marginRight: 3 }} />}
+            checked {lastChecked}
+          </span>
+        )}
         <Btn size="sm" variant="ghost" onClick={poll} disabled={busy}>
           <RefreshCw size={12} /> {busy ? "Checking…" : "Check mail"}
         </Btn>
@@ -196,12 +284,20 @@ export default function SupportInbox() {
           <Empty icon={InboxIcon} title="Nothing here"
                  body={q ? "No tickets match that search."
                    // An empty view over a full inbox is the thing that gets
-                   // reported as "email stopped syncing". Say which it is.
+                   // reported as "email stopped syncing". Which of the four it
+                   // is matters, and they are not alternatives to each other:
+                   // a full inbox behind the wrong filter, no mailbox at all,
+                   // a mailbox that has not been polled lately, or a genuinely
+                   // quiet queue.
                    : (counts?.all ?? 0) > 0
                      ? `This view is empty — but the inbox holds ${counts!.all} ticket${counts!.all === 1 ? "" : "s"}. Try another filter above.`
-                     : summary?.mail?.configured
-                       ? "No tickets in this view. Hit “Check mail” to poll the mailbox."
-                       : "No tickets yet — and no mailbox is connected, so none will arrive."} />
+                     : !summary?.mail?.configured
+                       ? "No tickets yet — and no mailbox is connected, so none will arrive."
+                       : stale
+                         // The cron should make this unreachable. If it is showing,
+                         // the poller is the thing to look at, not the queue.
+                         ? "No tickets in this view — but the mailbox has not been polled recently, so this may not be the whole picture."
+                         : "No tickets in this view. We check the mailbox automatically — or press “Check mail” to look right now."} />
         ) : rows.map((t, i) => {
           const overdue = t.status === "awaiting_approval" && t.awaitingMinutes > 60;
           return (

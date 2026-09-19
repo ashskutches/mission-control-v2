@@ -68,12 +68,15 @@ export const getTickets = (o: {
 } = {}) => req<{ total: number; tickets: any[] }>(`/tickets${qs(o)}`);
 
 /**
- * One count per inbox filter — including the ones that are zero.
+ * One count per inbox pill, so an empty tab cannot read as lost mail.
  *
- * The inbox lands on "Awaiting approval", which is usually near-empty while
- * hundreds of tickets sit behind the other pills. Without a number on every
- * pill that reads as "mail stopped arriving", which is how it got reported.
- * Takes the same `q` / `category` as getTickets so the two agree.
+ * Keyed by filter key, including the `followup` and `needs_triage` views —
+ * the server computes each one the same way the list query does, so a count
+ * and the list it opens cannot disagree.
+ *
+ * Takes the same `q` / `category` as getTickets for that same reason: the
+ * search box filters the list, and pills left showing the unfiltered backlog
+ * were the version of "cannot disagree" that only held while nobody searched.
  */
 export const getTicketCounts = (o: { q?: string; category?: string } = {}) =>
   req<Record<string, number>>(`/tickets/counts${qs(o)}`);
@@ -193,7 +196,8 @@ export const runReflection = () => post<any>("/reflect");
 export const runIngest     = () => post<any>("/ingest");
 
 export const saveSettings = (p: {
-  mailAgentId?: string; sendEnabled?: boolean; ingestEnabled?: boolean; mailQuery?: string;
+  mailAgentId?: string; sendEnabled?: boolean; ingestEnabled?: boolean;
+  mailQuery?: string; mailExclude?: string; pollMinutes?: number;
 }) => put<any>("/settings", p);
 export const saveAssumption = (p: { key: string; value: number; basis: string; unit?: string }) =>
   put<any>("/assumptions", p);

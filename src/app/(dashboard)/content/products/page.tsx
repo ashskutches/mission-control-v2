@@ -4,7 +4,7 @@ import { motion, AnimatePresence, Reorder } from "framer-motion";
 import {
   ShoppingBag, ImageIcon, Pin, Plus, Trash2, GripVertical,
   Search, ChevronRight, Link2, CheckCircle2, AlertCircle, X, RefreshCw,
-  Loader2, Upload,
+  Loader2, Upload, Wand2, Star, EyeOff, Eye,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -45,6 +45,62 @@ interface PinnedRef {
   image_url: string;
   image_source: "shopify" | "url";
   display_order: number;
+  // Labels. Written by the vision pass on the bot, corrected here.
+  view: string | null;
+  color: string | null;
+  product_line: string | null;
+  size_label: string | null;
+  is_primary: boolean;
+  usable_for_identity: boolean;
+  label_source: "unlabeled" | "auto" | "human";
+  label_confidence: number | null;
+  label_notes: string | null;
+}
+
+interface SelectedRef {
+  image_url: string;
+  view: string | null;
+  color: string | null;
+  is_primary: boolean;
+  label_source: string;
+}
+
+interface SelectionPreview {
+  reason: string;
+  warnings: string[];
+  color: string | null;
+  shot_type: string;
+  prompt: string;
+  selected: SelectedRef[];
+}
+
+/**
+ * The views the generator understands. Kept in the same order the selector
+ * prefers them, so the dropdown reads as "how useful is this angle".
+ */
+const VIEW_OPTIONS = [
+  "hero_three_quarter", "front", "top", "bungee_closeup", "side",
+  "leg_closeup", "mat_closeup", "underside", "detail_other",
+  "in_use", "packaging", "lineup", "comparison", "unknown",
+] as const;
+
+const COLOR_OPTIONS = [
+  "black", "white", "grey", "silver", "blue", "navy", "teal", "green",
+  "orange", "red", "pink", "purple", "yellow", "gold", "multi", "unknown",
+] as const;
+
+/** Views that can never act as a single-product identity reference. */
+const NON_IDENTITY = new Set(["lineup", "comparison", "packaging"]);
+
+/**
+ * Which physical product the photo shows, where a listing carries more than one.
+ * Mislabelling this is the most expensive mistake available here: a Pro photo in
+ * a standard set produces a rebounder that does not exist.
+ */
+const LINE_OPTIONS = ["", "standard", "pro"] as const;
+
+function viewLabel(v: string | null): string {
+  return (v ?? "unlabeled").replace(/_/g, " ");
 }
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
@@ -295,8 +351,102 @@ function ImagePicker({
 
 // ── Reference Set Panel ────────────────────────────────────────────────────────
 
+/**
+ * The labels on one reference, shown inline and editable.
+ *
+ * Editing is a correction, not data entry: the vision pass has already filled
+ * these in, and every field here is one somebody only touches when the machine
+ * got it wrong. That is why a change stamps the row as human-labelled on the
+ * server and permanently exempts it from re-labelling.
+ */
+function LabelRow({ item: r, onLabel }: {
+  item: PinnedRef;
+  onLabel: (refId: string, patch: Record<string, unknown>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const excluded = !r.usable_for_identity;
+  const unlabeled = r.label_source === "unlabeled" || !r.view;
+
+  const chip = (text: string, color: string, title?: string) => (
+    <span title={title} style={{
+      fontSize: 9, fontWeight: 700, color,
+      background: `${color}14`, border: `1px solid ${color}30`,
+      borderRadius: 5, padding: "1px 5px", whiteSpace: "nowrap",
+    }}>{text}</span>
+  );
+
+  const selectStyle: React.CSSProperties = {
+    background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: 6, color: "#cbd5e1", fontSize: 10, padding: "2px 4px", flex: 1, minWidth: 0,
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, flex: 1 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+        {unlabeled
+          ? chip("unlabeled", "#64748b", "Run Auto-label so the generator can choose this intelligently")
+          : chip(viewLabel(r.view), excluded ? "#64748b" : "#38bdf8")}
+        {r.color && r.color !== "unknown" && chip(r.color, r.color === "multi" ? "#f59e0b" : "#a78bfa")}
+        {r.product_line && chip(r.product_line, r.product_line === "pro" ? "#8b5cf6" : "#38bdf8",
+          "Product line — a Pro photo in a standard set produces a product that does not exist")}
+        {r.is_primary && chip("★ primary", "#10b981", "The anchor reference — sent first")}
+        {excluded && !unlabeled && chip("not identity", "#ef4444", "Excluded from reference sets: more than one unit, or an angle that cannot define the product")}
+        {r.label_source === "human" && chip("yours", "#10b981", "Corrected by hand — the auto-labeler will not overwrite it")}
+        <button
+          onClick={() => setOpen(o => !o)}
+          style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginLeft: "auto", fontSize: 9, color: "#475569" }}
+        >
+          {open ? "done" : "edit"}
+        </button>
+      </div>
+
+      {open && (
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <select
+            value={r.view ?? "unknown"}
+            onChange={e => onLabel(r.id, { view: e.target.value, usable_for_identity: !NON_IDENTITY.has(e.target.value) })}
+            style={selectStyle}
+          >
+            {VIEW_OPTIONS.map(v => <option key={v} value={v}>{viewLabel(v)}</option>)}
+          </select>
+          <select
+            value={r.color ?? "unknown"}
+            onChange={e => onLabel(r.id, { color: e.target.value })}
+            style={selectStyle}
+          >
+            {COLOR_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select
+            value={r.product_line ?? ""}
+            onChange={e => onLabel(r.id, { product_line: e.target.value || null })}
+            style={selectStyle}
+            title="Product line"
+          >
+            {LINE_OPTIONS.map(l => <option key={l || "none"} value={l}>{l || "no line"}</option>)}
+          </select>
+          <button
+            title={r.usable_for_identity ? "Exclude from reference sets" : "Allow as an identity reference"}
+            onClick={() => onLabel(r.id, { usable_for_identity: !r.usable_for_identity })}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex" }}
+          >
+            {r.usable_for_identity ? <Eye size={11} color="#10b981" /> : <EyeOff size={11} color="#64748b" />}
+          </button>
+          <button
+            title="Make this the anchor reference"
+            onClick={() => onLabel(r.id, { is_primary: true })}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex" }}
+          >
+            <Star size={11} color={r.is_primary ? "#10b981" : "#475569"} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ReferenceSet({
   product, refs, onRemove, onReorder, onAddUrl, onUpload,
+  onLabel, onAutoLabel, labeling, preview, onPreview, previewing,
 }: {
   product: ShopifyProduct;
   refs: PinnedRef[];
@@ -304,12 +454,20 @@ function ReferenceSet({
   onReorder: (newOrder: PinnedRef[]) => void;
   onAddUrl: (url: string) => void;
   onUpload: (files: FileList) => void;
+  onLabel: (refId: string, patch: Record<string, unknown>) => void;
+  onAutoLabel: (force: boolean) => void;
+  labeling: boolean;
+  preview: SelectionPreview | null;
+  onPreview: () => void;
+  previewing: boolean;
 }) {
   const [urlInput, setUrlInput] = useState("");
   const [urlError, setUrlError] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const count = refs.length;
+  const usableCount = refs.filter(r => r.usable_for_identity && r.label_source !== "unlabeled").length;
+  const unlabeledCount = refs.filter(r => r.label_source === "unlabeled" || !r.view).length;
   const pct = Math.round((count / MAX_REFS) * 100);
   const barColor = count === 0 ? "#334155" : count >= MAX_REFS ? "#10b981" : ACCENT;
 
@@ -348,15 +506,93 @@ function ReferenceSet({
           />
         </div>
 
-        {count >= MAX_REFS && (
-          <p style={{ fontSize: 10, color: "#10b981", fontWeight: 700, margin: 0 }}>
-            ✅ Max 14 refs set — ready for Kie.ai
-          </p>
-        )}
-        {count === 0 && (
+        {count === 0 ? (
           <p style={{ fontSize: 10, color: "#475569", margin: 0 }}>
             Pin images from Shopify or paste a URL below
           </p>
+        ) : (
+          <>
+            {/*
+              The count is no longer the headline. Fourteen unlabelled references
+              spanning five colours generated worse images than four labelled ones
+              of a single colour, so what matters is how many are labelled and how
+              many can actually stand in for the product.
+            */}
+            <p style={{ fontSize: 10, color: "#64748b", margin: "0 0 0.5rem" }}>
+              <span style={{ color: usableCount > 0 ? "#10b981" : "#ef4444", fontWeight: 700 }}>{usableCount}</span>
+              {" of "}{count}{" usable as identity references"}
+              {unlabeledCount > 0 && <span style={{ color: ACCENT }}>{" · "}{unlabeledCount} unlabeled</span>}
+            </p>
+            <div style={{ display: "flex", gap: "0.4rem" }}>
+              <button
+                onClick={() => onAutoLabel(false)}
+                disabled={labeling}
+                title="Label the unlabeled references with a vision pass"
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                  background: unlabeledCount > 0 ? `${ACCENT}18` : "rgba(255,255,255,0.04)",
+                  border: `1px solid ${unlabeledCount > 0 ? `${ACCENT}35` : "rgba(255,255,255,0.08)"}`,
+                  borderRadius: 8, padding: "0.35rem", cursor: labeling ? "default" : "pointer",
+                  color: unlabeledCount > 0 ? ACCENT : "#94a3b8", fontSize: 10, fontWeight: 700,
+                }}
+              >
+                {labeling
+                  ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
+                  : <Wand2 size={11} />}
+                {labeling ? "Labeling…" : unlabeledCount > 0 ? `Auto-label ${unlabeledCount}` : "Re-label all"}
+              </button>
+              <button
+                onClick={onPreview}
+                disabled={previewing}
+                title="Show which references a generation would actually use"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                  background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 8, padding: "0.35rem 0.6rem", cursor: previewing ? "default" : "pointer",
+                  color: "#94a3b8", fontSize: 10, fontWeight: 700,
+                }}
+              >
+                {previewing
+                  ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
+                  : <Eye size={11} />}
+                Preview
+              </button>
+            </div>
+          </>
+        )}
+
+        {/*
+          What the generator would actually do with this set. The selector dropping
+          most of a pinned set is correct and looks like a bug, so it is shown with
+          its reasoning rather than left to be discovered in a log.
+        */}
+        {preview && (
+          <div style={{
+            marginTop: "0.6rem", padding: "0.5rem",
+            background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.18)", borderRadius: 9,
+          }}>
+            <p style={{ fontSize: 10, color: "#38bdf8", fontWeight: 700, margin: "0 0 0.35rem" }}>
+              Would send {preview.selected.length} reference{preview.selected.length === 1 ? "" : "s"}
+            </p>
+            <p style={{ fontSize: 9, color: "#94a3b8", margin: "0 0 0.4rem", lineHeight: 1.45 }}>{preview.reason}</p>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              {preview.selected.map((sel, i) => (
+                <img
+                  key={sel.image_url + i}
+                  src={sel.image_url}
+                  alt={viewLabel(sel.view)}
+                  title={`${i + 1}. ${viewLabel(sel.view)}${sel.color ? ` · ${sel.color}` : ""}`}
+                  style={{
+                    width: 34, height: 34, borderRadius: 6, objectFit: "cover",
+                    border: sel.is_primary ? "2px solid #10b981" : "1px solid rgba(255,255,255,0.1)",
+                  }}
+                />
+              ))}
+            </div>
+            {preview.warnings.map((w, i) => (
+              <p key={i} style={{ fontSize: 9, color: "#f59e0b", margin: "0.35rem 0 0" }}>⚠️ {w}</p>
+            ))}
+          </div>
         )}
       </div>
 
@@ -398,14 +634,7 @@ function ReferenceSet({
                     style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover", flexShrink: 0 }}
                     onError={(e) => { (e.target as HTMLImageElement).src = ref.image_url; }}
                   />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{
-                      fontSize: 10, color: "#94a3b8", margin: 0,
-                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                    }}>
-                      {ref.image_source === "url" ? "🔗 Custom URL" : "📦 Shopify"}
-                    </p>
-                  </div>
+                  <LabelRow item={ref} onLabel={onLabel} />
                   <button
                     onClick={() => onRemove(ref.id)}
                     style={{
@@ -520,6 +749,9 @@ export default function ProductRefsPage() {
   const [refs, setRefs] = useState<PinnedRef[]>([]);
   const [loadingRefs, setLoadingRefs] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [labeling, setLabeling] = useState(false);
+  const [preview, setPreview] = useState<SelectionPreview | null>(null);
+  const [previewing, setPreviewing] = useState(false);
 
   const reorderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -563,8 +795,73 @@ export default function ProductRefsPage() {
   const handleSelectProduct = useCallback((product: ShopifyProduct) => {
     setSelected(product);
     setRefs([]);
+    setPreview(null);   // a preview belongs to one product; carrying it over would lie
     loadRefs(product.id);
   }, [loadRefs]);
+
+  // ── Labels ─────────────────────────────────────────────────────────────────
+
+  const handleLabel = useCallback(async (refId: string, patch: Record<string, unknown>) => {
+    if (!selected) return;
+    // Optimistic: a label edit is a correction of something already on screen, and
+    // a select box that snaps back while a request is in flight reads as a bug.
+    setRefs(prev => prev.map(r => r.id === refId ? { ...r, ...patch, label_source: "human" } as PinnedRef : r));
+    setPreview(null);   // the selection this described is no longer the current one
+    try {
+      const r = await fetch(`${BOT_URL}/admin/products/refs/${selected.id}/${refId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      // A primary election on the server can change rows other than this one.
+      loadRefs(selected.id);
+    } catch (e: any) {
+      showToast(`Label update failed: ${e.message}`, "error");
+      loadRefs(selected.id);
+    }
+  }, [selected, loadRefs]);
+
+  const handleAutoLabel = useCallback(async (force: boolean) => {
+    if (!selected) return;
+    setLabeling(true);
+    setPreview(null);
+    try {
+      const r = await fetch(`${BOT_URL}/admin/products/refs/${selected.id}/label`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const out = await r.json();
+      showToast(
+        out.labeled > 0
+          ? `Labeled ${out.labeled} image${out.labeled === 1 ? "" : "s"}${out.failed ? `, ${out.failed} failed` : ""}`
+          : "Nothing to label",
+        out.labeled > 0 ? "success" : "error",
+      );
+      loadRefs(selected.id);
+      loadProducts();
+    } catch (e: any) {
+      showToast(`Auto-label failed: ${e.message}`, "error");
+    } finally {
+      setLabeling(false);
+    }
+  }, [selected, loadRefs, loadProducts]);
+
+  const handlePreview = useCallback(async () => {
+    if (!selected) return;
+    setPreviewing(true);
+    try {
+      const r = await fetch(`${BOT_URL}/admin/products/refs/${selected.id}/preview`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setPreview(await r.json());
+    } catch (e: any) {
+      showToast(`Preview failed: ${e.message}`, "error");
+    } finally {
+      setPreviewing(false);
+    }
+  }, [selected]);
 
   // ── Add image from Shopify picker ───────────────────────────────────────────
   const handleAddImage = useCallback(async (url: string, source: "shopify" | "url") => {
@@ -579,6 +876,17 @@ export default function ProductRefsPage() {
       image_url: url,
       image_source: source,
       display_order: refs.length,
+      // The server labels newly pinned refs in the background, so the optimistic
+      // row starts unlabelled and the reload a moment later fills it in.
+      view: null,
+      color: null,
+      product_line: null,
+      size_label: null,
+      is_primary: false,
+      usable_for_identity: true,
+      label_source: "unlabeled",
+      label_confidence: null,
+      label_notes: null,
     };
     setRefs(prev => [...prev, tempRef]);
 
@@ -762,6 +1070,12 @@ export default function ProductRefsPage() {
               refs={refs}
               onRemove={handleRemove}
               onReorder={handleReorder}
+              onLabel={handleLabel}
+              onAutoLabel={handleAutoLabel}
+              labeling={labeling}
+              preview={preview}
+              onPreview={handlePreview}
+              previewing={previewing}
               onAddUrl={(url) => handleAddImage(url, "url")}
               onUpload={handleUpload}
             />

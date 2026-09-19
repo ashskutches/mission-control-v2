@@ -15,7 +15,8 @@
  * The fix was a venue rather than a better guess. A message posted against an
  * insight is about that insight by construction — no rolling window, no
  * most-recent-unanswered heuristic that can staple one person's answer onto
- * another agent's question.
+ * another agent's question. As of 2026-09-08 that construction is the ONLY one:
+ * the DM reply path is removed, not merely deprecated.
  *
  * ## Two rows, one story
  *
@@ -25,6 +26,21 @@
  * weights: speech is the content, events are the spine it hangs on. Read top to
  * bottom it says "agent ran → asked Ryan what a mat costs → Ryan said $14 landed
  * → recalculated → completed", which is the thing nobody could see before.
+ *
+ * ## The answer has to be written HERE
+ *
+ * The first version of this treated the DM as a second, equally good entrance:
+ * "a DM is a transport, not a venue — people answer DMs and do not visit
+ * dashboards." Measured across the whole ledger on 2026-09-08: 84 DMs sent, 11
+ * replies ever captured, 10 of those never delivered, and ONE answer that
+ * actually reached an agent. Over the same period 18 human messages were posted
+ * through this page.
+ *
+ * So the DM is a notification with a link, and this composer is the only way an
+ * answer arrives. Ash's call — the DM round trip does not work and is not worth
+ * trying to fix. Every line of copy that implied otherwise is gone, because a
+ * promise the system cannot keep is worse than no promise: it is how somebody
+ * writes a careful answer into a void and assumes it landed.
  *
  * ## The composer does not guess what you meant
  *
@@ -158,10 +174,12 @@ function MessageRow({ m, answered }: { m: Message; answered: boolean }) {
           }}>
             <Icon size={9} /> {style.label}
           </span>
+          {/* Marks that the person was NOTIFIED by DM. It never means the message
+              arrived that way — answers only arrive here. */}
           {m.delivered_via === "discord_dm" && (
-            <span title="Sent or answered over Discord DM"
+            <span title="They were notified by Discord DM. Answers still have to be written here."
               style={{ fontSize: "9px", color: "#64748b", background: "rgba(255,255,255,0.04)", padding: "1px 6px", borderRadius: 4 }}>
-              discord
+              DM sent
             </span>
           )}
           <span style={{ fontSize: "10px", color: "#475569", marginLeft: "auto" }}>{when(m.created_at)}</span>
@@ -184,9 +202,14 @@ function MessageRow({ m, answered }: { m: Message; answered: boolean }) {
           </div>
         )}
 
+        {/*
+          This used to read "reply below, or in the Discord DM. Either lands
+          here." Only one of those was ever true — see the docblock. Saying the
+          DM works is how somebody answers carefully into a void.
+        */}
         {pending && (
           <p style={{ fontSize: "10.5px", color: ACCENT, margin: "7px 0 0", fontWeight: 600 }}>
-            Waiting on an answer — reply below, or in the Discord DM. Either lands here.
+            Waiting on an answer — write it below. Replying to the Discord DM does not reach the agent.
           </p>
         )}
       </div>
@@ -194,15 +217,45 @@ function MessageRow({ m, answered }: { m: Message; answered: boolean }) {
   );
 }
 
+/**
+ * Events that are a PERSON'S DECISION, not machine noise, and therefore render
+ * whether or not "Show activity" is on.
+ *
+ * The events toggle exists to keep a run log from burying the two sentences
+ * that matter. That reasoning does not cover "Ryan reassigned this to Sarah":
+ * hiding it makes the thread read as though the work changed hands by itself,
+ * which is exactly the gap that made an assigned insight impossible to follow.
+ * These four are the whole set of human acts that produce an event rather than a
+ * message — assigning, unassigning, and the two ways of closing.
+ *
+ * A `human_message` is deliberately NOT here: the message itself is already
+ * rendered, so its paired event is a genuine duplicate.
+ */
+const DECISION_EVENTS = new Set([
+  "insight_assigned",
+  "insight_unassigned",
+  "insight_dismissed",
+  "insight_rejected",
+]);
+
 // ── One machine event ─────────────────────────────────────────────────────────
 // Drawn deliberately quiet. These are the spine; the speech is the content, and
 // a run log rendered at the same weight buries the two sentences that matter.
 function EventRow({ e }: { e: Event }) {
   const isBad = e.event_type === "work_blocked" || e.event_type.includes("error") || e.event_type.includes("reject");
+  /**
+   * A decision is drawn a step louder than a run-log line — brighter text, a
+   * filled marker — but still quieter than speech. It is a fact about the
+   * insight, not something anybody said, and rendering it as a message would
+   * put words in a person's mouth.
+   */
+  const isDecision = DECISION_EVENTS.has(e.event_type);
+  const color = isBad ? "#fb7185" : isDecision ? "#94a3b8" : "#475569";
+  const dot = isBad ? "#f43f5e" : isDecision ? ACCENT : "#334155";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0.2rem 0.9rem 0.2rem 0.5rem" }}>
-      <div style={{ width: 5, height: 5, borderRadius: "50%", background: isBad ? "#f43f5e" : "#334155", flexShrink: 0, marginLeft: 12 }} />
-      <span style={{ fontSize: "10.5px", color: isBad ? "#fb7185" : "#475569", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <div style={{ width: 5, height: 5, borderRadius: "50%", background: dot, flexShrink: 0, marginLeft: 12 }} />
+      <span style={{ fontSize: "10.5px", color, fontWeight: isDecision ? 600 : 400, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {e.title ?? e.event_type}
         {e.tool_name && <span style={{ color: "#334155" }}> · {e.tool_name}</span>}
         {e.run_number != null && <span style={{ color: "#334155" }}> · run {e.run_number}</span>}
@@ -213,7 +266,20 @@ function EventRow({ e }: { e: Event }) {
 }
 
 // ── The thread ────────────────────────────────────────────────────────────────
-export default function InsightThread({ insightId }: { insightId: string }) {
+/** The composer's anchor. The "needs you" banner at the top of the page scrolls
+ *  here rather than duplicating a reply box — one composer, one `kind` picker,
+ *  one place an answer is written. */
+export const COMPOSER_ID = "insight-composer";
+
+export default function InsightThread({ insightId, reloadToken = 0 }: {
+  insightId: string;
+  /**
+   * Bumped by the page when an action posted something — closing an insight with
+   * a note writes a message, and a 20s poll would leave the person who just typed
+   * it looking at a thread that does not contain it.
+   */
+  reloadToken?: number;
+}) {
   const [data, setData] = useState<Timeline | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -239,6 +305,9 @@ export default function InsightThread({ insightId }: { insightId: string }) {
   }, [insightId]);
 
   useEffect(() => { load(); }, [load]);
+  // Re-read on demand, quietly — the rows are already on screen and a spinner
+  // over them reads as a page reload rather than an arriving message.
+  useEffect(() => { if (reloadToken) load(true); }, [reloadToken, load]);
 
   // Poll quietly. A teammate answering in Discord expects to see it appear here.
   useEffect(() => {
@@ -297,7 +366,15 @@ export default function InsightThread({ insightId }: { insightId: string }) {
     }
   }
 
-  const rows = (data?.timeline ?? []).filter(r => showEvents || r._row === "message");
+  // Messages always; decisions always; the rest only behind the toggle.
+  const rows = (data?.timeline ?? []).filter(r =>
+    showEvents || r._row === "message" || DECISION_EVENTS.has(r.event_type),
+  );
+  /** How many events the toggle would actually add. Decisions already show. */
+  const hiddenEventCount = (data?.timeline ?? []).filter(
+    r => r._row === "event" && !DECISION_EVENTS.has(r.event_type),
+  ).length;
+
   const activeKind = HUMAN_KINDS.find(k => k.id === kind) ?? HUMAN_KINDS[1]!;
 
   return (
@@ -318,7 +395,7 @@ export default function InsightThread({ insightId }: { insightId: string }) {
             border: "1px solid rgba(255,255,255,0.08)", borderRadius: 7, padding: "3px 9px",
             fontSize: "10px", color: showEvents ? "#94a3b8" : "#475569", cursor: "pointer",
           }}>
-          {showEvents ? "Hide" : "Show"} activity ({data?.event_count ?? 0})
+          {showEvents ? "Hide" : "Show"} activity ({hiddenEventCount})
         </button>
         <button onClick={() => load()} title="Refresh"
           style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569", display: "flex" }}>
@@ -384,6 +461,7 @@ export default function InsightThread({ insightId }: { insightId: string }) {
 
         <div style={{ display: "flex", gap: 7, alignItems: "flex-end" }}>
           <textarea
+            id={COMPOSER_ID}
             value={body}
             onChange={e => setBody(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send(); }}

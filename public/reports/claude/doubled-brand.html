@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  Not for search engines. This page is reachable by anyone holding the link and
+  carries internal business analysis; robots.txt disallows /reports/ as well, but
+  a meta directive is the one that stops indexing of a page that IS fetched.
+-->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>The Doubled Brand</title>
+<style>:root{color-scheme:light dark}body{margin:0;padding:0}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style>
+</head>
+<body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap">
+
+<style>
+  :root {
+    --bg:#fcfcfa; --surface:#ffffff; --sunk:#f2f2ee;
+    --ink:#16181a; --ink-2:#4a4f54; --ink-3:#818890;
+    --rule:#e2e2dc; --rule-2:#cfcfc7;
+    --accent:#0d5c63; --accent-2:#0a4a50;
+    --defect:#a52218; --defect-bg:#fbeeec;
+    --ok:#1c6b41; --ok-bg:#edf5ef;
+    --warn:#8a5a00; --warn-bg:#fbf3e2;
+    --brandish:#c06a10;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#101314; --surface:#161a1b; --sunk:#1d2223;
+      --ink:#e9ebea; --ink-2:#b0b7b8; --ink-3:#7f8788;
+      --rule:#2a3031; --rule-2:#3a4142;
+      --accent:#5fc4c9; --accent-2:#7fd6da;
+      --defect:#f08b80; --defect-bg:#2c1a18;
+      --ok:#79c99a; --ok-bg:#16241c;
+      --warn:#e0b256; --warn-bg:#282017;
+      --brandish:#e8a15c;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#101314; --surface:#161a1b; --sunk:#1d2223;
+    --ink:#e9ebea; --ink-2:#b0b7b8; --ink-3:#7f8788;
+    --rule:#2a3031; --rule-2:#3a4142;
+    --accent:#5fc4c9; --accent-2:#7fd6da;
+    --defect:#f08b80; --defect-bg:#2c1a18;
+    --ok:#79c99a; --ok-bg:#16241c;
+    --warn:#e0b256; --warn-bg:#282017;
+    --brandish:#e8a15c;
+  }
+
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Source Sans 3", system-ui, sans-serif;
+    font-size:16.5px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .page { max-width:920px; margin:0 auto; padding:clamp(26px,4.5vw,60px) clamp(16px,4vw,40px) 90px; }
+  .prose { max-width:74ch; }
+
+  h1,h2,h3,h4 { font-family:Archivo, system-ui, sans-serif; margin:0; text-wrap:balance; }
+  h1 { font-size:clamp(1.9rem,4.6vw,2.85rem); font-weight:700; line-height:1.06; letter-spacing:-.021em; }
+  h2 { font-size:clamp(1.28rem,2.5vw,1.65rem); font-weight:700; line-height:1.18; letter-spacing:-.012em; }
+  h3 { font-size:1.03rem; font-weight:600; line-height:1.3; }
+  h4 { font-size:.83rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3); }
+  p { margin:0 0 .95em; }
+  a { color:var(--accent); text-underline-offset:2px; }
+  strong { font-weight:600; color:var(--ink); }
+  code, pre, .m { font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
+  code { font-size:.855em; background:var(--sunk); padding:.1em .36em; border-radius:3px; }
+  pre {
+    margin:14px 0; padding:15px 17px; background:var(--sunk); border:1px solid var(--rule);
+    border-radius:8px; overflow-x:auto; font-size:12.8px; line-height:1.62;
+  }
+  pre .del { color:var(--defect); }
+  pre .ins { color:var(--ok); }
+  pre .cmt { color:var(--ink-3); }
+
+  .doc-head { border-bottom:2px solid var(--ink); padding-bottom:20px; }
+  .kicker { font-family:Archivo; font-size:11.5px; font-weight:700; letter-spacing:.15em; text-transform:uppercase; color:var(--accent); margin:0 0 12px; }
+  .sub { font-size:clamp(1rem,1.6vw,1.14rem); color:var(--ink-2); max-width:62ch; margin-top:12px; }
+  dl.facts { display:grid; grid-template-columns:auto 1fr; gap:5px 16px; margin:22px 0 0; font-size:13.5px; }
+  dl.facts dt { color:var(--ink-3); font-weight:600; }
+  dl.facts dd { margin:0; color:var(--ink-2); }
+
+  section { margin-top:clamp(38px,5.5vw,62px); }
+
+  .tldr { background:var(--surface); border:1px solid var(--rule); border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:20px 22px; }
+  .tldr h2 { font-size:1.16rem; margin-bottom:10px; }
+  .tldr ul { margin:0; padding-left:1.1em; }
+  .tldr li { margin-bottom:.5em; color:var(--ink-2); }
+  .tldr li:last-child { margin-bottom:0; }
+
+  .finding { border:1px solid var(--rule); border-radius:10px; overflow:hidden; margin-top:22px; background:var(--surface); }
+  .finding > .bar {
+    display:flex; flex-wrap:wrap; gap:8px 20px; align-items:center;
+    padding:11px 18px; background:var(--sunk); border-bottom:1px solid var(--rule);
+    font-size:11.5px; font-family:Archivo; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+  }
+  .finding > .bar .id { color:var(--accent); }
+  .finding > .bar .sp { color:var(--ink-3); font-weight:600; letter-spacing:.04em; }
+  .finding > .body { padding:20px 22px; }
+  .finding > .body > :last-child { margin-bottom:0; }
+
+  .tag { display:inline-block; font-size:10.5px; font-family:Archivo; font-weight:700; letter-spacing:.07em; text-transform:uppercase; padding:2.5px 8px; border-radius:3px; white-space:nowrap; }
+  .tag.d { background:var(--defect-bg); color:var(--defect); }
+  .tag.o { background:var(--ok-bg); color:var(--ok); }
+  .tag.w { background:var(--warn-bg); color:var(--warn); }
+
+  .tw { overflow-x:auto; border:1px solid var(--rule); border-radius:9px; margin:20px 0; background:var(--surface); }
+  table { border-collapse:collapse; width:100%; font-size:13.2px; min-width:600px; }
+  caption { caption-side:top; text-align:left; padding:12px 15px 11px; font-family:Archivo; font-size:11px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3); border-bottom:1px solid var(--rule); }
+  th,td { padding:8px 14px; text-align:left; border-bottom:1px solid var(--rule); vertical-align:top; }
+  th { font-family:Archivo; font-size:10.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-3); white-space:nowrap; }
+  td.n, th.n { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  tbody tr:last-child td { border-bottom:0; }
+  .u { font-family:"IBM Plex Mono", monospace; font-size:11.8px; color:var(--ink-2); word-break:break-all; }
+  .over { color:var(--defect); font-weight:600; }
+  .under { color:var(--ok); font-weight:600; }
+
+  .titledemo { font-size:13.4px; line-height:1.55; font-family:"IBM Plex Mono", monospace; }
+  .titledemo .keep { color:var(--ink); }
+  .titledemo .dupe { background:var(--defect-bg); color:var(--defect); border-radius:2px; padding:0 2px; font-weight:600; }
+  .titledemo .strip { color:var(--ink-3); text-decoration:line-through; }
+  .cutmark { display:inline-block; border-left:2px dashed var(--defect); margin:0 0 0 1px; padding-left:5px; color:var(--ink-3); }
+
+  ol.plan { list-style:none; counter-reset:p; padding:0; margin:22px 0 0; }
+  ol.plan > li { counter-increment:p; position:relative; padding-left:44px; margin-bottom:22px; }
+  ol.plan > li::before {
+    content:counter(p); position:absolute; left:0; top:1px; width:28px; height:28px;
+    border-radius:6px; background:var(--accent); color:#fff;
+    font-family:Archivo; font-weight:700; font-size:14px; display:grid; place-items:center;
+  }
+  ol.plan h3 { margin-bottom:4px; }
+  ol.plan p { color:var(--ink-2); margin-bottom:.45em; font-size:15px; }
+  ol.plan > li:last-child { margin-bottom:0; }
+
+  ul.tick { list-style:none; padding:0; margin:0 0 1em; }
+  ul.tick li { position:relative; padding-left:22px; margin-bottom:.5em; color:var(--ink-2); }
+  ul.tick li::before { content:""; position:absolute; left:4px; top:.62em; width:6px; height:6px; border-radius:50%; background:var(--rule-2); }
+
+  .cols { display:grid; gap:18px; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); }
+  .box { border:1px solid var(--rule); border-radius:9px; padding:17px 18px; background:var(--surface); }
+  .box h3 { margin-bottom:6px; }
+  .box p { font-size:14.2px; color:var(--ink-2); margin-bottom:.5em; }
+  .box p:last-child { margin-bottom:0; }
+
+  .note { background:var(--warn-bg); border:1px solid color-mix(in srgb, var(--warn) 28%, transparent); border-radius:9px; padding:16px 18px; margin:20px 0; }
+  .note h4 { color:var(--warn); margin-bottom:6px; }
+  .note p { font-size:14.5px; color:var(--ink-2); }
+  .note p:last-child { margin-bottom:0; }
+
+  footer.f { margin-top:64px; padding-top:18px; border-top:1px solid var(--rule); font-size:12.6px; color:var(--ink-3); }
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+</style>
+
+<div class="page">
+
+  <header class="doc-head">
+    <p class="kicker">leapsandrebounds.com · technical SEO brief</p>
+    <h1>The doubled brand</h1>
+    <p class="sub">
+      Five of the ten highest-traffic pages render a <code>&lt;title&gt;</code> containing the brand
+      name twice, pushing every one of them past Google's truncation point. The cause is a single
+      line of Liquid. <strong>Nothing has been changed — this is for your review.</strong>
+    </p>
+    <dl class="facts">
+      <dt>Prepared</dt><dd>9 September 2026</dd>
+      <dt>Data</dt><dd>Search Console, 28 days, paged to exhaustion; live HTML fetched same day</dd>
+      <dt>Live theme</dt><dd>8.2.0 New Warranty System · id <span class="m">163472212184</span></dd>
+      <dt>File at fault</dt><dd><span class="m">snippets/meta-tags.liquid</span></dd>
+      <dt>Changes made</dt><dd><strong>None.</strong> No titles, descriptions or theme files were edited</dd>
+    </dl>
+  </header>
+
+  <section>
+    <div class="tldr">
+      <h2>Summary</h2>
+      <ul>
+        <li>
+          <strong>One theme bug.</strong> A brand-suffix guard uses a literal substring match against
+          <code>shop.name</code> (“Leaps and Rebounds”). Titles written with an ampersand —
+          “Leaps <strong>&amp;</strong> Rebounds” — fail the match, so the suffix is appended anyway
+          and the brand appears twice.
+        </li>
+        <li>
+          <strong>Affected: 5 of the 10 top pages</strong>, including the main product page
+          (13,616 impressions/28d) and <code>/collections/sale</code>. All five land at 84–88
+          characters against a ~60-character display limit.
+        </li>
+        <li>
+          <strong>The fix is one line and needs no copy changes.</strong> Correcting the guard takes
+          all five titles from 84–88 down to 63–67 characters with the keywords intact.
+        </li>
+        <li>
+          <strong>Separately: 8 of 10 meta descriptions exceed ~160 characters</strong> and are being
+          truncated. That one is per-page copy work, and it is your call, not a bug.
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="finding">
+      <div class="bar">
+        <span class="id">Finding 01</span>
+        <span class="tag d">Defect</span>
+        <span class="sp">Scope: theme-wide</span>
+        <span class="sp">Effort: one line</span>
+        <span class="sp">Risk: low, reversible</span>
+      </div>
+      <div class="body">
+        <h2 style="margin-bottom:10px">Brand name emitted twice in <code>&lt;title&gt;</code></h2>
+
+        <p class="prose">
+          <code>snippets/meta-tags.liquid</code> builds the title and appends the shop name only when
+          it isn't already present. The guard is the right idea; the comparison is too literal:
+        </p>
+
+<pre><span class="cmt">&lt;!-- snippets/meta-tags.liquid — as it currently stands --&gt;</span>
+&lt;title&gt;
+  {{ page_title }}
+  {%- if current_tags %} &amp;ndash; tagged "{{ current_tags | join: ', ' }}"{% endif -%}
+  {%- if current_page != 1 %} &amp;ndash; Page {{ current_page }}{% endif -%}
+  <span class="del">{%- unless page_title contains shop.name %} &amp;ndash; {{ shop.name }}{% endunless -%}</span>
+&lt;/title&gt;</pre>
+
+        <p class="prose">
+          <code>shop.name</code> is <strong>“Leaps and Rebounds”</strong>, spelled out. So a hand-written
+          SEO title ending in “Leaps&nbsp;<strong>&amp;</strong>&nbsp;Rebounds” does not contain
+          <code>shop.name</code>, the <code>unless</code> passes, and the suffix is added on top of a
+          brand name that was already there. Titles that spell out “and” match, and are correctly left alone.
+        </p>
+
+        <h4 style="margin-top:22px">What Google receives</h4>
+        <p class="titledemo" style="margin-top:8px">
+          <span class="keep">Bungee Rebounder | Low-Impact Fitness Trampoline | </span><span class="dupe">Leaps &amp; Rebounds</span><span class="strip"> – </span><span class="dupe">Leaps and Rebounds</span>
+        </p>
+        <p style="font-size:13px;color:var(--ink-3);margin-top:6px">
+          88 characters. Google displays roughly the first 60, so the second brand — and part of the
+          first — is cut. <code>og:title</code> on the same page is clean, which confirms the SEO
+          title field itself is fine and the duplication is added at render time.
+        </p>
+
+        <div class="tw">
+          <table>
+            <caption>Affected pages · Search Console, 28 days</caption>
+            <thead>
+              <tr><th>URL</th><th class="n">Impr</th><th class="n">Clicks</th><th class="n">CTR</th><th class="n">Pos</th><th class="n">Title len</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><span class="u">/products/bungee-rebounders-mini-trampoline</span></td><td class="n">13,616</td><td class="n">74</td><td class="n">0.54%</td><td class="n">11.4</td><td class="n over">88</td></tr>
+              <tr><td><span class="u">/collections/sale</span></td><td class="n">3,110</td><td class="n">26</td><td class="n">0.84%</td><td class="n">5.6</td><td class="n over">88</td></tr>
+              <tr><td><span class="u">/pages/about-our-trampolines</span></td><td class="n">1,774</td><td class="n">6</td><td class="n">0.34%</td><td class="n">6.6</td><td class="n over">84</td></tr>
+              <tr><td><span class="u">/products/stability-bar</span></td><td class="n">1,334</td><td class="n">12</td><td class="n">0.90%</td><td class="n">8.4</td><td class="n over">84</td></tr>
+              <tr><td><span class="u">/products/leaps-rebounds-socks</span></td><td class="n">1,192</td><td class="n">7</td><td class="n">0.59%</td><td class="n">29.6</td><td class="n over">87</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="prose">
+          <strong>21,026 impressions a month</strong> sit on these five URLs. The other five of the top
+          ten spell the brand out and are unaffected — the homepage (65 characters), both stability-bar
+          bundles, <code>/collections/accessories</code> and <code>/collections/rebounders</code>.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Is the CTR evidence real?</h2>
+    <p class="prose">
+      Partly, and I want to be careful about it. Sorted by average position, every clean-title page
+      out-performs every doubled one — but the titles differ in more than the branding, and five
+      pages is a small sample.
+    </p>
+
+    <div class="tw">
+      <table>
+        <caption>Top-ten pages by position, 4.1 – 11.4</caption>
+        <thead><tr><th>Pos</th><th>URL</th><th>Title</th><th class="n">CTR</th></tr></thead>
+        <tbody>
+          <tr><td class="n">4.1</td><td><span class="u">/products/40-fitness-trampoline-stability-bar</span></td><td><span class="tag o">clean 66</span></td><td class="n under">1.33%</td></tr>
+          <tr><td class="n">5.6</td><td><span class="u">/collections/sale</span></td><td><span class="tag d">doubled 88</span></td><td class="n over">0.84%</td></tr>
+          <tr><td class="n">6.0</td><td><span class="u">/products/48-fitness-trampoline-stabilizer-bar</span></td><td><span class="tag o">clean 65</span></td><td class="n under">1.20%</td></tr>
+          <tr><td class="n">6.6</td><td><span class="u">/pages/about-our-trampolines</span></td><td><span class="tag d">doubled 84</span></td><td class="n over">0.34%</td></tr>
+          <tr><td class="n">7.8</td><td><span class="u">/</span></td><td><span class="tag o">clean 65</span></td><td class="n under">6.59%</td></tr>
+          <tr><td class="n">8.4</td><td><span class="u">/products/stability-bar</span></td><td><span class="tag d">doubled 84</span></td><td class="n over">0.90%</td></tr>
+          <tr><td class="n">11.4</td><td><span class="u">/products/bungee-rebounders-mini-trampoline</span></td><td><span class="tag d">doubled 88</span></td><td class="n over">0.54%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="prose">
+      Clean titles average <strong>1.06%</strong> excluding the homepage, <strong>2.45%</strong>
+      including it. Doubled titles average <strong>0.64%</strong>. Suggestive, not conclusive.
+    </p>
+
+    <div class="note">
+      <h4>The argument does not depend on the CTR data</h4>
+      <p>
+        Even if the correlation is entirely coincidental, emitting the brand name twice in an
+        84–88 character title is a defect on its own terms: it wastes the visible portion of the
+        title on repetition, and it is not what the SEO titles were written to say. Fix it because
+        it is wrong, and treat any CTR improvement as a bonus rather than the justification.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recommended change</h2>
+    <p class="prose">
+      Normalise the ampersand before the comparison. Two lines, no change to any page's copy, and it
+      also protects any page not in this audit that uses the same shorthand.
+    </p>
+
+<pre><span class="cmt">&lt;!-- snippets/meta-tags.liquid --&gt;</span>
+<span class="ins">{%- assign title_norm = page_title | replace: '&amp;', 'and' -%}</span>
+&lt;title&gt;
+  {{ page_title }}
+  {%- if current_tags %} &amp;ndash; tagged "{{ current_tags | join: ', ' }}"{% endif -%}
+  {%- if current_page != 1 %} &amp;ndash; Page {{ current_page }}{% endif -%}
+  <span class="del">- {%- unless page_title contains shop.name %} &amp;ndash; {{ shop.name }}{% endunless -%}</span>
+  <span class="ins">+ {%- unless title_norm contains shop.name %} &amp;ndash; {{ shop.name }}{% endunless -%}</span>
+&lt;/title&gt;</pre>
+
+    <p class="prose" style="margin-top:16px">
+      <code>"Leaps &amp; Rebounds"</code> normalises to <code>"Leaps and Rebounds"</code>, matches
+      <code>shop.name</code>, and the suffix is correctly suppressed. Only the comparison is
+      normalised — the title still renders exactly as written, ampersand and all.
+    </p>
+
+    <div class="tw">
+      <table>
+        <caption>Result — no copy changes, brand appears once</caption>
+        <thead><tr><th>URL</th><th class="n">Before</th><th class="n">After</th><th>Rendered title after the fix</th></tr></thead>
+        <tbody>
+          <tr><td><span class="u">/products/bungee-rebounders-mini-trampoline</span></td><td class="n over">88</td><td class="n under">67</td><td>Bungee Rebounder | Low-Impact Fitness Trampoline | Leaps &amp; Rebounds</td></tr>
+          <tr><td><span class="u">/collections/sale</span></td><td class="n over">88</td><td class="n under">67</td><td>Leaps &amp; Rebounds: Sales, Bundles &amp; Discounts on Fitness Trampolines</td></tr>
+          <tr><td><span class="u">/products/leaps-rebounds-socks</span></td><td class="n over">87</td><td class="n under">66</td><td>No-Slip Grip Socks for Rebounders &amp; Trampolines | Leaps &amp; Rebounds</td></tr>
+          <tr><td><span class="u">/pages/about-our-trampolines</span></td><td class="n over">84</td><td class="n under">63</td><td>About Leaps &amp; Rebounds: The Best Bungee Trampolines for Fitness</td></tr>
+          <tr><td><span class="u">/products/stability-bar</span></td><td class="n over">84</td><td class="n under">63</td><td>Adjustable Stability Bar for Mini Trampoline | Leaps &amp; Rebounds</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="prose">
+      63–67 characters is still marginally above the ~60 Google tends to show, so a second pass could
+      trim further. <strong>That is a copywriting judgement and I would leave it to you</strong> — the
+      keyword ordering on these pages looks deliberate, and the bug fix alone captures most of the
+      benefit without touching a word of it.
+    </p>
+  </section>
+
+  <section>
+    <div class="finding">
+      <div class="bar">
+        <span class="id">Finding 02</span>
+        <span class="tag w">Content</span>
+        <span class="sp">Scope: per page</span>
+        <span class="sp">Effort: copywriting</span>
+        <span class="sp">Not a bug</span>
+      </div>
+      <div class="body">
+        <h2 style="margin-bottom:10px">Eight of ten meta descriptions are truncated</h2>
+        <p class="prose">
+          Google renders roughly 155–160 characters of a description. These are set correctly — the
+          theme outputs them faithfully — they are simply long.
+        </p>
+        <div class="tw">
+          <table>
+            <caption>Meta description length</caption>
+            <thead><tr><th>URL</th><th class="n">Chars</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td><span class="u">/products/leaps-rebounds-socks</span></td><td class="n over">215</td><td>~55 chars cut</td></tr>
+              <tr><td><span class="u">/products/stability-bar</span></td><td class="n over">197</td><td>~37 cut</td></tr>
+              <tr><td><span class="u">/collections/rebounders</span></td><td class="n over">191</td><td>~31 cut</td></tr>
+              <tr><td><span class="u">/products/48-fitness-trampoline-stabilizer-bar</span></td><td class="n over">187</td><td>~27 cut</td></tr>
+              <tr><td><span class="u">/</span></td><td class="n over">178</td><td>~18 cut — the “10% off” offer sits at the very end</td></tr>
+              <tr><td><span class="u">/collections/accessories</span></td><td class="n over">169</td><td>~9 cut</td></tr>
+              <tr><td><span class="u">/products/40-fitness-trampoline-stability-bar</span></td><td class="n over">165</td><td>~5 cut</td></tr>
+              <tr><td><span class="u">/collections/sale</span></td><td class="n over">163</td><td>~3 cut</td></tr>
+              <tr><td><span class="u">/products/bungee-rebounders-mini-trampoline</span></td><td class="n under">156</td><td>fits</td></tr>
+              <tr><td><span class="u">/pages/about-our-trampolines</span></td><td class="n under">150</td><td>fits</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="prose">
+          The one worth looking at regardless of length is the homepage, where the
+          <strong>“Free workout guide with 10% off your first order!”</strong> hook is the last thing
+          in the string and therefore the first thing cut. Moving the offer earlier costs nothing.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>How I would sequence it</h2>
+    <ol class="plan">
+      <li>
+        <h3>Apply the two-line theme fix on a duplicate of the live theme</h3>
+        <p>
+          Duplicate <span class="m">163472212184</span>, edit <code>snippets/meta-tags.liquid</code>,
+          preview. Confirm the five titles render at 63–67 characters and that the five clean pages
+          are unchanged.
+        </p>
+      </li>
+      <li>
+        <h3>Check the blast radius beyond these ten pages</h3>
+        <p>
+          The audit covered the ten highest-traffic URLs. Any page whose SEO title uses
+          “Leaps&nbsp;&amp;&nbsp;Rebounds” has the same defect — worth a crawl to count them before
+          publishing, since the fix helps all of them at once.
+        </p>
+      </li>
+      <li>
+        <h3>Publish, then leave it alone for 28 days</h3>
+        <p>
+          Titles need re-crawling before anything moves. Compare CTR at matched position, per URL,
+          against the 28 days prior. Do not read sitewide CTR — it moves for unrelated reasons.
+        </p>
+      </li>
+      <li>
+        <h3>Only then consider rewriting copy</h3>
+        <p>
+          Trimming to under 60 characters and reordering the descriptions are separate decisions. Doing
+          them at the same time as the bug fix makes the result unattributable.
+        </p>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Cautions</h2>
+    <div class="cols">
+      <div class="box">
+        <h3>Do not publish the existing dev theme</h3>
+        <p>
+          There is an unpublished theme, <span class="m">163676356824</span>, carrying an unrelated
+          conversion-funnel rebuild. Publishing it to ship a title fix would release all of that too.
+          Duplicate the <em>live</em> theme instead.
+        </p>
+      </div>
+      <div class="box">
+        <h3>Change one variable at a time</h3>
+        <p>
+          These are revenue pages. The bug fix is attributable; a simultaneous rewrite of titles and
+          descriptions is not. If CTR drops you want to know which change did it.
+        </p>
+      </div>
+      <div class="box">
+        <h3>Rollback is a one-line revert</h3>
+        <p>
+          The change is confined to <code>snippets/meta-tags.liquid</code>. Reverting restores the
+          previous behaviour exactly; no page data, redirect or SEO field is touched.
+        </p>
+      </div>
+      <div class="box">
+        <h3>Expect a lag, and possible volatility</h3>
+        <p>
+          Google re-crawls and may test titles of its own, and can override a title it judges poor.
+          Judge the change over 28 days, not days.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="f">
+    Method — Search Console figures are 28-day, read via the API and paged to exhaustion, no capped
+    top-<em>n</em> helpers. Titles, <code>og:title</code> and descriptions were fetched from the live
+    site on 9 September 2026 and character counts taken from the rendered HTML. CTR is compared only
+    against this site's own pages at comparable positions, never an industry benchmark. No revenue
+    figures appear here: purchase-level attribution was not available at the time of writing.
+    <strong>No changes were made to the store, the theme or any SEO field in producing this report.</strong>
+  </footer>
+
+</div>
+
+<footer style="text-align:center;padding:28px 16px;border-top:1px solid rgba(0,0,0,.1);color:#6b6b6b;font:14px -apple-system,BlinkMacSystemFont,sans-serif">
+  <a href="/reports/claude" style="color:#6b6b6b">&larr; All reports</a>
+</footer>
+</body>
+</html>

@@ -2,7 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Tag, Layers, Copy, Film, Pin, Wand2, Lightbulb } from "lucide-react";
+import { BarChart3, Tag, Layers, Copy, Film, Pin, Wand2, Lightbulb, Database } from "lucide-react";
 
 // Blog is not in this strip. It lives under SEO — /seo/blog — because it is judged on
 // search performance, and it was only ever a cross-link from here: the tab pointed at
@@ -15,6 +15,9 @@ const NAV = [
   { href: "/content/assets",   label: "Content",      icon: Film,      color: "#38bdf8" },
   { href: "/content/generate", label: "Image Studio", icon: Wand2,     color: "#a78bfa" },
   { href: "/content/products", label: "Products",     icon: Pin,       color: "#f59e0b" },
+  // Sits next to Products on purpose: Products curates one product's references,
+  // Training Data shows what the generator can and cannot render across all of them.
+  { href: "/content/training-data", label: "Training Data", icon: Database, color: "#f59e0b" },
   { href: "/content/tags",     label: "Tag Library",  icon: Tag,       color: "#a78bfa" },
   { href: "/content/batch",    label: "Batch Tagger", icon: Layers,    color: "#10b981" },
   { href: "/content/copy",     label: "Copy Studio",  icon: Copy,      color: "#10b981" },
