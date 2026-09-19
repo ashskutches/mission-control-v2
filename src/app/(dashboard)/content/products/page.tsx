@@ -48,6 +48,7 @@ interface PinnedRef {
   // Labels. Written by the vision pass on the bot, corrected here.
   view: string | null;
   color: string | null;
+  product_line: string | null;
   size_label: string | null;
   is_primary: boolean;
   usable_for_identity: boolean;
@@ -90,6 +91,13 @@ const COLOR_OPTIONS = [
 
 /** Views that can never act as a single-product identity reference. */
 const NON_IDENTITY = new Set(["lineup", "comparison", "packaging"]);
+
+/**
+ * Which physical product the photo shows, where a listing carries more than one.
+ * Mislabelling this is the most expensive mistake available here: a Pro photo in
+ * a standard set produces a rebounder that does not exist.
+ */
+const LINE_OPTIONS = ["", "standard", "pro"] as const;
 
 function viewLabel(v: string | null): string {
   return (v ?? "unlabeled").replace(/_/g, " ");
@@ -379,6 +387,8 @@ function LabelRow({ item: r, onLabel }: {
           ? chip("unlabeled", "#64748b", "Run Auto-label so the generator can choose this intelligently")
           : chip(viewLabel(r.view), excluded ? "#64748b" : "#38bdf8")}
         {r.color && r.color !== "unknown" && chip(r.color, r.color === "multi" ? "#f59e0b" : "#a78bfa")}
+        {r.product_line && chip(r.product_line, r.product_line === "pro" ? "#8b5cf6" : "#38bdf8",
+          "Product line — a Pro photo in a standard set produces a product that does not exist")}
         {r.is_primary && chip("★ primary", "#10b981", "The anchor reference — sent first")}
         {excluded && !unlabeled && chip("not identity", "#ef4444", "Excluded from reference sets: more than one unit, or an angle that cannot define the product")}
         {r.label_source === "human" && chip("yours", "#10b981", "Corrected by hand — the labeller will not overwrite it")}
@@ -405,6 +415,14 @@ function LabelRow({ item: r, onLabel }: {
             style={selectStyle}
           >
             {COLOR_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select
+            value={r.product_line ?? ""}
+            onChange={e => onLabel(r.id, { product_line: e.target.value || null })}
+            style={selectStyle}
+            title="Product line"
+          >
+            {LINE_OPTIONS.map(l => <option key={l || "none"} value={l}>{l || "no line"}</option>)}
           </select>
           <button
             title={r.usable_for_identity ? "Exclude from reference sets" : "Allow as an identity reference"}
@@ -862,6 +880,7 @@ export default function ProductRefsPage() {
       // row starts unlabelled and the reload a moment later fills it in.
       view: null,
       color: null,
+      product_line: null,
       size_label: null,
       is_primary: false,
       usable_for_identity: true,
