@@ -5,6 +5,7 @@ import {
   Wand2, Upload, X, ImageIcon, Sparkles, RefreshCw,
   ChevronDown, ExternalLink, Copy, Check, AlertCircle, Download,
   Loader2, BookOpen, ZoomIn, Package, Search, ChevronRight,
+  ShieldCheck, ShieldAlert, Target,
 } from "lucide-react";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
@@ -35,7 +36,39 @@ interface GeneratedImage {
   size: string;
   quality: string;
   created_at: string;
+
+  // ── Product accuracy (2026-09-18) ───────────────────────────────────────────
+  // Present only on reference-conditioned product generations. `accuracy_score`
+  // being null means NOT ASSESSED, never "fine" — the check can fail to run.
+  product_id?: string | null;
+  engine?: string | null;
+  accuracy_score?: number | null;
+  accuracy_verdict?: string | null;
+  accuracy_issues?: string[] | null;
+  reference_urls?: string[] | null;
 }
+
+/** What `/admin/generate/preview` returns — the decision, before it costs anything. */
+interface IdentityPreview {
+  matched: boolean;
+  product: string | null;
+  product_id: string | null;
+  color: string | null;
+  shot_type: string;
+  reason: string;
+  warnings: string[];
+  prompt: string;
+  references: { image_url: string; view: string | null; color: string | null; is_primary: boolean }[];
+}
+
+const COLOR_CHOICES = ["", "black", "blue", "green", "orange", "purple", "grey", "red", "pink"];
+const SHOT_CHOICES = [
+  { id: "",          label: "Auto-detect" },
+  { id: "lifestyle", label: "Lifestyle — person in a room" },
+  { id: "packshot",  label: "Packshot — clean studio" },
+  { id: "detail",    label: "Detail — close crop" },
+  { id: "banner",    label: "Banner — wide, space for text" },
+];
 
 interface ProductRef {
   id: string;
@@ -123,12 +156,12 @@ const TIPS: { title: string; body: string; starter: string }[] = [
   {
     title: "Dramatic hero shot",
     body: "Dark gradient background with hard key light — premium presentation.",
-    starter: "Dramatic studio product shot of mini trampoline rebounder. Rich dark gradient background (#0a0f1a to #1e1b4b). Primary key light at 45° front-left (hard edge, high contrast, 5600K), strong rim light behind product defining spring edges and frame silhouette (6500K). Deep shadows with visible detail — NOT pure black. Spring coils individually visible with brushed metallic reflections. Mat weave texture defined. 50mm equivalent lens, f/8. 4K resolution, ultra-sharp, premium commercial photography. No plastic sheen. No mirror-chrome springs.",
+    starter: "Dramatic studio product shot of mini trampoline rebounder. Rich dark gradient background (#0a0f1a to #1e1b4b). Primary key light at 45° front-left (hard edge, high contrast, 5600K), strong rim light behind product defining the bungee ring and frame silhouette (6500K). Deep shadows with visible detail — NOT pure black. Individual bungee cords clearly distinguishable. Mat weave texture defined. 50mm equivalent lens, f/8. 4K resolution, ultra-sharp, premium commercial photography. No plastic sheen. No coil springs of any kind.",
   },
   {
     title: "Material detail close-up",
-    body: "Macro crop emphasising spring coils, mat weave, and frame joints.",
-    starter: "Macro-detail product shot of mini trampoline rebounder. Extreme close crop on bungee cords and jump ring. Spring coils individually distinguishable with fine coil winding, brushed galvanized steel finish — NOT mirror-chrome, NOT plastic. Mat woven polypropylene mesh with subtle grid weave texture clearly defined. Frame weld seams subtly present. Fill light increased so shadows show detail — NOT pure black. 50mm equivalent, f/4. 4K ultra-sharp. No blurred surface textures, no plastic sheen.",
+    body: "Macro crop emphasising the bungee cords, mat weave, and frame joints.",
+    starter: "Macro-detail product shot of mini trampoline rebounder. Extreme close crop on bungee cords and jump ring. Individual bungee cords distinguishable, each with its own attachment point at the frame — elastic cords, NOT coil springs. Mat woven polypropylene mesh with subtle grid weave texture clearly defined. Frame weld seams subtly present. Fill light increased so shadows show detail — NOT pure black. 50mm equivalent, f/4. 4K ultra-sharp. No blurred surface textures, no plastic sheen.",
   },
   {
     title: "Outdoor lifestyle",
@@ -138,7 +171,7 @@ const TIPS: { title: string; body: string; starter: string }[] = [
   {
     title: "Three-point lighting guide",
     body: "Copy this lighting block into any packshot prompt.",
-    starter: "Three-point lighting: key light at 45° front-left (5600K daylight, large diffused softbox, 100% intensity), fill light at 45° front-right (5600K, 45% intensity, broad soft fill — reveals detail under springs and mat), rim light directly behind product (6500K slightly cooler, 35% intensity, harder source — separates product from background and defines edges). Shadows have visible detail — NOT pure black. No blown-out highlights.",
+    starter: "Three-point lighting: key light at 45° front-left (5600K daylight, large diffused softbox, 100% intensity), fill light at 45° front-right (5600K, 45% intensity, broad soft fill — reveals detail under the bungees and mat), rim light directly behind product (6500K slightly cooler, 35% intensity, harder source — separates product from background and defines edges). Shadows have visible detail — NOT pure black. No blown-out highlights.",
   },
   {
     title: "Negative prompting block",
@@ -563,6 +596,36 @@ function ImageCard({ img, highlight = false }: { img: GeneratedImage; highlight?
         }}>
           {img.size}
         </span>
+
+        {/*
+          The product-accuracy verdict, on the image rather than under it.
+          A structurally wrong rebounder in an otherwise beautiful photograph is
+          exactly what gets scrolled past and shipped, so the flag sits where the
+          eye already is. A missing score is shown as nothing at all — it means
+          the check did not run, which is not the same as passing.
+        */}
+        {typeof img.accuracy_score === "number" && img.accuracy_verdict !== "pass" && (
+          <span
+            title={(img.accuracy_issues ?? []).join("; ") || "The product drifted from its reference images"}
+            style={{
+              position: "absolute", bottom: 6, left: 6, fontSize: 9, fontWeight: 800,
+              color: "#fff", background: "rgba(239,68,68,0.85)", backdropFilter: "blur(6px)",
+              borderRadius: 5, padding: "2px 6px", display: "flex", alignItems: "center", gap: 4,
+            }}>
+            <ShieldAlert size={9} />Product {img.accuracy_score}/100
+          </span>
+        )}
+        {typeof img.accuracy_score === "number" && img.accuracy_verdict === "pass" && (
+          <span
+            title="The product matches its reference images"
+            style={{
+              position: "absolute", bottom: 6, left: 6, fontSize: 9, fontWeight: 800,
+              color: "#10b981", background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)",
+              borderRadius: 5, padding: "2px 6px", display: "flex", alignItems: "center", gap: 4,
+            }}>
+            <ShieldCheck size={9} />{img.accuracy_score}/100
+          </span>
+        )}
         <div style={{
           position: "absolute", inset: 0, display: "flex", alignItems: "center",
           justifyContent: "center", opacity: 0, transition: "opacity 0.15s", background: "rgba(0,0,0,0.3)",
@@ -679,6 +742,13 @@ export default function ImageStudioPage() {
   const [history, setHistory]             = useState<GeneratedImage[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
+  // ── Product identity ───────────────────────────────────────────────────────
+  const [identity, setIdentity]       = useState<IdentityPreview | null>(null);
+  const [color, setColor]             = useState("");
+  const [shotType, setShotType]       = useState("");
+  const [accuracyMode, setAccuracyMode] = useState(false);
+  const [draftCount, setDraftCount]   = useState(1);
+
   const fetchHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
@@ -689,6 +759,39 @@ export default function ImageStudioPage() {
   }, []);
 
   useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+  /**
+   * Ask the server what it would do, as the operator types.
+   *
+   * This runs before anything is spent, because the interesting decision —
+   * which references get attached and which get dropped — is invisible
+   * otherwise. Manual reference images switch the pipeline off entirely, so the
+   * preview switches off with it rather than describing a path not taken.
+   */
+  useEffect(() => {
+    const text = prompt.trim();
+    if (!text || refImages.length > 0) { setIdentity(null); return; }
+
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`${BOT_URL}/admin/generate/preview`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: text,
+            ...(color ? { color } : {}),
+            ...(shotType ? { shot_type: shotType } : {}),
+          }),
+        });
+        if (!res.ok || cancelled) return;
+        const json: IdentityPreview = await res.json();
+        if (!cancelled) setIdentity(json.matched ? json : null);
+      } catch { /* a preview that fails is silent — it never blocks generating */ }
+    }, 600);
+
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [prompt, refImages.length, color, shotType]);
 
   const generate = async () => {
     if (!prompt.trim() || generating) return;
@@ -702,23 +805,40 @@ export default function ImageStudioPage() {
           prompt: prompt.trim(),
           model, size, quality,
           reference_image_urls: refImages.map(r => r.url),
+          ...(color ? { color } : {}),
+          ...(shotType ? { shot_type: shotType } : {}),
+          count: draftCount,
+          accuracy_mode: accuracyMode,
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
 
-      const created: GeneratedImage = {
-        id: Date.now().toString(),
+      // A product run comes back as a ranked list of drafts; everything else is a
+      // single image. Both are normalised to the same card shape here, so the
+      // grid never has to care which path produced a picture.
+      const variants: any[] = Array.isArray(json.variants) && json.variants.length
+        ? json.variants
+        : [{ url: json.url, engine: json.model, accuracy: null }];
+
+      const created: GeneratedImage[] = variants.map((v, i) => ({
+        id: `${Date.now()}-${i}`,
         agent_name: "mission-control/studio",
         prompt: json.prompt,
-        enhanced_prompt: json.prompt,
-        image_url: json.url,
-        file_name: json.filename ?? null,
+        enhanced_prompt: json.product_identity?.compiled_prompt ?? json.prompt,
+        image_url: v.url,
+        file_name: i === 0 ? (json.filename ?? null) : null,
         size: json.size,
         quality: json.quality,
         created_at: new Date().toISOString(),
-      };
-      setNewImages(prev => [created, ...prev]);
+        product_id: json.product_identity?.product_id ?? null,
+        engine: v.engine ?? json.model ?? null,
+        accuracy_score: v.accuracy?.score ?? null,
+        accuracy_verdict: v.accuracy?.verdict ?? null,
+        accuracy_issues: v.accuracy?.issues ?? null,
+        reference_urls: json.product_identity?.references ?? null,
+      }));
+      setNewImages(prev => [...created, ...prev]);
       setTimeout(fetchHistory, 1500);
     } catch (err: any) {
       setError(err.message);
@@ -784,6 +904,111 @@ export default function ImageStudioPage() {
             onProductSelect={next => setRefImages(next)}
           />
         </div>
+
+        {/*
+          ── Product accuracy ────────────────────────────────────────────────
+          Appears by itself when the prompt names a product we hold references
+          for. Nobody switches it on, which is the entire design: the previous
+          system had a perfectly good reference manager that nobody opened, and
+          the images were wrong because of it.
+        */}
+        <AnimatePresence>
+          {identity && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+              style={{ overflow: "hidden", marginBottom: "1.25rem" }}
+            >
+              <div style={{
+                background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.22)",
+                borderRadius: 12, padding: "0.85rem 1rem",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.6rem" }}>
+                  <Target size={13} color="#10b981" />
+                  <span style={{ fontSize: 11.5, fontWeight: 800, color: "#10b981" }}>
+                    Locked to {identity.product}
+                  </span>
+                  <span style={{ fontSize: 10, color: "#64748b", marginLeft: "auto" }}>
+                    {identity.references.length} reference{identity.references.length === 1 ? "" : "s"} · {identity.shot_type}
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: "0.55rem" }}>
+                  {identity.references.map((r, i) => (
+                    <img
+                      key={r.image_url + i}
+                      src={r.image_url}
+                      alt={(r.view ?? "reference").replace(/_/g, " ")}
+                      title={`${i + 1}. ${(r.view ?? "unlabeled").replace(/_/g, " ")}${r.color ? ` · ${r.color}` : ""}`}
+                      style={{
+                        width: 38, height: 38, borderRadius: 7, objectFit: "cover",
+                        border: r.is_primary ? "2px solid #10b981" : "1px solid rgba(255,255,255,0.1)",
+                      }}
+                    />
+                  ))}
+                </div>
+
+                <p style={{ fontSize: 10, color: "#64748b", margin: 0, lineHeight: 1.5 }}>{identity.reason}</p>
+                {identity.warnings.map((w, i) => (
+                  <p key={i} style={{ fontSize: 10, color: "#f59e0b", margin: "0.35rem 0 0", lineHeight: 1.5 }}>⚠️ {w}</p>
+                ))}
+
+                {/* Controls that only mean anything on the product path. */}
+                <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", alignItems: "flex-end", marginTop: "0.75rem" }}>
+                  <div style={{ minWidth: 110 }}>
+                    <label htmlFor="img-color" style={{ display: "block", fontSize: 9.5, fontWeight: 700,
+                      color: "#475569", marginBottom: "0.25rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                      Colour
+                    </label>
+                    <select id="img-color" value={color} onChange={e => setColor(e.target.value)}
+                      style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.09)",
+                        borderRadius: 8, padding: "0.35rem 0.6rem", color: "#e2e8f0", fontSize: 11.5, cursor: "pointer" }}>
+                      {COLOR_CHOICES.map(c => <option key={c || "auto"} value={c}>{c || "From prompt"}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ minWidth: 175 }}>
+                    <label htmlFor="img-shot" style={{ display: "block", fontSize: 9.5, fontWeight: 700,
+                      color: "#475569", marginBottom: "0.25rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                      Shot type
+                    </label>
+                    <select id="img-shot" value={shotType} onChange={e => setShotType(e.target.value)}
+                      style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.09)",
+                        borderRadius: 8, padding: "0.35rem 0.6rem", color: "#e2e8f0", fontSize: 11.5, cursor: "pointer" }}>
+                      {SHOT_CHOICES.map(c => <option key={c.id || "auto"} value={c.id}>{c.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 9.5, fontWeight: 700, color: "#475569", marginBottom: "0.25rem",
+                      textTransform: "uppercase", letterSpacing: "0.06em" }}>Drafts</p>
+                    <div style={{ display: "flex", gap: "0.3rem" }}>
+                      {[1, 2, 3, 4].map(n => (
+                        <button key={n} onClick={() => setDraftCount(n)}
+                          title={n > 1 ? "Drafts render at 1K — pick one, then regenerate it at full size" : "One image"}
+                          style={{
+                            padding: "0.35rem 0.6rem", fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+                            borderRadius: 8, border: `1px solid ${draftCount === n ? "rgba(16,185,129,0.45)" : "rgba(255,255,255,0.09)"}`,
+                            background: draftCount === n ? "rgba(16,185,129,0.14)" : "rgba(255,255,255,0.04)",
+                            color: draftCount === n ? "#10b981" : "#64748b",
+                          }}>{n}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setAccuracyMode(a => !a)}
+                    title="Adds a second pass that corrects the product and leaves the photograph alone. Slower and roughly twice the cost."
+                    style={{
+                      display: "flex", alignItems: "center", gap: 5,
+                      padding: "0.4rem 0.7rem", fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+                      borderRadius: 8, border: `1px solid ${accuracyMode ? "rgba(16,185,129,0.45)" : "rgba(255,255,255,0.09)"}`,
+                      background: accuracyMode ? "rgba(16,185,129,0.14)" : "rgba(255,255,255,0.04)",
+                      color: accuracyMode ? "#10b981" : "#64748b",
+                    }}>
+                    <ShieldCheck size={12} />High accuracy
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Model / Size / Quality */}
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1.25rem" }}>
