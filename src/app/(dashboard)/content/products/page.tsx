@@ -391,7 +391,7 @@ function LabelRow({ item: r, onLabel }: {
           "Product line — a Pro photo in a standard set produces a product that does not exist")}
         {r.is_primary && chip("★ primary", "#10b981", "The anchor reference — sent first")}
         {excluded && !unlabeled && chip("not identity", "#ef4444", "Excluded from reference sets: more than one unit, or an angle that cannot define the product")}
-        {r.label_source === "human" && chip("yours", "#10b981", "Corrected by hand — the labeller will not overwrite it")}
+        {r.label_source === "human" && chip("yours", "#10b981", "Corrected by hand — the auto-labeler will not overwrite it")}
         <button
           onClick={() => setOpen(o => !o)}
           style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginLeft: "auto", fontSize: 9, color: "#475569" }}
@@ -527,7 +527,7 @@ function ReferenceSet({
               <button
                 onClick={() => onAutoLabel(false)}
                 disabled={labeling}
-                title="Label the unlabelled references with a vision pass"
+                title="Label the unlabeled references with a vision pass"
                 style={{
                   flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
                   background: unlabeledCount > 0 ? `${ACCENT}18` : "rgba(255,255,255,0.04)",

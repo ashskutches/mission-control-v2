@@ -331,7 +331,7 @@ export default function TrainingDataPage() {
             Refresh
           </button>
           <button onClick={() => labelAll(false)} disabled={labeling}
-            title="Run the vision pass over every unlabelled reference image"
+            title="Run the vision pass over every unlabeled reference image"
             style={{
               display: "flex", alignItems: "center", gap: 5,
               background: unlabeled > 0 ? `${ACCENT}18` : "rgba(255,255,255,0.04)",
@@ -358,8 +358,8 @@ export default function TrainingDataPage() {
       <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", marginBottom: "1.25rem" }}>
         {stat("Usable references", usable, "#10b981", "can define a product identity")}
         {stat("Excluded", excluded, excluded > 0 ? ACCENT : "#475569", "lineups, composites, multi-unit frames")}
-        {stat("Unlabeled", unlabeled, unlabeled > 0 ? "#ef4444" : "#475569", unlabeled > 0 ? "invisible to the selector" : "all labelled")}
-        {stat("Identity groups", groups.length, "#38bdf8", "product × line × colour")}
+        {stat("Unlabeled", unlabeled, unlabeled > 0 ? "#ef4444" : "#475569", unlabeled > 0 ? "invisible to the selector" : "all labeled")}
+        {stat("Identity groups", groups.length, "#38bdf8", "product × line × color")}
         {stat("Missing a whole-unit shot", weakGroups, weakGroups > 0 ? "#ef4444" : "#10b981", "the worst gap to have")}
       </div>
 
