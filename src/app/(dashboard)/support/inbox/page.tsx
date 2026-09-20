@@ -60,12 +60,14 @@ export default function SupportInbox() {
   const load = useCallback(async () => {
     setErr(null);
     try {
-      const [res, sum, cnt] = await Promise.all([
+      const [res, sum, cts] = await Promise.all([
         getTickets({ status: filter, q: q.trim() || undefined, limit: 200 }),
         getSummary(),
-        getTicketCounts(),
+        // Same search term as the list, so a pill count and the list it opens
+        // cannot disagree.
+        getTicketCounts({ q: q.trim() || undefined }),
       ]);
-      setRows(res.tickets); setTotal(res.total); setSummary(sum); setCounts(cnt);
+      setRows(res.tickets); setTotal(res.total); setSummary(sum); setCounts(cts);
     } catch (e: any) { setErr(e.message); setRows([]); }
   }, [filter, q]);
 
@@ -135,7 +137,7 @@ export default function SupportInbox() {
       {summary?.mail?.blockers?.length > 0 && <NotConnected blockers={summary.mail.blockers} />}
       {err && <ErrorBox error={err} onRetry={load} />}
 
-      {/* Two piles of work nobody was looking at, because nothing counted them. */}
+      {/* Three piles of work nobody was looking at, because nothing counted them. */}
       {(summary?.openFollowups > 0 || summary?.undeliveredReplies > 0
         || (counts?.needs_human_only ?? 0) > 0) && (
         <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", marginBottom: "1rem" }}>
@@ -178,6 +180,20 @@ export default function SupportInbox() {
               <span>
                 <strong>{summary.undeliveredReplies}</strong> repl
                 {summary.undeliveredReplies === 1 ? "y was" : "ies were"} written but never delivered
+              </span>
+            </div>
+          )}
+          {/* Neither banner above can see these: a human-only ticket has
+              ops_state `none` and no outcome, so it owes no follow-up and never
+              failed to send. It is simply a real customer waiting, unread. */}
+          {(counts?.needs_human_only ?? 0) > 0 && (
+            <div onClick={() => setFilter("needs_human_only")}
+                 style={{ ...bannerStyle("#a78bfa"), cursor: "pointer" }}>
+              <UserCheck size={13} color="#a78bfa" />
+              <span>
+                <strong>{counts!.needs_human_only}</strong> ticket
+                {counts!.needs_human_only === 1 ? "" : "s"} need
+                {counts!.needs_human_only === 1 ? "s" : ""} a human — no draft will be written
               </span>
             </div>
           )}
@@ -267,13 +283,21 @@ export default function SupportInbox() {
          : rows.length === 0 ? (
           <Empty icon={InboxIcon} title="Nothing here"
                  body={q ? "No tickets match that search."
-                   : !summary?.mail?.configured
-                     ? "No tickets yet — and no mailbox is connected, so none will arrive."
-                     : stale
-                       // The cron should make this unreachable. If it is showing,
-                       // the poller is the thing to look at, not the queue.
-                       ? "No tickets in this view — but the mailbox has not been polled recently, so this may not be the whole picture."
-                       : "No tickets in this view. We check the mailbox automatically — or press “Check mail” to look right now."} />
+                   // An empty view over a full inbox is the thing that gets
+                   // reported as "email stopped syncing". Which of the four it
+                   // is matters, and they are not alternatives to each other:
+                   // a full inbox behind the wrong filter, no mailbox at all,
+                   // a mailbox that has not been polled lately, or a genuinely
+                   // quiet queue.
+                   : (counts?.all ?? 0) > 0
+                     ? `This view is empty — but the inbox holds ${counts!.all} ticket${counts!.all === 1 ? "" : "s"}. Try another filter above.`
+                     : !summary?.mail?.configured
+                       ? "No tickets yet — and no mailbox is connected, so none will arrive."
+                       : stale
+                         // The cron should make this unreachable. If it is showing,
+                         // the poller is the thing to look at, not the queue.
+                         ? "No tickets in this view — but the mailbox has not been polled recently, so this may not be the whole picture."
+                         : "No tickets in this view. We check the mailbox automatically — or press “Check mail” to look right now."} />
         ) : rows.map((t, i) => {
           const overdue = t.status === "awaiting_approval" && t.awaitingMinutes > 60;
           return (

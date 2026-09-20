@@ -80,7 +80,24 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(loginUrl);
     }
 
-    if (canAccess(role, pathname)) return NextResponse.next();
+    // The bot proxy owns its own authorization; this gate must not second-guess it.
+    //
+    // canAccess() answers "may this tier open this PAGE", and the lower tiers are
+    // allowlists — so asking it about an upstream API path like
+    // "/api/bot/admin/insights" is asking whether that string is a teammate page. It
+    // never is, so every write routed through the proxy 403'd for teammate and guest
+    // with `needs a higher tier than "teammate"`. That took out recording an insight
+    // from /pipeline and posting on an insight thread — both on a page teammates are
+    // deliberately given (see the /pipeline note in lib/access.ts), and both routed
+    // through the proxy on purpose, because it stamps who is speaking from the signed
+    // session rather than trusting the browser.
+    //
+    // The proxy is documented as admitting ANY signed-in session (a guest legitimately
+    // reads /admin/agents) and lists the exceptions itself in ADMIN_ONLY. The session
+    // requirement above still applies, and the proxy re-checks it rather than trusting
+    // this matcher.
+    const isBotProxy = pathname === "/api/bot" || pathname.startsWith("/api/bot/");
+    if (isBotProxy || canAccess(role, pathname)) return NextResponse.next();
 
     if (isApi) {
         return NextResponse.json(

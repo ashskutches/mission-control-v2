@@ -73,8 +73,13 @@ export const getTickets = (o: {
  * Keyed by filter key, including the `followup` and `needs_triage` views —
  * the server computes each one the same way the list query does, so a count
  * and the list it opens cannot disagree.
+ *
+ * Takes the same `q` / `category` as getTickets for that same reason: the
+ * search box filters the list, and pills left showing the unfiltered backlog
+ * were the version of "cannot disagree" that only held while nobody searched.
  */
-export const getTicketCounts = () => req<Record<string, number>>("/tickets/counts");
+export const getTicketCounts = (o: { q?: string; category?: string } = {}) =>
+  req<Record<string, number>>(`/tickets/counts${qs(o)}`);
 
 export const getTicket = (id: string) => req<any>(`/tickets/${id}`);
 

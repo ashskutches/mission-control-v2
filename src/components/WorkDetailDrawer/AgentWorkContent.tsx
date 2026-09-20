@@ -6,6 +6,7 @@ import { MetadataFooter } from "./MetadataFooter";
 import { MilestoneTimeline } from "./MilestoneTimeline";
 import { BOT_URL, OUTPUT_TRUNCATE_LEN } from "./constants";
 import { ActionBtn, SectionLabel } from "./primitives";
+import { MarkdownPanel } from "../MarkdownPanel";
 import type { AgentWork, WorkStatus } from "./types";
 
 /** Detail pane for an `agent_work` row (research or task). */
@@ -76,21 +77,25 @@ export function AgentWorkContent({ work, onClose, onAction }: AgentWorkContentPr
         <SectionLabel>Latest Agent Output</SectionLabel>
         {rawOutput ? (
           <>
+            {/*
+              Agents write markdown here — headings, bullets, tables. Rendered,
+              with the raw markdown on the copy button, since the next place it
+              goes is usually another markdown box. Copy hands over the WHOLE
+              output, not the truncated view.
+            */}
             <div
               style={{
                 background: "rgba(255,255,255,0.03)",
                 border: "1px solid rgba(255,255,255,0.08)",
                 borderRadius: 8,
                 padding: "10px 12px",
-                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                fontSize: "0.78rem",
-                color: "#94a3b8",
-                lineHeight: 1.65,
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
               }}
             >
-              {displayOutput}
+              <MarkdownPanel
+                content={displayOutput}
+                copyText={rawOutput}
+                style={{ fontSize: "0.78rem", color: "#94a3b8", lineHeight: 1.65 }}
+              />
             </div>
             {rawOutput.length > OUTPUT_TRUNCATE_LEN && (
               <button
@@ -150,18 +155,10 @@ export function AgentWorkContent({ work, onClose, onAction }: AgentWorkContentPr
           >
             Completion Report
           </div>
-          <p
-            style={{
-              fontSize: "0.8rem",
-              color: "#86efac",
-              lineHeight: 1.65,
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-              margin: 0,
-            }}
-          >
-            {work.completion_report}
-          </p>
+          <MarkdownPanel
+            content={work.completion_report}
+            style={{ fontSize: "0.8rem", color: "#86efac", lineHeight: 1.65 }}
+          />
         </div>
       )}
 
