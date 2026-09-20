@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Layers, Plus, Edit2, Check, X, ChevronDown, ChevronUp,
   GitBranch, Trash2, Zap, Pause, Play, Scissors, ArrowUpDown,
+  Eye, ExternalLink,
 } from "lucide-react";
 
 type SortKey = "name" | "impressions" | "atc" | "assisted_atc" | "ctr";
@@ -783,8 +784,41 @@ export default function SectionsPage() {
     { key: "name",        label: "Name" },
   ];
 
+  const CATALOGUE_URL =
+    "https://leapsandrebounds.com/pages/lrb-section-catalogue?preview_theme_id=164033462488";
+
   return (
     <div>
+      {/* Review page pointer. The names and stats below say what a section is called;
+          the catalogue shows what it actually looks like to a shopper. */}
+      <a
+        href={CATALOGUE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap",
+          background: "rgba(233,141,32,0.08)", border: "1px solid rgba(233,141,32,0.28)",
+          borderRadius: 8, padding: "0.75rem 0.9rem", marginBottom: "0.9rem",
+          textDecoration: "none",
+        }}
+      >
+        <Eye size={16} color="#e98d20" style={{ flexShrink: 0 }} />
+        <span style={{ flex: 1, minWidth: 220 }}>
+          <span style={{ display: "block", fontSize: 12, fontWeight: 800, color: "#e98d20" }}>
+            See every section rendered
+          </span>
+          <span style={{ display: "block", fontSize: 11, color: "#94a3b8", marginTop: 2, lineHeight: 1.5 }}>
+            This list is the registry: names, where each one runs, and its counters. The catalogue
+            page shows the same sections <em>as a shopper sees them</em>, each under its name, so you
+            can review copy and design without hunting for the product page. It reads from this
+            registry, so anything you register and deploy appears there automatically.
+          </span>
+        </span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "#e98d20", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          Open catalogue <ExternalLink size={12} />
+        </span>
+      </a>
+
       <div style={{ marginBottom: "1rem" }}>
         {/* Top bar */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.65rem", flexWrap: "wrap", gap: "0.5rem" }}>
