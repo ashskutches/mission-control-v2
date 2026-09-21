@@ -2,7 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Tag, Layers, Copy, Film, Pin, Wand2, Lightbulb, Database } from "lucide-react";
+import { BarChart3, Tag, Layers, Copy, Film, Pin, Wand2, Lightbulb, Database, Bot } from "lucide-react";
 
 // Blog is not in this strip. It lives under SEO — /seo/blog — because it is judged on
 // search performance, and it was only ever a cross-link from here: the tab pointed at
@@ -14,6 +14,10 @@ const NAV = [
   { href: "/content/insights", label: "Insights",     icon: Lightbulb, color: "#e98d20" },
   { href: "/content/assets",   label: "Content",      icon: Film,      color: "#38bdf8" },
   { href: "/content/generate", label: "Image Studio", icon: Wand2,     color: "#a78bfa" },
+  // Next to Image Studio on purpose: the studio is where a person makes one image,
+  // this is where everything the agents made waits for a verdict. Until it existed,
+  // the only judge of agent output was an automatic score that passed nothing.
+  { href: "/content/agent-content", label: "Agent Content", icon: Bot, color: "#38bdf8" },
   { href: "/content/products", label: "Products",     icon: Pin,       color: "#f59e0b" },
   // Sits next to Products on purpose: Products curates one product's references,
   // Training Data shows what the generator can and cannot render across all of them.
