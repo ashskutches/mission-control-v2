@@ -69,6 +69,21 @@ interface Stats {
   scorerAgreement: { n: number; agreed: number; meanScoreApproved: number | null; meanScoreRejected: number | null } | null;
 }
 
+interface SpecVersion {
+  id: string;
+  version: number;
+  note: string | null;
+  promoted_at: string | null;
+  construction: string | null;
+}
+
+interface SpecWithVersions {
+  id: string;
+  label: string;
+  product_line: string | null;
+  versions: SpecVersion[];
+}
+
 const STATUSES: { id: Status; label: string; color: string }[] = [
   { id: "pending",  label: "Needs review", color: "#f59e0b" },
   { id: "approved", label: "Approved",     color: "#10b981" },
@@ -97,6 +112,8 @@ export default function AgentContentPage() {
   const [noteFor, setNoteFor] = useState<Asset | null>(null);
   const [noteText, setNoteText] = useState("");
   const [stats, setStats]     = useState<Stats | null>(null);
+  const [specVersion, setSpecVersion] = useState<string>("");
+  const [versions, setVersions] = useState<SpecVersion[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,6 +121,7 @@ export default function AgentContentPage() {
     try {
       const qs = new URLSearchParams({ status, limit: "60" });
       if (surface) qs.set("surface", surface);
+      if (specVersion) qs.set("spec_version_id", specVersion);
       const [r, s] = await Promise.all([
         fetch(`${BOT_URL}/admin/agent-content?${qs}`),
         fetch(`${BOT_URL}/admin/agent-content/stats`),
@@ -118,9 +136,25 @@ export default function AgentContentPage() {
     } finally {
       setLoading(false);
     }
-  }, [status, surface]);
+  }, [status, surface, specVersion]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // The spec versions, for the comparison this page exists to make possible:
+  // the same prompts under two wordings, judged side by side instead of argued
+  // about. Failing to load them costs the filter, not the page.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await fetch(`${BOT_URL}/admin/agent-content/specs`);
+        if (!r.ok) return;
+        const d = await r.json();
+        const all = (d.specs ?? []).flatMap((sp: SpecWithVersions) =>
+          (sp.versions ?? []).map(v => ({ ...v, label: sp.label })));
+        setVersions(all);
+      } catch { /* filter is optional */ }
+    })();
+  }, []);
 
   /**
    * Optimistic, and it removes the card from the pending list immediately.
@@ -171,6 +205,16 @@ export default function AgentContentPage() {
           <p style={{ color: "#64748b", fontSize: 12, marginTop: 2 }}>
             Everything the agents generate. 👍 keeps it and lets agents reuse it; 👎 records why, against the spec version that produced it.
           </p>
+          {/*
+            Said on the page rather than in a doc nobody opens. The automatic score
+            passed 0 of 177 images before its judging references were fixed on
+            2026-09-21, and it still misses individual images — it called a correct
+            product "wrong product entirely, no blue accent ring visible" when the
+            ring was plainly there. It is a hint. You are the gate.
+          */}
+          <p style={{ color: "#475569", fontSize: 11, marginTop: 4 }}>
+            The <strong>auto</strong> number is advisory and gets individual images wrong. Trust your eyes.
+          </p>
         </div>
         <button onClick={() => void load()} disabled={loading}
           style={btn("#64748b")}>
@@ -210,6 +254,18 @@ export default function AgentContentPage() {
           <option value="">Every surface</option>
           {Object.keys(SURFACE_COLOR).map(s => <option key={s} value={s}>{s}</option>)}
         </select>
+        {versions.length > 1 && (
+          <select value={specVersion} onChange={e => setSpecVersion(e.target.value)}
+            title="Compare two spec wordings on the same prompts"
+            style={{ ...chip("#a78bfa", !!specVersion), cursor: "pointer", appearance: "none" }}>
+            <option value="">Any spec version</option>
+            {versions.map(v => (
+              <option key={v.id} value={v.id}>
+                v{v.version}{v.promoted_at ? " (live)" : ""} · {(v.construction ?? "").length} chars
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {error && (
