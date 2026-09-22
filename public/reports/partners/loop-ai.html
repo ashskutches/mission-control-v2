@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  Partner brief for Loop (abandoned-cart voice/SMS recovery). Public by link on
+  purpose — Loop has no seat anywhere on our side — and deliberately NOT listed in
+  app/reports/claude/manifest.ts and carrying no "All reports" link: the index next
+  door holds L&R's own revenue analysis, which is not a vendor's business.
+
+  Also deliberately absent: the live list of discount codes. Most are influencer
+  and affiliate codes; printing them on a public URL publishes them.
+-->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Leaps &amp; Rebounds × Loop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg:#fcfcfa; --surface:#ffffff; --sunk:#f2f2ee;
+    --ink:#16181a; --ink-2:#4a4f54; --ink-3:#6f767d;
+    --rule:#e2e2dc; --rule-2:#cfcfc7;
+    --accent:#0d5c63; --accent-bg:#e8f2f2;
+    --no:#a52218; --no-bg:#fbeeec;
+    --ok:#1c6b41; --ok-bg:#edf5ef;
+    --warn:#8a5a00; --warn-bg:#fbf3e2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#101314; --surface:#161a1b; --sunk:#1d2223;
+      --ink:#e9ebea; --ink-2:#b0b7b8; --ink-3:#8c9495;
+      --rule:#2a3031; --rule-2:#3a4142;
+      --accent:#5fc4c9; --accent-bg:#132628;
+      --no:#f08b80; --no-bg:#2c1a18;
+      --ok:#79c99a; --ok-bg:#16241c;
+      --warn:#e0b256; --warn-bg:#282017;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#101314; --surface:#161a1b; --sunk:#1d2223;
+    --ink:#e9ebea; --ink-2:#b0b7b8; --ink-3:#8c9495;
+    --rule:#2a3031; --rule-2:#3a4142;
+    --accent:#5fc4c9; --accent-bg:#132628;
+    --no:#f08b80; --no-bg:#2c1a18;
+    --ok:#79c99a; --ok-bg:#16241c;
+    --warn:#e0b256; --warn-bg:#282017;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Source Sans 3", system-ui, sans-serif;
+    font-size:16.5px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .page { max-width:920px; margin:0 auto; padding:clamp(26px,4.5vw,60px) 16px 90px; }
+  @media (min-width:700px){ .page { padding-left:40px; padding-right:40px; } }
+  .prose { max-width:74ch; }
+  h1,h2,h3 { font-family:Archivo, system-ui, sans-serif; margin:0; text-wrap:balance; }
+  h1 { font-size:clamp(1.9rem,4.6vw,2.7rem); font-weight:700; line-height:1.08; letter-spacing:-.01em; }
+  h2 { font-size:1.4rem; font-weight:700; margin:0 0 .6rem; }
+  h3 { font-size:1.05rem; font-weight:600; margin:1.4rem 0 .4rem; }
+  p { margin:.5rem 0 .9rem; }
+  a { color:var(--accent); text-underline-offset:2px; }
+  code, .mono { font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:.88em; }
+  code { background:var(--sunk); padding:.08em .35em; border-radius:4px; }
+  .eyebrow { font-family:"IBM Plex Mono", monospace; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); margin-bottom:.8rem; }
+  .lede { font-size:1.15rem; color:var(--ink-2); margin-top:1rem; }
+  .meta { color:var(--ink-3); font-size:.9rem; margin-top:.8rem; }
+  section { margin-top:3.2rem; padding-top:2rem; border-top:1px solid var(--rule); }
+  .num { font-family:"IBM Plex Mono", monospace; color:var(--ink-3); font-size:.85rem; margin-right:.5rem; }
+
+  .answers { display:grid; gap:12px; margin-top:2rem; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); }
+  .card { background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:16px 18px; }
+  .card .q { font-size:.8rem; font-family:"IBM Plex Mono", monospace; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-3); }
+  .card .a { font-family:Archivo, sans-serif; font-weight:600; font-size:1.05rem; margin-top:.35rem; line-height:1.3; }
+  .card .a small { display:block; font-family:"Source Sans 3", sans-serif; font-weight:400; font-size:.92rem; color:var(--ink-2); margin-top:.35rem; }
+
+  .tbl-wrap { overflow-x:auto; margin:1rem 0; border:1px solid var(--rule); border-radius:10px; background:var(--surface); }
+  table { border-collapse:collapse; width:100%; font-size:.95rem; }
+  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--rule); vertical-align:top; }
+  th { font-family:Archivo, sans-serif; font-weight:600; font-size:.82rem; color:var(--ink-2); background:var(--sunk); white-space:nowrap; }
+  tr:last-child td { border-bottom:0; }
+  td.r { text-align:right; font-family:"IBM Plex Mono", monospace; white-space:nowrap; }
+  .strike { color:var(--ink-3); text-decoration:line-through; }
+
+  .pill { display:inline-block; font-size:.75rem; font-family:"IBM Plex Mono", monospace; padding:1px 7px; border-radius:99px; white-space:nowrap; }
+  .pill.ok { background:var(--ok-bg); color:var(--ok); }
+  .pill.warn { background:var(--warn-bg); color:var(--warn); }
+  .pill.no { background:var(--no-bg); color:var(--no); }
+
+  .callout { border-left:3px solid var(--accent); background:var(--accent-bg); padding:12px 16px; border-radius:0 8px 8px 0; margin:1rem 0; }
+  .callout.warn { border-color:var(--warn); background:var(--warn-bg); }
+  .callout p:first-child { margin-top:0; } .callout p:last-child { margin-bottom:0; }
+
+  .rules { list-style:none; padding:0; margin:1rem 0; display:grid; gap:8px; }
+  .rules li { background:var(--surface); border:1px solid var(--rule); border-radius:8px; padding:10px 14px 10px 40px; position:relative; }
+  .rules li::before { content:"✕"; position:absolute; left:14px; top:10px; color:var(--no); font-weight:700; }
+  .rules.do li::before { content:"✓"; color:var(--ok); }
+  .rules li b { font-weight:600; }
+
+  .two { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); }
+  pre { background:var(--sunk); border:1px solid var(--rule); border-radius:8px; padding:14px 16px; overflow-x:auto; font-size:.84rem; line-height:1.5; margin:1rem 0; }
+  pre code { background:none; padding:0; }
+  blockquote { margin:1rem 0; padding:12px 16px; background:var(--surface); border:1px solid var(--rule); border-radius:8px; font-style:italic; color:var(--ink-2); }
+  details { background:var(--surface); border:1px solid var(--rule); border-radius:8px; padding:10px 14px; margin:8px 0; }
+  details summary { cursor:pointer; font-weight:600; }
+  details[open] summary { margin-bottom:.4rem; }
+  footer { margin-top:4rem; padding-top:1.4rem; border-top:1px solid var(--rule); color:var(--ink-3); font-size:.9rem; }
+</style>
+</head>
+<body>
+<main class="page">
+
+<header>
+  <div class="eyebrow">Partner brief · abandoned-cart recovery</div>
+  <h1>Leaps &amp; Rebounds × Loop</h1>
+  <p class="lede prose">Everything your agent needs to sell a rebounder on the phone: what we sell and for how much, what's on promotion, the objections we hear most and how we answer them, where tickets go, and the few things it must never say.</p>
+  <p class="meta">Catalog, prices and promotions read from our Shopify store on 22 September 2026. Policies and scripts come from our support desk's reviewed knowledge base. Questions: <a href="mailto:info@leapsandrebounds.com">info@leapsandrebounds.com</a></p>
+
+  <div class="answers">
+    <div class="card"><div class="q">Support system</div><div class="a">An in-house desk, run by email<small>No Gorgias or Zendesk. Anything sent to the address below becomes a ticket automatically.</small></div></div>
+    <div class="card"><div class="q">Support email</div><div class="a"><a href="mailto:info@leapsandrebounds.com">info@leapsandrebounds.com</a><small>The same address for tickets, escalations and questions for us.</small></div></div>
+    <div class="card"><div class="q">Agent discount code</div><div class="a">Yes, on your terms<small>Offer it only when price is the objection. We create the code on our side and email it to you (see §2).</small></div></div>
+    <div class="card"><div class="q">Knowledge-base API</div><div class="a">Yes, please build it<small>Our own AI agents will push changes to promotions, stock and policy, and we'd like call outcomes sent back (see §3).</small></div></div>
+  </div>
+</header>
+
+<!-- ─────────────────────────────────────────────────────────── -->
+<section id="support">
+  <h2><span class="num">01</span>Support system &amp; ticket hand-off</h2>
+  <div class="prose">
+    <p>We don't use a third-party helpdesk. Every email to <b>info@leapsandrebounds.com</b> goes into our own support desk, where it's sorted, drafted and answered. That means there's nothing to integrate: <b>a ticket from Loop is just an email to that address.</b></p>
+    <p>You can send one from your platform's email or ticket action. Please use this format so the desk can route it without having to read the whole thing first:</p>
+  </div>
+<pre><code>To:       info@leapsandrebounds.com
+Subject:  [Loop] &lt;type&gt; — &lt;customer name&gt; — &lt;order # or "no order"&gt;
+
+type is one of: callback · warranty · return · order-status · damaged · product-question · complaint
+
+Customer:   name, phone, email
+Cart:       items and sizes/colours in the abandoned cart (or the order number)
+Channel:    call / SMS, with date and time
+What they asked:     one or two sentences, in their words where possible
+What the agent said: anything promised or offered, including whether the code was given
+What's needed:       the action you're asking us to take
+Transcript / recording link</code></pre>
+  <div class="prose">
+    <h3>When to hand off instead of answering</h3>
+    <p>For cart recovery, your agent should answer product and promo questions itself. It should pass these to us as a ticket and tell the customer we'll follow up by email:</p>
+  </div>
+  <div class="tbl-wrap"><table>
+    <tr><th>Situation</th><th>Why it's ours</th></tr>
+    <tr><td>Anything about an <b>existing order</b>: where it is, cancelling, changing it</td><td>Needs the order record. Cancellations are only possible before it ships.</td></tr>
+    <tr><td><b>Warranty</b> claims and broken or missing parts</td><td>Someone has to check what's covered and send a replacement part.</td></tr>
+    <tr><td><b>Returns</b> and refunds</td><td>We email a prepaid label. The customer can also start at <a href="https://leapsandrebounds.com/pages/claim-return">/pages/claim-return</a>.</td></tr>
+    <tr><td>Complaints, anger, or a threat to leave a review or dispute a charge</td><td>A person replies to these, not an agent.</td></tr>
+    <tr><td>Requests for a bigger discount, price matching, or free upgrades</td><td>These are margin decisions, and the agent's code is the most it can offer.</td></tr>
+    <tr><td>Wholesale, gyms, studios or bulk orders</td><td>Commercial pricing is set by a person.</td></tr>
+    <tr><td>Creator or influencer collaborations</td><td>Point them to <a href="https://leapsandrebounds.trysaral.com/">leapsandrebounds.trysaral.com</a>. No ticket needed.</td></tr>
+  </table></div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────── -->
+<section id="promotions">
+  <h2><span class="num">02</span>Promotions</h2>
+  <div class="prose">
+    <p>Your weekly site sync will pick up everything below. It's here as well so you can check what the knowledge base learned against what we actually run.</p>
+  </div>
+
+  <h3>Running now</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Promotion</th><th>How it works</th><th>Code needed?</th></tr>
+    <tr><td>Rebounder sale price</td><td>40″ at <b>$220</b> <span class="strike">$250</span> · 48″ at <b>$280</b> <span class="strike">$300</span>. All colours.</td><td>No, it's the listed price</td></tr>
+    <tr><td>Rebounder + stability bar bundles</td><td><b>10% off automatically</b> at checkout on the 40″ + bar ($313 listed) and the 48″ + bar ($373 listed)</td><td>No, applied automatically</td></tr>
+    <tr><td>Think Pink bundle (3-in-1)</td><td>10% off automatically</td><td>No, applied automatically</td></tr>
+    <tr><td>Halloween bundle 🎃</td><td>Seasonal rebounder bundle: 40″ from $242, 48″ from $302</td><td>No</td></tr>
+    <tr><td>Free shipping</td><td>Every US order, all year</td><td>No</td></tr>
+  </table></div>
+
+  <h3>The agent's own code</h3>
+  <div class="prose">
+    <p>Yes, and your rule is the one we'd have written: <b>find out why they didn't buy, and offer the code only if price is the reason.</b> Our own support desk follows the same principle. On a price objection, the product comes first and the discount second (the talking points are in §4).</p>
+    <p>We'll <b>create the code in Shopify ourselves</b> and email it to you, so we can report on it and switch it off. Please don't make up a code, like <code>SAVE10</code>, and have the agent say it: we already have codes with similar names, and if the agent says one that isn't ours, it will either fail at checkout or apply terms we never agreed.</p>
+  </div>
+  <div class="callout warn">
+    <p><b>Only give out the code you've been sent.</b> Our store has plenty of older influencer and affiliate codes that still work, and customers sometimes bring one up. If a customer names a code, let them try it at checkout. Shopify decides whether it's valid. The agent shouldn't confirm or reject codes, share others, or offer more than one.</p>
+  </div>
+  <div class="prose">
+    <p>If a customer asks whether the code combines with the bundle discount, the agent shouldn't guess. Checkout shows the final price, so point them there. We'll say in the email how the code is set to combine.</p>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────── -->
+<section id="api">
+  <h2><span class="num">03</span>Knowledge-base API: how we'd use it</h2>
+  <div class="prose">
+    <p>Please build it. We run our own AI agents on our side, and the API gives them a way to keep your agent current between weekly syncs. A week is too slow for most of what changes:</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <div class="q">We push to you</div>
+      <ul>
+        <li><b>Promotion start and end</b>, with exact times, so a sale can't be offered after it ends</li>
+        <li><b>Stock-outs by size and colour</b>, so the agent doesn't try to win back a cart that can't ship</li>
+        <li><b>Policy changes</b> (returns, warranty, shipping)</li>
+        <li><b>Code changes</b>: turning the agent's code on or off, or rotating it</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="q">What we'd like back (webhook or export)</div>
+      <ul>
+        <li>For every contact: <b>cart / checkout ID</b>, channel, outcome</li>
+        <li><b>The objection reason</b> your agent found (price, shipping, size, timing, and so on)</li>
+        <li>Whether the code was offered and whether it was used</li>
+        <li>The recovered <b>order ID</b>, so we can reconcile against Shopify</li>
+      </ul>
+    </div>
+  </div>
+  <div class="prose">
+    <p>The second list matters as much as the first. The reasons people give for leaving a cart are the most useful thing a recovery call tells us, and at the moment none of them reach us. What we need to know is what format you can send: JSON over a webhook is ideal, and a daily CSV is fine.</p>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────── -->
+<section id="product">
+  <h2><span class="num">04</span>Product knowledge</h2>
+
+  <h3>The catalog that matters for cart recovery</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Product</th><th>Options</th><th class="r">Price</th><th>Stock (22 Sep)</th></tr>
+    <tr><td><a href="https://leapsandrebounds.com/products/bungee-rebounders-mini-trampoline">Mini Trampoline Rebounder</a>: the main product</td><td>40″ or 48″ · green, red, orange, gray, blue, pink, purple</td><td class="r">$220 / $280</td><td><span class="pill ok">in stock</span> 48″ purple and orange are low</td></tr>
+    <tr><td><a href="https://leapsandrebounds.com/products/stability-bar">Adjustable stability bar</a></td><td>40″ or 48″ fit</td><td class="r">$93</td><td><span class="pill ok">40″</span> <span class="pill warn">48″ low</span></td></tr>
+    <tr><td>Rebounder + stability bar bundle</td><td>40″ or 48″ · 5 colours</td><td class="r">$313 / $373<br><small>then 10% off</small></td><td><span class="pill ok">in stock</span></td></tr>
+    <tr><td>Halloween / Think Pink / Fresh Green / Back to School bundles</td><td>Rebounder plus themed extras</td><td class="r">from $240</td><td><span class="pill ok">in stock</span></td></tr>
+    <tr><td><a href="https://leapsandrebounds.com/collections/bungees">Replacement bungees</a></td><td>Regular (colours) · Premium Soft (black, white)</td><td class="r">$20–25</td><td><span class="pill warn">some colours out</span></td></tr>
+    <tr><td>No-slip grip socks</td><td>Tall · 5 colours</td><td class="r">$22</td><td><span class="pill ok">in stock</span></td></tr>
+    <tr><td>Furry mat cover · replacement mats</td><td>40″</td><td class="r">$75 · $50</td><td><span class="pill warn">limited colours</span></td></tr>
+    <tr><td>Made in USA PRO · American Tough rebounders</td><td>Premium USA-built line</td><td class="r">$495 · $650</td><td><span class="pill no">out of stock</span> don't try to recover these carts. Hand them to us.</td></tr>
+  </table></div>
+  <p class="meta">Stock changes daily. This column is a snapshot. The product page is always right, and the API in §3 is how the agent will stay current.</p>
+
+  <h3>Rebounder facts</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Question</th><th>Answer</th></tr>
+    <tr><td>Weight capacity</td><td><b>330 lb on both the 40″ and the 48″.</b> Take the figure from the product page, not from memory, because it's a safety claim.</td></tr>
+    <tr><td>40″ or 48″?</td><td>Neither is better. It comes down to space and feel. The <b>40″</b> suits smaller spaces and has a slightly <b>firmer</b> bounce because the bungees stretch less. The <b>48″</b> gives more room and a slightly <b>softer</b> bounce, and it's the more popular size. On the 40″ it's easier to catch a foot on the cover.</td></tr>
+    <tr><td>Stability</td><td>Six legs on both sizes, evenly spaced, and no reports of the current model tipping. For anyone who's nervous, or has balance concerns, the stability bar is the answer, and it can go in the same cart.</td></tr>
+    <tr><td>Storage</td><td>It fits under a bed or behind furniture. The legs <b>screw off</b>. They don't fold.</td></tr>
+    <tr><td>Bungees vs springs</td><td>Close to silent where springs are loud. Much easier on knees and joints. A bungee that comes loose is soft and light, while a spring that escapes the frame can hurt someone.</td></tr>
+    <tr><td>Bungee strengths</td><td>Two: regular/strong and soft. Nothing firmer, and no date for one. Bungees soften with use and last a year or more.</td></tr>
+    <tr><td>Shoes or barefoot?</td><td>Barefoot is the default: better grip, and good for balance and the feet. Light running shoes suit people with weak ankles. Grip socks are a good middle ground.</td></tr>
+    <tr><td>Indoors / outdoors</td><td>The mat is UV resistant, but colours fade and bungees fray faster in sun and rain. Best kept indoors.</td></tr>
+    <tr><td>HSA / FSA</td><td>Eligible with a doctor's approval. This is worth mentioning to anyone buying for health reasons.</td></tr>
+  </table></div>
+
+  <h3>Policies</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Policy</th><th>Terms</th></tr>
+    <tr><td>Shipping</td><td><b>Free within the US.</b> We don't ship internationally. Carriers vary (UPS or FedEx), and once a package is moving we can't speed it up.</td></tr>
+    <tr><td>Trial &amp; returns</td><td><b>30-day money-back guarantee, counted from delivery</b>, not from the order date. <b>Returns are free</b>: we email a prepaid UPS label, and the refund is issued when the package reaches our warehouse. The item must be undamaged. The oversized USA-built models are an exception, as the customer pays the return freight.</td></tr>
+    <tr><td>Warranty</td><td><b>Lifetime warranty on everything except the bungees</b>, which wear and are replaced cheaply. Replacement parts are free.</td></tr>
+    <tr><td>Bought elsewhere</td><td>Amazon buyers go to the Amazon seller first.</td></tr>
+  </table></div>
+
+  <h3>Why people don't buy, and how we answer</h3>
+  <details open>
+    <summary>“It's too expensive” / “I found a cheaper one”</summary>
+    <p>Start with the product. Offer the code only once price has clearly been the reason. What sets ours apart: heavy-gauge steel legs, and a frame with a locking tab so it doesn't bend or slide. Thick, quiet bungees that are easy on the joints. A padded 360° jump surface with no gap for a foot to drop into. Cheaper rebounders tend to have thin legs that warp, loud springs, and gaps at the edge. Then add the risk-free part: free shipping, 30 days from delivery to send it back for free, and a lifetime warranty.</p>
+  </details>
+  <details>
+    <summary>“I'm comparing with Bellicon” (or another premium brand)</summary>
+    <p>A comparable build (a strong frame and a strong bounce) for a fraction of the price, with a longer warranty that covers more parts. Our bounce sits between Bellicon's firm and extra-firm. <b>Never quote a competitor's price.</b> Compare on build and warranty.</p>
+  </details>
+  <details>
+    <summary>“I'm not sure which size”</summary>
+    <p>Ask about the space and how they want it to feel. If they have room, the 48″ is the popular pick. The 40″ is right for small spaces or anyone who wants a firmer bounce. Either way the 30-day trial covers them, and we exchange between sizes and refund the difference.</p>
+  </details>
+  <details>
+    <summary>“Will it be stable / safe for me?”</summary>
+    <p>Six legs, 330 lb capacity, no tipping reports on the current model. For extra support, add the stability bar, and with the 10% automatic bundle discount it's often cheaper than it looks.</p>
+  </details>
+  <details>
+    <summary>“Is it OK with my knees / hip / pregnancy / condition?”</summary>
+    <p>Answer warmly and send them to their doctor, every time. Rebounding is low-impact and can help balance and fitness in general, but the agent never says a condition will be fine or will improve. Mentioning HSA/FSA eligibility fits naturally here.</p>
+  </details>
+  <details>
+    <summary>“When will it arrive?”</summary>
+    <p>Free US shipping, and orders ship from our warehouse. Don't promise a delivery date, and never give a restock date unless we've confirmed it through the API.</p>
+  </details>
+
+  <h3>Documents</h3>
+  <div class="prose">
+    <p>Everything above is the reviewed version of our support knowledge base: product facts, policies and the objection scripts our team has used for years. If you'd like the full reply-script library (assembly, squeaking, parts, exchanges) in your own format, ask and we'll export it. The public pages your sync should prioritise are the <a href="https://leapsandrebounds.com/products/bungee-rebounders-mini-trampoline">rebounder product page and its FAQ</a>, <a href="https://leapsandrebounds.com/policies/refund-policy">the refund policy</a>, <a href="https://leapsandrebounds.com/pages/claim-warranty">warranty claims</a> and <a href="https://leapsandrebounds.com/pages/claim-return">returns</a>.</p>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────── -->
+<section id="rules">
+  <h2><span class="num">05</span>Rules for the agent</h2>
+  <div class="prose"><p>These are the same rules our own support agents work under. Each one exists because it has gone wrong before.</p></div>
+  <ul class="rules">
+    <li><b>Never answer a medical question.</b> Knees, hips, pelvic floor, pregnancy, recovery: send them to their doctor, warmly.</li>
+    <li><b>Never quote a weight limit from memory.</b> Use the figure on the product page.</li>
+    <li><b>Never quote a competitor's price.</b></li>
+    <li><b>Never promise a restock or ship date</b> that we haven't confirmed.</li>
+    <li><b>Never offer more than the agent's code</b>, and never offer it before price has come up.</li>
+    <li><b>Never promise a refund amount, a free upgrade or expedited shipping.</b> Send those to us as a ticket.</li>
+    <li><b>Never argue with someone who loves another brand.</b> Congratulate them, and suggest ours when theirs wears out.</li>
+  </ul>
+  <ul class="rules do">
+    <li><b>Do</b> mention the risk-free part (free shipping, 30-day free returns, lifetime warranty). It's usually what closes the sale.</li>
+    <li><b>Do</b> suggest the stability bar to anyone worried about balance, and mention the automatic 10% bundle discount.</li>
+    <li><b>Do</b> send a ticket to info@leapsandrebounds.com whenever something is promised that a person has to deliver.</li>
+  </ul>
+</section>
+
+<footer>
+  Prepared by Leaps &amp; Rebounds for Loop · 22 September 2026 · <a href="mailto:info@leapsandrebounds.com">info@leapsandrebounds.com</a>
+</footer>
+</main>
+</body>
+</html>
