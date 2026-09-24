@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "NODE_OPTIONS=--max-old-space-size=4096 next build",
     "start": "TZ=\"America/New_York\" next start -p ${PORT:-3000} -H 0.0.0.0",
     "lint": "eslint"
   },
