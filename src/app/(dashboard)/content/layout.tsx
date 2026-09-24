@@ -89,7 +89,7 @@ const GROUPS: Group[] = [
     href: "/content/assets",
     tabs: [
       { href: "/content/assets", label: "Assets",       icon: Film,   hint: "Every file in Drive — browse, upload, search" },
-      { href: "/content/tags",   label: "Tag Library",  icon: Tag,    hint: "The tag vocabulary the library is organised by" },
+      { href: "/content/tags",   label: "Tag Library",  icon: Tag,    hint: "The tag vocabulary the library is organized by" },
       { href: "/content/batch",  label: "Batch Tagger", icon: Layers, hint: "Run the vision tagger across untagged files" },
     ],
   },
