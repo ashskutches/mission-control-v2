@@ -45,7 +45,6 @@ interface Group {
   color: string;
   /** The page this group lands on when its name is clicked. */
   href: string;
-  exact?: boolean;
   tabs: Tab[];
 }
 
@@ -56,7 +55,6 @@ const GROUPS: Group[] = [
     icon: BarChart3,
     color: "#f59e0b",
     href: "/content",
-    exact: true,
     tabs: [],
   },
   {
@@ -106,7 +104,15 @@ const GROUPS: Group[] = [
   },
 ];
 
-/** The group a path belongs to. Longest href wins, so /content never swallows the rest. */
+/**
+ * The group a path belongs to. Longest href wins, so /content never swallows the rest.
+ *
+ * This function is the ONLY thing that decides which group is active — the strip
+ * below renders from `g.id === current.id` and never matches hrefs itself. So a
+ * per-group `exact` flag has nothing to read it: Dashboard is matched by the
+ * literal below because it is the one group whose href is a prefix of every
+ * other, and that is a fact about this one path, not a property groups carry.
+ */
 function activeGroup(pathname: string): Group {
   const dashboard = GROUPS[0]!;
   if (pathname === "/content") return dashboard;
