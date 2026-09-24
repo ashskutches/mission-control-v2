@@ -2,6 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import SectionTabs, { tabSlug } from "@/components/SectionTabs";
 import { BarChart3, Tag, Layers, Copy, Film, Pin, Wand2, Lightbulb, Database, Bot, Sparkles, CheckSquare, FolderOpen, GraduationCap } from "lucide-react";
 
 /**
@@ -141,37 +142,25 @@ export default function ContentLayout({ children }: { children: React.ReactNode 
       </p>
 
       {/* ── Group strip ──────────────────────────────────────────────────── */}
-      <div style={{
-        display: "flex", gap: "0.4rem", flexWrap: "wrap",
-        borderBottom: current.tabs.length ? "none" : "1px solid rgba(255,255,255,0.05)",
-        paddingBottom: "0.75rem",
-        marginBottom: current.tabs.length ? 0 : "1.5rem",
-      }}>
-        {GROUPS.map(g => {
-          const active = g.id === current.id;
-          const Icon = g.icon;
-          return (
-            <Link
-              key={g.id}
-              href={g.href}
-              id={`content-group-${g.id}`}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: "0.4rem",
-                background: active ? `${g.color}18` : "rgba(255,255,255,0.04)",
-                color: active ? g.color : "#64748b",
-                border: active ? `1px solid ${g.color}30` : "1px solid rgba(255,255,255,0.06)",
-                borderRadius: 8, padding: "0.35rem 0.95rem",
-                fontSize: 11, fontWeight: 700, textDecoration: "none",
-                textTransform: "uppercase", letterSpacing: "0.06em",
-                transition: "all 0.15s",
-              }}
-            >
-              <Icon size={12} />
-              {g.label}
-            </Link>
-          );
-        })}
-      </div>
+      {/*
+        The same pill strip every other section renders, with two differences
+        it takes as props: the pills are a touch larger because they are the
+        top level, and the bottom border moves down to the second row whenever
+        this group has one. Which pill is active comes from activeGroup(), not
+        from matching the group's own href — a group is active when one of ITS
+        pages is open, and only the Dashboard group's href is ever the pathname.
+      */}
+      <SectionTabs
+        items={GROUPS.map(g => ({ href: g.href, label: g.label, icon: g.icon, color: g.color, id: `content-group-${g.id}` }))}
+        pathname={pathname}
+        idPrefix="content"
+        activeHref={current.href}
+        size="md"
+        style={{
+          borderBottom: current.tabs.length ? "none" : "1px solid rgba(255,255,255,0.05)",
+          marginBottom: current.tabs.length ? 0 : "1.5rem",
+        }}
+      />
 
       {/* ── Second row: the pages in this group ──────────────────────────── */}
       {/*
@@ -193,7 +182,7 @@ export default function ContentLayout({ children }: { children: React.ReactNode 
               <Link
                 key={t.href}
                 href={t.href}
-                id={`content-nav-${t.label.toLowerCase().replace(/\s+/g, "-")}`}
+                id={`content-nav-${tabSlug(t.label)}`}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: "0.35rem",
                   color: active ? "#f1f5f9" : "#64748b",

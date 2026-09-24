@@ -1,11 +1,11 @@
 "use client";
 import React from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity, BarChart3, Building2, Lightbulb, Package, RotateCcw, ShoppingCart, Warehouse,
 } from "lucide-react";
 import SectionOwner from "@/components/SectionOwner";
+import SectionTabs, { findActiveTab, type SectionTab } from "@/components/SectionTabs";
 
 /**
  * The Logistics section — the supply side of the store.
@@ -20,7 +20,7 @@ import SectionOwner from "@/components/SectionOwner";
  * one customer at a time); this is SKU-shaped (what to buy, and when). They meet on
  * the variant, not in the navigation.
  */
-const TABS = [
+const TABS: (SectionTab & { blurb: string })[] = [
   { href: "/logistics", label: "Overview", icon: BarChart3, color: "#22c55e", exact: true,
     blurb: "Inventory health, live alerts and fulfilment speed — everything the report puts above the fold." },
   { href: "/logistics/insights", label: "Insights", icon: Lightbulb, color: "#e98d20",
@@ -39,7 +39,7 @@ const TABS = [
 
 export default function LogisticsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const active = TABS.find(t => (t.exact ? pathname === t.href : pathname.startsWith(t.href)));
+  const active = findActiveTab(TABS, pathname);
 
   return (
     <div className="px-5 py-5" style={{ maxWidth: 1280, margin: "0 auto" }}>
@@ -61,35 +61,7 @@ export default function LogisticsLayout({ children }: { children: React.ReactNod
       </p>
 
       {/* Tab nav */}
-      <div style={{
-        display: "flex", gap: "0.4rem", flexWrap: "wrap",
-        borderBottom: "1px solid rgba(255,255,255,0.05)",
-        paddingBottom: "0.75rem", marginBottom: "1.5rem",
-      }}>
-        {TABS.map(({ href, label, icon: Icon, color }) => {
-          const isActive = active?.href === href;
-          return (
-            <Link
-              key={href}
-              href={href}
-              id={`logistics-nav-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-$/, "")}`}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: "0.4rem",
-                background: isActive ? `${color}18` : "rgba(255,255,255,0.04)",
-                color: isActive ? color : "#64748b",
-                border: isActive ? `1px solid ${color}30` : "1px solid rgba(255,255,255,0.06)",
-                borderRadius: 8, padding: "0.3rem 0.85rem",
-                fontSize: 11, fontWeight: 700, textDecoration: "none",
-                textTransform: "uppercase", letterSpacing: "0.06em",
-                transition: "all 0.15s",
-              }}
-            >
-              <Icon size={12} />
-              {label}
-            </Link>
-          );
-        })}
-      </div>
+      <SectionTabs items={TABS} pathname={pathname} idPrefix="logistics" />
 
       {/* Whose department this is. In the layout rather than the page so it
           shows on every tab of the section — this space has no
