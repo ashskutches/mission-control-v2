@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "NODE_OPTIONS=--max-old-space-size=4096 next build",
+    "build": "node --max-old-space-size=4096 ./node_modules/next/dist/bin/next build",
     "start": "TZ=\"America/New_York\" next start -p ${PORT:-3000} -H 0.0.0.0",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check:build-portability": "node scripts/check-build-portability.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",
