@@ -77,8 +77,7 @@ const GROUPS: Group[] = [
     color: "#38bdf8",
     href: "/content/agent-content",
     tabs: [
-      { href: "/content/agent-content", label: "Agent Content", icon: Bot,       hint: "Approve or reject everything the agents generated" },
-      { href: "/content/insights",      label: "Insights",      icon: Lightbulb, hint: "What the Content lead agent has filed for a decision" },
+      { href: "/content/agent-content", label: "Agent Content", icon: Bot, hint: "Approve or reject everything the agents generated" },
     ],
   },
   {
@@ -104,16 +103,37 @@ const GROUPS: Group[] = [
       { href: "/content/training-data", label: "Training Data", icon: Database, hint: "What the generator can and cannot render, across all products" },
     ],
   },
+  // Last, everywhere. Insights is the decision queue an agent files into, not a
+  // tool you reach for while working — it is where you go when you have finished
+  // and want to know what is waiting on you. Sitting second, as it did in all
+  // eight sections, it took the position the most-used page should have.
+  {
+    id: "insights",
+    label: "Insights",
+    icon: Lightbulb,
+    color: "#e98d20",
+    href: "/content/insights",
+    tabs: [],
+  },
 ];
 
-/** The group a path belongs to. Longest href wins, so /content never swallows the rest. */
+/**
+ * The group a path belongs to. Longest href wins, so /content never swallows the
+ * rest.
+ *
+ * Matches on the group's own href as well as its tabs: Dashboard and Insights
+ * are single pages with no second row, and keying only off `tabs` left them
+ * unable to ever look selected.
+ */
 function activeGroup(pathname: string): Group {
   const dashboard = GROUPS[0]!;
   if (pathname === "/content") return dashboard;
-  const match = GROUPS
-    .flatMap(g => g.tabs.map(t => ({ g, len: t.href.length, hit: pathname === t.href || pathname.startsWith(t.href + "/") })))
-    .filter(x => x.hit)
-    .sort((a, b) => b.len - a.len)[0];
+  const candidates = GROUPS.flatMap(g =>
+    [{ href: g.href, g }, ...g.tabs.map(t => ({ href: t.href, g }))]
+      .filter(c => c.href !== "/content")
+      .map(c => ({ g: c.g, len: c.href.length, hit: pathname === c.href || pathname.startsWith(c.href + "/") })),
+  );
+  const match = candidates.filter(c => c.hit).sort((a, b) => b.len - a.len)[0];
   return match?.g ?? dashboard;
 }
 
@@ -121,6 +141,9 @@ export default function ContentLayout({ children }: { children: React.ReactNode 
   const pathname = usePathname();
   const current = activeGroup(pathname);
   const activeTab = current.tabs.find(t => pathname === t.href || pathname.startsWith(t.href + "/"));
+  // A group with one page is its own row already — the group button IS the link.
+  // Rendering a second row holding a single item repeats the label you just clicked.
+  const showSecondRow = current.tabs.length > 1;
 
   return (
     <div className="px-5 py-5" style={{ maxWidth: 1200, margin: "0 auto" }}>
@@ -143,9 +166,9 @@ export default function ContentLayout({ children }: { children: React.ReactNode 
       {/* ── Group strip ──────────────────────────────────────────────────── */}
       <div style={{
         display: "flex", gap: "0.4rem", flexWrap: "wrap",
-        borderBottom: current.tabs.length ? "none" : "1px solid rgba(255,255,255,0.05)",
+        borderBottom: showSecondRow ? "none" : "1px solid rgba(255,255,255,0.05)",
         paddingBottom: "0.75rem",
-        marginBottom: current.tabs.length ? 0 : "1.5rem",
+        marginBottom: showSecondRow ? 0 : (activeTab ? "0.5rem" : "1.5rem"),
       }}>
         {GROUPS.map(g => {
           const active = g.id === current.id;
@@ -179,7 +202,7 @@ export default function ContentLayout({ children }: { children: React.ReactNode 
         collapsed. A menu you have to open is a menu you have to remember the
         contents of, and the whole complaint was not being able to find things.
       */}
-      {current.tabs.length > 0 && (
+      {showSecondRow && (
         <div style={{
           display: "flex", gap: "1.1rem", flexWrap: "wrap", alignItems: "center",
           borderBottom: "1px solid rgba(255,255,255,0.05)",

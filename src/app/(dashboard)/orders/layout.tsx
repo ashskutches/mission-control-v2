@@ -19,14 +19,14 @@ import SectionOwner from "@/components/SectionOwner";
 const TABS = [
   { href: "/orders",             label: "Queue",       icon: AlertTriangle,  color: "#fb923c", exact: true,
     blurb: "Every order that needs a human today, ranked by how bad it is. Read live from Shopify — healthy orders are not shown." },
-  { href: "/orders/insights",    label: "Insights",    icon: Lightbulb,      color: "#e98d20",
-    blurb: "What the Orders lead agent has filed — ranked findings, what each is worth, and who is acting on it." },
   { href: "/orders/backorders",  label: "Backorders",  icon: Package,        color: "#06b6d4",
     blurb: "Orders tagged _BACKORDERED, with the variant-or-wait SMS follow-up." },
   { href: "/orders/sms",         label: "Text Message (Testing)", icon: MessageSquare, color: "#a78bfa",
     blurb: "Send a real SMS by hand. Every send here goes to a live phone." },
   { href: "/orders/patterns",    label: "Buying Patterns", icon: TrendingUp, color: "#34d399",
     blurb: "What months of orders add up to: what gets bought together, what only looks like it does, and where the money is actually being left. Every figure shows its arithmetic." },
+  { href: "/orders/insights",    label: "Insights",    icon: Lightbulb,      color: "#e98d20",
+    blurb: "What the Orders lead agent has filed — ranked findings, what each is worth, and who is acting on it." },
 ];
 
 export default function OrdersLayout({ children }: { children: React.ReactNode }) {

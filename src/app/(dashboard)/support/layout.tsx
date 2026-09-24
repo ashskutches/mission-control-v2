@@ -18,11 +18,11 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: "/support",          label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/support/insights", label: "Insights",  icon: Lightbulb },
   { href: "/support/inbox",    label: "Inbox",     icon: Inbox,    badge: "awaitingApproval" },
   { href: "/support/learning", label: "Learning",  icon: Brain,    badge: "openQuestions" },
   { href: "/support/docs",     label: "Knowledge", icon: BookOpen },
   { href: "/support/settings", label: "Settings",  icon: Settings },
+  { href: "/support/insights", label: "Insights",  icon: Lightbulb },
 ];
 
 export default function SupportLayout({ children }: { children: React.ReactNode }) {

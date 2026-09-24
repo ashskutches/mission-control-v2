@@ -21,9 +21,9 @@ import { BarChart3, ShoppingCart, Package, PiggyBank, Lightbulb } from "lucide-r
 
 const NAV = [
   { href: "/sales",          label: "Dashboard", icon: BarChart3, color: "#22c55e", exact: true },
-  { href: "/sales/insights", label: "Insights",  icon: Lightbulb, color: "#e98d20" },
   { href: "/sales/products", label: "Products",  icon: Package,   color: "#38bdf8" },
   { href: "/sales/profit",   label: "Profit",    icon: PiggyBank, color: "#a78bfa" },
+  { href: "/sales/insights", label: "Insights",  icon: Lightbulb, color: "#e98d20" },
 ];
 
 export default function SalesLayout({ children }: { children: React.ReactNode }) {

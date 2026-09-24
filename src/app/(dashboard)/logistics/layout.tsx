@@ -23,8 +23,6 @@ import SectionOwner from "@/components/SectionOwner";
 const TABS = [
   { href: "/logistics", label: "Overview", icon: BarChart3, color: "#22c55e", exact: true,
     blurb: "Inventory health, live alerts and fulfilment speed — everything the report puts above the fold." },
-  { href: "/logistics/insights", label: "Insights", icon: Lightbulb, color: "#e98d20",
-    blurb: "What the Logistics lead agent has filed — ranked findings, what each is worth, and who is acting on it." },
   { href: "/logistics/inventory", label: "Inventory", icon: Package, color: "#38bdf8",
     blurb: "Every tracked SKU with its stock, reorder point and days to stockout. Sorted by what runs out first." },
   { href: "/logistics/reorder", label: "Reorder", icon: ShoppingCart, color: "#f59e0b",
@@ -35,6 +33,8 @@ const TABS = [
     blurb: "Stock per SKU per warehouse: what can actually ship, what is only being held, and what belongs to a dropship partner rather than to us." },
   { href: "/logistics/shipping", label: "Shipping & Carriers", icon: Activity, color: "#06b6d4",
     blurb: "Shipment volume, carrier mix, transit time and on-time delivery against the carrier's promise — all from Shopify. Only the freight and storage FEES still need Falcon." },
+  { href: "/logistics/insights", label: "Insights", icon: Lightbulb, color: "#e98d20",
+    blurb: "What the Logistics lead agent has filed — ranked findings, what each is worth, and who is acting on it." },
 ];
 
 export default function LogisticsLayout({ children }: { children: React.ReactNode }) {

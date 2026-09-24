@@ -6,12 +6,12 @@ import { BarChart3, Layers, Radio, Link2, Rocket, Activity, Code2, Lightbulb } f
 
 const NAV = [
   { href: "/website",           label: "Dashboard", icon: BarChart3, color: "#38bdf8", exact: true },
-  { href: "/website/insights",  label: "Insights",  icon: Lightbulb, color: "#e98d20" },
   { href: "/website/sections",  label: "Sections",  icon: Layers,   color: "#a78bfa" },
   { href: "/website/signals",   label: "Signals",   icon: Radio,    color: "#f59e0b" },
   { href: "/website/embeds",    label: "Embeds",    icon: Link2,    color: "#34d399" },
   { href: "/website/deploy",    label: "Deploy",    icon: Rocket,   color: "#64748b" },
   { href: "/website/snippets",  label: "Snippets",  icon: Code2,    color: "#818cf8" },
+  { href: "/website/insights",  label: "Insights",  icon: Lightbulb, color: "#e98d20" },
 ];
 
 export default function AudienceLayout({ children }: { children: React.ReactNode }) {

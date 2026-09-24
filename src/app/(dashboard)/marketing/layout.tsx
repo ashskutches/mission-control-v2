@@ -6,10 +6,10 @@ import { BarChart3, Megaphone, Radar, Lightbulb, Tag, CalendarDays } from "lucid
 
 const NAV = [
   { href: "/marketing",      label: "Dashboard", icon: BarChart3, color: "#e98d20", exact: true },
-  { href: "/marketing/insights", label: "Insights", icon: Lightbulb, color: "#e98d20" },
   { href: "/marketing/ads",  label: "Ads",       icon: Megaphone, color: "#f43f5e" },
   { href: "/marketing/calendar", label: "Calendar", icon: CalendarDays, color: "#e98d20" },
   { href: "/marketing/promotions", label: "Promotions", icon: Tag, color: "#e98d20" },
+  { href: "/marketing/insights", label: "Insights", icon: Lightbulb, color: "#e98d20" },
 ];
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
