@@ -19,6 +19,21 @@ const INPUT_STYLE = { background: "rgba(255,255,255,0.04)", border: "1px solid r
 const TRIGGER_COLORS: Record<string, string> = { utm: "#f59e0b", page_view: "#38bdf8", time_based: "#a78bfa", manual: "#64748b", webhook: "#34d399" };
 const TRIGGER_LABELS: Record<string, string> = { utm: "UTM", page_view: "Page View", time_based: "Time-Based", manual: "Manual", webhook: "Webhook" };
 
+/** trigger_config.url_contains is a string on older definitions and a list on newer ones. */
+function urlList(v: unknown): string[] {
+  if (Array.isArray(v)) return v.filter((u): u is string => typeof u === "string");
+  return typeof v === "string" && v.trim() ? [v.trim()] : [];
+}
+
+function triggerSummary(s: SignalDef): string | null {
+  const c = s.trigger_config ?? {};
+  const urls = urlList(c.url_contains);
+  const parts: string[] = [];
+  if (urls.length) parts.push(urls.length === 1 ? urls[0] : `${urls.length} URLs`);
+  if (typeof c.param === "string" && c.param && c.value) parts.push(`?${c.param}=${c.value}`);
+  return parts.length ? parts.join(" · ") : null;
+}
+
 function SignalTriggerFields({ form, setForm }: { form: any; setForm: any }) {
   const type = form.trigger_type;
   return (
@@ -41,10 +56,17 @@ function SignalTriggerFields({ form, setForm }: { form: any; setForm: any }) {
       )}
       {type === "page_view" && (
         <div>
-          <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>URL Contains</label>
-          <input className="input is-small" placeholder="/blogs/joint-health" style={INPUT_STYLE}
-            value={form.trigger_config?.url_contains ?? ""}
-            onChange={e => setForm((f: any) => ({ ...f, trigger_config: { url_contains: e.target.value } }))} />
+          <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>
+            URL Contains — one per line, any match applies ({urlList(form.trigger_config?.url_contains).length})
+          </label>
+          <textarea className="textarea is-small" rows={6} placeholder={"/blogs/news/heavy-duty-trampoline\n/blogs/mini-trampoline-workouts/weight-loss"} style={{ ...INPUT_STYLE, fontFamily: "monospace", fontSize: 11 }}
+            value={form.url_text ?? urlList(form.trigger_config?.url_contains).join("\n")}
+            onChange={e => {
+              const text = e.target.value;
+              const urls = text.split("\n").map(u => u.trim()).filter(Boolean);
+              // Keep any other rule on the definition (a UTM param alongside the URLs).
+              setForm((f: any) => ({ ...f, url_text: text, trigger_config: { ...f.trigger_config, url_contains: urls } }));
+            }} />
         </div>
       )}
       {type === "time_based" && (
@@ -94,7 +116,7 @@ export default function SignalsPage() {
     try {
       if (!form.key || !form.label) throw new Error("Key and label are required");
       const url = editTarget ? `${BOT_URL}/admin/intelligence/signals/${editTarget.id}` : `${BOT_URL}/admin/intelligence/signals`;
-      const res = await fetch(url, { method: editTarget ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const res = await fetch(url, { method: editTarget ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify((({ url_text, ...rest }) => rest)(form)) });
       if (!res.ok) throw new Error((await res.json()).error ?? "Save failed");
       setShowForm(false); fetchSignals();
     } catch (e: any) { setFormError(e.message); }
@@ -116,7 +138,7 @@ export default function SignalsPage() {
     <div>
       <div style={{ ...CARD, marginBottom: "1.25rem", border: "1px solid rgba(56,189,248,0.12)" }}>
         <p style={{ fontSize: 11, color: "#64748b", lineHeight: 1.6 }}>
-          <strong style={{ color: "#e2e8f0" }}>Signals</strong> are behavioral tags assigned to visitor profiles. The snippet auto-applies UTM, page-view, and time-based signals on page load.
+          <strong style={{ color: "#e2e8f0" }}>Signals</strong> are behavioral tags assigned to visitor profiles. lrb-signals.js applies UTM and page-view signals on every storefront page and remembers them in the visitor's browser, so a signal earned on one page follows them to every later page. Target a section at one with <code>{'{"tags": ["key"]}'}</code> on Website → Sections.
         </p>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
@@ -146,7 +168,7 @@ export default function SignalsPage() {
               <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem" }}>Trigger Type</label>
               <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                 {(["utm", "page_view", "time_based", "manual", "webhook"] as const).map(t => (
-                  <button key={t} onClick={() => setForm((f: any) => ({ ...f, trigger_type: t, trigger_config: {}, expires_after_ms: null }))}
+                  <button key={t} onClick={() => setForm((f: any) => ({ ...f, trigger_type: t, trigger_config: {}, url_text: undefined, expires_after_ms: null }))}
                     style={{ fontSize: 10, padding: "0.25rem 0.7rem", borderRadius: 6, cursor: "pointer", fontWeight: 700, background: form.trigger_type === t ? `${TRIGGER_COLORS[t]}15` : "rgba(255,255,255,0.04)", color: form.trigger_type === t ? TRIGGER_COLORS[t] : "#64748b", border: form.trigger_type === t ? `1px solid ${TRIGGER_COLORS[t]}40` : "1px solid rgba(255,255,255,0.06)" }}>
                     {TRIGGER_LABELS[t]}
                   </button>
@@ -192,6 +214,7 @@ export default function SignalsPage() {
                       )}
                     </div>
                     {s.description && <p style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{s.description}</p>}
+                    {triggerSummary(s) && <p style={{ fontSize: 10, color: "#475569", marginTop: 2, fontFamily: "monospace" }}>{triggerSummary(s)}</p>}
                   </div>
                   <div style={{ display: "flex", gap: "0.2rem", flexShrink: 0 }}>
                     <button onClick={() => toggleActive(s)} title={s.active ? "Deactivate" : "Activate"} style={{ color: s.active ? "#f43f5e" : "#34d399", padding: "0.2rem", background: "none", border: "none", cursor: "pointer" }}>{s.active ? <X size={12} /> : <Check size={12} />}</button>
