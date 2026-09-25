@@ -126,7 +126,7 @@ We are anti-punishment. Fitness here is something you get to do, not something y
 1. **Bungee cords, not springs** — quieter, smoother, gentler
 2. **Ships 95% assembled** — kills the setup objection
 3. **70% less joint impact** — the primary health benefit
-4. **Folds flat, stores upright** — the space answer
+4. **Legs screw off, stores flat against a wall** — the space answer
 5. **30-day Jump Trial** — risk reversal
 
 **Product lines**
