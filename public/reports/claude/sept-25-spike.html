@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  Not for search engines. This page is reachable by anyone holding the link and
+  carries internal business analysis; robots.txt disallows /reports/ as well, but
+  a meta directive is the one that stops indexing of a page that IS fetched.
+-->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>The Sept 25 Spike</title>
+<style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style>
+</head>
+<body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Public+Sans:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    --bg:#f7f8fa; --surface:#ffffff; --sunk:#eceff3;
+    --ink:#121a26; --ink-2:#465163; --ink-3:#7c8797;
+    --rule:#dde2e9; --accent:#1d5fc4; --accent-bg:#e6eefb;
+    --hot:#d9780f; --hot-bg:#fcf0e1;
+    --s1:#1d5fc4; --s2:#6f4cc4; --s3:#12917f; --s4:#9aa6b6; --base:#c9d1dc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg:#0f141b; --surface:#151c25; --sunk:#1b2430;
+      --ink:#e7ecf2; --ink-2:#aeb8c6; --ink-3:#7d8897;
+      --rule:#27313e; --accent:#72a6f2; --accent-bg:#172437;
+      --hot:#f2a54a; --hot-bg:#2b2014;
+      --s1:#5b93ea; --s2:#a086ea; --s3:#3cc3ae; --s4:#6d7888; --base:#3a4554;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg:#0f141b; --surface:#151c25; --sunk:#1b2430;
+    --ink:#e7ecf2; --ink-2:#aeb8c6; --ink-3:#7d8897;
+    --rule:#27313e; --accent:#72a6f2; --accent-bg:#172437;
+    --hot:#f2a54a; --hot-bg:#2b2014;
+    --s1:#5b93ea; --s2:#a086ea; --s3:#3cc3ae; --s4:#6d7888; --base:#3a4554;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Public Sans", system-ui, sans-serif; font-size:16.5px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .page { max-width:880px; margin:0 auto; padding-block:clamp(28px,5vw,64px) 80px; padding-inline:clamp(16px,4vw,40px); display:grid; gap:44px; }
+  h1,h2,h3 { font-family:"Bricolage Grotesque", system-ui, sans-serif; margin:0; text-wrap:balance; }
+  h1 { font-size:clamp(2rem,5vw,3rem); font-weight:800; line-height:1.04; letter-spacing:-.02em; }
+  h2 { font-size:clamp(1.3rem,2.6vw,1.65rem); font-weight:800; line-height:1.2; letter-spacing:-.01em; }
+  h3 { font-size:1.08rem; font-weight:600; line-height:1.3; }
+  p { margin:0; max-width:70ch; }
+  .m, .num { font-family:"JetBrains Mono", ui-monospace, Menlo, monospace; font-variant-numeric:tabular-nums; }
+  code { font-family:"JetBrains Mono", ui-monospace, monospace; font-size:.85em; background:var(--sunk); padding:.1em .35em; border-radius:3px; }
+  section { display:grid; gap:14px; }
+  .kicker { font-size:.78rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); }
+  .head { display:grid; gap:14px; border-bottom:2px solid var(--ink); padding-bottom:26px; }
+  .dek { font-size:1.12rem; color:var(--ink-2); }
+
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--rule); border:1px solid var(--rule); border-radius:10px; overflow:hidden; }
+  .stat { background:var(--surface); padding:16px 18px; display:grid; gap:2px; align-content:start; }
+  .stat .v { font-family:"Bricolage Grotesque", system-ui, sans-serif; font-weight:800; font-size:1.9rem; line-height:1.1; letter-spacing:-.01em; }
+  .stat .l { font-size:.86rem; color:var(--ink-2); }
+  .stat .c { font-size:.8rem; color:var(--ink-3); }
+  .stat.hot .v { color:var(--hot); }
+  @media (max-width:640px) { .stats { grid-template-columns:repeat(2,1fr); } }
+
+  .chart { background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:14px 12px 6px; overflow-x:auto; }
+  .chart svg { display:block; width:100%; min-width:520px; height:auto; }
+  .chart .grid { stroke:var(--rule); stroke-width:1; }
+  .chart .ax { fill:var(--ink-3); font:11px "JetBrains Mono", ui-monospace, monospace; }
+  .chart .ax.b { fill:var(--ink-2); }
+  .chart .bar { fill:var(--base); }
+  .chart .bar.hot { fill:var(--hot); }
+  .chart .ref { stroke:var(--ink-2); stroke-width:1; stroke-dasharray:4 4; }
+  .chart .reftxt { paint-order:stroke; stroke:var(--surface); stroke-width:4px; stroke-linejoin:round; fill:var(--ink); font:11px "Public Sans", system-ui, sans-serif; }
+  .chart .hotlbl { fill:var(--hot); font:600 12px "JetBrains Mono", ui-monospace, monospace; }
+  .chart .brk { stroke:var(--surface); stroke-width:3; fill:none; }
+  .cap { font-size:.84rem; color:var(--ink-3); }
+
+  .bridge { display:grid; gap:14px; }
+  .stack { display:flex; height:42px; border-radius:6px; overflow:hidden; }
+  .stack span { display:block; height:100%; }
+  .legend { display:grid; gap:0; border-top:1px solid var(--rule); }
+  .row { display:grid; grid-template-columns:14px 1fr auto; gap:12px; align-items:baseline; padding:11px 0; border-bottom:1px solid var(--rule); }
+  .sw { width:12px; height:12px; border-radius:3px; align-self:center; }
+  .row .t { display:grid; gap:1px; }
+  .row .t small { color:var(--ink-3); font-size:.84rem; }
+  .row .amt { font-family:"JetBrains Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums; font-weight:600; }
+  .row.total { border-bottom:2px solid var(--ink); }
+  .row.total .amt { color:var(--hot); }
+
+  .finding { display:grid; grid-template-columns:auto 1fr; gap:4px 16px; padding:20px 0; border-top:1px solid var(--rule); }
+  .finding .tag { grid-row:span 2; font-family:"JetBrains Mono", ui-monospace, monospace; font-weight:600; font-size:.95rem; padding:3px 9px; border-radius:5px; height:fit-content; background:var(--accent-bg); color:var(--accent); white-space:nowrap; }
+  .finding .body { display:grid; gap:8px; }
+  @media (max-width:560px) { .finding { grid-template-columns:1fr; } .finding .tag { grid-row:auto; width:fit-content; } }
+
+  .tbl { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:.93rem; min-width:420px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--rule); }
+  th { font-size:.76rem; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  td.n, th.n { text-align:right; font-family:"JetBrains Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums; }
+  td.up { color:var(--hot); font-weight:600; }
+
+  .not { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .not div { background:var(--surface); border:1px solid var(--rule); border-radius:8px; padding:14px 16px; display:grid; gap:4px; align-content:start; }
+  .not div p { font-size:.93rem; color:var(--ink-2); }
+  @media (max-width:700px) { .not { grid-template-columns:1fr; } }
+
+  ol.next { margin:0; padding-left:1.3em; display:grid; gap:10px; max-width:70ch; }
+  ol.next li::marker { font-family:"JetBrains Mono", monospace; color:var(--ink-3); }
+  .method { font-size:.86rem; color:var(--ink-3); border-top:1px solid var(--rule); padding-top:18px; display:grid; gap:6px; }
+  .method p { max-width:none; }
+</style>
+
+<main class="page">
+  <header class="head">
+    <div class="kicker">Sales analysis · Friday, September 25, 2026</div>
+    <h1>The Sept 25 Spike</h1>
+    <p class="dek">We sold more than double a normal day. Traffic barely moved. Three unrelated things landed on the same Friday, on top of a week that was already running hot.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat hot"><span class="v num">$6,047</span><span class="l">gross sales</span><span class="c">typical day $2,644 · 2.3×</span></div>
+    <div class="stat"><span class="v num">26</span><span class="l">orders</span><span class="c">typical 11–12</span></div>
+    <div class="stat"><span class="v num">101</span><span class="l">sessions adding to cart</span><span class="c">typical 38 · 2.7×</span></div>
+    <div class="stat"><span class="v num">1,287</span><span class="l">sessions</span><span class="c">typical 1,087 · +18%</span></div>
+  </div>
+
+  <section>
+    <h2>Thirty days of daily gross</h2>
+    <div class="chart"><svg viewBox="0 0 720 260" role="img" aria-label="Daily gross sales, Aug 27 to Sep 25. Sep 25 is $6,047 against a typical $2,644."><line x1="44" x2="708" y1="230" y2="230" class="grid"/><text x="36" y="234" class="ax" text-anchor="end">$0k</text><line x1="44" x2="708" y1="169.42857142857144" y2="169.42857142857144" class="grid"/><text x="36" y="173.42857142857144" class="ax" text-anchor="end">$2k</text><line x1="44" x2="708" y1="108.85714285714286" y2="108.85714285714286" class="grid"/><text x="36" y="112.85714285714286" class="ax" text-anchor="end">$4k</text><line x1="44" x2="708" y1="48.285714285714306" y2="48.285714285714306" class="grid"/><text x="36" y="52.285714285714306" class="ax" text-anchor="end">$6k</text><line x1="44" x2="708" y1="149.92457142857143" y2="149.92457142857143" class="ref"/><text x="48" y="143.92457142857143" class="reftxt">typical day $2,644</text><rect x="45.5" y="128.4" width="19.1" height="101.6" class="bar"><title>08-27: $3,355</title></rect><text x="55.06666666666666" y="250" class="ax" text-anchor="middle">Aug 27</text><rect x="67.6" y="150.9" width="19.1" height="79.1" class="bar"><title>08-28: $2,612</title></rect><rect x="89.8" y="185.2" width="19.1" height="44.8" class="bar"><title>08-29: $1,480</title></rect><rect x="111.9" y="152.1" width="19.1" height="77.9" class="bar"><title>08-30: $2,572</title></rect><rect x="134.0" y="176.4" width="19.1" height="53.6" class="bar"><title>08-31: $1,771</title></rect><rect x="156.2" y="143.2" width="19.1" height="86.8" class="bar"><title>09-01: $2,865</title></rect><text x="165.73333333333332" y="250" class="ax" text-anchor="middle">Sep 1</text><rect x="178.3" y="147.1" width="19.1" height="82.9" class="bar"><title>09-02: $2,736</title></rect><rect x="200.4" y="152.3" width="19.1" height="77.7" class="bar"><title>09-03: $2,567</title></rect><rect x="222.6" y="132.2" width="19.1" height="97.8" class="bar"><title>09-04: $3,228</title></rect><rect x="244.7" y="166.4" width="19.1" height="63.6" class="bar"><title>09-05: $2,101</title></rect><rect x="266.8" y="132.4" width="19.1" height="97.6" class="bar"><title>09-06: $3,222</title></rect><text x="276.4" y="250" class="ax" text-anchor="middle">Sep 6</text><rect x="289.0" y="26.0" width="19.1" height="204.0" class="bar"><title>09-07: $6,737</title></rect><rect x="311.1" y="125.9" width="19.1" height="104.1" class="bar"><title>09-08: $3,437</title></rect><rect x="333.2" y="155.0" width="19.1" height="75.0" class="bar"><title>09-09: $2,476</title></rect><rect x="355.4" y="176.3" width="19.1" height="53.7" class="bar"><title>09-10: $1,773</title></rect><rect x="377.5" y="150.4" width="19.1" height="79.6" class="bar"><title>09-11: $2,628</title></rect><text x="387.06666666666666" y="250" class="ax" text-anchor="middle">Sep 11</text><rect x="399.6" y="171.2" width="19.1" height="58.8" class="bar"><title>09-12: $1,942</title></rect><rect x="421.8" y="133.2" width="19.1" height="96.8" class="bar"><title>09-13: $3,196</title></rect><rect x="443.9" y="184.5" width="19.1" height="45.5" class="bar"><title>09-14: $1,502</title></rect><rect x="466.0" y="162.9" width="19.1" height="67.1" class="bar"><title>09-15: $2,216</title></rect><rect x="488.2" y="18.0" width="19.1" height="212.0" class="bar"><title>09-16: $13,938</title></rect><path d="M487.16666666666663 28 l21.133333333333333 -5 M487.16666666666663 33 l21.133333333333333 -5" class="brk"/><text x="497.7333333333333" y="13" class="ax b" text-anchor="middle">$13.9k</text><text x="497.7333333333333" y="250" class="ax" text-anchor="middle">Sep 16</text><rect x="510.3" y="149.4" width="19.1" height="80.6" class="bar"><title>09-17: $2,660</title></rect><rect x="532.4" y="184.2" width="19.1" height="45.8" class="bar"><title>09-18: $1,512</title></rect><rect x="554.6" y="148.4" width="19.1" height="81.6" class="bar"><title>09-19: $2,695</title></rect><rect x="576.7" y="162.4" width="19.1" height="67.6" class="bar"><title>09-20: $2,233</title></rect><rect x="598.8" y="175.1" width="19.1" height="54.9" class="bar"><title>09-21: $1,813</title></rect><text x="608.4000000000001" y="250" class="ax" text-anchor="middle">Sep 21</text><rect x="621.0" y="137.6" width="19.1" height="92.4" class="bar"><title>09-22: $3,052</title></rect><rect x="643.1" y="132.9" width="19.1" height="97.1" class="bar"><title>09-23: $3,206</title></rect><rect x="665.2" y="122.0" width="19.1" height="108.0" class="bar"><title>09-24: $3,565</title></rect><rect x="687.4" y="46.9" width="19.1" height="183.1" class="bar hot"><title>09-25: $6,047</title></rect><text x="696.9333333333334" y="39.85168571428571" class="hotlbl" text-anchor="end">$6,047</text><text x="696.9333333333334" y="250" class="ax" text-anchor="middle">Sep 25</text></svg></div>
+    <p class="cap">Aug 27 – Sep 25, store time (Pacific). The Sep 16 bar is cut off at $7k; that day was $13.9k from 12 orders, driven by a handful of large orders.</p>
+  </section>
+
+  <section class="bridge">
+    <h2>From a typical day to $6,047</h2>
+    <p>Starting from the 14-day median and adding each thing that was different yesterday.</p>
+    <div class="stack" aria-hidden="true">
+      <span style="width:43.7%;background:var(--base)"></span>
+      <span style="width:29.1%;background:var(--s1)"></span>
+      <span style="width:8.7%;background:var(--s3)"></span>
+      <span style="width:8.1%;background:var(--s2)"></span>
+      <span style="width:10.4%;background:var(--s4)"></span>
+    </div>
+    <div class="legend">
+      <div class="row"><span class="sw" style="background:var(--base)"></span><span class="t">Typical day<small>Median gross, Sep 11–24</small></span><span class="amt">$2,644</span></div>
+      <div class="row"><span class="sw" style="background:var(--s1)"></span><span class="t">One bulk order<small>#48845 · 8 rebounders at $220</small></span><span class="amt">+$1,760</span></div>
+      <div class="row"><span class="sw" style="background:var(--s3)"></span><span class="t">Furry Mat Cover<small>7 orders at $75 · normally close to zero</small></span><span class="amt">+$525</span></div>
+      <div class="row"><span class="sw" style="background:var(--s2)"></span><span class="t">Barbara O'Neill Collective<small>5 orders, $655 · normally about $166 a day</small></span><span class="amt">+$489</span></div>
+      <div class="row"><span class="sw" style="background:var(--s4)"></span><span class="t">Everything else, up<small>More search traffic, better add-to-cart, abandoned-cart emails</small></span><span class="amt">+$629</span></div>
+      <div class="row total"><span class="sw"></span><span class="t"><strong>Sep 25 gross</strong></span><span class="amt">$6,047</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What happened</h2>
+    <div>
+      <article class="finding">
+        <span class="tag">+$1,760</span>
+        <h3>A first-time customer bought eight rebounders in one order</h3>
+        <div class="body">
+          <p>Order #48845, $1,584 after the <code>10OFFTRAMP</code> code. They first landed on the rebounder product page three days earlier and came back directly to buy. This single order is about 50% of the gap between yesterday and a typical day. At this size it is most likely a studio, gym or group buyer.</p>
+        </div>
+      </article>
+      <article class="finding">
+        <span class="tag">+$525</span>
+        <h3>The Furry Mat Cover suddenly started selling</h3>
+        <div class="body">
+          <p>Seven orders yesterday. It had one in the previous 12 days. Sessions landing on its product page went from 6, 12 and 6 on Sep 22–24 to <strong>115</strong> on Sep 25, and 12 of those added to cart.</p>
+          <p>Across Sep 25–26, most of those visits arrived <strong>direct on a phone</strong> (109 of 182), with Google (43) and YouTube (14) behind. They were spread from mid-morning to evening, peaking around noon and 6–7pm Pacific. That is what a shared link looks like: a video, a group post, a text. Our data cannot say whose. The product did not change: same $75 price, same $100 compare-at, listed since January 2025.</p>
+        </div>
+      </article>
+      <article class="finding">
+        <span class="tag">+$489</span>
+        <h3>The Barbara O'Neill Collective store sent a burst of orders</h3>
+        <div class="body">
+          <p>Five Shopify Collective orders for $655, against an average of about $166 a day over the prior week. Four of them came within two hours of each other in the afternoon. The demand came from their side, and we have no view into what they did.</p>
+        </div>
+      </article>
+      <article class="finding">
+        <span class="tag">+$629</span>
+        <h3>Everyday demand was up too, and it started on Thursday</h3>
+        <div class="body">
+          <p>Search sessions rose to 639, against an average of 413 on Sep 20–24. Search visits that added to cart went from about 21 to 50, and search checkouts from about 4 to 9. The Google Ads campaign <code>23924847266</code> was the first touch on 8 of the web orders. Add-to-cart had already jumped on Sep 24 (65 sessions), so the lift began a day before the spike.</p>
+          <p>Automated emails closed 3 orders: two abandoned-cart emails and one welcome-series email.</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>The funnel, day by day</h2>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Day</th><th class="n">Sessions</th><th class="n">Added to cart</th><th class="n">Reached checkout</th><th class="n">Completed</th><th class="n">Conversion</th></tr></thead>
+        <tbody>
+          <tr><td>Sep 19</td><td class="n">986</td><td class="n">39</td><td class="n">22</td><td class="n">11</td><td class="n">1.12%</td></tr>
+          <tr><td>Sep 20</td><td class="n">1,343</td><td class="n">45</td><td class="n">20</td><td class="n">7</td><td class="n">0.52%</td></tr>
+          <tr><td>Sep 21</td><td class="n">895</td><td class="n">45</td><td class="n">27</td><td class="n">6</td><td class="n">0.67%</td></tr>
+          <tr><td>Sep 22</td><td class="n">1,109</td><td class="n">44</td><td class="n">22</td><td class="n">10</td><td class="n">0.90%</td></tr>
+          <tr><td>Sep 23</td><td class="n">2,836</td><td class="n">57</td><td class="n">36</td><td class="n">9</td><td class="n">0.32%</td></tr>
+          <tr><td>Sep 24</td><td class="n">1,014</td><td class="n up">65</td><td class="n up">41</td><td class="n up">15</td><td class="n up">1.48%</td></tr>
+          <tr><td><strong>Sep 25</strong></td><td class="n">1,287</td><td class="n up">101</td><td class="n up">59</td><td class="n up">19</td><td class="n up">1.48%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="cap">Online Store sessions only. The 26 orders also include 5 Collective orders, which have no storefront session. The 2,836 on Sep 23 was a burst of direct traffic that did not buy.</p>
+  </section>
+
+  <section>
+    <h2>What it was not</h2>
+    <div class="not">
+      <div><h3>An email campaign</h3><p>None went out on Sep 25. Store Credit sent on Sep 23 and Lifetime Warranty on Sep 26.</p></div>
+      <div><h3>A traffic spike</h3><p>Sessions were up 18%. Add-to-cart was up 170%. The people who came were readier to buy.</p></div>
+      <div><h3>A price change</h3><p>The rebounder and the mat cover were at their usual prices, and no new discount code was involved.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What to do next</h2>
+    <ol class="next">
+      <li><strong>Find out who shared the mat cover.</strong> If anyone knows of a video or post from Sep 25, that is a partner worth contacting again. Someone edited the product listing on Sep 26 at about 10:30am Pacific, which may be related.</li>
+      <li><strong>Check #48845 before it ships.</strong> Make sure the billing and shipping details look right for a first-time order of this size. If it is a studio, it is a wholesale lead.</li>
+      <li><strong>Ask the Collective partner what they ran.</strong> A partner channel that can send five orders in an afternoon is worth understanding.</li>
+      <li><strong>Watch whether the lift holds.</strong> If add-to-cart stays near 60+ through next week, the Sep 24 change is real and worth tracing to its source.</li>
+    </ol>
+  </section>
+
+  <footer class="method">
+    <p><strong>Method.</strong> Shopify Analytics (ShopifyQL) for sales, sessions and funnel; Admin API customer-journey data for each order's landing page, referrer and UTM tags; Klaviyo for campaign send times. Days are store time (Pacific).</p>
+    <p>"Typical" is the median of Sep 11–24: $2,644 gross and 11.5 orders. Session baselines are the median of Sep 12–22, leaving out the Sep 23 burst. Gross is before discounts and returns. Pulled Sep 26, 2026.</p>
+  </footer>
+</main>
+<!--
+  Appended, not prepended. These pages have their own sticky headers and hero
+  sections; injecting anything above the fold moves somebody's layout. At the end
+  it is findable and disturbs nothing.
+-->
+<footer style="font:12px -apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:28px 16px;border-top:1px solid rgba(0,0,0,.1);background:#faf9f5;color:#6b6b6b">
+  <a href="/reports/claude" style="color:#6b6b6b">← All reports</a>
+</footer>
+</body>
+</html>

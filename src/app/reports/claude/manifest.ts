@@ -56,6 +56,16 @@ export const SECURITY_HOLD = {
 
 export const REPORTS: Report[] = [
   {
+    slug: "sept-25-spike",
+    title: "The Sept 25 Spike",
+    blurb:
+      "A $6,047 Friday on barely more traffic. One eight-rebounder order, a Furry Mat Cover run from " +
+      "a shared link, and a Collective burst landed on the same day, on top of a week already rising.",
+    date: "2026-09-25",
+    kind: "analysis",
+    stat: { value: "2.3×", label: "a typical day's gross" },
+  },
+  {
     slug: "doubled-brand",
     title: "The Doubled Brand",
     blurb:
