@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getSpace } from "@/app/lib/spaces";
+import { boardQuery, type BoardSort } from "@/app/lib/insightsQuery";
 import { useRole } from "@/app/lib/useRole";
 import { MarkdownMessage } from "@/components/MarkdownMessage";
 
@@ -104,7 +105,9 @@ interface RunJob {
 interface Agent { id: string; name: string }
 interface TeamMember { discord_id: string; username: string; display_name?: string | null }
 
-type SortKey = "risk" | "value" | "effort" | "newest" | "section" | "due" | "type" | "agent";
+/** The sort tabs. Defined alongside the query builder, which is what maps them
+ *  onto the sorts the server knows — see insightsQuery. */
+type SortKey = BoardSort;
 /**
  * Who put it on the board. NOT the same axis as `lane`, and conflating the two
  * is easy to do because both look like two-way splits on a toolbar.
@@ -1155,18 +1158,27 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
     if (focus) { setFocusId(focus); setExpanded(focus); setLane("all"); }
   }, []);
 
+  /**
+   * The exact query this board loads. Depended on below INSTEAD of the three
+   * pieces of state behind it, because they are not the same thing: the Agent
+   * sort is grouped client-side over the server's priority order, so it sends
+   * `sort=risk` just as Priority does. Keying `fetchBoard` on `sort` gave it a
+   * new identity on a Priority <-> Agent toggle and refired both effects below
+   * for a byte-identical request — a wasted round trip that could only replace
+   * `board` with an equal array mid-interaction. Keying it on the request
+   * itself means a toggle the server cannot answer differently cannot refetch.
+   */
+  const query = boardQuery({ sort, lane, section });
+
   const fetchBoard = useCallback(async () => {
     try {
-      // The Agent sort is grouped here, over the server's priority order.
-      const qs = new URLSearchParams({ sort: sort === "agent" ? "risk" : sort, lane, limit: "200" });
-      if (section) qs.set("section", section);
-      const res = await fetch(`${BOT_URL}/admin/insights/board?${qs}`);
+      const res = await fetch(`${BOT_URL}/admin/insights/board?${query}`);
       if (!res.ok) throw new Error(`Board unavailable (HTTP ${res.status})`);
       setBoard(await res.json());
       setError(null);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setLoading(false); }
-  }, [sort, lane, section]);
+  }, [query]);
 
   useEffect(() => { fetchBoard(); }, [fetchBoard]);
   useEffect(() => {
