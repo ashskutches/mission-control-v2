@@ -25,7 +25,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   RefreshCw, X, ChevronDown, ChevronRight, Bot, User, Sparkles, CheckCircle2,
   Search, AlertTriangle, ArrowUpRight, Clock, Ban, Info, Lightbulb,
-  HelpCircle, MessageSquare, CalendarClock, Plus, Copy, Check, Play, Loader2, UserCheck, Inbox,
+  HelpCircle, MessageSquare, CalendarClock, Plus, Copy, Check, Play, Loader2, UserCheck, Inbox, OctagonAlert,
 } from "lucide-react";
 import Link from "next/link";
 import { getSpace } from "@/app/lib/spaces";
@@ -104,7 +104,7 @@ interface RunJob {
 interface Agent { id: string; name: string }
 interface TeamMember { discord_id: string; username: string; display_name?: string | null }
 
-type SortKey = "risk" | "value" | "effort" | "newest" | "section" | "due" | "type";
+type SortKey = "risk" | "value" | "effort" | "newest" | "section" | "due" | "type" | "agent";
 /**
  * Who put it on the board. NOT the same axis as `lane`, and conflating the two
  * is easy to do because both look like two-way splits on a toolbar.
@@ -219,6 +219,32 @@ function rowState(item: BoardItem): RowStateKey {
   ) return "due_week";
   if (item.assignee || item.work) return "assigned";
   return "idle";
+}
+
+/**
+ * An agent has stopped and a person can get it moving again.
+ *
+ * Two ways that happens, and both count: the work row itself is parked
+ * (`blocked`, or `needs_human` — which is where the runner puts an item whose
+ * run budget ran out without the agent declaring it finished), or the agent has
+ * asked someone a question and is still waiting on the answer. Same statuses
+ * /agent-behavior calls "stuck now", so the two pages agree on the count.
+ */
+const STUCK_WORK_STATUSES = new Set(["blocked", "needs_human"]);
+
+function isAgentStuck(item: BoardItem): boolean {
+  if (item.work && STUCK_WORK_STATUSES.has(item.work.status)) return true;
+  return !!item.waiting_on_human;
+}
+
+/**
+ * The Agent sort's group order: agents A–Z, then people A–Z, then nobody.
+ * Inside a group stuck rows come first, then the server's priority order.
+ */
+function agentSortKey(item: BoardItem): string {
+  const a = item.assignee;
+  const bucket = a?.kind === "agent" ? "0" : a ? "1" : "2";
+  return `${bucket}|${(a?.name ?? "").toLowerCase()}`;
 }
 
 function dueLabel(due: BoardDue): string {
@@ -1026,6 +1052,7 @@ const SORT_TABS: { key: SortKey; label: string; hint: string }[] = [
   { key: "newest", label: "Newest", hint: "Most recently filed" },
   { key: "section", label: "Section", hint: "Grouped by area of the business" },
   { key: "type", label: "Type", hint: "Grouped by kind — suggestions together, competitor sightings together. Ranked by risk inside each group" },
+  { key: "agent", label: "Agent", hint: "Grouped by who has it — each agent's tickets together, then people's, then unassigned. Stuck ones first inside each group, then by priority" },
 ];
 
 /**
@@ -1077,6 +1104,7 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
   const [sort, setSort] = useState<SortKey>("risk");
   const [dueFilter, setDueFilter] = useState<DueFilter>("all");
   const [assignee, setAssignee] = useState<string>("all");
+  const [stuckOnly, setStuckOnly] = useState(false);
   /** Who is looking. Only the identity is wanted here — the write controls are
    *  gated by the proxy, not by this. Null on a break-glass password session,
    *  which is why the Mine option is conditional rather than always rendered. */
@@ -1129,7 +1157,8 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
 
   const fetchBoard = useCallback(async () => {
     try {
-      const qs = new URLSearchParams({ sort, lane, limit: "200" });
+      // The Agent sort is grouped here, over the server's priority order.
+      const qs = new URLSearchParams({ sort: sort === "agent" ? "risk" : sort, lane, limit: "200" });
       if (section) qs.set("section", section);
       const res = await fetch(`${BOT_URL}/admin/insights/board?${qs}`);
       if (!res.ok) throw new Error(`Board unavailable (HTTP ${res.status})`);
@@ -1280,7 +1309,7 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
 
   const items = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return (board?.items ?? []).filter(i => {
+    const rows = (board?.items ?? []).filter(i => {
       if (q && !(
         i.title.toLowerCase().includes(q) ||
         (i.body ?? "").toLowerCase().includes(q) ||
@@ -1302,9 +1331,22 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
       if (assignee !== "all" && assignee !== "unassigned" && assignee !== "mine"
           && i.assignee?.id !== assignee) return false;
 
+      if (stuckOnly && !isAgentStuck(i)) return false;
+
       return true;
     });
-  }, [board, search, dueFilter, assignee, source, isMine]);
+    if (sort !== "agent") return rows;
+    // Array.prototype.sort is stable, so the server's priority order survives
+    // inside each group.
+    return [...rows].sort((a, b) => {
+      const ka = agentSortKey(a), kb = agentSortKey(b);
+      if (ka !== kb) return ka < kb ? -1 : 1;
+      return Number(isAgentStuck(b)) - Number(isAgentStuck(a));
+    });
+  }, [board, search, dueFilter, assignee, source, isMine, stuckOnly, sort]);
+
+  /** Counted over the loaded board, like the source tabs, so it never reads as the filtered total. */
+  const stuckCount = useMemo(() => (board?.items ?? []).filter(isAgentStuck).length, [board]);
 
   /**
    * How many rows each source holds, counted over the loaded board rather than
@@ -1590,6 +1632,32 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
           </button>
         )}
 
+        {/*
+          Agent stuck — the list somebody on the team works through to get the
+          agents moving again: answer the question, unblock it, or reassign it.
+          Red only when there is something in it.
+        */}
+        <button
+          onClick={() => setStuckOnly(v => !v)}
+          title={stuckOnly
+            ? "Showing only tickets where an agent has stopped. Click to show everything."
+            : "Show only tickets where an agent has stopped — blocked, out of runs and waiting on a person, or asked a question nobody has answered"}
+          style={{
+            display: "flex", alignItems: "center", gap: 5, cursor: "pointer",
+            borderRadius: 8, padding: "6px 11px", fontWeight: 700, fontSize: "11px",
+            background: stuckOnly ? "rgba(244,63,94,0.14)" : "rgba(255,255,255,0.03)",
+            border: `1px solid ${stuckOnly ? "rgba(244,63,94,0.45)" : "rgba(255,255,255,0.07)"}`,
+            color: stuckOnly ? "#fb7185" : stuckCount ? "#f43f5e" : "#94a3b8",
+          }}>
+          <OctagonAlert size={12} />
+          Agent stuck
+          {stuckCount > 0 && (
+            <span style={{ fontSize: "9px", fontWeight: 800, color: "#f43f5e", background: "rgba(244,63,94,0.14)", borderRadius: 4, padding: "0 4px" }}>
+              {stuckCount}
+            </span>
+          )}
+        </button>
+
         <select value={assignee}
           onChange={e => {
             const v = e.target.value;
@@ -1645,8 +1713,8 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
           </span>
         )}
 
-        {(dueFilter !== "all" || assignee !== "all" || source !== "all" || lane !== "all") && (
-          <button onClick={() => { setDueFilter("all"); setAssignee("all"); setSource("all"); setLane("all"); }}
+        {(dueFilter !== "all" || assignee !== "all" || source !== "all" || lane !== "all" || stuckOnly) && (
+          <button onClick={() => { setDueFilter("all"); setAssignee("all"); setSource("all"); setLane("all"); setStuckOnly(false); }}
             style={{ background: "transparent", border: "none", cursor: "pointer", color: "#475569", fontSize: "11px", display: "flex", alignItems: "center", gap: 3 }}>
             <X size={10} /> clear filters
           </button>
@@ -1768,15 +1836,20 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
             <tbody>
               {items.length === 0 && !loading && (
                 <tr><td colSpan={colCount} style={{ padding: "3rem 1rem", textAlign: "center", color: "#334155", fontSize: "13px" }}>
-                  {search || dueFilter !== "all" || assignee !== "all" || source !== "all" || lane !== "all"
+                  {search || dueFilter !== "all" || assignee !== "all" || source !== "all" || lane !== "all" || stuckOnly
                     ? <>Nothing matches those filters{(board?.items?.length ?? 0) > 0 ? <> — {board?.items.length} insight{board?.items.length === 1 ? " is" : "s are"} hidden by them</> : null}.</>
                     : emptyHint ?? (section
                       ? "Nothing open in this lane. Run analysis sends this space's lead agent to look."
                       : "Nothing open in this lane. Run an analysis to populate it.")}
                 </td></tr>
               )}
-              {items.map(item => {
+              {items.map((item, idx) => {
                 const open = expanded === item.id;
+                // Agent sort: a header row wherever the owner changes.
+                const groupStart = sort === "agent"
+                  && (idx === 0 || agentSortKey(items[idx - 1]) !== agentSortKey(item));
+                const groupRows = groupStart ? items.filter(i => agentSortKey(i) === agentSortKey(item)) : [];
+                const groupStuck = groupRows.filter(isAgentStuck).length;
                 const riskColor = RISK_COLOR[item.risk_tier ?? ""] ?? "#64748b";
                 const effort = item.effort.tier ? EFFORT_LABEL[item.effort.tier] : null;
                 /*
@@ -1790,6 +1863,24 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
                 const stripe = item.id === focusId ? accent : state.color;
                 return (
                   <React.Fragment key={item.id}>
+                    {groupStart && (
+                      <tr style={{ background: "rgba(255,255,255,0.025)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <td colSpan={colCount} style={{ padding: "0.45rem 0.75rem" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "11px", fontWeight: 800, color: "#cbd5e1" }}>
+                            {item.assignee?.kind === "agent" ? <Bot size={11} color="#a78bfa" />
+                              : item.assignee ? <User size={11} color="#22c55e" />
+                              : <Inbox size={11} color="#475569" />}
+                            {item.assignee?.name ?? "Nobody yet"}
+                            <span style={{ fontWeight: 600, color: "#475569" }}>{groupRows.length}</span>
+                            {groupStuck > 0 && (
+                              <span style={{ fontSize: "9px", fontWeight: 800, color: "#f43f5e", background: "rgba(244,63,94,0.12)", borderRadius: 4, padding: "1px 6px" }}>
+                                {groupStuck} stuck
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                      </tr>
+                    )}
                     <tr id={`insight-${item.id}`} onClick={() => setExpanded(open ? null : item.id)}
                       title={item.id === focusId ? undefined : state.label}
                       style={{
@@ -1863,11 +1954,17 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
                               <HelpCircle size={8} /> needs you
                             </span>
                           )}
-                          {item.work && (
-                            <span style={{ fontSize: "9px", fontWeight: 700, color: "#38bdf8", background: "rgba(56,189,248,0.1)", padding: "1px 6px", borderRadius: 4 }}>
-                              {item.work.status}
-                            </span>
-                          )}
+                          {item.work && (() => {
+                            const stuck = STUCK_WORK_STATUSES.has(item.work.status);
+                            return (
+                              <span title={stuck ? "The agent has stopped on this — see Agent stuck" : undefined}
+                                style={{ fontSize: "9px", fontWeight: 700, padding: "1px 6px", borderRadius: 4,
+                                  color: stuck ? "#f43f5e" : "#38bdf8",
+                                  background: stuck ? "rgba(244,63,94,0.12)" : "rgba(56,189,248,0.1)" }}>
+                                {item.work.status.replace(/_/g, " ")}
+                              </span>
+                            );
+                          })()}
                           {section && (
                             <span style={{ fontSize: "9px", color: "#334155", marginLeft: "auto" }}>{ageLabel(item.age_days)}</span>
                           )}
