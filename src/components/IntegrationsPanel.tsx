@@ -411,10 +411,24 @@ export default function IntegrationsPanel() {
   const [showManual, setShowManual]     = useState<Record<string, boolean>>({});  // integrationId → show sign-in-filled vars
   const [signedIn, setSignedIn]         = useState<string | null>(null);
 
-  // OAuth callbacks land back here with ?<name>_connected=1.
+  // OAuth callbacks land back here with ?<name>_connected=… (google_ads_connected,
+  // drive_connected, …). Show it once, then strip it so a reload doesn't repeat it.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("google_ads_connected")) setSignedIn("Google Ads connected — the new token was verified and saved to Railway.");
+    const url = new URL(window.location.href);
+    const hit = [...url.searchParams.keys()].find(k => k.endsWith("_connected"));
+    if (!hit) return;
+    const name = hit.replace(/_connected$/, "").replace(/_/g, " ");
+    setSignedIn(`${name.charAt(0).toUpperCase()}${name.slice(1)} connected.`);
+    // Deferred: React runs this child effect BEFORE the settings page's own, and
+    // that page reads drive_connected / calendar_connected to refresh its status.
+    // Stripping synchronously would hide the param from it.
+    const t = setTimeout(() => {
+      const now = new URL(window.location.href);
+      if (!now.searchParams.has(hit)) return;
+      now.searchParams.delete(hit);
+      window.history.replaceState(null, "", now.toString());
+    }, 0);
+    return () => clearTimeout(t);
   }, []);
 
   const load = useCallback(async () => {
