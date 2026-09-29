@@ -131,11 +131,11 @@ We are anti-punishment. Fitness here is something you get to do, not something y
 
 **Product lines**
 - **Standard Rebounder** — core product, black frame
-- **American Tough** — US-made, lifetime warranty, premium positioning
+- **American Tough** — US-made, higher weight capacity, premium positioning
 - **Stabilizer Bar** — accessory for balance assistance
 - **Color variants** — Green (spring), Blue (summer), Red (holiday), Black (classic)
 
-**Guarantees:** 30-day Jump Trial on everything; lifetime warranty on the American Edition only.
+**Guarantees:** 30-day Jump Trial on everything; lifetime warranty on every rebounder — it covers the mat, frame and legs, but not the bungees.
 
 **Product imagery rule:** the ring and bungee colors change by season, but the **safety padding is always black**. Never generate a product image without a real product reference photo.
 
