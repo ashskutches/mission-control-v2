@@ -5,6 +5,7 @@ import {
   Link2, Plus, Edit2, Trash2, ChevronDown, ChevronUp,
   Code, Copy, CheckCheck, Globe, X,
 } from "lucide-react";
+import { rateOf, sortSectionsByPerformance } from "@/app/lib/embedRanking";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:3001";
 
@@ -36,7 +37,6 @@ const METRICS: Record<OptimizeFor, { label: string; short: string; rate: string;
     hint: "Blog posts and other pages with no add-to-cart — one click per section per page view." },
 };
 const metricOf = (e: { optimize_for?: string }) => METRICS[e.optimize_for === "click" ? "click" : "add_to_cart"];
-const rateOf = (count: number, impressions: number) => (impressions > 0 ? (count / impressions) * 100 : null);
 
 const CARD = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "1.25rem" } as const;
 const INPUT_STYLE = { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0" } as const;
@@ -106,14 +106,10 @@ function EmbedCard({ embed, sections, onRefresh, onEdit, onDelete }: { embed: Em
   const metric = metricOf(embed);
   // "Sorted by performance" used to mean sorted by UCB1's exploration bonus,
   // which puts the least-shown section first. Performance is the embed's own
-  // rate; the bar at the end of each row still shows the exploration bonus.
-  const sortedSections = [...embed.sections].sort((a: any, b: any) => {
-    // Required always first within their group
-    if (a.is_required !== b.is_required) return (b.is_required ? 1 : 0) - (a.is_required ? 1 : 0);
-    const rateA = rateOf(metric.count(a), a.embed_impressions ?? 0) ?? -1;
-    const rateB = rateOf(metric.count(b), b.embed_impressions ?? 0) ?? -1;
-    return rateB - rateA;
-  });
+  // rate, smoothed the same way the server smooths it so one lucky impression
+  // cannot take the top of the list; the bar at the end of each row still
+  // shows the exploration bonus.
+  const sortedSections = sortSectionsByPerformance(embed.sections as any[], metric.count);
 
   const addSection = async () => {
     if (!selectedSectionId) return;
