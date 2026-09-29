@@ -74,7 +74,7 @@ function ucb1Score(sectionImpressions: number, totalImpressions: number): number
   return C * Math.sqrt((2 * Math.log(totalImpressions + 1)) / (sectionImpressions + 1));
 }
 
-function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any[]; onRefresh: () => void }) {
+function EmbedCard({ embed, sections, onRefresh, onEdit, onDelete }: { embed: Embed; sections: any[]; onRefresh: () => void; onEdit: () => void; onDelete: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [showCode, setShowCode] = useState(false);
   const [addingSection, setAddingSection] = useState(false);
@@ -152,7 +152,7 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
   };
 
   const purgeStats = async () => {
-    if (!confirm(`Purge ALL stats for "${embed.name}"?\n\nThis will reset impressions, add-to-carts, and UCB1 scores to zero.\nOnly do this to clear test data before going live.`)) return;
+    if (!confirm(`Are you sure you want to purge ALL stats for "${embed.name}"?\n\nThis will reset impressions, add-to-carts, and UCB1 scores to zero.\nOnly do this to clear test data before going live.`)) return;
     setPurging(true); setPurgeMsg("");
     try {
       const res = await fetch(`${BOT_URL}/admin/intelligence/embeds/${embed.id}/purge-stats`, { method: "POST" });
@@ -231,14 +231,8 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
             }}>
             {togglingLive ? "…" : isLive ? "🟡 Live" : "🔧 Test"}
           </button>
-          {/* Purge stats */}
-          <button
-            id={`embed-purge-${embed.id}`}
-            onClick={purgeStats}
-            disabled={purging}
-            title="Reset all impressions + ATC stats to zero (clears test data)"
-            style={{ color: purging ? "#475569" : "#f43f5e", padding: "0.25rem", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.15)", borderRadius: 6, cursor: "pointer", fontSize: 9, fontWeight: 700 }}>
-            {purging ? "…" : "Purge"}
+          <button onClick={onEdit} title="Edit embed" style={{ color: "#38bdf8", padding: "0.25rem", background: "none", border: "none", cursor: "pointer" }}>
+            <Edit2 size={12} />
           </button>
           <button onClick={() => setShowCode(!showCode)} title="Show embed code" style={{ color: showCode ? "#a78bfa" : "#475569", padding: "0.25rem", background: showCode ? "rgba(167,139,250,0.08)" : "none", border: showCode ? "1px solid rgba(167,139,250,0.2)" : "none", borderRadius: 6, cursor: "pointer" }}>
             <Code size={13} />
@@ -356,6 +350,25 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
                   </button>
                 </div>
               )}
+
+              {/* Danger zone — kept apart from the everyday controls so it can't be hit by accident */}
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "1rem", paddingTop: "0.6rem", borderTop: "1px dashed rgba(244,63,94,0.18)" }}>
+                <p style={{ fontSize: 9, color: "#f43f5e", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, flex: 1, opacity: 0.7 }}>Danger zone</p>
+                <button
+                  id={`embed-purge-${embed.id}`}
+                  onClick={purgeStats}
+                  disabled={purging}
+                  title="Reset all impressions + ATC stats to zero (clears test data)"
+                  style={{ color: purging ? "#475569" : "#f43f5e", padding: "0.2rem 0.55rem", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.15)", borderRadius: 6, cursor: "pointer", fontSize: 10, fontWeight: 700 }}>
+                  {purging ? "…" : "Purge stats"}
+                </button>
+                <button
+                  onClick={onDelete}
+                  title="Delete embed"
+                  style={{ color: "#f43f5e", padding: "0.2rem 0.55rem", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.15)", borderRadius: 6, cursor: "pointer", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                  <Trash2 size={11} /> Delete embed
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
@@ -423,9 +436,9 @@ export default function EmbedsPage() {
     finally { setSaving(false); }
   };
 
-  const del = async (id: string) => {
-    if (!confirm("Delete this embed?")) return;
-    await fetch(`${BOT_URL}/admin/intelligence/embeds/${id}`, { method: "DELETE" });
+  const del = async (embed: Embed) => {
+    if (!confirm(`Are you sure you want to delete "${embed.name}"?\n\nIts section list and stats go with it, and any page still using its embed code will stop rendering. This can't be undone.`)) return;
+    await fetch(`${BOT_URL}/admin/intelligence/embeds/${embed.id}`, { method: "DELETE" });
     refresh();
   };
 
@@ -505,13 +518,7 @@ export default function EmbedsPage() {
         </div>
       ) : (
         embeds.map(e => (
-          <div key={e.id} style={{ position: "relative" }}>
-            <EmbedCard embed={e} sections={sections} onRefresh={refresh} />
-            <div style={{ position: "absolute", top: "0.75rem", right: "3.5rem", display: "flex", gap: "0.2rem" }}>
-              <button onClick={() => openEdit(e)} title="Edit embed" style={{ color: "#38bdf8", padding: "0.2rem", background: "none", border: "none", cursor: "pointer" }}><Edit2 size={11} /></button>
-              <button onClick={() => del(e.id)} title="Delete embed" style={{ color: "#f43f5e", padding: "0.2rem", background: "none", border: "none", cursor: "pointer" }}><Trash2 size={11} /></button>
-            </div>
-          </div>
+          <EmbedCard key={e.id} embed={e} sections={sections} onRefresh={refresh} onEdit={() => openEdit(e)} onDelete={() => del(e)} />
         ))
       )}
     </div>
