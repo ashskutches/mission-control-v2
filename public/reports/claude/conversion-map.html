@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  Not for search engines. This page is reachable by anyone holding the link and
+  carries internal business analysis; robots.txt disallows /reports/ as well, but
+  a meta directive is the one that stops indexing of a page that IS fetched.
+-->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>The Conversion Map</title>
+<style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style>
+</head>
+<body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,500..900&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  /* Layout: one reading column; evidence (charts, tables) breaks slightly wider. Priorities read as a numbered sequence because they are one. */
+  :root {
+    --bg:#f5f7f6; --surface:#ffffff; --sunk:#e8edeb;
+    --ink:#10201a; --ink-2:#44564f; --ink-3:#7a8a84;
+    --rule:#d6dfdb; --accent:#0d7a52; --accent-bg:#e1f2ea;
+    --leak:#c2570c; --leak-bg:#fbeee3;
+    --muted-bar:#b9c6c1;
+    --display:"Archivo", "Arial Narrow", system-ui, sans-serif;
+    --body:"IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg:#0d1512; --surface:#131d19; --sunk:#1a2622;
+      --ink:#e4ece9; --ink-2:#a9b8b2; --ink-3:#77877f;
+      --rule:#26332e; --accent:#43c08d; --accent-bg:#14291f;
+      --leak:#f0914a; --leak-bg:#2c1d12;
+      --muted-bar:#43524c;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg:#0d1512; --surface:#131d19; --sunk:#1a2622;
+    --ink:#e4ece9; --ink-2:#a9b8b2; --ink-3:#77877f;
+    --rule:#26332e; --accent:#43c08d; --accent-bg:#14291f;
+    --leak:#f0914a; --leak-bg:#2c1d12;
+    --muted-bar:#43524c;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--body); font-size:16.5px; line-height:1.62; -webkit-font-smoothing:antialiased; }
+  .page { max-width:860px; margin:0 auto; padding-block:clamp(28px,5vw,64px) 80px; padding-inline:clamp(16px,4vw,40px); display:grid; gap:52px; }
+  h1,h2,h3 { font-family:var(--display); margin:0; text-wrap:balance; }
+  h1 { font-size:clamp(2.2rem,6vw,3.4rem); font-weight:850; font-stretch:112%; line-height:1; letter-spacing:-.02em; }
+  h2 { font-size:clamp(1.35rem,2.8vw,1.75rem); font-weight:800; font-stretch:108%; line-height:1.15; }
+  h3 { font-size:1.12rem; font-weight:750; font-stretch:104%; line-height:1.3; }
+  p { margin:0; max-width:68ch; }
+  .num, .m { font-family:var(--mono); font-variant-numeric:tabular-nums; }
+  code { font-family:var(--mono); font-size:.84em; background:var(--sunk); padding:.1em .35em; border-radius:3px; }
+  .eyebrow { font-family:var(--mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); margin:0; }
+  section { display:grid; gap:18px; min-width:0; }
+  .lede { font-size:1.12rem; color:var(--ink-2); }
+  header { display:grid; gap:16px; }
+  .meta { display:flex; flex-wrap:wrap; gap:6px 22px; font-size:13.5px; color:var(--ink-3); }
+  .meta b { color:var(--ink-2); font-weight:600; }
+
+  .figures { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:1px; background:var(--rule); border:1px solid var(--rule); border-radius:8px; overflow:hidden; }
+  .fig { background:var(--surface); padding:16px 18px; display:grid; gap:4px; align-content:start; }
+  .fig .v { font-family:var(--display); font-weight:850; font-stretch:110%; font-size:1.9rem; line-height:1.05; }
+  .fig .v.leak { color:var(--leak); }
+  .fig .v.good { color:var(--accent); }
+  .fig .l { font-size:13.5px; color:var(--ink-2); line-height:1.4; }
+
+  /* Share chart: two bars per row on one 0–50% scale */
+  .share { background:var(--surface); border:1px solid var(--rule); border-radius:8px; padding:20px 20px 14px; display:grid; gap:14px; }
+  .share-row { display:grid; grid-template-columns:128px 1fr; gap:4px 14px; align-items:center; }
+  .share-row .name { font-weight:600; font-size:14.5px; grid-row:span 2; }
+  .bar { height:14px; border-radius:2px; position:relative; display:flex; align-items:center; }
+  .bar span { position:absolute; left:calc(100% + 8px); font-family:var(--mono); font-size:12.5px; color:var(--ink-2); white-space:nowrap; }
+  .bar.s { background:var(--muted-bar); }
+  .bar.o { background:var(--accent); }
+  .bar.o.leak { background:var(--leak); min-width:2px; }
+  .track { position:relative; padding-right:110px; }
+  .axis { display:grid; grid-template-columns:128px 1fr; gap:14px; }
+  .axis .ticks { position:relative; height:18px; margin-right:110px; border-top:1px solid var(--rule); font-family:var(--mono); font-size:11.5px; color:var(--ink-3); }
+  .axis .ticks i { position:absolute; top:2px; transform:translateX(-50%); font-style:normal; }
+  .legend { display:flex; flex-wrap:wrap; gap:6px 18px; font-size:13px; color:var(--ink-2); }
+  .legend i { display:inline-block; width:12px; height:12px; border-radius:2px; vertical-align:-1px; margin-right:6px; }
+  @media (max-width:520px) {
+    .share-row, .axis { grid-template-columns:1fr; }
+    .share-row .name { grid-row:auto; }
+    .axis > div:first-child { display:none; }
+    .track { padding-right:92px; }
+    .axis .ticks { margin-right:92px; }
+  }
+
+  /* Funnel */
+  .funnel { display:grid; gap:8px; }
+  .step { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 16px; align-items:end; }
+  .step .lbl { font-size:14.5px; }
+  .step .lbl b { font-weight:600; }
+  .step .n { font-family:var(--mono); font-size:14px; text-align:right; }
+  .step .fill { grid-column:1 / -1; height:26px; background:var(--sunk); border-radius:3px; overflow:hidden; }
+  .step .fill div { height:100%; background:var(--accent); min-width:3px; }
+  .rate { font-family:var(--mono); font-size:12.5px; color:var(--ink-3); padding-left:2px; }
+  .rate.leak { color:var(--leak); font-weight:600; }
+
+  .note { background:var(--surface); border:1px solid var(--rule); border-radius:8px; padding:16px 18px; display:grid; gap:8px; }
+  .note.leak { border-color:color-mix(in srgb, var(--leak) 45%, var(--rule)); background:var(--leak-bg); }
+  .note.good { border-color:color-mix(in srgb, var(--accent) 40%, var(--rule)); background:var(--accent-bg); }
+  .note h3 { font-size:1rem; }
+  .note p { font-size:15px; color:var(--ink-2); }
+
+  ol.priorities { list-style:none; margin:0; padding:0; display:grid; gap:28px; counter-reset:p; }
+  ol.priorities > li { counter-increment:p; display:grid; grid-template-columns:44px minmax(0,1fr); gap:0 14px; }
+  ol.priorities > li::before { content:counter(p); font-family:var(--display); font-weight:900; font-stretch:115%; font-size:2rem; line-height:1; color:var(--accent); }
+  .pr { display:grid; gap:10px; min-width:0; }
+  .pr .where { font-family:var(--mono); font-size:12.5px; color:var(--ink-3); }
+  .pr .evidence { font-size:15px; color:var(--ink-2); }
+  .pr ul { margin:0; padding-left:1.1em; display:grid; gap:6px; font-size:15px; }
+  .pr ul li { padding-left:2px; }
+  .pr ul b { font-weight:600; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { font-family:var(--mono); font-size:12px; padding:3px 9px; border-radius:99px; background:var(--sunk); color:var(--ink-2); }
+  .chip.money { background:var(--accent-bg); color:var(--accent); font-weight:600; }
+
+  .tablewrap { overflow-x:auto; border:1px solid var(--rule); border-radius:8px; background:var(--surface); }
+  table { border-collapse:collapse; width:100%; font-size:14.5px; min-width:560px; }
+  th, td { text-align:left; padding:10px 14px; border-bottom:1px solid var(--rule); vertical-align:top; }
+  th { font-family:var(--mono); font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  td.r, th.r { text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  tr:last-child td { border-bottom:0; }
+  tr.total td { font-weight:600; background:var(--accent-bg); }
+  td.bad { color:var(--leak); font-weight:600; }
+
+  ul.plain { margin:0; padding-left:1.1em; display:grid; gap:8px; font-size:15px; color:var(--ink-2); max-width:68ch; }
+  ul.plain b { color:var(--ink); font-weight:600; }
+  .sources { font-size:13.5px; color:var(--ink-3); display:grid; gap:6px; border-top:1px solid var(--rule); padding-top:18px; }
+  .sources p { max-width:none; }
+  a { color:var(--accent); }
+  a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+</style>
+
+<main class="page">
+  <header>
+    <p class="eyebrow">Leaps &amp; Rebounds · Analysis · 28 September 2026</p>
+    <h1>The Conversion Map</h1>
+    <p class="lede">Every page on leapsandrebounds.com, ranked by how much money it leaves on the table. This is a plan for the team to build sections and embeds against. Nothing described here has been changed on the store.</p>
+    <div class="meta">
+      <span><b>Window</b> last 90 days, to 28 Sep 2026</span>
+      <span><b>Source</b> Shopify analytics, live storefront on phone</span>
+      <span><b>Scope</b> 32 pages, ~55 products, 9 collections, 676 blog URLs</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="figures">
+      <div class="fig"><span class="v num">0.91%</span><span class="l">of 120,342 sessions ended in an order</span></div>
+      <div class="fig"><span class="v leak num">40%</span><span class="l">of checkouts are completed (1,091 of 2,747)</span></div>
+      <div class="fig"><span class="v leak num">39% → 0.9%</span><span class="l">blog readers' share of traffic vs share of orders</span></div>
+      <div class="fig"><span class="v good num">$150–300k</span><span class="l">estimated extra revenue a year if the plan lands</span></div>
+    </div>
+    <p>The online store brought in about <b>$238k</b> over the window. That's roughly <b>$960k a year at $185 per order</b>. Seven orders worth $65k have no product attached and look like wholesale or draft orders, so they are excluded from every figure here.</p>
+  </section>
+
+  <section>
+    <p class="eyebrow">Where visits land vs where orders come from</p>
+    <h2>Two pages earn almost all of it, and the biggest page earns almost nothing</h2>
+    <div class="share" role="img" aria-label="Share of sessions and share of orders by landing page type. Blog articles 38.5% of sessions, 0.9% of orders. Homepage 26.4% and 35.9%. Product pages 25.0% and 43.8%. Custom pages 4.5% and 2.0%. Collections 2.3% and 7.5%.">
+      <div class="legend"><span><i style="background:var(--muted-bar)"></i>Share of sessions</span><span><i style="background:var(--accent)"></i>Share of orders</span></div>
+      <div class="share-row"><span class="name">Blog articles</span>
+        <div class="track"><div class="bar s" style="width:77%"><span>38.5% · 46,332</span></div></div>
+        <div class="track"><div class="bar o leak" style="width:1.8%"><span>0.9% · 10 orders</span></div></div></div>
+      <div class="share-row"><span class="name">Homepage</span>
+        <div class="track"><div class="bar s" style="width:52.8%"><span>26.4% · 31,770</span></div></div>
+        <div class="track"><div class="bar o" style="width:71.8%"><span>35.9% · 392</span></div></div></div>
+      <div class="share-row"><span class="name">Product pages</span>
+        <div class="track"><div class="bar s" style="width:50%"><span>25.0% · 30,085</span></div></div>
+        <div class="track"><div class="bar o" style="width:87.6%"><span>43.8% · 478</span></div></div></div>
+      <div class="share-row"><span class="name">Custom pages</span>
+        <div class="track"><div class="bar s" style="width:9%"><span>4.5% · 5,357</span></div></div>
+        <div class="track"><div class="bar o" style="width:4%"><span>2.0% · 22</span></div></div></div>
+      <div class="share-row"><span class="name">Collections</span>
+        <div class="track"><div class="bar s" style="width:4.6%"><span>2.3% · 2,736</span></div></div>
+        <div class="track"><div class="bar o" style="width:15%"><span>7.5% · 82</span></div></div></div>
+      <div class="axis"><div></div><div class="ticks"><i style="left:0">0%</i><i style="left:20%">10%</i><i style="left:40%">20%</i><i style="left:60%">30%</i><i style="left:80%">40%</i><i style="left:100%">50%</i></div></div>
+    </div>
+    <p>Collections convert best (3.0%) but get little traffic. The sale collection converts at 2.8% and bungees at 4.5%. The rest of the orders land on the cart, checkout and other small pages.</p>
+  </section>
+
+  <section>
+    <p class="eyebrow">The funnel, all traffic</p>
+    <h2>The largest single drop comes after the shopper has already decided</h2>
+    <div class="funnel">
+      <div class="step"><span class="lbl"><b>Sessions</b></span><span class="n">120,342</span><div class="fill"><div style="width:100%"></div></div></div>
+      <div class="step"><span class="lbl"><b>Added to cart</b></span><span class="n">4,249</span><div class="fill"><div style="width:3.53%"></div></div></div>
+      <span class="rate">3.5% of sessions</span>
+      <div class="step"><span class="lbl"><b>Reached checkout</b></span><span class="n">2,747</span><div class="fill"><div style="width:2.28%"></div></div></div>
+      <span class="rate">65% of carts</span>
+      <div class="step"><span class="lbl"><b>Completed checkout</b></span><span class="n">1,091</span><div class="fill"><div style="width:0.91%"></div></div></div>
+      <span class="rate leak">40% of checkouts. Six in ten people who start paying stop.</span>
+    </div>
+    <p>The bars are drawn to one scale, so the last three are thin on purpose. Blog traffic makes the top of the funnel look wide.</p>
+  </section>
+
+  <section>
+    <p class="eyebrow">Read these before the plan</p>
+    <h2>Four things that change how the numbers read</h2>
+    <div class="note good">
+      <h3>The blog funnel is already live, and too new to judge</h3>
+      <p>The rebuild in the <a href="/reports/claude/rebounder-funnel-rebuild.html">Rebounder Funnel Rebuild</a> report added product CTAs and a sticky bar to articles. They are on the live site now. Since mid-September, blog add-to-carts went from about zero a day to about two a day, with no orders yet. The 90-day blog figure above is almost entirely from before that work. What the funnel does not have yet is email capture.</p>
+    </div>
+    <div class="note">
+      <h3>Weak desktop conversion is a blog effect</h3>
+      <p>Desktop converts at 0.63% and mobile at 1.12%. Half of all desktop sessions (25,747) are blog readers. Leave the blog out and desktop homepage and product pages convert about as well as mobile. There is no desktop-specific problem to fix.</p>
+    </div>
+    <div class="note leak">
+      <h3>Facebook shoppers add to cart and then don't buy</h3>
+      <p>Facebook sent 9,793 sessions with 416 add-to-carts, which is a strong 4.2%. Only 29 became orders: 7% of carts, against 26% across the site. The likely cause is checkout inside Facebook's in-app browser, where saved addresses and card autofill are missing.</p>
+    </div>
+    <div class="note">
+      <h3>The advertorial's traffic is mostly one odd day</h3>
+      <p><code>/pages/advertorial-landing</code> shows 1,707 sessions and 1 order. But 1,275 of those sessions came on 23 September, with no add-to-carts at all. That looks like a traffic spike, not real shoppers. On a normal day the page gets 10 to 60 visits. It still matters, because it is now the page the blog hands readers to.</p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">The plan</p>
+    <h2>Five pages, in the order to build them</h2>
+    <p>Each item lists the evidence, the sections or embeds to build, and the assumed improvement behind its dollar estimate. The order weighs size against effort and Q4 timing.</p>
+    <ol class="priorities">
+      <li><div class="pr">
+        <h3>Cart and checkout: rescue the 60% who stop paying</h3>
+        <span class="where">/cart · product page buy box</span>
+        <p class="evidence">2,747 sessions reached checkout and 1,091 finished. Checkout itself is Shopify's, but the cart page and buy box before it are ours. Tested with a rebounder in the cart: we found no express checkout buttons on either page. The cart shows no monthly price, and its "Products You Might Like" block rendered empty.</p>
+        <ul>
+          <li><b>Cart trust row:</b> free shipping, 30-day trial, lifetime warranty, and "or $55/mo" in one line under the total.</li>
+          <li><b>Express checkout buttons</b> (Shop Pay, Apple Pay, Google Pay) on the cart and in the product buy box. They skip address entry, which is aimed directly at the Facebook drop-off.</li>
+          <li><b>Stability bar add-on</b> in the empty "Products You Might Like" slot, sized to the rebounder in the cart. The bar appeared on 474 orders in the window, against 814 for the rebounder, so the demand is proven.</li>
+          <li><b>Klaviyo check:</b> confirm the abandoned-checkout flow is live and sends within an hour.</li>
+        </ul>
+        <div class="chips"><span class="chip">target 40% → 42–44% completed</span><span class="chip money">$45k–$90k / yr</span></div>
+      </div></li>
+
+      <li><div class="pr">
+        <h3>Blog articles: capture the readers who aren't ready to buy</h3>
+        <span class="where">article template · 676 URLs · 46,332 sessions</span>
+        <p class="evidence">Blog readers are mostly just looking for information. The new CTAs cover people ready to buy. Everyone else leaves with nothing. In the old data, <code>the-cons-of-rebounding</code> had 2,089 sessions and 1 add-to-cart, and <code>master-the-plank</code> had 1,173 sessions and none.</p>
+        <ul>
+          <li><b>Inline email capture</b> mid-article, offering the free workout guide plus 10% off. It feeds the existing Klaviyo welcome flow.</li>
+          <li><b>Exit-intent popup on articles only,</b> with the same offer. Keep it off the product page and checkout.</li>
+          <li><b>Match the product card to the article's topic,</b> for example the lymphatic post naming the lymphatic benefit. The funnel's context bridge already carries 7 topic variants that this can reuse.</li>
+          <li><b>Measure the live funnel for 3–4 weeks before changing its CTAs.</b></li>
+        </ul>
+        <div class="chips"><span class="chip">target 0.02% → 0.15–0.3%</span><span class="chip money">$45k–$95k / yr</span></div>
+      </div></li>
+
+      <li><div class="pr">
+        <h3>Homepage: show a price and proof near the top</h3>
+        <span class="where">/ · 31,770 sessions · 1.23%</span>
+        <p class="evidence">On a phone the first price appears about 2,270px down. There is no star rating or review count anywhere on the page. A blank 563px section sits right after the NASA quote.</p>
+        <ul>
+          <li><b>Proof line under the hero:</b> "4.7★ · 633 reviews · 30K+ sold" and "From $220 (was $250)".</li>
+          <li><b>Buy block near the top:</b> a 40" / 48" picker with a real add-to-cart button, instead of "BUY NOW" sending people to another page.</li>
+          <li><b>Live reviews widget</b> in place of the six text testimonials.</li>
+          <li><b>Bungee vs springs vs Bellicon comparison table.</b> The argument already exists on the advertorial.</li>
+          <li><b>Move the email signup up</b> from about 6,200px, and remove or fill the blank section.</li>
+        </ul>
+        <div class="chips"><span class="chip">target +10–20% relative</span><span class="chip money">$30k–$60k / yr</span></div>
+      </div></li>
+
+      <li><div class="pr">
+        <h3>Rebounder product page: tighten what's already working</h3>
+        <span class="where">/products/bungee-rebounders-mini-trampoline · 22,230 sessions · 1.54%</span>
+        <p class="evidence">6.6% of sessions add to cart and the bar sells well. Most of the gains here come from consistency and moving things up the page.</p>
+        <ul>
+          <li><b>Star rating under the title.</b> Today the buy box shows "30K+ Rebounders Sold!" and no stars.</li>
+          <li><b>Name the financing provider.</b> The page just says "Financing Available", with no provider or monthly amount.</li>
+          <li><b>Move the FAQ up.</b> It sits below a 5,100px benefits section, about 8,900px down the page on mobile.</li>
+          <li><b>Fix the contradictions</b> listed below.</li>
+        </ul>
+        <div class="chips"><span class="chip">target +8–15% relative</span><span class="chip money">$20k–$40k / yr</span></div>
+      </div></li>
+
+      <li><div class="pr">
+        <h3>Advertorial: make the page the blog hands off to convert</h3>
+        <span class="where">/pages/advertorial-landing</span>
+        <p class="evidence">On normal days it gets a few hundred sessions over the window, 9 add-to-carts and 1 order. Its buttons go through a discount redirect to the product page, which adds a page between reading and buying.</p>
+        <ul>
+          <li><b>Embed the buy block</b> (size, colour, add to cart, discount already applied) on the page itself, below the first two reasons.</li>
+          <li><b>Line its claims up with the rest of the site</b> (see below).</li>
+          <li><b>Filter the 23 September spike</b> out before reading any conversion rate for this page.</li>
+        </ul>
+        <div class="chips"><span class="chip">target ~1% of real sessions</span><span class="chip money">$5k–$15k / yr</span></div>
+      </div></li>
+    </ol>
+  </section>
+
+  <section>
+    <p class="eyebrow">Fix list, no design needed</p>
+    <h2>The site disagrees with itself</h2>
+    <p>Each of these is a copy or settings change. Mismatched numbers make shoppers doubt the claims, and some are a risk under advertising rules.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>What</th><th>Where it says what</th><th>Use</th></tr></thead>
+        <tbody>
+          <tr><td>Average rating</td><td>Product stats band <b>4.9</b> · reviews widget <b>4.7 from 633</b> · advertorial <b>4.8 from 30,000+ verified buyers</b></td><td>4.7 · 633 reviews</td></tr>
+          <tr><td>Units sold</td><td>Site-wide <b>30K+</b> · advertorial <b>340,000+ units shipped</b></td><td>30K+ unless 340k can be sourced</td></tr>
+          <tr><td>Delivery</td><td>Page HTML says <b>2–6 Weeks</b>, then a script rewrites it to 2–6 Business Days. Crawlers and Google Shopping read the HTML.</td><td>2–6 business days, in the HTML itself</td></tr>
+          <tr><td>Financing</td><td>"Quick and simple financing", with no provider named</td><td>Name it and show the monthly amount</td></tr>
+          <tr><td>Homepage</td><td>Empty 563px section after the NASA quote</td><td>Remove, or use it for the proof line</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">The estimate</p>
+    <h2>About $150k–$300k a year, midpoint near $220k</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Change</th><th>Baseline (90 days)</th><th>Assumed improvement</th><th class="r">Per year</th></tr></thead>
+        <tbody>
+          <tr><td>Cart and checkout</td><td>1,091 of 2,747 checkouts completed</td><td>40% → 42–44%</td><td class="r">$45k–$90k</td></tr>
+          <tr><td>Blog capture</td><td class="bad">10 orders from 46,332 sessions</td><td>0.02% → 0.15–0.3%</td><td class="r">$45k–$95k</td></tr>
+          <tr><td>Homepage</td><td>392 orders, 1.23%</td><td>+10–20% relative</td><td class="r">$30k–$60k</td></tr>
+          <tr><td>Product page</td><td>342 orders, 1.54%</td><td>+8–15% relative</td><td class="r">$20k–$40k</td></tr>
+          <tr><td>Advertorial</td><td>1 order on normal-day traffic</td><td>~1% of real sessions</td><td class="r">$5k–$15k</td></tr>
+          <tr class="total"><td>Total</td><td>~$960k / yr online</td><td>+16–31%</td><td class="r">$150k–$300k</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="plain">
+      <li><b>Method:</b> extra orders over 90 days × $185 net per online order, × 4.06 to get a year. Every lift is applied to the page's own 90-day baseline.</li>
+      <li><b>The effects overlap.</b> A shopper helped by the homepage also passes through the cart, so the rows won't add up perfectly. That's why the total is rounded down.</li>
+      <li><b>Blog capture is the least certain row.</b> Much of its value arrives later through email, and the new CTAs are only two weeks old.</li>
+      <li><b>A/B test the homepage and product page changes.</b> The cart and fix-list changes are safe to ship outright.</li>
+    </ul>
+  </section>
+
+  <section>
+    <p class="eyebrow">Timing</p>
+    <h2>Ship before Black Friday</h2>
+    <p>Last November and December brought in <b>$330k</b> together, about double the pace of a normal month. Every point of improvement is worth twice as much in those eight weeks. So the build order is cart and checkout first, then blog email capture, then the homepage proof line and buy block. All three can reach a preview theme within a few weeks.</p>
+    <ul class="plain">
+      <li><b>Build on an unpublished copy of the live theme.</b> Today that's "8.4.1 FAQ fix". Review each change through its preview link.</li>
+      <li><b>Publishing to the live theme is Ash's decision.</b> Nothing in this report has been applied.</li>
+      <li><b>Measure each change against its own 90-day row</b> in the estimate table.</li>
+    </ul>
+  </section>
+
+  <footer class="sources">
+    <p><b>Sources.</b> Shopify analytics (ShopifyQL): sessions, cart additions, checkout reached and completed, grouped by landing page, page type, device and referrer, 90 days to 28 Sep 2026. Sales: net sales and orders by product and month, 12 months. Storefront: sitemap index, and the homepage and rebounder product page rendered in a 375px mobile browser with scripts running. The advertorial and a sample article were also read. The cart was tested by adding one rebounder and clearing it afterwards, with no checkout started.</p>
+    <p><b>Not measured.</b> Checkout steps inside Shopify's checkout; which emails come from blog signups; return and refund effects on net per-order revenue beyond what net sales already include; Google Ads spend, which is still not being collected.</p>
+  </footer>
+</main>
+<!--
+  Appended, not prepended. These pages have their own sticky headers and hero
+  sections; injecting anything above the fold moves somebody's layout. At the end
+  it is findable and disturbs nothing.
+-->
+<footer style="font:12px -apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:28px 16px;border-top:1px solid rgba(0,0,0,.1);background:#faf9f5;color:#6b6b6b">
+  <a href="/reports/claude" style="color:#6b6b6b">← All reports</a>
+</footer>
+</body>
+</html>

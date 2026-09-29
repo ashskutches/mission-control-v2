@@ -56,6 +56,16 @@ export const SECURITY_HOLD = {
 
 export const REPORTS: Report[] = [
   {
+    slug: "conversion-map",
+    title: "The Conversion Map",
+    blurb:
+      "Every page on the store, ranked by the money it leaves behind. Blog readers are 39% of traffic " +
+      "and 0.9% of orders, and six in ten shoppers who start checkout stop. The plan: five pages, built in order.",
+    date: "2026-09-28",
+    kind: "analysis",
+    stat: { value: "$150–300k", label: "a year, estimated" },
+  },
+  {
     slug: "sept-25-spike",
     title: "The Sept 25 Spike",
     blurb:
