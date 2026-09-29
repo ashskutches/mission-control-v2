@@ -46,7 +46,6 @@ interface Group {
   color: string;
   /** The page this group lands on when its name is clicked. */
   href: string;
-  exact?: boolean;
   tabs: Tab[];
 }
 
@@ -57,7 +56,6 @@ const GROUPS: Group[] = [
     icon: BarChart3,
     color: "#f59e0b",
     href: "/content",
-    exact: true,
     tabs: [],
   },
   {
@@ -125,6 +123,11 @@ const GROUPS: Group[] = [
  * Matches on the group's own href as well as its tabs: Dashboard and Insights
  * are single pages with no second row, and keying only off `tabs` left them
  * unable to ever look selected.
+ *
+ * This function is the ONLY thing that decides which group is active: the strip
+ * below lights the pill for `current.href` and never matches hrefs itself. So a
+ * per-group `exact` flag would have nothing to read it; Dashboard is matched by
+ * the literal below because its href is a prefix of every other group.
  */
 function activeGroup(pathname: string): Group {
   const dashboard = GROUPS[0]!;
