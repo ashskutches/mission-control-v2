@@ -16,7 +16,8 @@
     "check:report-math": "node scripts/check-report-reconciliation.mjs",
     "check:report-links": "node scripts/check-report-links.mjs",
     "check:report-basis": "node scripts/check-report-order-basis.mjs",
-    "check:report-estimate": "node scripts/check-report-estimate-method.mjs"
+    "check:report-estimate": "node scripts/check-report-estimate-method.mjs",
+    "check:manifest-hold": "node scripts/check-manifest-hold-record.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",

@@ -6,16 +6,26 @@
  *
  * ── Why this list is shorter than the artifact gallery ──────────────────────
  *
- * 25 artifacts exist on the Claude account. These six are the Leaps & Rebounds
- * ones. Held back on purpose:
+ * The Claude account carries more artifacts than REPORTS lists. What is below is
+ * the Leaps & Rebounds work. Everything else is held, and holding is the default:
+ * an artifact that is not in REPORTS has not been cleared to publish, whether or
+ * not it appears in the reasons here.
  *
- *   · Anthony's Painting and JB Painting work (3 reports, incl. a traffic audit
- *     carrying their GA4 property id) — client deliverables. They do not belong
- *     on an L&R domain, publicly, without those clients agreeing to it.
- *   · Cryptid and Divine game design (13 reports) — unrelated projects. Nobody
- *     reading this index is looking for card balance notes.
+ *   · Anthony's Painting and JB Painting work (incl. a traffic audit carrying
+ *     their GA4 property id) — client deliverables. They do not belong on an
+ *     L&R domain, publicly, without those clients agreeing to it.
+ *   · Cryptid and Divine game design — unrelated projects. Nobody reading this
+ *     index is looking for card balance notes.
  *   · Mini PC Handoff Runbook — machine setup, unreviewed for host detail.
  *   · Insights Page Teardown — see SECURITY_HOLD below.
+ *
+ * Deliberately no counts above. This block used to open "25 artifacts exist …
+ * these six are the L&R ones" over an array of nine, with holds enumerated as
+ * 3 + 13 + 1 + 1: the only written record of the publish/hold policy did not add
+ * up, and the obvious reading of the shortfall was that the hold list had gaps.
+ * It did not — the prose had drifted from the array. A count that nothing
+ * recomputes does not belong here; REPORTS.length is the count.
+ * scripts/check-manifest-hold-record.mjs keeps it that way.
  */
 
 export interface Report {
