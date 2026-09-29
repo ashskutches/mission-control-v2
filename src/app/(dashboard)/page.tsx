@@ -13,7 +13,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { createClient } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Activity, Brain, ShieldAlert, DollarSign,
+  Activity, Brain, DollarSign,
   Send, AlertCircle, ChevronRight, Zap, RefreshCw,
 } from "lucide-react";
 import { MarkdownMessage } from "@/components/MarkdownMessage";
@@ -448,72 +448,70 @@ function OverviewTab() {
   }, [load]);
 
   const deptHealthMap = Object.fromEntries((overview?.departmentHealth ?? []).map((h: any) => [h.dept, h]));
+  // Until useRole resolves we render as a guest: hide first, reveal after.
+  const visibleDepts = CORE_SPACES.filter(dept => canAccess(role ?? "guest", dept.href));
+  const activeAgents = agents.filter(a => a.enabled !== false).length;
+  const decisions: number = overview?.insights?.total ?? 0;
+
+  const [greeting, setGreeting] = useState("");
+  useEffect(() => {
+    const now = new Date();
+    const h = now.getHours();
+    const part = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+    setGreeting(`${part} · ${now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`);
+  }, []);
 
   return (
     // No px-4/pt-4 here — the Command Center shell above supplies the gutter.
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
 
-      {/* ── L&R Hero banner ── */}
-      <section style={{ position: "relative", borderRadius: 16, overflow: "hidden", border: "1px solid rgba(233,141,32,0.2)" }}>
-        {/* Background image */}
+      {/* ── Hero ──
+          The eyebrow and title carry the page; the brand lockup already lives in the
+          sidebar, so it is not repeated here. The greeting is set after mount — this
+          route is prerendered, and a clock read during render would mismatch. */}
+      <section className="cc-hero">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/lrb-hero-banner.png"
-          alt=""
-          aria-hidden="true"
-          style={{
-            position: "absolute", inset: 0, width: "100%", height: "100%",
-            objectFit: "cover", objectPosition: "center 20%",
-            opacity: 0.18,
-            pointerEvents: "none",
-          }}
-        />
-        {/* Gradient overlay to ensure text legibility */}
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "linear-gradient(90deg, rgba(26,26,28,0.97) 0%, rgba(26,26,28,0.85) 55%, rgba(26,26,28,0.3) 100%)",
-          pointerEvents: "none",
-        }} />
-        {/* Content */}
-        <div style={{ position: "relative", zIndex: 1, padding: "22px 28px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+        <img src="/cc-hero.jpg" alt="" aria-hidden="true" className="cc-hero__bg" />
+        <div className="cc-hero__scrim" />
+        <div className="cc-hero__body">
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
             <div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/lrb-wordmark.png"
-                alt="Leaps & Rebounds Mission Control"
-                style={{ width: "min(260px, 55vw)", borderRadius: 10, marginBottom: 10, display: "block" }}
-              />
-              {/* Brand differentiator badges */}
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {[
-                  { label: "70% Less Joint Impact", color: "#e98d20" },
-                  { label: "Bungee · Not Springs", color: "#38bdf8" },
-                  { label: "Ships 95% Assembled", color: "#22c55e" },
-                  { label: "30-Day Jump Trial", color: "#a78bfa" },
-                ].map(({ label, color }) => (
-                  <span key={label} style={{
-                    fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em",
-                    color, background: `${color}12`, border: `1px solid ${color}30`,
-                    borderRadius: 6, padding: "3px 8px",
-                  }}>{label}</span>
-                ))}
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <motion.button
-                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}
-                onClick={load}
-                style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "6px 12px", cursor: "pointer", color: "#888", fontSize: 11 }}
-              >
-                <RefreshCw size={11} /> Refresh
-              </motion.button>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 10, padding: "8px 14px" }}>
-                <ShieldAlert size={14} color="#22c55e" />
-                <span style={{ fontSize: 10, fontWeight: 800, color: "#22c55e", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                  {agents.filter(a => a.enabled !== false).length} Agents Bouncing
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <span className="lrb-live-dot" />
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#a1a1aa" }}>
+                  {greeting || "\u00a0"}
                 </span>
               </div>
+              <h1 className="cc-hero__title">Command <em>Center</em></h1>
+              <p style={{ margin: "10px 0 0", fontSize: 13, color: "#a1a1aa", maxWidth: 440, lineHeight: 1.5 }}>
+                Every department, every agent, one view of Leaps &amp; Rebounds.
+              </p>
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.94 }}
+              onClick={load}
+              className="cc-icon-btn"
+              title="Refresh"
+              aria-label="Refresh"
+            >
+              <RefreshCw size={14} />
+            </motion.button>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div className="cc-stat">
+              <span className="cc-stat__value">{loading ? "—" : activeAgents}</span>
+              <span className="cc-stat__label">Agents active</span>
+            </div>
+            <div className="cc-stat">
+              <span className="cc-stat__value" style={{ color: decisions > 0 ? "#fbbf24" : undefined }}>
+                {loading ? "—" : decisions}
+              </span>
+              <span className="cc-stat__label">Need a decision</span>
+            </div>
+            <div className="cc-stat">
+              <span className="cc-stat__value">{visibleDepts.length}</span>
+              <span className="cc-stat__label">Departments</span>
             </div>
           </div>
         </div>
@@ -551,9 +549,8 @@ function OverviewTab() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
           {/* Filtered by the same canAccess the middleware gates with — Sales and
               Social are core spaces but admin-only, and an unfiltered grid offers a
-              teammate a card that bounces straight to /no-access. Until
-              useRole resolves we render as a guest: hide first, reveal after. */}
-          {CORE_SPACES.filter(dept => canAccess(role ?? "guest", dept.href)).map(dept => (
+              teammate a card that bounces straight to /no-access. */}
+          {visibleDepts.map(dept => (
             <DeptCard key={dept.id} dept={dept} health={deptHealthMap[dept.id]} onNav={router_fn} />
           ))}
         </div>

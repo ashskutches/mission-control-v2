@@ -6,6 +6,7 @@ import { APP_CONFIG } from "@/app/lib/AppConfig";
 import { canAccess } from "@/app/lib/access";
 import { useRole } from "@/app/lib/useRole";
 import { cn } from "@/app/lib/utils";
+import { BrandLockup, BrandMark } from "@/components/BrandMark";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3000";
 
@@ -74,50 +75,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   return (
     <aside className={cn("sidebar-bulma menu custom-scrollbar", isOpen && "is-active")} style={{ overflowY: "auto" }}>
 
-      {/* Brand Header — wordmark lockup */}
+      {/* Brand Header — drawn mark + live wordmark (see BrandMark.tsx) */}
       <div
-        className="mb-6"
-        style={{ cursor: "pointer" }}
+        className="lrb-brand"
+        style={{ cursor: "pointer", marginBottom: "1.75rem", padding: "0 0.25rem" }}
         onClick={() => navigate("/")}
         role="link"
-        aria-label="Go to overview"
+        aria-label="Go to Command Center"
       >
-        {/* Wordmark image — full L&R logo */}
+        <BrandLockup />
         <div style={{
-          position: "relative",
-          borderRadius: "12px",
-          overflow: "hidden",
-          border: "1px solid rgba(233,141,32,0.18)",
-          background: "rgba(233,141,32,0.04)",
-          padding: "2px",
-          boxShadow: "0 2px 12px rgba(233,141,32,0.1)",
-          transition: "box-shadow 0.2s, border-color 0.2s",
-        }}
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 20px rgba(233,141,32,0.22)";
-          (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(233,141,32,0.35)";
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 12px rgba(233,141,32,0.1)";
-          (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(233,141,32,0.18)";
-        }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/lrb-wordmark.png"
-            alt="Leaps & Rebounds Mission Control"
-            style={{ width: "100%", display: "block", borderRadius: "10px", objectFit: "cover" }}
-          />
-        </div>
-        {/* Live indicator strip */}
-        <div className="is-flex is-align-items-center is-justify-content-space-between" style={{ marginTop: "8px", padding: "0 2px" }}>
-          <span style={{ fontSize: "9px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(233,141,32,0.6)", fontFamily: "'Montserrat', sans-serif" }}>
-            Ops Intelligence
-          </span>
-          <div className="is-flex is-align-items-center" style={{ gap: "5px" }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent-emerald)", display: "block", animation: "pulse-orange 2.5s ease-in-out infinite" }} />
-            <span style={{ fontSize: "9px", fontWeight: 800, color: "#22c55e", textTransform: "uppercase", letterSpacing: "0.08em" }}>Live</span>
-          </div>
+          display: "flex", alignItems: "center", gap: 7, marginTop: 16,
+          padding: "7px 10px", borderRadius: 9,
+          background: "rgba(34,197,94,0.05)", border: "1px solid rgba(34,197,94,0.14)",
+        }}>
+          <span className="lrb-live-dot" />
+          <span style={{ fontSize: 10, fontWeight: 700, color: "#86efac", letterSpacing: "0.02em" }}>All systems live</span>
+          <span style={{ marginLeft: "auto", fontSize: 9, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase" }}>Ops</span>
         </div>
       </div>
 
@@ -337,10 +311,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <LogOut size={16} />
           <span className="is-uppercase has-text-weight-bold" style={{ fontSize: "11px" }}>Sign Out</span>
         </button>
-        {/* Brand watermark — new icon */}
+        {/* Brand watermark */}
         <div className="lrb-watermark" style={{ textAlign: "center", paddingTop: "1rem", paddingBottom: "0.25rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/lrb-icon-v2.png" alt="" aria-hidden="true" style={{ width: 14, height: 14, objectFit: "contain", opacity: 0.28, filter: "saturate(0)" }} />
+          <span style={{ opacity: 0.35, filter: "saturate(0)", display: "flex" }}><BrandMark size={14} /></span>
           Leaps &amp; Rebounds · Ops
         </div>
       </div>
