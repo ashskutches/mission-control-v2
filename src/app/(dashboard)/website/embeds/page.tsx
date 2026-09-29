@@ -14,16 +14,29 @@ interface EmbedSectionShape {
   id: string; name: string; description: string | null;
   shopify_section_id: string; targeting_rules: Record<string, unknown>;
   active: boolean; hard_gate: boolean; is_required: boolean;
-  embed_impressions: number; embed_add_to_carts: number;
-  winning_variation?: { name: string; shopify_section_id: string; impressions: number; add_to_carts: number } | null;
+  embed_impressions: number; embed_add_to_carts: number; embed_clicks?: number;
+  winning_variation?: { name: string; shopify_section_id: string; impressions: number; add_to_carts: number; clicks?: number } | null;
 }
 
 interface Embed {
   id: string; name: string; description: string | null;
   url_patterns: string[]; active: boolean; max_sections: number | null; is_live: boolean;
+  optimize_for?: OptimizeFor;
   sections: EmbedSectionShape[];
   created_at: string; updated_at: string;
 }
+
+// What an embed's sections are ranked on. A product page converts to a cart; a
+// blog post has no add-to-cart at all, so it is judged on click-through.
+type OptimizeFor = "add_to_cart" | "click";
+const METRICS: Record<OptimizeFor, { label: string; short: string; rate: string; count: (s: any) => number; hint: string }> = {
+  add_to_cart: { label: "Add-to-cart", short: "ATC", rate: "AATC", count: s => s.embed_add_to_carts ?? 0,
+    hint: "Product pages — sections are credited when the visitor adds to cart after seeing them." },
+  click: { label: "Click-through", short: "clicks", rate: "CTR", count: s => s.embed_clicks ?? 0,
+    hint: "Blog posts and other pages with no add-to-cart — one click per section per page view." },
+};
+const metricOf = (e: { optimize_for?: string }) => METRICS[e.optimize_for === "click" ? "click" : "add_to_cart"];
+const rateOf = (count: number, impressions: number) => (impressions > 0 ? (count / impressions) * 100 : null);
 
 const CARD = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "1.25rem" } as const;
 const INPUT_STYLE = { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0" } as const;
@@ -65,8 +78,8 @@ interface EmbedSection {
   id: string; name: string; description: string | null;
   shopify_section_id: string; targeting_rules: Record<string, unknown>;
   active: boolean; hard_gate: boolean; is_required: boolean;
-  embed_impressions: number; embed_add_to_carts: number;
-  winning_variation?: { name: string; shopify_section_id: string; impressions: number; add_to_carts: number } | null;
+  embed_impressions: number; embed_add_to_carts: number; embed_clicks?: number;
+  winning_variation?: { name: string; shopify_section_id: string; impressions: number; add_to_carts: number; clicks?: number } | null;
 }
 
 function ucb1Score(sectionImpressions: number, totalImpressions: number): number {
@@ -90,12 +103,16 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
   // Compute UCB1-based display score for sorting
   const totalImpressions = embed.sections.reduce((sum: number, s: any) => sum + (s.embed_impressions ?? 0), 0);
 
+  const metric = metricOf(embed);
+  // "Sorted by performance" used to mean sorted by UCB1's exploration bonus,
+  // which puts the least-shown section first. Performance is the embed's own
+  // rate; the bar at the end of each row still shows the exploration bonus.
   const sortedSections = [...embed.sections].sort((a: any, b: any) => {
     // Required always first within their group
     if (a.is_required !== b.is_required) return (b.is_required ? 1 : 0) - (a.is_required ? 1 : 0);
-    const scoreA = ucb1Score(a.embed_impressions ?? 0, totalImpressions);
-    const scoreB = ucb1Score(b.embed_impressions ?? 0, totalImpressions);
-    return scoreB - scoreA;
+    const rateA = rateOf(metric.count(a), a.embed_impressions ?? 0) ?? -1;
+    const rateB = rateOf(metric.count(b), b.embed_impressions ?? 0) ?? -1;
+    return rateB - rateA;
   });
 
   const addSection = async () => {
@@ -171,7 +188,7 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
 
   // Aggregate stats across all sections for the header
   const totalEmbedImp = embed.sections.reduce((sum: number, s: any) => sum + (s.embed_impressions ?? 0), 0);
-  const totalEmbedATC = embed.sections.reduce((sum: number, s: any) => sum + (s.embed_add_to_carts ?? 0), 0);
+  const totalEmbedATC = embed.sections.reduce((sum: number, s: any) => sum + metric.count(s), 0);
   const embedAtcRate = totalEmbedImp > 0 ? ((totalEmbedATC / totalEmbedImp) * 100).toFixed(1) : null;
 
   return (
@@ -196,11 +213,14 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
             <span title="Total embed impressions" style={{ fontSize: 10, fontWeight: 700, color: totalEmbedImp > 0 ? "#38bdf8" : "#334155", background: totalEmbedImp > 0 ? "rgba(56,189,248,0.08)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(56,189,248,0.12)", borderRadius: 5, padding: "1px 7px" }}>
               {totalEmbedImp.toLocaleString()} <span style={{ color: "#475569", fontWeight: 400 }}>imp</span>
             </span>
-            <span title="Total Add-to-Carts" style={{ fontSize: 10, fontWeight: 700, color: totalEmbedATC > 0 ? "#a78bfa" : "#334155", background: totalEmbedATC > 0 ? "rgba(167,139,250,0.08)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(167,139,250,0.12)", borderRadius: 5, padding: "1px 7px" }}>
-              {totalEmbedATC} <span style={{ color: "#475569", fontWeight: 400 }}>ATC</span>
+            <span title={`Optimised for ${metric.label.toLowerCase()} — ${metric.hint}`} style={{ fontSize: 9, fontWeight: 700, padding: "1px 7px", borderRadius: 10, background: "rgba(56,189,248,0.08)", color: "#7dd3fc", border: "1px solid rgba(56,189,248,0.2)" }}>
+              ranks on {metric.label}
             </span>
-            <span title="Assisted ATC% — exposure credit attribution" style={{ fontSize: 10, fontWeight: 700, color: totalEmbedImp > 0 ? "#34d399" : "#334155", background: totalEmbedImp > 0 ? "rgba(52,211,153,0.08)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(52,211,153,0.12)", borderRadius: 5, padding: "1px 7px" }}>
-              {embedAtcRate ?? "—"}{embedAtcRate != null ? "%" : ""} <span style={{ color: "#475569", fontWeight: 400 }}>AATC</span>
+            <span title={`Total ${metric.label}`} style={{ fontSize: 10, fontWeight: 700, color: totalEmbedATC > 0 ? "#a78bfa" : "#334155", background: totalEmbedATC > 0 ? "rgba(167,139,250,0.08)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(167,139,250,0.12)", borderRadius: 5, padding: "1px 7px" }}>
+              {totalEmbedATC} <span style={{ color: "#475569", fontWeight: 400 }}>{metric.short}</span>
+            </span>
+            <span title={`${metric.rate} — ${metric.label.toLowerCase()} per impression`} style={{ fontSize: 10, fontWeight: 700, color: totalEmbedImp > 0 ? "#34d399" : "#334155", background: totalEmbedImp > 0 ? "rgba(52,211,153,0.08)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(52,211,153,0.12)", borderRadius: 5, padding: "1px 7px" }}>
+              {embedAtcRate ?? "—"}{embedAtcRate != null ? "%" : ""} <span style={{ color: "#475569", fontWeight: 400 }}>{metric.rate}</span>
             </span>
           </div>
           {embed.description && <p style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{embed.description}</p>}
@@ -274,9 +294,9 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", marginBottom: "0.75rem" }}>
                   {sortedSections.map((s: any, idx: number) => {
                     const score = ucb1Score(s.embed_impressions ?? 0, totalImpressions);
-                    const atcRate = (s.embed_impressions ?? 0) > 0
-                      ? ((s.embed_add_to_carts ?? 0) / s.embed_impressions * 100).toFixed(1)
-                      : null;
+                    const rowCount = metric.count(s);
+                    const rowRate = rateOf(rowCount, s.embed_impressions ?? 0);
+                    const atcRate = rowRate != null ? rowRate.toFixed(1) : null;
                     const isRequired = s.is_required;
 
                     return (
@@ -312,9 +332,9 @@ function EmbedCard({ embed, sections, onRefresh }: { embed: Embed; sections: any
 
                         {/* Stats — always show, use "—" when no data yet */}
                         <span title="Embed impressions" style={{ fontSize: 10, color: (s.embed_impressions ?? 0) > 0 ? "#38bdf8" : "#334155", fontWeight: 600, flexShrink: 0 }}>{s.embed_impressions ?? 0} imp</span>
-                        <span title="Embed Add-to-Carts" style={{ fontSize: 10, color: (s.embed_add_to_carts ?? 0) > 0 ? "#a78bfa" : "#334155", fontWeight: 600, flexShrink: 0 }}>{s.embed_add_to_carts ?? 0} ATC</span>
-                        <span title="Assisted ATC% — exposure credit attribution" style={{ fontSize: 10, color: (s.embed_impressions ?? 0) > 0 ? "#34d399" : "#475569", fontWeight: 700, flexShrink: 0 }}>
-                          {atcRate != null ? `${atcRate}%` : "—"} AATC
+                        <span title={`Embed ${metric.label}`} style={{ fontSize: 10, color: rowCount > 0 ? "#a78bfa" : "#334155", fontWeight: 600, flexShrink: 0 }}>{rowCount} {metric.short}</span>
+                        <span title={`${metric.rate} — ${metric.label.toLowerCase()} per impression`} style={{ fontSize: 10, color: (s.embed_impressions ?? 0) > 0 ? "#34d399" : "#475569", fontWeight: 700, flexShrink: 0 }}>
+                          {atcRate != null ? `${atcRate}%` : "—"} {metric.rate}
                         </span>
 
                         {/* UCB1 score bar */}
@@ -375,7 +395,7 @@ export default function EmbedsPage() {
   const [formError, setFormError] = useState("");
   const [editTarget, setEditTarget] = useState<Embed | null>(null);
   const [urlPatternInput, setUrlPatternInput] = useState("");
-  const [form, setForm] = useState({ name: "", description: "", url_patterns: [] as string[], max_sections: "" });
+  const [form, setForm] = useState({ name: "", description: "", url_patterns: [] as string[], max_sections: "", optimize_for: "add_to_cart" as OptimizeFor });
 
   const fetchEmbeds = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -406,14 +426,14 @@ export default function EmbedsPage() {
   const addPattern = () => { if (!urlPatternInput.trim()) return; setForm(f => ({ ...f, url_patterns: [...f.url_patterns, urlPatternInput.trim()] })); setUrlPatternInput(""); };
   const removePattern = (p: string) => setForm(f => ({ ...f, url_patterns: f.url_patterns.filter(x => x !== p) }));
 
-  const openCreate = () => { setEditTarget(null); setForm({ name: "", description: "", url_patterns: [], max_sections: "" }); setUrlPatternInput(""); setFormError(""); setShowForm(true); };
-  const openEdit = (e: Embed) => { setEditTarget(e); setForm({ name: e.name, description: e.description ?? "", url_patterns: e.url_patterns, max_sections: e.max_sections ? String(e.max_sections) : "" }); setUrlPatternInput(""); setFormError(""); setShowForm(true); };
+  const openCreate = () => { setEditTarget(null); setForm({ name: "", description: "", url_patterns: [], max_sections: "", optimize_for: "add_to_cart" }); setUrlPatternInput(""); setFormError(""); setShowForm(true); };
+  const openEdit = (e: Embed) => { setEditTarget(e); setForm({ name: e.name, description: e.description ?? "", url_patterns: e.url_patterns, max_sections: e.max_sections ? String(e.max_sections) : "", optimize_for: e.optimize_for === "click" ? "click" : "add_to_cart" }); setUrlPatternInput(""); setFormError(""); setShowForm(true); };
 
   const save = async () => {
     setSaving(true); setFormError("");
     try {
       if (!form.name.trim()) throw new Error("Name is required");
-      const payload: any = { name: form.name.trim(), description: form.description.trim() || null, url_patterns: form.url_patterns };
+      const payload: any = { name: form.name.trim(), description: form.description.trim() || null, url_patterns: form.url_patterns, optimize_for: form.optimize_for };
       if (form.max_sections) payload.max_sections = parseInt(form.max_sections, 10) || null;
       const url = editTarget ? `${BOT_URL}/admin/intelligence/embeds/${editTarget.id}` : `${BOT_URL}/admin/intelligence/embeds`;
       const res = await fetch(url, { method: editTarget ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -465,6 +485,21 @@ export default function EmbedsPage() {
                 <input className="input is-small" type="number" min="1" placeholder="e.g. 2" value={form.max_sections}
                   onChange={e => setForm(f => ({ ...f, max_sections: e.target.value }))} style={INPUT_STYLE} />
                 <p style={{ fontSize: 10, color: "#475569", marginTop: "0.25rem" }}>UCB1 + profile scoring selects which sections fill these slots.</p>
+              </div>
+              <div>
+                <label style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.3rem" }}>Optimize For</label>
+                <div style={{ display: "flex", gap: "0.4rem" }}>
+                  {(Object.keys(METRICS) as OptimizeFor[]).map(k => (
+                    <button key={k} type="button" onClick={() => setForm(f => ({ ...f, optimize_for: k }))}
+                      style={{ fontSize: 10, padding: "0.3rem 0.7rem", borderRadius: 6, cursor: "pointer", fontWeight: 700,
+                        background: form.optimize_for === k ? "rgba(56,189,248,0.15)" : "rgba(255,255,255,0.04)",
+                        color: form.optimize_for === k ? "#38bdf8" : "#64748b",
+                        border: form.optimize_for === k ? "1px solid rgba(56,189,248,0.3)" : "1px solid rgba(255,255,255,0.06)" }}>
+                      {METRICS[k].label}
+                    </button>
+                  ))}
+                </div>
+                <p style={{ fontSize: 10, color: "#475569", marginTop: "0.25rem" }}>{METRICS[form.optimize_for].hint} Switching keeps every counter; only the ranking changes.</p>
               </div>
             </div>
             <div style={{ marginBottom: "0.75rem" }}>
