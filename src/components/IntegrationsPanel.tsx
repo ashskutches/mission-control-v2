@@ -2,10 +2,24 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   RefreshCw, CheckCircle, XCircle, Clock, AlertTriangle,
-  ChevronDown, ChevronUp, Loader, Key, X, Eye, EyeOff, ShieldCheck, Zap, AlertCircle,
+  ChevronDown, ChevronUp, Loader, Key, X, Eye, EyeOff, ShieldCheck, Zap, AlertCircle, LogIn,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+/**
+ * How an integration can be connected without pasting a key. Declared server
+ * side in gravity-claw utils/integration-auth.ts; null means keys only.
+ */
+interface IntegrationAuth {
+  kind: "oauth" | "automatic" | "per_agent";
+  label: string;
+  start_path?: string;
+  callback_path?: string;
+  /** Env vars this option fills — their Set Key rows fold under "set manually". */
+  produces: string[];
+  note: string;
+}
 
 interface Integration {
   id: string;
@@ -23,6 +37,7 @@ interface Integration {
   secret_set_at: string | null;
   secret_set_by: string | null;
   updated_at: string;
+  auth?: IntegrationAuth | null;
 }
 
 interface CheckResult {
@@ -393,6 +408,14 @@ export default function IntegrationsPanel() {
   // varKey = `${integrationId}:${varName}`
   const [viewing, setViewing]           = useState<Record<string, boolean>>({});   // fetching in progress
   const [revealed, setRevealed]         = useState<Record<string, ViewSecretState | null>>({}); // fetched secrets
+  const [showManual, setShowManual]     = useState<Record<string, boolean>>({});  // integrationId → show sign-in-filled vars
+  const [signedIn, setSignedIn]         = useState<string | null>(null);
+
+  // OAuth callbacks land back here with ?<name>_connected=1.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("google_ads_connected")) setSignedIn("Google Ads connected — the new token was verified and saved to Railway.");
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -481,6 +504,13 @@ export default function IntegrationsPanel() {
         @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
 
+      {signedIn && (
+        <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: 8, fontSize: 12, color: "#22c55e", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", display: "flex", alignItems: "center", gap: 6 }}>
+          <CheckCircle size={13} /> {signedIn}
+          <button onClick={() => setSignedIn(null)} aria-label="Dismiss" style={{ marginLeft: "auto", background: "none", border: "none", color: "#64748b", cursor: "pointer" }}><X size={12} /></button>
+        </div>
+      )}
+
       {/* Stats bar */}
       <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
         {[
@@ -520,6 +550,12 @@ export default function IntegrationsPanel() {
               const isExp     = expanded === item.id;
               const result    = checkResult[item.id];
               const hasMissing = !item.credentials_ok && (item.env_vars?.length ?? 0) > 0;
+              const auth       = item.auth ?? null;
+              // Vars a sign-in (or the server) fills are not something to paste,
+              // so they sit behind "set manually instead" rather than leading.
+              const signInVars = new Set(auth && auth.kind !== "per_agent" ? auth.produces : []);
+              const hiddenVars = (item.env_vars ?? []).filter(v => signInVars.has(v));
+              const shownVars  = (item.env_vars ?? []).filter(v => !signInVars.has(v) || showManual[item.id]);
 
               return (
                 <div
@@ -553,7 +589,7 @@ export default function IntegrationsPanel() {
                         background: "rgba(244,63,94,0.15)", color: "#f43f5e",
                         display: "flex", alignItems: "center", gap: 3,
                       }}>
-                        <Key size={9} /> NEEDS KEY
+                        {auth?.kind === "oauth" ? <><LogIn size={9} /> NEEDS SIGN-IN</> : <><Key size={9} /> NEEDS KEY</>}
                       </span>
                     )}
                     <span style={{
@@ -576,14 +612,61 @@ export default function IntegrationsPanel() {
                         <p style={{ fontSize: 12, color: "#94a3b8", margin: 0 }}>{item.description}</p>
                       )}
 
+                      {/* Sign-in / automatic credential, ahead of any key */}
+                      {auth && (
+                        <div style={{
+                          padding: "10px 12px", borderRadius: 8,
+                          background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.18)",
+                          display: "flex", flexDirection: "column", gap: 6,
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            {auth.kind === "oauth" && auth.start_path ? (
+                              <button
+                                id={`signin-btn-${item.id}`}
+                                onClick={e => { e.stopPropagation(); window.location.href = `${API_BASE}${auth.start_path}`; }}
+                                style={{
+                                  padding: "6px 12px", borderRadius: 7, fontSize: 12, fontWeight: 700,
+                                  color: "#0b1220", background: "#38bdf8", border: "none", cursor: "pointer",
+                                  display: "flex", alignItems: "center", gap: 6,
+                                }}
+                              >
+                                <LogIn size={13} /> {auth.label}
+                              </button>
+                            ) : (
+                              <span style={{
+                                fontSize: 10, fontWeight: 800, padding: "3px 8px", borderRadius: 4,
+                                background: "rgba(56,189,248,0.12)", color: "#38bdf8", letterSpacing: "0.04em",
+                                display: "flex", alignItems: "center", gap: 4,
+                              }}>
+                                {auth.kind === "automatic" ? <ShieldCheck size={10} /> : <LogIn size={10} />} {auth.label.toUpperCase()}
+                              </span>
+                            )}
+                            <span style={{ fontSize: 11, color: "#94a3b8", flex: 1, minWidth: 180 }}>{auth.note}</span>
+                          </div>
+                          {auth.kind === "oauth" && auth.callback_path && (
+                            <div style={{ fontSize: 10, color: "#64748b" }}>
+                              First time only: add <code style={{ color: "#94a3b8" }}>{API_BASE}{auth.callback_path}</code> to the OAuth client&apos;s authorised redirect URIs.
+                            </div>
+                          )}
+                          {hiddenVars.length > 0 && (
+                            <button
+                              onClick={e => { e.stopPropagation(); setShowManual(prev => ({ ...prev, [item.id]: !prev[item.id] })); }}
+                              style={{ alignSelf: "flex-start", background: "none", border: "none", padding: 0, fontSize: 10, color: "#64748b", cursor: "pointer", textDecoration: "underline" }}
+                            >
+                              {showManual[item.id] ? "Hide manual keys" : `Set ${hiddenVars.join(", ")} manually instead`}
+                            </button>
+                          )}
+                        </div>
+                      )}
+
                       {/* Env vars with Set Key buttons */}
-                      {(item.env_vars?.length ?? 0) > 0 && (
+                      {shownVars.length > 0 && (
                         <div>
                           <div style={{ fontSize: 10, color: "#475569", fontWeight: 700, marginBottom: 8 }}>
                             REQUIRED ENV VARS
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                            {item.env_vars.map(v => {
+                            {shownVars.map(v => {
                               const isSet   = item.credentials_ok || recentlySet[v];
                               const viewKey = `${item.id}:${v}`;
                               const secret  = revealed[viewKey];
