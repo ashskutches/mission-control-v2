@@ -98,8 +98,8 @@ test("the rebounder's storage answer is that the legs come off, not that it fold
     // revisit the assertions below rather than letting them enforce a stale fact.
     const row = read(PARTNER_BRIEF)
         .split("\n")
-        .find((l) => /<td>Storage<\/td>/.test(l));
-    assert.ok(row, `no Storage row found in ${PARTNER_BRIEF}`);
+        .find((l) => /<td>Storage<\/td>|<dt>How do I store it\?<\/dt>/.test(l));
+    assert.ok(row, `no storage answer (Storage row or "How do I store it?" FAQ) found in ${PARTNER_BRIEF}`);
     assert.match(
         row,
         /screw off/i,
