@@ -30,6 +30,9 @@ import {
 import Link from "next/link";
 import { getSpace } from "@/app/lib/spaces";
 import { useRole } from "@/app/lib/useRole";
+import {
+  STUCK_WORK_STATUSES, isAgentStuck, agentSortKey, buildAgentGrouping,
+} from "@/app/lib/agentGrouping";
 import { MarkdownMessage } from "@/components/MarkdownMessage";
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? "http://localhost:3001";
@@ -219,32 +222,6 @@ function rowState(item: BoardItem): RowStateKey {
   ) return "due_week";
   if (item.assignee || item.work) return "assigned";
   return "idle";
-}
-
-/**
- * An agent has stopped and a person can get it moving again.
- *
- * Two ways that happens, and both count: the work row itself is parked
- * (`blocked`, or `needs_human` — which is where the runner puts an item whose
- * run budget ran out without the agent declaring it finished), or the agent has
- * asked someone a question and is still waiting on the answer. Same statuses
- * /agent-behavior calls "stuck now", so the two pages agree on the count.
- */
-const STUCK_WORK_STATUSES = new Set(["blocked", "needs_human"]);
-
-function isAgentStuck(item: BoardItem): boolean {
-  if (item.work && STUCK_WORK_STATUSES.has(item.work.status)) return true;
-  return !!item.waiting_on_human;
-}
-
-/**
- * The Agent sort's group order: agents A–Z, then people A–Z, then nobody.
- * Inside a group stuck rows come first, then the server's priority order.
- */
-function agentSortKey(item: BoardItem): string {
-  const a = item.assignee;
-  const bucket = a?.kind === "agent" ? "0" : a ? "1" : "2";
-  return `${bucket}|${(a?.name ?? "").toLowerCase()}`;
 }
 
 function dueLabel(due: BoardDue): string {
@@ -1345,6 +1322,16 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
     });
   }, [board, search, dueFilter, assignee, source, isMine, stuckOnly, sort]);
 
+  /**
+   * Row keys and per-owner totals for the Agent sort's group headers, derived
+   * once per sorted list instead of per header. `null` under every other sort,
+   * where no header is drawn. See buildAgentGrouping for what this replaced.
+   */
+  const grouping = useMemo(
+    () => (sort === "agent" ? buildAgentGrouping(items) : null),
+    [items, sort],
+  );
+
   /** Counted over the loaded board, like the source tabs, so it never reads as the filtered total. */
   const stuckCount = useMemo(() => (board?.items ?? []).filter(isAgentStuck).length, [board]);
 
@@ -1846,10 +1833,10 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
               {items.map((item, idx) => {
                 const open = expanded === item.id;
                 // Agent sort: a header row wherever the owner changes.
-                const groupStart = sort === "agent"
-                  && (idx === 0 || agentSortKey(items[idx - 1]) !== agentSortKey(item));
-                const groupRows = groupStart ? items.filter(i => agentSortKey(i) === agentSortKey(item)) : [];
-                const groupStuck = groupRows.filter(isAgentStuck).length;
+                const groupKey = grouping?.keys[idx];
+                const groupStart = groupKey !== undefined
+                  && (idx === 0 || grouping!.keys[idx - 1] !== groupKey);
+                const group = groupStart ? grouping!.groups.get(groupKey!) : undefined;
                 const riskColor = RISK_COLOR[item.risk_tier ?? ""] ?? "#64748b";
                 const effort = item.effort.tier ? EFFORT_LABEL[item.effort.tier] : null;
                 /*
@@ -1871,10 +1858,10 @@ export default function InsightsBoard({ section, accent: accentProp, emptyHint }
                               : item.assignee ? <User size={11} color="#22c55e" />
                               : <Inbox size={11} color="#475569" />}
                             {item.assignee?.name ?? "Nobody yet"}
-                            <span style={{ fontWeight: 600, color: "#475569" }}>{groupRows.length}</span>
-                            {groupStuck > 0 && (
+                            <span style={{ fontWeight: 600, color: "#475569" }}>{group?.count}</span>
+                            {!!group && group.stuck > 0 && (
                               <span style={{ fontSize: "9px", fontWeight: 800, color: "#f43f5e", background: "rgba(244,63,94,0.12)", borderRadius: 4, padding: "1px 6px" }}>
-                                {groupStuck} stuck
+                                {group.stuck} stuck
                               </span>
                             )}
                           </span>

@@ -7,7 +7,7 @@
     "build": "node --max-old-space-size=4096 ./node_modules/next/dist/bin/next build",
     "start": "TZ=\"America/New_York\" next start -p ${PORT:-3000} -H 0.0.0.0",
     "lint": "eslint",
-    "test": "node --test \"scripts/**/*.test.mjs\"",
+    "test": "node --test \"scripts/**/*.test.mjs\" \"src/**/*.test.ts\"",
     "check:partner-spelling": "node scripts/check-partner-spelling.mjs",
     "check:build-portability": "node scripts/check-build-portability.mjs",
     "check:nav-spelling": "node scripts/check-nav-spelling.mjs",
