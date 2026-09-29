@@ -12,7 +12,8 @@
     "check:build-portability": "node scripts/check-build-portability.mjs",
     "check:nav-spelling": "node scripts/check-nav-spelling.mjs",
     "check:section-tabs": "node scripts/check-section-tabs.mjs",
-    "check:reports": "node scripts/check-report-codes.mjs"
+    "check:reports": "node scripts/check-report-codes.mjs",
+    "check:report-math": "node scripts/check-report-reconciliation.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",
