@@ -16,7 +16,7 @@
  *
  * A discount code is the one thing on these pages that a stranger can *act* on.
  * Revenue figures are embarrassing to leak; a live code is money. It cost us one
- * already: `10OFFTRAMP` shipped in the Sept 25 spike report next to the arithmetic
+ * already: a live 10% code shipped in the Sept 25 spike report next to the arithmetic
  * proving it worked ($1,760 gross, $1,584 charged), and it was an ACTIVE 10% code
  * with no expiry, no usage cap and no customer restriction.
  *
