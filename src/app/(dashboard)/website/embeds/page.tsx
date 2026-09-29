@@ -185,7 +185,8 @@ function EmbedCard({ embed, sections, onRefresh, onEdit, onDelete }: { embed: Em
   // Aggregate stats across all sections for the header
   const totalEmbedImp = embed.sections.reduce((sum: number, s: any) => sum + (s.embed_impressions ?? 0), 0);
   const totalEmbedATC = embed.sections.reduce((sum: number, s: any) => sum + metric.count(s), 0);
-  const embedAtcRate = totalEmbedImp > 0 ? ((totalEmbedATC / totalEmbedImp) * 100).toFixed(1) : null;
+  const headerRate = rateOf(totalEmbedATC, totalEmbedImp);
+  const embedAtcRate = headerRate != null ? headerRate.toFixed(1) : null;
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
