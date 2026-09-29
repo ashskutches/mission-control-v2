@@ -6,8 +6,9 @@
     "skipLibCheck": true,
     "strict": false,
     "noEmit": true,
-    // Tests import "./x.ts" explicitly, because `node --test` runs them
-    // straight off the TypeScript with no bundler to resolve an extensionless path.
+    // Tests run under `node --test`, whose TypeScript stripping resolves relative
+    // imports literally and so needs the `.ts` on them. Safe here because nothing
+    // this config describes emits.
     "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
