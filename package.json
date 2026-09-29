@@ -7,7 +7,8 @@
     "build": "NODE_OPTIONS=--max-old-space-size=4096 next build",
     "start": "TZ=\"America/New_York\" next start -p ${PORT:-3000} -H 0.0.0.0",
     "lint": "eslint",
-    "test": "node --test \"scripts/**/*.test.mjs\""
+    "test": "node --test \"scripts/**/*.test.mjs\"",
+    "check:partner-spelling": "node scripts/check-partner-spelling.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",
