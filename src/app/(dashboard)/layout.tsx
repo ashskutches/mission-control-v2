@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
+import { BrandLockup, BrandMark } from "@/components/BrandMark";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
 
@@ -28,7 +29,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Mobile nav */}
         <nav className="navbar is-hidden-tablet is-black" role="navigation" aria-label="main navigation">
           <div className="navbar-brand">
-            <a className="navbar-item has-text-weight-black has-text-white" href="/">L&R OPS</a>
+            <a className="navbar-item" href="/" aria-label="Command Center"><BrandLockup size={24} /></a>
             <button
               role="button"
               className={`navbar-burger${isMobileMenuOpen ? " is-active" : ""}`}
@@ -53,8 +54,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <footer className="py-6 mt-2 has-text-centered is-size-7 is-uppercase has-text-weight-bold px-4" style={{ letterSpacing: "0.1em" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", opacity: 0.35 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/lrb-icon-v2.png" alt="" aria-hidden="true" style={{ width: 14, height: 14, objectFit: "contain" }} />
+            <BrandMark size={14} />
             <span style={{ color: "var(--accent-orange)" }}>Leaps &amp; Rebounds</span>
             <span style={{ color: "var(--text-muted)" }}>·</span>
             <span style={{ color: "var(--text-muted)" }}>70% Less Joint Impact</span>
