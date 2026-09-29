@@ -1,9 +1,9 @@
 "use client";
 import React from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AlertTriangle, Lightbulb, MessageSquare, Package, TrendingUp, Truck } from "lucide-react";
 import SectionOwner from "@/components/SectionOwner";
+import SectionTabs, { findActiveTab, type SectionTab } from "@/components/SectionTabs";
 
 /**
  * The Orders section. Four surfaces that all answer "what is happening to an order",
@@ -16,7 +16,7 @@ import SectionOwner from "@/components/SectionOwner";
  * single order right now, it is about what all of them together add up to. It reads
  * months of history rather than today's exceptions, so it is slow by nature.
  */
-const TABS = [
+const TABS: (SectionTab & { blurb: string })[] = [
   { href: "/orders",             label: "Queue",       icon: AlertTriangle,  color: "#fb923c", exact: true,
     blurb: "Every order that needs a human today, ranked by how bad it is. Read live from Shopify — healthy orders are not shown." },
   { href: "/orders/backorders",  label: "Backorders",  icon: Package,        color: "#06b6d4",
@@ -35,7 +35,7 @@ export default function OrdersLayout({ children }: { children: React.ReactNode }
   // Order ids are numeric, so a numeric segment is the detail drill-down. It gets no
   // tab strip — it has its own "Back to queue" link and is not a sibling surface.
   const isDetail = /^\/orders\/\d+/.test(pathname);
-  const active = TABS.find(t => (t.exact ? pathname === t.href : pathname.startsWith(t.href)));
+  const active = findActiveTab(TABS, pathname);
 
   return (
     <div className="px-5 py-5" style={{ maxWidth: 1280, margin: "0 auto" }}>
@@ -59,35 +59,7 @@ export default function OrdersLayout({ children }: { children: React.ReactNode }
           </p>
 
           {/* Tab nav */}
-          <div style={{
-            display: "flex", gap: "0.4rem", flexWrap: "wrap",
-            borderBottom: "1px solid rgba(255,255,255,0.05)",
-            paddingBottom: "0.75rem", marginBottom: "1.5rem",
-          }}>
-            {TABS.map(({ href, label, icon: Icon, color }) => {
-              const isActive = active?.href === href;
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  id={`orders-nav-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-$/, "")}`}
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: "0.4rem",
-                    background: isActive ? `${color}18` : "rgba(255,255,255,0.04)",
-                    color: isActive ? color : "#64748b",
-                    border: isActive ? `1px solid ${color}30` : "1px solid rgba(255,255,255,0.06)",
-                    borderRadius: 8, padding: "0.3rem 0.85rem",
-                    fontSize: 11, fontWeight: 700, textDecoration: "none",
-                    textTransform: "uppercase", letterSpacing: "0.06em",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  <Icon size={12} />
-                  {label}
-                </Link>
-              );
-            })}
-          </div>
+          <SectionTabs items={TABS} pathname={pathname} idPrefix="orders" />
         </>
       )}
 

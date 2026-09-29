@@ -1,18 +1,18 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Inbox, BookOpen, Brain, LifeBuoy, Settings, Lightbulb } from "lucide-react";
 import { SUPPORT_ACCENT } from "./ui";
 import { getSummary } from "./api";
 import SectionOwner from "@/components/SectionOwner";
+import SectionTabs, { type SectionTab } from "@/components/SectionTabs";
 
-interface NavItem {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ size?: number }>;
-  exact?: boolean;
-  /** Key on the /summary payload to render as a badge. */
+/**
+ * Support's tabs carry no per-tab color — the whole strip is SUPPORT_ACCENT —
+ * and two of them show a live count from /summary, so `badge` here is the key
+ * to read off that payload rather than the number itself.
+ */
+interface NavItem extends Omit<SectionTab, "badge"> {
   badge?: "awaitingApproval" | "openQuestions";
 }
 
@@ -56,43 +56,13 @@ export default function SupportLayout({ children }: { children: React.ReactNode 
         AI drafts every reply, a human approves it, and every correction teaches the agent.
       </p>
 
-      <div style={{
-        display: "flex", gap: "0.4rem", flexWrap: "wrap",
-        borderBottom: "1px solid rgba(255,255,255,0.05)",
-        paddingBottom: "0.75rem", marginBottom: "1.5rem",
-      }}>
-        {NAV.map(({ href, label, icon: Icon, exact, badge }) => {
-          const active = exact ? pathname === href : pathname.startsWith(href);
-          const n = badge ? counts[badge] ?? 0 : 0;
-          return (
-            <Link
-              key={href}
-              href={href}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: "0.4rem",
-                background: active ? `${SUPPORT_ACCENT}18` : "rgba(255,255,255,0.04)",
-                color: active ? SUPPORT_ACCENT : "var(--text-muted)",
-                border: active ? `1px solid ${SUPPORT_ACCENT}30` : "1px solid rgba(255,255,255,0.06)",
-                borderRadius: 8, padding: "0.3rem 0.85rem",
-                fontSize: 11, fontWeight: 700, textDecoration: "none",
-                textTransform: "uppercase", letterSpacing: "0.06em",
-                transition: "all 0.15s",
-              }}
-            >
-              <Icon size={12} />
-              {label}
-              {n > 0 && (
-                <span style={{
-                  background: active ? SUPPORT_ACCENT : "rgba(255,255,255,0.1)",
-                  color: active ? "#0f0f10" : "var(--text-secondary)",
-                  borderRadius: 999, padding: "0 5px", fontSize: 9, fontWeight: 900,
-                  minWidth: 15, textAlign: "center",
-                }}>{n}</span>
-              )}
-            </Link>
-          );
-        })}
-      </div>
+      <SectionTabs
+        items={NAV.map(({ badge, ...tab }) => ({ ...tab, badge: badge ? counts[badge] ?? 0 : 0 }))}
+        pathname={pathname}
+        idPrefix="support"
+        color={SUPPORT_ACCENT}
+        mutedColor="var(--text-muted)"
+      />
 
       {/* Whose department this is. In the layout rather than the page so it
           shows on every tab of the section — this space has no

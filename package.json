@@ -10,7 +10,8 @@
     "test": "node --test \"scripts/**/*.test.mjs\"",
     "check:partner-spelling": "node scripts/check-partner-spelling.mjs",
     "check:build-portability": "node scripts/check-build-portability.mjs",
-    "check:nav-spelling": "node scripts/check-nav-spelling.mjs"
+    "check:nav-spelling": "node scripts/check-nav-spelling.mjs",
+    "check:section-tabs": "node scripts/check-section-tabs.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",
