@@ -66,6 +66,16 @@ export const SECURITY_HOLD = {
 
 export const REPORTS: Report[] = [
   {
+    slug: "where-the-sales-went",
+    title: "Where the Sales Went",
+    blurb:
+      "Sales aren't falling week to week — the last five weeks beat last year by 21%. The damage is older: " +
+      "2026 is 26% behind, mostly lost in the first half, from direct (influencer) and social traffic.",
+    date: "2026-10-13",
+    kind: "analysis",
+    stat: { value: "−26%", label: "year to date vs 2025" },
+  },
+  {
     slug: "conversion-map",
     title: "The Conversion Map",
     blurb:

@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  Not for search engines. This page is reachable by anyone holding the link and
+  carries internal business analysis; robots.txt disallows /reports/ as well, but
+  a meta directive is the one that stops indexing of a page that IS fetched.
+-->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Where the Sales Went</title>
+<style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style>
+</head>
+<body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Public+Sans:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    --bg:#f7f8fa; --surface:#ffffff; --sunk:#eceff3;
+    --ink:#121a26; --ink-2:#465163; --ink-3:#7c8797;
+    --rule:#dde2e9; --accent:#1d5fc4; --accent-bg:#e6eefb;
+    --hot:#d9780f; --hot-bg:#fcf0e1;
+    --s1:#1d5fc4; --s2:#6f4cc4; --s3:#12917f; --s4:#9aa6b6; --base:#c9d1dc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg:#0f141b; --surface:#151c25; --sunk:#1b2430;
+      --ink:#e7ecf2; --ink-2:#aeb8c6; --ink-3:#7d8897;
+      --rule:#27313e; --accent:#72a6f2; --accent-bg:#172437;
+      --hot:#f2a54a; --hot-bg:#2b2014;
+      --s1:#5b93ea; --s2:#a086ea; --s3:#3cc3ae; --s4:#6d7888; --base:#3a4554;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg:#0f141b; --surface:#151c25; --sunk:#1b2430;
+    --ink:#e7ecf2; --ink-2:#aeb8c6; --ink-3:#7d8897;
+    --rule:#27313e; --accent:#72a6f2; --accent-bg:#172437;
+    --hot:#f2a54a; --hot-bg:#2b2014;
+    --s1:#5b93ea; --s2:#a086ea; --s3:#3cc3ae; --s4:#6d7888; --base:#3a4554;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Public Sans", system-ui, sans-serif; font-size:16.5px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .page { max-width:880px; margin:0 auto; padding-block:clamp(28px,5vw,64px) 80px; padding-inline:clamp(16px,4vw,40px); display:grid; gap:44px; }
+  h1,h2,h3 { font-family:"Bricolage Grotesque", system-ui, sans-serif; margin:0; text-wrap:balance; }
+  h1 { font-size:clamp(2rem,5vw,3rem); font-weight:800; line-height:1.04; letter-spacing:-.02em; }
+  h2 { font-size:clamp(1.3rem,2.6vw,1.65rem); font-weight:800; line-height:1.2; letter-spacing:-.01em; }
+  h3 { font-size:1.08rem; font-weight:600; line-height:1.3; }
+  p { margin:0; max-width:70ch; }
+  .m, .num { font-family:"JetBrains Mono", ui-monospace, Menlo, monospace; font-variant-numeric:tabular-nums; }
+  code { font-family:"JetBrains Mono", ui-monospace, monospace; font-size:.85em; background:var(--sunk); padding:.1em .35em; border-radius:3px; }
+  section { display:grid; gap:14px; }
+  .kicker { font-size:.78rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); }
+  .head { display:grid; gap:14px; border-bottom:2px solid var(--ink); padding-bottom:26px; }
+  .dek { font-size:1.12rem; color:var(--ink-2); }
+
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--rule); border:1px solid var(--rule); border-radius:10px; overflow:hidden; }
+  .stat { background:var(--surface); padding:16px 18px; display:grid; gap:2px; align-content:start; }
+  .stat .v { font-family:"Bricolage Grotesque", system-ui, sans-serif; font-weight:800; font-size:1.9rem; line-height:1.1; letter-spacing:-.01em; }
+  .stat .l { font-size:.86rem; color:var(--ink-2); }
+  .stat .c { font-size:.8rem; color:var(--ink-3); }
+  .stat.hot .v { color:var(--hot); }
+  @media (max-width:640px) { .stats { grid-template-columns:repeat(2,1fr); } }
+
+  .chart { background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:14px 12px 6px; overflow-x:auto; }
+  .chart svg { display:block; width:100%; min-width:520px; height:auto; }
+  .chart .grid { stroke:var(--rule); stroke-width:1; }
+  .chart .ax { fill:var(--ink-3); font:11px "JetBrains Mono", ui-monospace, monospace; }
+  .chart .ax.b { fill:var(--ink-2); }
+  .chart .bar { fill:var(--base); }
+  .chart .bar.hot { fill:var(--hot); }
+  .chart .ref { stroke:var(--ink-2); stroke-width:1; stroke-dasharray:4 4; }
+  .chart .reftxt { paint-order:stroke; stroke:var(--surface); stroke-width:4px; stroke-linejoin:round; fill:var(--ink); font:11px "Public Sans", system-ui, sans-serif; }
+  .chart .hotlbl { fill:var(--hot); font:600 12px "JetBrains Mono", ui-monospace, monospace; }
+  .chart .brk { stroke:var(--surface); stroke-width:3; fill:none; }
+  .cap { font-size:.84rem; color:var(--ink-3); }
+
+  .bridge { display:grid; gap:14px; }
+  .stack { display:flex; height:42px; border-radius:6px; overflow:hidden; }
+  .stack span { display:block; height:100%; }
+  .legend { display:grid; gap:0; border-top:1px solid var(--rule); }
+  .row { display:grid; grid-template-columns:14px 1fr auto; gap:12px; align-items:baseline; padding:11px 0; border-bottom:1px solid var(--rule); }
+  .sw { width:12px; height:12px; border-radius:3px; align-self:center; }
+  .row .t { display:grid; gap:1px; }
+  .row .t small { color:var(--ink-3); font-size:.84rem; }
+  .row .amt { font-family:"JetBrains Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums; font-weight:600; }
+  .row.total { border-bottom:2px solid var(--ink); }
+  .row.total .amt { color:var(--hot); }
+
+  .finding { display:grid; grid-template-columns:auto 1fr; gap:4px 16px; padding:20px 0; border-top:1px solid var(--rule); }
+  .finding .tag { grid-row:span 2; font-family:"JetBrains Mono", ui-monospace, monospace; font-weight:600; font-size:.95rem; padding:3px 9px; border-radius:5px; height:fit-content; background:var(--accent-bg); color:var(--accent); white-space:nowrap; }
+  .finding .body { display:grid; gap:8px; }
+  @media (max-width:560px) { .finding { grid-template-columns:1fr; } .finding .tag { grid-row:auto; width:fit-content; } }
+
+  .tbl { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:.93rem; min-width:420px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--rule); }
+  th { font-size:.76rem; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  td.n, th.n { text-align:right; font-family:"JetBrains Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums; }
+  td.up { color:var(--hot); font-weight:600; }
+
+  .not { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .not div { background:var(--surface); border:1px solid var(--rule); border-radius:8px; padding:14px 16px; display:grid; gap:4px; align-content:start; }
+  .not div p { font-size:.93rem; color:var(--ink-2); }
+  @media (max-width:700px) { .not { grid-template-columns:1fr; } }
+
+  ol.next { margin:0; padding-left:1.3em; display:grid; gap:10px; max-width:70ch; }
+  ol.next li::marker { font-family:"JetBrains Mono", monospace; color:var(--ink-3); }
+  .method { font-size:.86rem; color:var(--ink-3); border-top:1px solid var(--rule); padding-top:18px; display:grid; gap:6px; }
+  .method p { max-width:none; }
+</style>
+<style>
+  .chart .ly { fill:none; stroke:var(--s4); stroke-width:2; stroke-dasharray:5 4; }
+  .chart .cy { fill:none; stroke:var(--accent); stroke-width:2.5; }
+  .chart .dly { fill:var(--s4); } .chart .dcy { fill:var(--accent); }
+  .chart .win { fill:var(--accent-bg); }
+  .chart .lbl { fill:var(--ink-2); font:12px "Public Sans", system-ui, sans-serif; }
+  .chart .lbl.a { fill:var(--accent); font-weight:600; }
+  .chart .val { fill:var(--ink); font:600 12px "JetBrains Mono", ui-monospace, monospace; }
+  .chart .loss { fill:#c0473f; fill-opacity:.6; }
+  .chart .tot { fill:var(--base); }
+  .note { background:var(--hot-bg); border-left:3px solid var(--hot); padding:12px 16px; border-radius:0 8px 8px 0; }
+  ul.pts { margin:0; padding-left:1.2em; display:grid; gap:8px; max-width:72ch; }
+  .grp { font-family:"Bricolage Grotesque", system-ui, sans-serif; font-weight:600; margin-top:6px; }
+</style>
+
+<main class="page">
+  <header class="head">
+    <div class="kicker">Sales analysis · October 13, 2026</div>
+    <h1>Where the Sales Went</h1>
+    <p class="dek">Sales are not falling day over day: the last five weeks beat the same weeks last year by 21%. The damage is older. 2026 is 26% behind 2025, almost all of it lost in the first half of the year, and it is a traffic problem rather than a conversion problem.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><span class="v">+21%</span><span class="l">last 5 weeks vs a year ago</span><span class="c">$87.5k vs $72.5k net</span></div>
+    <div class="stat hot"><span class="v">−26%</span><span class="l">year to date</span><span class="c">$894k vs $1.20M, Jan–Sep</span></div>
+    <div class="stat"><span class="v">1,257</span><span class="l">fewer purchases</span><span class="c">Jan–Sep, all sources</span></div>
+    <div class="stat"><span class="v">77%</span><span class="l">of the loss</span><span class="c">from direct and social traffic</span></div>
+  </div>
+
+  <section>
+    <h2>Recent weeks are ahead of last year; the big Q4 wave is still to come</h2>
+    <p>Week to week, sales have been flat at $13k–$23k since July. September closed at $78.6k net, 12% above September 2025. Last November and December brought in $330k, 26% of the year.</p>
+    <div class="chart"><svg viewBox="0 0 760 360" role="img" aria-label="Weekly net sales, 2026 vs the same weeks of 2025"><line class="grid" x1="56" x2="744" y1="300.0" y2="300.0"/><text class="ax" x="48" y="304.0" text-anchor="end">$0k</text><line class="grid" x1="56" x2="744" y1="206.7" y2="206.7"/><text class="ax" x="48" y="210.7" text-anchor="end">$20k</text><line class="grid" x1="56" x2="744" y1="113.3" y2="113.3"/><text class="ax" x="48" y="117.3" text-anchor="end">$40k</text><line class="grid" x1="56" x2="744" y1="20.0" y2="20.0"/><text class="ax" x="48" y="24.0" text-anchor="end">$60k</text><rect class="win" x="325.2" y="20" width="122.1" height="280"/><text class="lbl" x="329.2" y="34">last 5 full weeks</text><polyline class="ly" points="56.0,143.9 83.5,180.4 111.0,200.8 138.6,229.8 166.1,221.9 193.6,211.0 221.1,180.7 248.6,226.5 276.2,223.2 303.7,200.5 331.2,211.2 358.7,231.2 386.2,245.4 413.8,249.5 441.3,224.1 468.8,222.0 496.3,229.4 523.8,189.2 551.4,159.9 578.9,162.9 606.4,151.3 633.9,26.1 661.4,76.8 689.0,122.4 716.5,121.2 744.0,166.7"/><circle class="dly" cx="56.0" cy="143.9" r="2.6"><title>Week 1, 2025: $33,452</title></circle><circle class="dly" cx="83.5" cy="180.4" r="2.6"><title>Week 2, 2025: $25,627</title></circle><circle class="dly" cx="111.0" cy="200.8" r="2.6"><title>Week 3, 2025: $21,262</title></circle><circle class="dly" cx="138.6" cy="229.8" r="2.6"><title>Week 4, 2025: $15,039</title></circle><circle class="dly" cx="166.1" cy="221.9" r="2.6"><title>Week 5, 2025: $16,730</title></circle><circle class="dly" cx="193.6" cy="211.0" r="2.6"><title>Week 6, 2025: $19,079</title></circle><circle class="dly" cx="221.1" cy="180.7" r="2.6"><title>Week 7, 2025: $25,563</title></circle><circle class="dly" cx="248.6" cy="226.5" r="2.6"><title>Week 8, 2025: $15,750</title></circle><circle class="dly" cx="276.2" cy="223.2" r="2.6"><title>Week 9, 2025: $16,456</title></circle><circle class="dly" cx="303.7" cy="200.5" r="2.6"><title>Week 10, 2025: $21,311</title></circle><circle class="dly" cx="331.2" cy="211.2" r="2.6"><title>Week 11, 2025: $19,021</title></circle><circle class="dly" cx="358.7" cy="231.2" r="2.6"><title>Week 12, 2025: $14,743</title></circle><circle class="dly" cx="386.2" cy="245.4" r="2.6"><title>Week 13, 2025: $11,697</title></circle><circle class="dly" cx="413.8" cy="249.5" r="2.6"><title>Week 14, 2025: $10,832</title></circle><circle class="dly" cx="441.3" cy="224.1" r="2.6"><title>Week 15, 2025: $16,254</title></circle><circle class="dly" cx="468.8" cy="222.0" r="2.6"><title>Week 16, 2025: $16,718</title></circle><circle class="dly" cx="496.3" cy="229.4" r="2.6"><title>Week 17, 2025: $15,121</title></circle><circle class="dly" cx="523.8" cy="189.2" r="2.6"><title>Week 18, 2025: $23,745</title></circle><circle class="dly" cx="551.4" cy="159.9" r="2.6"><title>Week 19, 2025: $30,014</title></circle><circle class="dly" cx="578.9" cy="162.9" r="2.6"><title>Week 20, 2025: $29,387</title></circle><circle class="dly" cx="606.4" cy="151.3" r="2.6"><title>Week 21, 2025: $31,869</title></circle><circle class="dly" cx="633.9" cy="26.1" r="2.6"><title>Week 22, 2025: $58,693</title></circle><circle class="dly" cx="661.4" cy="76.8" r="2.6"><title>Week 23, 2025: $47,837</title></circle><circle class="dly" cx="689.0" cy="122.4" r="2.6"><title>Week 24, 2025: $38,053</title></circle><circle class="dly" cx="716.5" cy="121.2" r="2.6"><title>Week 25, 2025: $38,319</title></circle><circle class="dly" cx="744.0" cy="166.7" r="2.6"><title>Week 26, 2025: $28,569</title></circle><polyline class="cy" points="56.0,179.5 83.5,234.0 111.0,227.0 138.6,189.0 166.1,199.1 193.6,219.1 221.1,206.6 248.6,238.9 276.2,237.9 303.7,225.1 331.2,205.8 358.7,234.3 386.2,193.2 413.8,231.4 441.3,227.0"/><circle class="dcy" cx="56.0" cy="179.5" r="3.2"><title>Week 1, 2026: $25,830</title></circle><circle class="dcy" cx="83.5" cy="234.0" r="3.2"><title>Week 2, 2026: $14,153</title></circle><circle class="dcy" cx="111.0" cy="227.0" r="3.2"><title>Week 3, 2026: $15,651</title></circle><circle class="dcy" cx="138.6" cy="189.0" r="3.2"><title>Week 4, 2026: $23,778</title></circle><circle class="dcy" cx="166.1" cy="199.1" r="3.2"><title>Week 5, 2026: $21,618</title></circle><circle class="dcy" cx="193.6" cy="219.1" r="3.2"><title>Week 6, 2026: $17,329</title></circle><circle class="dcy" cx="221.1" cy="206.6" r="3.2"><title>Week 7, 2026: $20,004</title></circle><circle class="dcy" cx="248.6" cy="238.9" r="3.2"><title>Week 8, 2026: $13,086</title></circle><circle class="dcy" cx="276.2" cy="237.9" r="3.2"><title>Week 9, 2026: $13,316</title></circle><circle class="dcy" cx="303.7" cy="225.1" r="3.2"><title>Week 10, 2026: $16,044</title></circle><circle class="dcy" cx="331.2" cy="205.8" r="3.2"><title>Week 11, 2026: $20,193</title></circle><circle class="dcy" cx="358.7" cy="234.3" r="3.2"><title>Week 12, 2026: $14,076</title></circle><circle class="dcy" cx="386.2" cy="193.2" r="3.2"><title>Week 13, 2026: $22,881</title></circle><circle class="dcy" cx="413.8" cy="231.4" r="3.2"><title>Week 14, 2026: $14,710</title></circle><circle class="dcy" cx="441.3" cy="227.0" r="3.2"><title>Week 15, 2026: $15,640</title></circle><text class="lbl" x="623.9" y="30.1" text-anchor="end">Black Friday week 2025: $58.7k</text><text class="lbl a" x="449.3" y="245.0">2026</text><text class="lbl" x="744.0" y="188.7" text-anchor="end">2025</text><text class="ax" x="56.0" y="320" text-anchor="middle">Jun 29</text><text class="ax" x="138.6" y="320" text-anchor="middle">Jul 20</text><text class="ax" x="221.1" y="320" text-anchor="middle">Aug 10</text><text class="ax" x="303.7" y="320" text-anchor="middle">Aug 31</text><text class="ax" x="386.2" y="320" text-anchor="middle">Sep 21</text><text class="ax" x="468.8" y="320" text-anchor="middle">Oct 12</text><text class="ax" x="551.4" y="320" text-anchor="middle">Nov 2</text><text class="ax" x="633.9" y="320" text-anchor="middle">Nov 23</text><text class="ax" x="716.5" y="320" text-anchor="middle">Dec 14</text></svg></div>
+    <p class="cap">Net sales per week, store sales only, weeks aligned to the same week a year earlier. Source: Shopify Analytics.</p>
+    <p>Net sales by month, 2026 vs 2025: January −62%, February −19%, March −38%, April −8%, May −11%, June −22%, July −13%, August −18%, September +12%. Average order value is the one number still worsening: $211 (Sep 2025), $195 (Sep 2026), $171 (October so far).</p>
+  </section>
+
+  <section>
+    <h2>Direct and social traffic account for most of the purchases lost this year</h2>
+    <div class="chart"><svg viewBox="0 0 760 330" role="img" aria-label="Purchases lost by traffic source, Jan to Sep 2026 vs 2025"><line class="grid" x1="64" x2="744" y1="290.0" y2="290.0"/><text class="ax" x="56" y="294.0" text-anchor="end">0</text><line class="grid" x1="64" x2="744" y1="191.8" y2="191.8"/><text class="ax" x="56" y="195.8" text-anchor="end">2,000</text><line class="grid" x1="64" x2="744" y1="93.6" y2="93.6"/><text class="ax" x="56" y="97.6" text-anchor="end">4,000</text><rect class="tot" x="82.5" y="35.0" width="60.2" height="255.0"/><text class="val" x="112.6" y="27.0" text-anchor="middle">5,195</text><text class="ax b" x="112.6" y="310" text-anchor="middle">Jan–Sep 2025</text><rect class="loss" x="179.6" y="35.0" width="60.2" height="31.4"><title>Direct: -639 purchases</title></rect><text class="val" x="209.7" y="82.3" text-anchor="middle">-639</text><text class="ax" x="209.7" y="97.3" text-anchor="middle">51%</text><text class="ax b" x="209.7" y="310" text-anchor="middle">Direct</text><rect class="loss" x="276.7" y="66.3" width="60.2" height="16.3"><title>Social: -332 purchases</title></rect><text class="val" x="306.9" y="98.6" text-anchor="middle">-332</text><text class="ax" x="306.9" y="113.6" text-anchor="middle">26%</text><text class="ax b" x="306.9" y="310" text-anchor="middle">Social</text><rect class="loss" x="373.9" y="82.6" width="60.2" height="7.7"><title>Search: -156 purchases</title></rect><text class="val" x="404.0" y="106.3" text-anchor="middle">-156</text><text class="ax" x="404.0" y="121.3" text-anchor="middle">12%</text><text class="ax b" x="404.0" y="310" text-anchor="middle">Search</text><rect class="loss" x="471.0" y="90.3" width="60.2" height="5.8"><title>Unknown: -118 purchases</title></rect><text class="val" x="501.1" y="112.1" text-anchor="middle">-118</text><text class="ax" x="501.1" y="127.1" text-anchor="middle">9%</text><text class="ax b" x="501.1" y="310" text-anchor="middle">Unknown</text><rect class="loss" x="568.2" y="96.1" width="60.2" height="1.5"><title>Email: -12 purchases</title></rect><text class="val" x="598.3" y="112.7" text-anchor="middle">-12</text><text class="ax" x="598.3" y="127.7" text-anchor="middle">1%</text><text class="ax b" x="598.3" y="310" text-anchor="middle">Email</text><rect class="tot" x="665.3" y="96.7" width="60.2" height="193.3"/><text class="val" x="695.4" y="88.7" text-anchor="middle">3,938</text><text class="ax b" x="695.4" y="310" text-anchor="middle">Jan–Sep 2026</text></svg></div>
+    <p class="cap">Sessions that completed checkout, by referrer source, Jan 1–Sep 30 2026 vs 2025. Red bars are purchases lost from that source; grey bars are totals.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Source</th><th class="n">Jan–Jun change</th><th class="n">Jul–Sep change</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Direct</td><td class="n">−34% (1,869 → 1,238)</td><td class="n">−1% (567 → 559)</td><td>Long-term loss, now stable</td></tr>
+        <tr><td>Social</td><td class="n">−56% (504 → 220)</td><td class="n">−42% (115 → 67)</td><td>Still falling</td></tr>
+        <tr><td>Search</td><td class="n">−9% (1,366 → 1,245)</td><td class="n">−7% (471 → 436)</td><td>Slow, steady slide</td></tr>
+        <tr><td><strong>All sources</strong></td><td class="n"><strong>−28%</strong></td><td class="n"><strong>−11%</strong></td><td>Gap narrowing</td></tr>
+      </tbody></table></div>
+  </section>
+
+  <section>
+    <h2>Direct traffic: influencers and the welcome offer</h2>
+    <p>"Direct" is people who arrive with no tracked source: typed URLs, influencer links, podcast mentions, untagged ads. It lost 639 purchases (−26%). Discount codes show where those buyers went.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Code (type)</th><th class="n">Orders 2025</th><th class="n">Orders 2026</th><th class="n">Net sales lost</th></tr></thead>
+      <tbody>
+        <tr><td>HELLO10 (welcome pop-up)</td><td class="n">939</td><td class="n">727</td><td class="n">−$62.4k</td></tr>
+        <tr><td>Movement (influencer)</td><td class="n">307</td><td class="n">131</td><td class="n">−$37.4k</td></tr>
+        <tr><td>SAVE10NOW</td><td class="n">100</td><td class="n">47</td><td class="n">−$15.8k</td></tr>
+        <tr><td>WELLNESSDADDY (influencer)</td><td class="n">111</td><td class="n">59</td><td class="n">−$12.8k</td></tr>
+        <tr><td>ANGIEFIT (influencer)</td><td class="n">68</td><td class="n">23</td><td class="n">−$12.7k</td></tr>
+        <tr><td>Google10</td><td class="n">70</td><td class="n">43</td><td class="n">−$8.0k</td></tr>
+      </tbody></table></div>
+    <p class="cap">Jan–Sep of each year.</p>
+    <ul class="pts">
+      <li><strong>The three biggest 2025 influencer codes lost 273 orders, about $63k.</strong> New partners (OFFGRID 97, ANGIEVIP 62, MARC10 23, ADRI 22) won back part of it.</li>
+      <li><strong>Fewer new visitors are taking the welcome offer.</strong> HELLO10 is down 212 orders, which follows the drop in new visitors rather than a problem with the pop-up.</li>
+      <li><strong>Sale events work.</strong> Memorial Day grew from 185 to 251 orders, and new events (Valentine's 196, 10 Years 110) added about $63k.</li>
+      <li><strong>Session counts are inflated by junk.</strong> From Oct 2025 to Mar 2026 direct sessions ran 34k–62k a month converting at 0.3–0.6%, which looks like bot traffic. Purchases are the reliable measure.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Facebook and Instagram</h2>
+    <p>Social is the steepest decline: purchases from social referrals fell 54% (619 → 287). Facebook went from 336 to 137 purchases, Instagram from 139 to 62, YouTube from 118 to 75. Facebook sessions halved over the last 90 days, and Pinterest nearly vanished (1,805 → 248 sessions).</p>
+    <ul class="pts">
+      <li><strong>Meta claims far more than Shopify sees.</strong> In September Meta reported 79 purchases from $3.9k of spend; Shopify credited 5 to Facebook. Untagged ad clicks land as "direct", so part of the direct decline may be a paid-social decline.</li>
+      <li><strong>The open question is spend.</strong> Meta spend is only recorded from June 2026 ($0.3k–$3.9k a month, on and off). If 2025 spend was materially higher, a spend cut is the most likely single cause of both the social and direct losses.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Google and AI search</h2>
+    <p>AI is taking some clicks, but it is a smaller loss than direct traffic or Facebook. Google-referred purchases fell 11% (1,654 → 1,473, Jan–Sep), and Google clicks fell 18% (19,944 → 16,340, Jul–Sep).</p>
+    <h3>Same ranking, fewer clicks</h3>
+    <p>For 170 queries where we held the same Google position (within one place) in both summers:</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Query type</th><th class="n">Click-through 2025</th><th class="n">Click-through 2026</th><th class="n">Change</th></tr></thead>
+      <tbody>
+        <tr><td>Branded ("leaps and rebounds")</td><td class="n">22.3%</td><td class="n">16.4%</td><td class="n">−26%</td></tr>
+        <tr><td>Questions and research</td><td class="n">1.98%</td><td class="n">1.73%</td><td class="n">−13%</td></tr>
+        <tr><td>Other informational</td><td class="n">1.08%</td><td class="n">0.91%</td><td class="n">−16%</td></tr>
+        <tr><td>Buying ("best rebounder")</td><td class="n">0.58%</td><td class="n">0.76%</td><td class="n up">+31%</td></tr>
+      </tbody></table></div>
+    <ul class="pts">
+      <li><strong>We lost top-of-funnel research traffic.</strong> "negative side effects of rebounding" went from 212 clicks to 30; "rebounding myth" from 96 to 29. These readers are future buyers.</li>
+      <li><strong>The branded drop matters most.</strong> A quarter fewer clicks on our own name, at the same rank, means something above us is answering or selling.</li>
+      <li><strong>Buying searches doubled</strong> (188 → 368 clicks), so the September buying-page work is helping.</li>
+      <li><strong>The early-2026 traffic spike was empty.</strong> Impressions jumped from about 0.4M to 1.7M a month on off-topic blog posts; clicks rose but Google purchases fell.</li>
+      <li><strong>AI chatbots send almost nothing yet.</strong> ChatGPT sent 69 sessions and 2 purchases in 90 days; all AI assistants together produced about 15 purchases in 2026.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>The blog → advertorial → product funnel</h2>
+    <div class="note"><strong>Status, Oct 13:</strong> the 15% code behind every blog button had been deleted after Sep 13, so readers were promised a discount they did not get at checkout. A replacement code, <code>15OFFBLOG</code>, is created and the theme change is staged for publishing.</div>
+    <ul class="pts">
+      <li><strong>Blog visitors almost never buy, before or after the change.</strong> About 2,300–2,600 sessions a week land on a blog post; they produced 7 purchases in five weeks of July–August and 4 in the five weeks to Oct 11.</li>
+      <li><strong>More readers now add to cart, but don't finish</strong> (23 cart adds in four July weeks, 35 from Sep 14–Oct 11). A missing discount at checkout fits that pattern.</li>
+      <li><strong>The advertorial adds a step.</strong> It has no cart, so it is one more page between a reader and the buy button.</li>
+      <li><strong>The funnel can be judged once the code works.</strong> Run it four weeks, then test blog → product page directly against blog → advertorial.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Marketing stack</h2>
+    <p>The stack is not broken; it is under-fed and half-blind. Email works, paid barely runs, and most of it cannot be measured.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Channel</th><th>What it is doing</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td>Klaviyo email</td><td>11–15 campaigns a month; $24k–$29k attributed a month, about 30% of sales</td><td>Keep</td></tr>
+        <tr><td>Meta ads</td><td>$1.3k–$3.9k a month, on and off</td><td>Under-spent; scale carefully, measure by MER</td></tr>
+        <tr><td>Google Ads</td><td>Reporting connection down; spend unknown</td><td>Reconnect before judging</td></tr>
+        <tr><td>Organic search</td><td>Sessions −21%; buying searches land on blogs</td><td>Biggest free lever</td></tr>
+        <tr><td>Klaviyo SMS</td><td>No attributed revenue</td><td>Unused before Black Friday</td></tr>
+        <tr><td>Shopify Collective</td><td>$7.7k in 35 days, new this year</td><td>Growing; expand</td></tr>
+      </tbody></table></div>
+  </section>
+
+  <section>
+    <h2>What we should do</h2>
+    <p>Don't swap the stack six weeks before Black Friday. Fix the funnel, get back the reach we lost, and treat AI search as a longer-term content job.</p>
+    <p class="grp">This week</p>
+    <ol class="next">
+      <li>Publish the <code>15OFFBLOG</code> theme fix and test a purchase from a blog post through checkout.</li>
+      <li>Fix measurement: clean the dashboard's revenue feed, reconnect Google Ads, tag every ad link with UTMs, turn on GA4 purchase events, and judge paid by MER weekly.</li>
+    </ol>
+    <p class="grp">Next two weeks, before Black Friday</p>
+    <ol class="next" start="3">
+      <li>Pull 2025 Meta spend. If it was cut, restore steady prospecting at about 2× September ($8k/month) as a 4-week test, kept only if MER holds.</li>
+      <li>Restart the influencer program: ask Movement, Wellness Daddy and Angie for Black Friday posts, and recruit 5–10 new rebounding, lymphatic and over-50 fitness creators.</li>
+      <li>Check who shows above us for "leaps and rebounds"; if competitors bid on our name, run a small brand campaign.</li>
+      <li>Set the Black Friday offer by Oct 31, turn on SMS capture, and grow the email list.</li>
+    </ol>
+    <p class="grp">This quarter</p>
+    <ol class="next" start="7">
+      <li>Rewrite the research pages we lost (side effects, knee safety, lymphatic drainage) to answer first, so AI Overviews and ChatGPT quote us.</li>
+      <li>A/B the blog funnel: product page directly vs advertorial, judged on purchases per 1,000 blog sessions.</li>
+      <li>Clean up off-topic blog posts and consolidate competing pages.</li>
+      <li>Raise order value with a rebounder + stability bar bundle; expand Shopify Collective.</li>
+      <li>Revisit the stack after Black Friday with clean data.</li>
+    </ol>
+  </section>
+
+  <footer class="method">
+    <p><strong>Method.</strong> Shopify Analytics (ShopifyQL) for sales, sessions, referrers and discount codes; all sales figures are store sales only. Google Search Console for search, comparing Jun 15–Oct 11 2025 with Jun 14–Oct 10 2026. Klaviyo for email. Meta spend from our ad-spend store, which starts June 2026.</p>
+    <p>Not measured: visitors who travel blog → advertorial → product in one visit (Shopify reports the landing page only), and AI Overview appearances (Search Console does not report them separately). Pulled Oct 13, 2026.</p>
+  </footer>
+</main>
+<!--
+  Appended, not prepended. These pages have their own sticky headers and hero
+  sections; injecting anything above the fold moves somebody's layout. At the end
+  it is findable and disturbs nothing.
+-->
+<footer style="font:12px -apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:28px 16px;border-top:1px solid rgba(0,0,0,.1);background:#faf9f5;color:#6b6b6b">
+  <a href="/reports/claude" style="color:#6b6b6b">← All reports</a>
+</footer>
+</body>
+</html>
